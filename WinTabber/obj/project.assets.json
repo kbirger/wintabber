@@ -1,0 +1,171 @@
+{
+  "version": 3,
+  "targets": {
+    "net8.0-windows10.0.26100": {
+      "MouseKeyHook/5.7.1": {
+        "type": "package",
+        "compile": {
+          "lib/net7.0-windows7.0/Gma.System.MouseKeyHook.dll": {}
+        },
+        "runtime": {
+          "lib/net7.0-windows7.0/Gma.System.MouseKeyHook.dll": {}
+        },
+        "frameworkReferences": [
+          "Microsoft.WindowsDesktop.App.WindowsForms"
+        ]
+      },
+      "WindowsInput/6.4.1": {
+        "type": "package",
+        "compile": {
+          "lib/net6.0-windows7.0/WindowsInput.dll": {}
+        },
+        "runtime": {
+          "lib/net6.0-windows7.0/WindowsInput.dll": {}
+        },
+        "frameworkReferences": [
+          "Microsoft.WindowsDesktop.App.WPF"
+        ],
+        "contentFiles": {
+          "contentFiles/any/net6.0-windows7.0/.nuget/mouse-keyboard-hook-logo.png": {
+            "buildAction": "Content",
+            "codeLanguage": "any",
+            "copyToOutput": false
+          }
+        }
+      }
+    }
+  },
+  "libraries": {
+    "MouseKeyHook/5.7.1": {
+      "sha512": "c0VhB6cbcOpMOcoCQmvPMVqxaH76S4IPHwpbCIY7XKUNimdj9+81rX+Evnu5O53xYgUvdD7g0qmlVeZP2wGCnA==",
+      "type": "package",
+      "path": "mousekeyhook/5.7.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "lib/net472/Gma.System.MouseKeyHook.dll",
+        "lib/net48/Gma.System.MouseKeyHook.dll",
+        "lib/net6.0-windows7.0/Gma.System.MouseKeyHook.dll",
+        "lib/net7.0-windows7.0/Gma.System.MouseKeyHook.dll",
+        "mouse-keyboard-hook-logo64x64.png",
+        "mousekeyhook.5.7.1.nupkg.sha512",
+        "mousekeyhook.nuspec"
+      ]
+    },
+    "WindowsInput/6.4.1": {
+      "sha512": "wfg9uu5xDvBcaNqvR1ZTFQqBf4bKzkxdd5WviTZPy4cAywEzLzofuYswZB3nGIEnnlwGLBGSgrNOEZH/w8JI9w==",
+      "type": "package",
+      "path": "windowsinput/6.4.1",
+      "files": [
+        ".nupkg.metadata",
+        ".signature.p7s",
+        "LICENSE.txt",
+        "README.md",
+        "content/.nuget/mouse-keyboard-hook-logo.png",
+        "contentFiles/any/net461/.nuget/mouse-keyboard-hook-logo.png",
+        "contentFiles/any/net6.0-windows7.0/.nuget/mouse-keyboard-hook-logo.png",
+        "contentFiles/any/netcoreapp3.1/.nuget/mouse-keyboard-hook-logo.png",
+        "lib/net461/WindowsInput.dll",
+        "lib/net6.0-windows7.0/WindowsInput.dll",
+        "lib/netcoreapp3.1/WindowsInput.dll",
+        "mouse-keyboard-hook-logo.png",
+        "windowsinput.6.4.1.nupkg.sha512",
+        "windowsinput.nuspec"
+      ]
+    }
+  },
+  "projectFileDependencyGroups": {
+    "net8.0-windows10.0.26100": [
+      "MouseKeyHook >= 5.7.1",
+      "WindowsInput >= 6.4.1"
+    ]
+  },
+  "packageFolders": {
+    "C:\\Users\\kir\\.nuget\\packages\\": {},
+    "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages": {}
+  },
+  "project": {
+    "version": "1.0.0",
+    "restore": {
+      "projectUniqueName": "C:\\Users\\kir\\git\\WinTabber\\WinTabber\\WinTabber.csproj",
+      "projectName": "WinTabber",
+      "projectPath": "C:\\Users\\kir\\git\\WinTabber\\WinTabber\\WinTabber.csproj",
+      "packagesPath": "C:\\Users\\kir\\.nuget\\packages\\",
+      "outputPath": "C:\\Users\\kir\\git\\WinTabber\\WinTabber\\obj\\",
+      "projectStyle": "PackageReference",
+      "fallbackFolders": [
+        "C:\\Program Files (x86)\\Microsoft Visual Studio\\Shared\\NuGetPackages"
+      ],
+      "configFilePaths": [
+        "C:\\Users\\kir\\AppData\\Roaming\\NuGet\\NuGet.Config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.FallbackLocation.config",
+        "C:\\Program Files (x86)\\NuGet\\Config\\Microsoft.VisualStudio.Offline.config"
+      ],
+      "originalTargetFrameworks": [
+        "net8.0-windows10.0.26100.0"
+      ],
+      "sources": {
+        "C:\\Program Files (x86)\\Microsoft SDKs\\NuGetPackages\\": {},
+        "https://api.nuget.org/v3/index.json": {}
+      },
+      "frameworks": {
+        "net8.0-windows10.0.26100": {
+          "targetAlias": "net8.0-windows10.0.26100.0",
+          "projectReferences": {}
+        }
+      },
+      "warningProperties": {
+        "warnAsError": [
+          "NU1605"
+        ]
+      },
+      "restoreAuditProperties": {
+        "enableAudit": "true",
+        "auditLevel": "low",
+        "auditMode": "direct"
+      },
+      "SdkAnalysisLevel": "9.0.300"
+    },
+    "frameworks": {
+      "net8.0-windows10.0.26100": {
+        "targetAlias": "net8.0-windows10.0.26100.0",
+        "dependencies": {
+          "MouseKeyHook": {
+            "target": "Package",
+            "version": "[5.7.1, )"
+          },
+          "WindowsInput": {
+            "target": "Package",
+            "version": "[6.4.1, )"
+          }
+        },
+        "imports": [
+          "net461",
+          "net462",
+          "net47",
+          "net471",
+          "net472",
+          "net48",
+          "net481"
+        ],
+        "assetTargetFallback": true,
+        "warn": true,
+        "downloadDependencies": [
+          {
+            "name": "Microsoft.Windows.SDK.NET.Ref",
+            "version": "[10.0.26100.57, 10.0.26100.57]"
+          }
+        ],
+        "frameworkReferences": {
+          "Microsoft.NETCore.App": {
+            "privateAssets": "all"
+          },
+          "Microsoft.Windows.SDK.NET.Ref.Windows": {
+            "privateAssets": "all"
+          }
+        },
+        "runtimeIdentifierGraphPath": "C:\\Program Files\\dotnet\\sdk\\9.0.300/PortableRuntimeIdentifierGraph.json"
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+﻿<Window x:Class="WinTabberUI.MainWindow"
+        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:local="clr-namespace:WinTabberUI"
+        mc:Ignorable="d"
+        Title="MainWindow" Height="450" Width="800"
+        >
+    <Grid>
+        <ListView x:Name="TabListView" Margin="10" SelectionMode="Single" ItemsSource="{Binding WindowItems}">
+            <ListView.View>
+                <GridView>
+                    <GridViewColumn Header="Title" Width="300" DisplayMemberBinding="{Binding Title}" />
+                    <GridViewColumn Header="Process" Width="200" DisplayMemberBinding="{Binding ProcessName}" />
+                    <GridViewColumn Header="Window Handle" Width="150" DisplayMemberBinding="{Binding Hwnd}" />
+                </GridView>
+            </ListView.View>
+        </ListView>
+    </Grid>
+</Window>

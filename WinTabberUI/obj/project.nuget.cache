@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "kgu/cmT/caw=",
+  "success": true,
+  "projectFilePath": "C:\\Users\\kir\\git\\WinTabber\\WinTabberUI\\WinTabberUI.csproj",
+  "expectedPackageFiles": [
+    "C:\\Users\\kir\\.nuget\\packages\\mousekeyhook\\5.7.1\\mousekeyhook.5.7.1.nupkg.sha512",
+    "C:\\Users\\kir\\.nuget\\packages\\windowsinput\\6.4.1\\windowsinput.6.4.1.nupkg.sha512"
+  ],
+  "logs": []
+}
