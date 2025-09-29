@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WinTabber.Interop")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+8b8de0ba6440559184acafc9b3a3aeffd082e08c")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+d5700628cb99c831e40d872690fe777614c8b9fe")]
 [assembly: System.Reflection.AssemblyProductAttribute("WinTabber.Interop")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WinTabber.Interop")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

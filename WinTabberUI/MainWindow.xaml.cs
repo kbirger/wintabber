@@ -63,7 +63,7 @@ namespace WinTabberUI
                     WindowData.WindowItems[WindowData.SelectedIndex].Activate();
                 }
                 WindowManager.EndPreview();
-                //Hide();
+                Hide();
             }
         }
 
@@ -139,7 +139,7 @@ namespace WinTabberUI
         {
             //var hnd = NativeMethods.GetForegroundWindow();
             var hnd = new WindowInteropHelper(this).Handle;
-            e.AddedItems.OfType<WindowItem>().FirstOrDefault()?.WindowRef.Preview(hnd);
+            //e.AddedItems.OfType<WindowItem>().FirstOrDefault()?.WindowRef.Preview(hnd);
         }
     }
 }
