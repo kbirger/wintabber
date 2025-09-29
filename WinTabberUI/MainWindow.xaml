@@ -6,16 +6,55 @@
         xmlns:local="clr-namespace:WinTabberUI"
         mc:Ignorable="d"
         Title="MainWindow" Height="450" Width="800"
+        WindowStyle="None"
+        WindowStartupLocation="CenterScreen"
+        BorderThickness="0"
+        Padding="0"
+        Topmost="True"
+        Margin="0"
+        AllowsTransparency="True"
+        Visibility="Hidden"
+        Name="Foo"
+        Background="Transparent"
+        KeyDown="TabListView_KeyDown"
         >
-    <Grid>
-        <ListView x:Name="TabListView" Margin="10" SelectionMode="Single" ItemsSource="{Binding WindowItems}">
-            <ListView.View>
-                <GridView>
-                    <GridViewColumn Header="Title" Width="300" DisplayMemberBinding="{Binding Title}" />
-                    <GridViewColumn Header="Process" Width="200" DisplayMemberBinding="{Binding ProcessName}" />
-                    <GridViewColumn Header="Window Handle" Width="150" DisplayMemberBinding="{Binding Hwnd}" />
-                </GridView>
-            </ListView.View>
+    <Border BorderBrush="#cc000000" BorderThickness="1" CornerRadius="8" Background="#cc000000">
+        <ListView x:Name="TabListView" Margin="0" SelectionMode="Single" BorderThickness="0" Focusable="True" 
+                  KeyDown="TabListView_KeyDown"  IsHitTestVisible="True"
+                  SelectionChanged="TabListView_SelectionChanged"
+                  ItemsSource="{Binding WindowItems}" 
+                  SelectedIndex="{Binding Mode=TwoWay, Path=SelectedIndex}" 
+                  Background="Transparent" Foreground="White">
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Background" Value="Transparent"/>
+                    <Setter Property="Padding" Value="4"/>
+                    <Setter Property="Margin" Value="0"/>
+                    <Setter Property="Foreground" Value="Black"/>
+                    <Style.Triggers>
+                        <Trigger Property="IsSelected" Value="True">
+                            <Setter Property="Template">
+                                <Setter.Value>
+                                    <ControlTemplate TargetType="ListViewItem">
+                                        <Border Background="#666666" CornerRadius="5" Padding="4" Margin="0">
+                                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                        </Border>
+                                    </ControlTemplate>
+                                </Setter.Value>
+                            </Setter>
+                            <Setter Property="Foreground" Value="White"/>
+                        </Trigger>
+                        <Trigger Property="IsSelected" Value="False">
+                            <Setter Property="Foreground" Value="White"/>
+                        </Trigger>
+                    </Style.Triggers>
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <TextBlock Text="{Binding Title}" FontSize="16" Padding="5"/>
+                </DataTemplate>
+            </ListView.ItemTemplate>
         </ListView>
-    </Grid>
+    </Border>
 </Window>

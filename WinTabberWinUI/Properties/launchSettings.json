@@ -1,0 +1,10 @@
+{
+  "profiles": {
+    "WinTabberWinUI (Package)": {
+      "commandName": "MsixPackage"
+    },
+    "WinTabberWinUI (Unpackaged)": {
+      "commandName": "Project"
+    }
+  }
+}

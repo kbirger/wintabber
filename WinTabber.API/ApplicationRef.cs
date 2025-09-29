@@ -7,9 +7,12 @@ namespace WinTabber.API
         public string ProcessName { get; } = processName;
         public override WindowRef[] GetWindows()
         {
+            var fgWindow = WindowManager.Interop.GetForegroundWindowHandle();
             return Process.GetProcessesByName(ProcessName)
                 .SelectMany(p => new WindowProcessRef(p, this, WindowManager).GetWindows())
-                .OrderBy(w => w.Handle)
+                .Where(window => window.Title != string.Empty) // Filter out windows without titles (often invisible or non-interactive windows)
+                .OrderBy(w => w.Handle == fgWindow)
+                .ThenBy(w => w.Handle)
                 .ToArray();                
         }
 

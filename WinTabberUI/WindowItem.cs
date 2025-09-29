@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Media;
 using WinTabber.API;
 
 namespace WinTabberUI
@@ -12,6 +13,7 @@ namespace WinTabberUI
         public WindowItem(WindowRef windowRef)
         {
             WindowRef = windowRef ?? throw new ArgumentNullException(nameof(windowRef));
+            //Icon = WindowRef.GetIcon().ToImageSource(); 
         }
 
         public WindowRef WindowRef { get; }
@@ -19,6 +21,8 @@ namespace WinTabberUI
         public string ProcessName => WindowRef.Process.Process.ProcessName;
 
         public string Title => WindowRef.Title;
+
+        //public ImageSource Icon { get; set; }
 
         public void Activate() => WindowRef.BringToFront();
     }

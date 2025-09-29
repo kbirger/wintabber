@@ -26,6 +26,21 @@ namespace WinTabber.API
             var currentWindows = GetWindows();
             return NextIndex(window, currentWindows);
         }
+
+        public WindowRef? CurrentWindow()
+        {
+            var foregroundHandle = WindowManager.Interop.GetForegroundWindowHandle();
+            var currentWindows = GetWindows();
+            return currentWindows.FirstOrDefault(w => w.Handle == foregroundHandle);
+        }
+
+        public WindowRef? NextWindow()
+        {
+            var currentWindow = CurrentWindow();
+            if (currentWindow is null) return null;
+            return NextWindow(currentWindow);
+        }
+
         public WindowRef NextWindow(WindowRef window)
         {
             AssertOwnsWindow(window);

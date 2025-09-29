@@ -26,8 +26,7 @@ namespace WinTabber.API
         public bool Equals(WindowRef? other)
         {
             return other is not null &&
-                   Handle == other.Handle &&
-                   EqualityComparer<WindowProcessRef>.Default.Equals(Process, other.Process);
+                   Handle == other.Handle;
         }
         public override int GetHashCode()
         {
@@ -56,5 +55,17 @@ namespace WinTabber.API
         {
             Process.WindowManager.Interop.MinimizeWindow(Handle);
         }
+
+        public System.Drawing.Icon GetIcon()
+        {
+            return Process.WindowManager.Interop.GetWindowIcon(Handle);
+        }
+
+        public void Preview(nint handleToSpare)
+        {
+            Process.WindowManager.Interop.ActivateLivePreview(Handle, handleToSpare);
+        }
+
+
     }
 }

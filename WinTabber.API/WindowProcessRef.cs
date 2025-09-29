@@ -15,9 +15,12 @@ namespace WinTabber.API
 
         public override WindowRef[] GetWindows()
         {
-            return WindowManager.Interop.EnumerateProcessWindowHandles(Process.Id)
-                .Order()
+            var fgWindow = WindowManager.Interop.GetForegroundWindowHandle();
+            return WindowManager.Interop.EnumerateProcessWindowHandles(Process)
+                .OrderBy(handle => handle != fgWindow)
+                .ThenBy(handle => handle)
                 .Select(handle => new WindowRef(handle, this))
+                .Where(window => window.Title != string.Empty) // Filter out windows without titles (often invisible or non-interactive windows)
                 .ToArray();
         }
 

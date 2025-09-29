@@ -55,5 +55,10 @@ namespace WinTabber.API
                 throw new InvalidOperationException("The specified window is not owned by this window manager.");
             }
         }
+
+        public void EndPreview()
+        {
+            Interop.DeactivateLivePreview();
+        }
     }
 }

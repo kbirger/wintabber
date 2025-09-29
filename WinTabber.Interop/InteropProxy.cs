@@ -1,6 +1,8 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
+using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
@@ -14,7 +16,7 @@ namespace WinTabber.Interop
             var process = GetWindowProcess(handle);
             var processName = process.ProcessName;
 
-            if(processName == "devenv")
+            if(processName == "devzenv")
             {
                 SwitchToDevenv(process, handle);
             }
@@ -33,7 +35,8 @@ namespace WinTabber.Interop
             var hWnd = NativeMethods.GetForegroundWindow();
 
             var didSet = NativeMethods.SetForegroundWindow(handle);
-            var isMin = NativeMethods.GetWindowPlacement(handle).showCmd == NativeMethods.ShowWindowCommands.Minimize;
+            var wp = NativeMethods.GetWindowPlacement(handle);
+            var isMin = wp.showCmd == NativeMethods.ShowWindowCommands.Minimize || wp.showCmd == NativeMethods.ShowWindowCommands.ShowMinimized;
             var newFgWindow = NativeMethods.GetForegroundWindow();
 
             if (newFgWindow != handle)
@@ -114,9 +117,59 @@ namespace WinTabber.Interop
             }
         }
 
-        public IEnumerable<int> EnumerateProcessWindowHandles(int processId)
+        public IEnumerable<int> EnumerateProcessWindowHandles(Process process)
         {
-            return NativeMethods.EnumerateProcessWindowHandles(processId);
+            return NativeMethods.EnumerateProcessWindowHandles(process);
         }
+
+
+        public Icon GetWindowIcon(int handle)
+        {
+            try
+            {
+                IntPtr hIcon = NativeMethods.SendMessage(handle, NativeMethods.WM_GETICON, NativeMethods.ICON_SMALL2, 0);
+                IntPtr hIcon2 = NativeMethods.LoadIcon(handle, NativeMethods.ICON_LARGE);
+
+                return Icon.FromHandle(hIcon);
+
+            }
+            catch(Exception ex)
+            {
+                return null;
+            }
+        }
+        public int GetForegroundWindowHandle()
+        {
+            return NativeMethods.GetForegroundWindow().ToInt32();
+        }
+
+        /// <summary>
+        /// Activates the live preview
+        /// </summary>
+        /// <param name="targetWindow">the window to show by making all other windows transparent</param>
+        /// <param name="windowToSpare">the window which should not be transparent but is not the target window</param>
+        public void ActivateLivePreview(IntPtr targetWindow, IntPtr windowToSpare)
+        {
+            _ = NativeMethods.DwmpActivateLivePreview(
+                    true,
+                    targetWindow,
+                    windowToSpare,
+                    LivePreviewTrigger.Superbar,
+                    IntPtr.Zero);
+        }
+
+        /// <summary>
+        /// Deactivates the live preview
+        /// </summary>
+        public void DeactivateLivePreview()
+        {
+            _ = NativeMethods.DwmpActivateLivePreview(
+                    false,
+                    IntPtr.Zero,
+                    IntPtr.Zero,
+                    LivePreviewTrigger.AltTab,
+                    IntPtr.Zero);
+        }
+
     }
 }
