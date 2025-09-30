@@ -19,42 +19,44 @@
         KeyDown="TabListView_KeyDown"
         >
     <Border BorderBrush="#cc000000" BorderThickness="1" CornerRadius="8" Background="#cc000000">
-        <ListView x:Name="TabListView" Margin="0" SelectionMode="Single" BorderThickness="0" Focusable="True" 
+        <StackPanel>
+            <ListView x:Name="TabListView" Margin="0" SelectionMode="Single" BorderThickness="0" Focusable="True" 
                   KeyDown="TabListView_KeyDown"  IsHitTestVisible="True"
                   SelectionChanged="TabListView_SelectionChanged"
                   ItemsSource="{Binding WindowItems}" 
                   SelectedIndex="{Binding Mode=TwoWay, Path=SelectedIndex}" 
                   Background="Transparent" Foreground="White">
-            <ListView.ItemContainerStyle>
-                <Style TargetType="ListViewItem">
-                    <Setter Property="Background" Value="Transparent"/>
-                    <Setter Property="Padding" Value="4"/>
-                    <Setter Property="Margin" Value="0"/>
-                    <Setter Property="Foreground" Value="Black"/>
-                    <Style.Triggers>
-                        <Trigger Property="IsSelected" Value="True">
-                            <Setter Property="Template">
-                                <Setter.Value>
-                                    <ControlTemplate TargetType="ListViewItem">
-                                        <Border Background="#666666" CornerRadius="5" Padding="4" Margin="0">
-                                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
-                                        </Border>
-                                    </ControlTemplate>
-                                </Setter.Value>
-                            </Setter>
-                            <Setter Property="Foreground" Value="White"/>
-                        </Trigger>
-                        <Trigger Property="IsSelected" Value="False">
-                            <Setter Property="Foreground" Value="White"/>
-                        </Trigger>
-                    </Style.Triggers>
-                </Style>
-            </ListView.ItemContainerStyle>
-            <ListView.ItemTemplate>
-                <DataTemplate>
-                    <TextBlock Text="{Binding Title}" FontSize="16" Padding="5"/>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
+                <ListView.ItemContainerStyle>
+                    <Style TargetType="ListViewItem">
+                        <Setter Property="Background" Value="Transparent"/>
+                        <Setter Property="Padding" Value="4"/>
+                        <Setter Property="Margin" Value="0"/>
+                        <Setter Property="Foreground" Value="Black"/>
+                        <Style.Triggers>
+                            <Trigger Property="IsSelected" Value="True">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListViewItem">
+                                            <Border Background="#666666" CornerRadius="5" Padding="4" Margin="0">
+                                                <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="False">
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                        </Style.Triggers>
+                    </Style>
+                </ListView.ItemContainerStyle>
+                <ListView.ItemTemplate>
+                    <DataTemplate>
+                        <TextBlock Text="{Binding Title}" FontSize="16" Padding="5"/>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+        </StackPanel>
     </Border>
 </Window>

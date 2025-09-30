@@ -1,20 +1,10 @@
-﻿using Gma.System.MouseKeyHook;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Text;
+﻿using GlobalHotKeys;
+using GlobalHotKeys.Native.Types;
+using Gma.System.MouseKeyHook;
 using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
 using System.Windows.Forms;
 using System.Windows.Input;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
-using WindowsInput.Events;
-using WindowsInput.Events.Sources;
 using WinTabber.API;
 using WinTabber.Interop;
 
@@ -28,34 +18,34 @@ namespace WinTabberUI
 
         public WindowManager WindowManager { get; } = new(new InteropProxy());
 
-
         public MainWindow()
         {
             InitializeComponent();
 
-            //_hook = WindowsInput.Capture.Global.KeyboardAsync(true);
-            //_hook.KeyDown += Hook_KeyDown;
-            var nextWindow = Combination.FromString("Alt+Oem3");
-            var prevWindow = Combination.FromString("Shift+Alt+Oem3");
-            Hook.GlobalEvents()
-                .OnCombination(
-                    new Dictionary<Combination, Action>() 
-                    {
-                        { nextWindow, () => Run(1) },
-                        { prevWindow, () => Run(-1) }
-                    });
 
+            var hotKeyManager = new HotKeyManager();
+            var nextWindow = new HotKey(0, Modifiers.Alt, VirtualKeyCode.VK_OEM_3);
+            var prevWindow = new HotKey(1, Modifiers.Alt | Modifiers.Shift, VirtualKeyCode.VK_OEM_3);
+            var nextWindowReg = hotKeyManager.Register(nextWindow.Key, nextWindow.Modifiers);
+            var prevWindowReg = hotKeyManager.Register(prevWindow.Key, prevWindow.Modifiers);
+            hotKeyManager.HotKeyPressed.Subscribe(e =>
+            {
+                if (e.Equals(nextWindow))
+                {
+                    Dispatcher.Invoke(() => Run(1));
+                }
+                else if (e.Equals(prevWindow))
+                {
+                    Dispatcher.Invoke(() => Run(-1));
+                }
+            });
 
-            //Hook.GlobalEvents().KeyDown += MainWindow_KeyDown;
             Hook.GlobalEvents().KeyUp += MainWindow_KeyUp;
         }
 
-
-
-
         private void MainWindow_KeyUp(object? sender, System.Windows.Forms.KeyEventArgs e)
         {
-            if (e.KeyCode == System.Windows.Forms.Keys.LMenu)
+            if (e.KeyCode == Keys.LMenu)
             {
                 if (Visibility == Visibility.Visible && WindowData.SelectedIndex >= 0 && WindowData.SelectedIndex < WindowData.WindowItems.Length)
                 {
@@ -65,19 +55,6 @@ namespace WinTabberUI
                 WindowManager.EndPreview();
                 Hide();
             }
-        }
-
-        private void MainWindow_KeyDown(object? sender, System.Windows.Forms.KeyEventArgs e)
-        {
-            //    if (Visibility == Visibility.Hidden && e.Control && e.Alt && e.KeyCode == System.Windows.Forms.Keys.Oem3)
-            //    {
-            //        //Activate();
-            //        Run();
-            //    }
-            //    else if (Visibility == Visibility.Visible && e.Alt && e.KeyCode == Keys.Oem3)
-            //    {
-            //        WindowData.SelectedIndex++;
-            //    }
         }
 
         public WindowsViewModel WindowData { get; set; } = new WindowsViewModel();
@@ -138,8 +115,14 @@ namespace WinTabberUI
         private void TabListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
             //var hnd = NativeMethods.GetForegroundWindow();
-            var hnd = new WindowInteropHelper(this).Handle;
-            //e.AddedItems.OfType<WindowItem>().FirstOrDefault()?.WindowRef.Preview(hnd);
+            //var hnd = new WindowInteropHelper(this).Handle;
+
+            //if(e.AddedItems.Count > 0)
+            //{
+            //    var h = e.AddedItems.OfType<WindowItem>().FirstOrDefault()?.WindowRef.Handle;
+            //    Thumb.SetSourceWindow((nint)h);
+
+            //}
         }
     }
 }

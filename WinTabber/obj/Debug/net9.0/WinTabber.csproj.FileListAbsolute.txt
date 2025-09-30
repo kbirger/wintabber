@@ -1,4 +1,0 @@
-C:\Users\kir\git\WinTabber\WinTabber\obj\Debug\net9.0\WinTabber.GeneratedMSBuildEditorConfig.editorconfig
-C:\Users\kir\git\WinTabber\WinTabber\obj\Debug\net9.0\WinTabber.AssemblyInfoInputs.cache
-C:\Users\kir\git\WinTabber\WinTabber\obj\Debug\net9.0\WinTabber.AssemblyInfo.cs
-C:\Users\kir\git\WinTabber\WinTabber\obj\Debug\net9.0\WinTabber.csproj.CoreCompileInputs.cache

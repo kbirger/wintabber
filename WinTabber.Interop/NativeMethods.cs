@@ -195,6 +195,11 @@ public class NativeMethods
     [DllImport("dwmapi.dll")]
     public static extern int DwmRegisterThumbnail(IntPtr hwndDestination, IntPtr hwndSource, out IntPtr phThumbnail);
 
+    [DllImport("dwmapi.dll")]
+    public static extern int DwmUnregisterThumbnail(IntPtr thumb);
+
+    //[DllImport("dwmapi.dll")]
+    //public static extern int DwmQueryThumbnailSourceSize(IntPtr thumb, out PSIZE size);
     //[DllImport("dwmapi.dll")]
     //public static extern int DwmUpdateThumbnailProperties(IntPtr hThumbnail, ref DWM_THUMBNAIL_PROPERTIES pptProperties);
 

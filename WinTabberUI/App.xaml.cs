@@ -1,8 +1,6 @@
 ﻿using System.Configuration;
 using System.Data;
 using System.Windows;
-using WindowsInput.Events;
-using WindowsInput.Events.Sources;
 
 namespace WinTabberUI
 {
@@ -11,7 +9,6 @@ namespace WinTabberUI
     /// </summary>
     public partial class App : Application
     {
-        private IKeyboardEventSource _hook;
 
         protected override void OnActivated(EventArgs e)
         {

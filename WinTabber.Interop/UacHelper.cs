@@ -70,9 +70,10 @@ namespace WinTabber.Interop
         {
             get
             {
-                RegistryKey uacKey = Registry.LocalMachine.OpenSubKey(uacRegistryKey, false);
-                bool result = uacKey.GetValue(uacRegistryValue).Equals(1);
-                return result;
+                return false;
+                //RegistryKey uacKey = Registry.LocalMachine.OpenSubKey(uacRegistryKey, false);
+                //bool result = uacKey.GetValue(uacRegistryValue).Equals(1);
+                //return result;
             }
         }
 
