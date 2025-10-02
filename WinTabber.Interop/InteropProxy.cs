@@ -73,12 +73,21 @@ namespace WinTabber.Interop
 
         public void MaximizeWindow(int handle)
         {
-            throw new NotImplementedException();
+            var wp = NativeMethods.GetWindowPlacement(handle);
+            var isMax = wp.showCmd == NativeMethods.ShowWindowCommands.Maximize || wp.showCmd == NativeMethods.ShowWindowCommands.ShowMaximized;
+            if (isMax)
+            {
+                NativeMethods.ShowWindowAsync((IntPtr)handle, NativeMethods.ShowWindowCommands.Restore);
+            }
+            else
+            {
+                NativeMethods.ShowWindowAsync((IntPtr)handle, NativeMethods.ShowWindowCommands.ShowMaximized);
+            }
         }
 
         public void MinimizeWindow(int handle)
         {
-            throw new NotImplementedException();
+            NativeMethods.ShowWindowAsync((IntPtr)handle, NativeMethods.ShowWindowCommands.Minimize);
         }
 
         public Process GetForegroundProcess()

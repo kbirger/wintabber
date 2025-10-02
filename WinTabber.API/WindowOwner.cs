@@ -30,8 +30,11 @@ namespace WinTabber.API
         public WindowRef? CurrentWindow()
         {
             var foregroundHandle = WindowManager.Interop.GetForegroundWindowHandle();
-            var currentWindows = GetWindows();
-            return currentWindows.FirstOrDefault(w => w.Handle == foregroundHandle);
+            var process = WindowManager.Interop.GetForegroundProcess();
+
+            return WindowManager.NewApplicationRef(process.ProcessName)
+                .NewWindowProcessRef(process)
+                .NewWindow(foregroundHandle);
         }
 
         public WindowRef? NextWindow()

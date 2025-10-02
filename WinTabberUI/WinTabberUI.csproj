@@ -11,7 +11,7 @@
   <ItemGroup>
     <PackageReference Include="GlobalHotKeys.Windows" Version="0.1.0" />
     <PackageReference Include="MouseKeyHook" Version="5.7.1" />
-    <PackageReference Include="WindowsInput" Version="6.4.1" />
+    <PackageReference Include="windowsinput" Version="6.4.1" />
   </ItemGroup>
 
   <ItemGroup>

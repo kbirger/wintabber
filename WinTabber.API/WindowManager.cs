@@ -1,9 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Diagnostics;
 using WinTabber.Interop;
 
 namespace WinTabber.API
@@ -19,11 +14,17 @@ namespace WinTabber.API
 
         internal IInteropProxy Interop { get; }
 
+        internal ApplicationRef NewApplicationRef(string processName)
+        {
+            return new ApplicationRef(processName, this);
+        }
+
+
         public override WindowRef[] GetWindows()
         {
             return Process.GetProcesses()
                 .GroupBy(Process => Process.ProcessName)
-                .SelectMany(processGroup => new ApplicationRef(processGroup.Key, this).GetWindows())
+                .SelectMany(processGroup => NewApplicationRef(processGroup.Key).GetWindows())
                 .OrderBy(w => w.Handle)
                 .ToArray();
         }
@@ -32,20 +33,20 @@ namespace WinTabber.API
         {
             return Process.GetProcesses()
                 .GroupBy(Process => Process.ProcessName)
-                .Select(processGroup => new ApplicationRef(processGroup.Key, this))
+                .Select(processGroup => NewApplicationRef(processGroup.Key))
                 .OrderBy(a => a.ProcessName)
                 .ToArray();
         }
 
         public ApplicationRef? GetCurrentApplication()
         {
-            return new ApplicationRef(Interop.GetForegroundProcess().ProcessName, this);            
+            return NewApplicationRef(Interop.GetForegroundProcess().ProcessName);
         }
 
         public WindowProcessRef? GetCurrentProcess()
         {
-            var proc = Interop.GetForegroundProcess();
-            return new WindowProcessRef(proc, new ApplicationRef(proc.ProcessName, this), this);
+            var process = Interop.GetForegroundProcess();
+            return NewApplicationRef(process.ProcessName).NewWindowProcessRef(process);
         }
 
         protected override void AssertOwnsWindow(WindowRef window)
