@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Input;
+using System.Windows.Media;
 using WindowsInput.Events;
 using WinTabber.API;
 using WinTabber.Interop;
@@ -42,10 +43,11 @@ namespace WinTabberUI
             _resources.Add(prevWindowReg);
             _resources.Add(keyHook);
             _resources.Add(mouseHook);
-            
+
             mouseHook.ButtonDown += (s, e) =>
             {
-                var pressed = new MouseShortcut(e.Data.Button switch { 
+                var pressed = new MouseShortcut(e.Data.Button switch
+                {
                     ButtonCode.XButton1 => MouseButtons.XButton1,
                     ButtonCode.XButton2 => MouseButtons.XButton2,
                     ButtonCode.Left => MouseButtons.Left,
@@ -70,7 +72,32 @@ namespace WinTabberUI
 
             hotKeyManager.HotKeyPressed.Subscribe(CycleWindows);
             keyHook.KeyUp += KeyHook_KeyUp;
-            //keyHook.MouseDown += KeyHook_MouseDown;
+            keyHook.MouseDown += KeyHook_MouseDown;
+
+            this.SizeChanged += MainWindow_SizeChanged;
+            LostFocus += MainWindow_LostFocus;
+        }
+
+        private void MainWindow_LostFocus(object sender, RoutedEventArgs e)
+        {
+            SwitchWindowAndClose();
+        }
+
+        private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
+        {
+            Width = SystemParameters.PrimaryScreenWidth * .6;
+            Height = SystemParameters.PrimaryScreenHeight * .6;
+            Left = (SystemParameters.PrimaryScreenWidth - ActualWidth) / 2;
+            Top = (SystemParameters.PrimaryScreenHeight - ActualHeight) / 2;
+        }
+
+        protected override void OnRender(DrawingContext drawingContext)
+        {
+            Width = SystemParameters.PrimaryScreenWidth *.6;
+            Height = SystemParameters.PrimaryScreenHeight * .6;
+            Left = (SystemParameters.PrimaryScreenWidth - Width) / 2;
+            Top = (SystemParameters.PrimaryScreenHeight - Height) / 2;
+            base.OnRender(drawingContext);
         }
 
         private void KeyHook_MouseDown(object? sender, System.Windows.Forms.MouseEventArgs e)
@@ -142,7 +169,6 @@ namespace WinTabberUI
         }
         public void Run(int direction)
         {
-
             if (Visibility == Visibility.Visible)
             {
                 ChangeSelection(direction);
@@ -162,12 +188,17 @@ namespace WinTabberUI
                 .Select(w => new WindowItem(w))
                 .ToArray()
                 ?? Array.Empty<WindowItem>();
-            WindowData.SelectedIndex = 0;
+            if(windows.Count > 0)
+            {
+                WindowData.SelectedIndex = 0;
+            }
 
 
             Show();
             Focus();
+            Activate();
             TabListView.Focus();
+            
         }
 
         private void ChangeSelection(int direction)
@@ -189,8 +220,17 @@ namespace WinTabberUI
             }
         }
 
+        private void TabListView_MouseDown(object sender, MouseButtonEventArgs e)
+        {
+            SwitchWindowAndClose();
+        }
+
         private void TabListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
         {
+            if (e.AddedItems.Count > 0)
+            {
+                (e.Source as System.Windows.Controls.ListView)?.ScrollIntoView(e.AddedItems[0]);
+            }
             //var hnd = NativeMethods.GetForegroundWindow();
             //var hnd = new WindowInteropHelper(this).Handle;
 

@@ -27,6 +27,11 @@ namespace WinTabberUI
             }
         }
 
+        private DependencyProperty _selectedItem = DependencyProperty.Register(
+            "SelectedItem",
+            typeof(WindowItem),
+            typeof(WindowsViewModel),
+            new PropertyMetadata(null));
         private DependencyProperty _selectedIndex = DependencyProperty.Register(
             "SelectedIndex",
             typeof(int),
@@ -41,6 +46,19 @@ namespace WinTabberUI
 
         public event PropertyChangedEventHandler? PropertyChanged;
 
+        public WindowItem SelectedItem
+        {
+            get { return (WindowItem)GetValue(_selectedItem); }
+            set
+            {
+                if (value != SelectedItem)
+                {
+                    SetValue(_selectedItem, value);
+                    SetValue(_selectedIndex, Array.IndexOf(WindowItems, value));
+                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedItem)));
+                }
+            }
+        }
         public int SelectedIndex
         {
             get { return (int)GetValue(_selectedIndex); }
@@ -55,7 +73,12 @@ namespace WinTabberUI
                     value = WindowItems.Length - 1;
                 }
 
-                SetValue(_selectedIndex, value);
+                if(value != SelectedIndex)
+                {
+                    SetValue(_selectedIndex, value);
+                    SetValue(_selectedItem, WindowItems[value]);
+                }
+
             }
         }
     }

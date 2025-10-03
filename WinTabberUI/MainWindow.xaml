@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WinTabberUI"
         mc:Ignorable="d"
-        Title="MainWindow" Height="450" Width="800"
+        Title="MainWindow"
         WindowStyle="None"
         WindowStartupLocation="CenterScreen"
         BorderThickness="0"
@@ -15,30 +15,48 @@
         AllowsTransparency="True"
         Visibility="Hidden"
         Name="Foo"
+        IsHitTestVisible="True"
         Background="Transparent"
         KeyDown="TabListView_KeyDown"
+        SizeToContent="Height"
         >
-    <Border BorderBrush="#cc000000" BorderThickness="1" CornerRadius="8" Background="#cc000000">
-        <StackPanel>
-            <ListView x:Name="TabListView" Margin="0" SelectionMode="Single" BorderThickness="0" Focusable="True" 
-                  KeyDown="TabListView_KeyDown"  IsHitTestVisible="True"
+    <Border BorderBrush="#cc000000" BorderThickness="1" CornerRadius="20" Background="#ec000000" Padding="30 60" >
+            <ListView x:Name="TabListView" Margin="0" SelectionMode="Single" BorderThickness="0" Focusable="True"                      
+                  KeyDown="TabListView_KeyDown"  IsHitTestVisible="True"  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                      MouseDown="TabListView_MouseDown"
                   SelectionChanged="TabListView_SelectionChanged"
                   ItemsSource="{Binding WindowItems}" 
                   SelectedIndex="{Binding Mode=TwoWay, Path=SelectedIndex}" 
                   Background="Transparent" Foreground="White">
+                <ListView.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <WrapPanel Orientation="Horizontal" ItemHeight="400"  ScrollViewer.HorizontalScrollBarVisibility="Disabled" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                    </ItemsPanelTemplate>
+                </ListView.ItemsPanel>
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
-                        <Setter Property="Background" Value="Transparent"/>
                         <Setter Property="Padding" Value="4"/>
-                        <Setter Property="Margin" Value="0"/>
+                        <Setter Property="Margin" Value="20"/>
                         <Setter Property="Foreground" Value="Black"/>
                         <Style.Triggers>
                             <Trigger Property="IsSelected" Value="True">
                                 <Setter Property="Template">
                                     <Setter.Value>
                                         <ControlTemplate TargetType="ListViewItem">
-                                            <Border Background="#666666" CornerRadius="5" Padding="4" Margin="0">
-                                                <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center"/>
+                                            <Border Background="#aa444444" CornerRadius="5" Padding="15">
+                                                <ContentPresenter/>
+                                            </Border>
+                                        </ControlTemplate>
+                                    </Setter.Value>
+                                </Setter>
+                                <Setter Property="Foreground" Value="White"/>
+                            </Trigger>
+                            <Trigger Property="IsSelected" Value="False">
+                                <Setter Property="Template">
+                                    <Setter.Value>
+                                        <ControlTemplate TargetType="ListViewItem">
+                                            <Border Background="Transparent" CornerRadius="5" Padding="15" Margin="0">
+                                                <ContentPresenter/>
                                             </Border>
                                         </ControlTemplate>
                                     </Setter.Value>
@@ -53,10 +71,23 @@
                 </ListView.ItemContainerStyle>
                 <ListView.ItemTemplate>
                     <DataTemplate>
-                        <TextBlock Text="{Binding Title}" FontSize="16" Padding="5"/>
+                        <Grid Margin="10">
+                            <Grid.RowDefinitions>
+                                <RowDefinition Height="auto"/>
+                                <RowDefinition Height="*"/>
+                            </Grid.RowDefinitions>
+                            <TextBlock Text="{Binding Title}" FontSize="16" Padding="5" Grid.Row="0" TextWrapping="NoWrap" MaxWidth="400" TextTrimming="CharacterEllipsis" />
+                            <Viewbox Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform">
+                                <!--<Image>
+                                    <Image.Source>
+                                        <BitmapImage UriSource="C:\Users\kir\Downloads\image.png"/>
+                                    </Image.Source>
+                                </Image>-->
+                                <local:ThumbnailContainer DataContext="{Binding Path=.}" />
+                            </Viewbox>
+                        </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
-        </StackPanel>
     </Border>
 </Window>
