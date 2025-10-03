@@ -56,10 +56,7 @@ namespace WinTabber.API
             Process.WindowManager.Interop.MinimizeWindow(Handle);
         }
 
-        public System.Drawing.Icon GetIcon()
-        {
-            return Process.WindowManager.Interop.GetWindowIcon(Handle);
-        }
+   
 
         public void Preview(nint handleToSpare)
         {

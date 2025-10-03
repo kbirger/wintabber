@@ -6,6 +6,10 @@ using System.Drawing;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.Graphics.Dwm;
+using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace WinTabber.Interop
 {
@@ -15,44 +19,45 @@ namespace WinTabber.Interop
         {
             var process = GetWindowProcess(handle);
             var processName = process.ProcessName;
-
+            var hwnd = new HWND(handle);
             if(processName == "devzenv")
             {
                 SwitchToDevenv(process, handle);
             }
             else if(UacHelper.IsProcessElevated(process.Id))
             {
-                SwitchToWindowElevated(process, handle);
+                SwitchToWindowElevated(process, hwnd);
             }
             else
             {
-                SwitchToWindowRegular(process, handle);
+                SwitchToWindowRegular(process, hwnd);
             }
         }
 
-        private void SwitchToWindowRegular(Process pid, int handle)
+        private void SwitchToWindowRegular(Process pid, HWND targetHandle)
         {
-            var hWnd = NativeMethods.GetForegroundWindow();
+            var hWnd = PInvoke.GetForegroundWindow();
 
-            var didSet = NativeMethods.SetForegroundWindow(handle);
-            var wp = NativeMethods.GetWindowPlacement(handle);
-            var isMin = wp.showCmd == NativeMethods.ShowWindowCommands.Minimize || wp.showCmd == NativeMethods.ShowWindowCommands.ShowMinimized;
-            var newFgWindow = NativeMethods.GetForegroundWindow();
+            var didSet = PInvoke.SetForegroundWindow(targetHandle);
+            WINDOWPLACEMENT wp = new WINDOWPLACEMENT();
+            var result = PInvoke.GetWindowPlacement(targetHandle, ref wp);
+            var isMin = wp.showCmd == SHOW_WINDOW_CMD.SW_MINIMIZE || wp.showCmd == SHOW_WINDOW_CMD.SW_SHOWMINIMIZED;
+            var newFgWindow = PInvoke.GetForegroundWindow();
 
-            if (newFgWindow != handle)
+            if (newFgWindow != targetHandle)
             {
-                NativeMethods.ShowWindowAsync(handle, NativeMethods.ShowWindowCommands.Show);
+                PInvoke.ShowWindowAsync(targetHandle, SHOW_WINDOW_CMD.SW_SHOW);
             }
             if (isMin)
             {
-                NativeMethods.ShowWindowAsync(handle, NativeMethods.ShowWindowCommands.Restore);
+                PInvoke.ShowWindowAsync(targetHandle, SHOW_WINDOW_CMD.SW_RESTORE);
             }
         }
 
-        private void SwitchToWindowElevated(Process pid, int handle)
+        private void SwitchToWindowElevated(Process pid, HWND handle)
         {
-            NativeMethods.ShowWindowAsync(handle, NativeMethods.ShowWindowCommands.Restore);
-            NativeMethods.SendMessage(handle, NativeMethods.WM_SYSCOMMAND, NativeMethods.SystemCommand.Restore);
+            PInvoke.ShowWindowAsync(handle, SHOW_WINDOW_CMD.SW_RESTORE);
+            PInvoke.SendMessage(handle, PInvoke.WM_SYSCOMMAND, new WPARAM(PInvoke.SC_RESTORE), new LPARAM());
         }
 
         private void SwitchToDevenv(Process pid, int handle)
@@ -60,69 +65,84 @@ namespace WinTabber.Interop
             ForceForeground(handle);
         }
 
-        public string GetWindowTitle(int hWnd)
+        public unsafe string GetWindowTitle(int handle)
         {
-            int nChars = NativeMethods.GetWindowTextLength(hWnd);
-            StringBuilder Buff = new StringBuilder(nChars + 1);
-            if (NativeMethods.GetWindowText(hWnd, Buff, nChars + 1) > 0)
+            var hwnd = new HWND(handle);
+            int capacity = PInvoke.GetWindowTextLength(hwnd) + 1;
+            int length;
+            Span<char> buffer = capacity < 1024 ? stackalloc char[capacity] : new char[capacity];
+            fixed (char* pBuffer = buffer)
             {
-                return Buff.ToString();
+                length = PInvoke.GetWindowText(hwnd, pBuffer, capacity);
+
             }
-            return String.Empty;
+            return buffer[..length].ToString();
         }
 
         public void MaximizeWindow(int handle)
         {
-            var wp = NativeMethods.GetWindowPlacement(handle);
-            var isMax = wp.showCmd == NativeMethods.ShowWindowCommands.Maximize || wp.showCmd == NativeMethods.ShowWindowCommands.ShowMaximized;
+            var hwnd = new HWND(handle);
+            var wp = new WINDOWPLACEMENT();
+            var result = PInvoke.GetWindowPlacement(hwnd, ref wp);
+
+            var isMax = wp.showCmd == SHOW_WINDOW_CMD.SW_MAXIMIZE|| wp.showCmd == SHOW_WINDOW_CMD.SW_SHOWMAXIMIZED;
             if (isMax)
             {
-                NativeMethods.ShowWindowAsync((IntPtr)handle, NativeMethods.ShowWindowCommands.Restore);
+                PInvoke.ShowWindowAsync(hwnd, SHOW_WINDOW_CMD.SW_RESTORE);
             }
             else
             {
-                NativeMethods.ShowWindowAsync((IntPtr)handle, NativeMethods.ShowWindowCommands.ShowMaximized);
+                PInvoke.ShowWindowAsync(hwnd, SHOW_WINDOW_CMD.SW_SHOWMAXIMIZED);
             }
         }
 
         public void MinimizeWindow(int handle)
         {
-            NativeMethods.ShowWindowAsync((IntPtr)handle, NativeMethods.ShowWindowCommands.Minimize);
+            PInvoke.ShowWindowAsync(new HWND(handle), SHOW_WINDOW_CMD.SW_MINIMIZE);
         }
 
-        public Process GetForegroundProcess()
+        public unsafe Process GetForegroundProcess()
         {
-            IntPtr hwnd = NativeMethods.GetForegroundWindow();
-            NativeMethods.GetWindowThreadProcessId(hwnd, out uint pid);
+            var hwnd = PInvoke.GetForegroundWindow();
+
+            uint pid = 0;
+            uint thread = PInvoke.GetWindowThreadProcessId(hwnd, &pid);
+            if (thread != 0)
+            {
+                return Process.GetProcessById((int)pid);
+            }
+            throw new InvalidOperationException("Could not determine process");
+        }
+
+        public unsafe Process GetWindowProcess(int handle)
+        {
+            uint pid = 0;
+            PInvoke.GetWindowThreadProcessId(new HWND(handle), &pid);
             return Process.GetProcessById((int)pid);
         }
 
-        public Process GetWindowProcess(int handle)
-        {
-            NativeMethods.GetWindowThreadProcessId((IntPtr)handle, out uint pid);
-            return Process.GetProcessById((int)pid);
-        }
-
-        public void ForceForeground(int hWnd)
+        public unsafe void ForceForeground(int hWndPtr)
         {
             // From: https://stackoverflow.com/a/5694425/1889329
-            IntPtr foreHwnd = NativeMethods.GetForegroundWindow();
-            uint foreThread = NativeMethods.GetWindowThreadProcessId(foreHwnd, out _);
-            uint appThread = NativeMethods.GetCurrentThreadId();
+            var foreHwnd = PInvoke.GetForegroundWindow();
+            uint pid = 0;
+            uint foreThread = PInvoke.GetWindowThreadProcessId(foreHwnd, &pid);
+            uint appThread = PInvoke.GetCurrentThreadId();
             // attach threads to get around restrictions
+            var hWnd = new HWND(hWndPtr);
             if (foreThread != appThread)
             {
-                NativeMethods.AttachThreadInput(foreThread, appThread, true);
-                NativeMethods.BringWindowToTop((IntPtr)hWnd); // IE 5.0 related hack
-                //NativeMethods.ShowWindowAsync((IntPtr)hWnd, NativeMethods.ShowWindowCommands.Show);
-                NativeMethods.SetForegroundWindow((IntPtr)hWnd);
-                NativeMethods.AttachThreadInput(foreThread, appThread, false);
+                PInvoke.AttachThreadInput(foreThread, appThread, true);
+                PInvoke.BringWindowToTop(hWnd); // IE 5.0 related hack
+                //PInvoke.ShowWindowAsync(hWnd, SHOW_WINDOW_CMD.Show);
+                PInvoke.SetForegroundWindow(hWnd);
+                PInvoke.AttachThreadInput(foreThread, appThread, false);
             }
             else
             {
-                NativeMethods.BringWindowToTop((IntPtr)hWnd); // IE 5.0 related hack
-                NativeMethods.ShowWindowAsync((IntPtr)hWnd, NativeMethods.ShowWindowCommands.Show);
-                NativeMethods.SetForegroundWindow((IntPtr)hWnd);
+                PInvoke.BringWindowToTop(hWnd); // IE 5.0 related hack
+                PInvoke.ShowWindowAsync(hWnd, SHOW_WINDOW_CMD.SW_SHOW);
+                PInvoke.SetForegroundWindow(hWnd);
             }
         }
 
@@ -132,24 +152,24 @@ namespace WinTabber.Interop
         }
 
 
-        public Icon GetWindowIcon(int handle)
-        {
-            try
-            {
-                IntPtr hIcon = NativeMethods.SendMessage(handle, NativeMethods.WM_GETICON, NativeMethods.ICON_SMALL2, 0);
-                IntPtr hIcon2 = NativeMethods.LoadIcon(handle, NativeMethods.ICON_LARGE);
+        //public Icon GetWindowIcon(int handle)
+        //{
+        //    try
+        //    {
+        //        IntPtr hIcon = PInvoke.SendMessage(handle, PInvoke.WM_GETICON, PInvoke.ICON_SMALL2, 0);
+        //        IntPtr hIcon2 = PInvoke.LoadIcon(handle, PInvoke.ICON_LARGE);
 
-                return Icon.FromHandle(hIcon);
+        //        return Icon.FromHandle(hIcon);
 
-            }
-            catch(Exception ex)
-            {
-                return null;
-            }
-        }
+        //    }
+        //    catch(Exception ex)
+        //    {
+        //        return null;
+        //    }
+        //}
         public int GetForegroundWindowHandle()
         {
-            return NativeMethods.GetForegroundWindow().ToInt32();
+            return ((IntPtr)PInvoke.GetForegroundWindow()).ToInt32();
         }
 
         /// <summary>
@@ -159,12 +179,12 @@ namespace WinTabber.Interop
         /// <param name="windowToSpare">the window which should not be transparent but is not the target window</param>
         public void ActivateLivePreview(IntPtr targetWindow, IntPtr windowToSpare)
         {
-            _ = NativeMethods.DwmpActivateLivePreview(
-                    true,
-                    targetWindow,
-                    windowToSpare,
-                    LivePreviewTrigger.Superbar,
-                    IntPtr.Zero);
+            //_ = PInvoke.DwmActivateLivePreview(
+            //        true,
+            //        targetWindow,
+            //        windowToSpare,
+            //        LivePreviewTrigger.Superbar,
+            //        IntPtr.Zero);
         }
 
         /// <summary>
@@ -172,12 +192,12 @@ namespace WinTabber.Interop
         /// </summary>
         public void DeactivateLivePreview()
         {
-            _ = NativeMethods.DwmpActivateLivePreview(
-                    false,
-                    IntPtr.Zero,
-                    IntPtr.Zero,
-                    LivePreviewTrigger.AltTab,
-                    IntPtr.Zero);
+            //PInvoke.dwmac.DwmActivateLivePreview(
+            //        false,
+            //        IntPtr.Zero,
+            //        IntPtr.Zero,
+            //        LivePreviewTrigger.AltTab,
+            //        IntPtr.Zero);
         }
 
     }

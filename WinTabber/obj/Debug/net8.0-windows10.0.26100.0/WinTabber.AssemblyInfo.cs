@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("WinTabber")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+ff5d5f19f63756ed6ddf191f07489a6d5b91e32e")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+f8a6aafee9d5993d8a42041d601e6b49084df4db")]
 [assembly: System.Reflection.AssemblyProductAttribute("WinTabber")]
 [assembly: System.Reflection.AssemblyTitleAttribute("WinTabber")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

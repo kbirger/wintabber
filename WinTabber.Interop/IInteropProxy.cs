@@ -12,7 +12,7 @@ public interface IInteropProxy
     string GetWindowTitle(int hWnd);
     void MaximizeWindow(int handle);
     void MinimizeWindow(int handle);
-    public Icon GetWindowIcon(int handle);
+    //public Icon GetWindowIcon(int handle);
 
     public int GetForegroundWindowHandle();
 
