@@ -83,8 +83,9 @@
                                         <BitmapImage UriSource="C:\Users\kir\Downloads\image.png"/>
                                     </Image.Source>
                                 </Image>-->
-                                <local:ThumbnailContainer DataContext="{Binding Path=.}" />
-                            </Viewbox>
+                                <!--<local:ThumbnailContainer DataContext="{Binding Path=.}" />-->
+                            <local:WindowThumbnail Source="{Binding Path=Handle}" />
+                        </Viewbox>
                         </Grid>
                     </DataTemplate>
                 </ListView.ItemTemplate>

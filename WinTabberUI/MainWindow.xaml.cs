@@ -169,6 +169,8 @@ namespace WinTabberUI
         }
         public void Run(int direction)
         {
+   
+
             if (Visibility == Visibility.Visible)
             {
                 ChangeSelection(direction);

@@ -22,7 +22,7 @@ namespace WinTabberUI
 
         public string Title => WindowRef.Title;
 
-        public int Handle => WindowRef.Handle;
+        public IntPtr Handle => WindowRef.Handle;
         //public ImageSource Icon { get; set; }
 
         public void Activate() => WindowRef.BringToFront();

@@ -9,3 +9,4 @@ DWM_TNP_OPACITY
 DWM_TNP_VISIBLE 
 DWM_TNP_SOURCECLIENTAREAONLY
 DwmQueryThumbnailSourceSize
+DwmIsCompositionEnabled
