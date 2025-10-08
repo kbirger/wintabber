@@ -12,7 +12,35 @@
     <EnableMsixTooling>true</EnableMsixTooling>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-
+  <ItemGroup>
+    <AdditionalFiles Include="NativeMethods.txt">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </AdditionalFiles>
+  </ItemGroup>
+  <ItemGroup>
+    <PackageReference Include="GlobalHotKeys.Windows" Version="0.1.0" />
+    <PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.205">
+      <PrivateAssets>all</PrivateAssets>
+      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+    </PackageReference>
+    <PackageReference Include="MouseKeyHook" Version="5.7.1" />
+    <PackageReference Include="windowsinput" Version="6.4.1" />
+  </ItemGroup>	<ItemGroup>
+		<PackageReference Include="GlobalHotKeys.Windows" Version="0.1.0" />
+		<PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.205">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
+		<PackageReference Include="MouseKeyHook" Version="5.7.1" />
+		<PackageReference Include="windowsinput" Version="6.4.1" />
+	
+	
+	  <ItemGroup>
+    <ProjectReference Include="..\WinTabber.API\WinTabber.API.csproj" />
+  </ItemGroup>
+	<ItemGroup>
+		<ProjectReference Include="..\WinTabber.API\WinTabber.API.csproj" />
+	
   <ItemGroup>
     <Content Include="Assets\SplashScreen.scale-200.png" />
     <Content Include="Assets\LockScreenLogo.scale-200.png" />

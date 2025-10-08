@@ -18,9 +18,20 @@
         IsHitTestVisible="True"
         Background="Transparent"
         KeyDown="TabListView_KeyDown"
-        SizeToContent="Height"
+        SizeToContent="WidthAndHeight"
         >
-    <Border BorderBrush="#cc000000" BorderThickness="1" CornerRadius="20" Background="#ec000000" Padding="30 60" >
+    <Window.Resources>
+        <Style x:Key="FocusVisual">
+            <Setter Property="Control.Template">
+                <Setter.Value>
+                    <ControlTemplate>
+                        <Rectangle Margin="2" SnapsToDevicePixels="true" Stroke="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}" StrokeThickness="1" StrokeDashArray="1 2"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Window.Resources>
+    <Border BorderThickness="1" CornerRadius="20" Background="{DynamicResource {x:Static SystemColors.ControlDarkDarkBrushKey}}" Padding="40" >
             <ListView x:Name="TabListView" Margin="0" SelectionMode="Single" BorderThickness="0" Focusable="True"                      
                   KeyDown="TabListView_KeyDown"  IsHitTestVisible="True"  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
                       MouseDown="TabListView_MouseDown"
@@ -30,12 +41,13 @@
                   Background="Transparent" Foreground="White">
                 <ListView.ItemsPanel>
                     <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" ItemHeight="400"  ScrollViewer.HorizontalScrollBarVisibility="Disabled" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+                        <WrapPanel Orientation="Horizontal" ItemHeight="{Binding MaxItemHeight}" ItemWidth="{Binding MaxItemHeight}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VerticalAlignment="Center" HorizontalAlignment="Center"/>
                     </ItemsPanelTemplate>
                 </ListView.ItemsPanel>
                 <ListView.ItemContainerStyle>
                     <Style TargetType="ListViewItem">
-                        <Setter Property="Padding" Value="4"/>
+                    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
+                    <Setter Property="Padding" Value="4"/>
                         <Setter Property="Margin" Value="20"/>
                         <Setter Property="Foreground" Value="Black"/>
                         <Style.Triggers>

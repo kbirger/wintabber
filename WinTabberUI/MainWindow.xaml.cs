@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Input;
+using System.Windows.Interop;
 using System.Windows.Media;
 using WindowsInput.Events;
 using WinTabber.API;
@@ -74,8 +75,14 @@ namespace WinTabberUI
             keyHook.KeyUp += KeyHook_KeyUp;
             keyHook.MouseDown += KeyHook_MouseDown;
 
-            this.SizeChanged += MainWindow_SizeChanged;
+            SizeChanged += MainWindow_SizeChanged;
+            IsVisibleChanged += MainWindow_IsVisibleChanged;
             LostFocus += MainWindow_LostFocus;
+        }
+
+        private void MainWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            CenterWindow();
         }
 
         private void MainWindow_LostFocus(object sender, RoutedEventArgs e)
@@ -85,18 +92,20 @@ namespace WinTabberUI
 
         private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
         {
-            Width = SystemParameters.PrimaryScreenWidth * .6;
-            Height = SystemParameters.PrimaryScreenHeight * .6;
-            Left = (SystemParameters.PrimaryScreenWidth - ActualWidth) / 2;
-            Top = (SystemParameters.PrimaryScreenHeight - ActualHeight) / 2;
+            CenterWindow();
+            //Width = SystemParameters.PrimaryScreenWidth * .6;
+            //Height = SystemParameters.PrimaryScreenHeight * .6;
+            //Left = (SystemParameters.PrimaryScreenWidth - ActualWidth) / 2;
+            //Top = (SystemParameters.PrimaryScreenHeight - ActualHeight) / 2;
         }
 
         protected override void OnRender(DrawingContext drawingContext)
         {
-            Width = SystemParameters.PrimaryScreenWidth *.6;
-            Height = SystemParameters.PrimaryScreenHeight * .6;
-            Left = (SystemParameters.PrimaryScreenWidth - Width) / 2;
-            Top = (SystemParameters.PrimaryScreenHeight - Height) / 2;
+            CenterWindow();
+            //Width = SystemParameters.PrimaryScreenWidth *.6;
+            //Height = SystemParameters.PrimaryScreenHeight * .6;
+            //Left = (SystemParameters.PrimaryScreenWidth - Width) / 2;
+            //Top = (SystemParameters.PrimaryScreenHeight - Height) / 2;
             base.OnRender(drawingContext);
         }
 
@@ -164,12 +173,24 @@ namespace WinTabberUI
         protected override void OnActivated(EventArgs e)
         {
             DataContext = WindowData;
+            var windowHelper = new WindowInteropHelper(this);
+            var dpiInfo = VisualTreeHelper.GetDpi(this);
+
+            WindowData.MaxItemHeight = dpiInfo.DpiScaleY * 300;
 
             base.OnActivated(e);
         }
-        public void Run(int direction)
+
+        private void CenterWindow()
         {
-   
+            var screenCenter = WindowData.CenterScreen;
+
+            Left = screenCenter.X - ActualWidth;
+            Top = screenCenter.Y - ActualHeight;
+        }
+
+        public void Run(int direction)
+        {   
 
             if (Visibility == Visibility.Visible)
             {
