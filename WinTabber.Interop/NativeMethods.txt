@@ -23,7 +23,11 @@ EnumThreadWindows
 IsWindowVisible
 GetConsoleWindow
 AttachThreadInput
+SetWinEventHook
+UnhookWinEvent
 
 WM_SYSCOMMAND
 WM_SYSCOMMAND
 SC_RESTORE
+WINEVENT_OUTOFCONTEXT
+EVENT_SYSTEM_FOREGROUND

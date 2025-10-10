@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Drawing;
+using static WinTabber.Interop.InteropProxy;
 
 namespace WinTabber.Interop;
 public interface IInteropProxy
@@ -9,10 +10,13 @@ public interface IInteropProxy
     void ForceForeground(int hWnd);
     Process GetForegroundProcess();
     Process GetWindowProcess(int handle);
+    int GetWindowProcessId(int handle);
+
     string GetWindowTitle(int hWnd);
     void MaximizeWindow(int handle);
     void MinimizeWindow(int handle);
     //public Icon GetWindowIcon(int handle);
+    Hook HookForegroundChangeEvent();
 
     public int GetForegroundWindowHandle();
 

@@ -1,6 +1,8 @@
 ﻿using GlobalHotKeys;
 using GlobalHotKeys.Native.Types;
 using Gma.System.MouseKeyHook;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -9,7 +11,9 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using WindowsInput.Events;
 using WinTabber.API;
+using WinTabber.Events;
 using WinTabber.Interop;
+using System.Reactive.Threading.Tasks;
 
 namespace WinTabberUI
 {
@@ -21,63 +25,87 @@ namespace WinTabberUI
         public record MouseShortcut(MouseButtons mouseButton, bool alt, bool ctrl, bool shift, bool windows);
         public WindowManager WindowManager { get; } = new(new InteropProxy());
         private List<IDisposable> _resources = new();
-        private readonly HotKey _hkNextWindow = new HotKey(0, Modifiers.Alt, VirtualKeyCode.VK_OEM_3);
-        private readonly HotKey _hkPrevWindow = new HotKey(1, Modifiers.Alt | Modifiers.Shift, VirtualKeyCode.VK_OEM_3);
-        private readonly MouseShortcut _hkMinPlain = new MouseShortcut(MouseButtons.Left, true, true, false, false);
-        private readonly MouseShortcut _hkMaxPlain = new MouseShortcut(MouseButtons.Right, true, true, false, false);
-        private readonly MouseShortcut _hkMin = new MouseShortcut(MouseButtons.XButton2, false, true, false, false);
-        private readonly MouseShortcut _hkMax = new MouseShortcut(MouseButtons.XButton1, false, true, false, false);
 
+        [DllImport("user32.dll")]
+        public static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref WindowCompositionAttributeData data);
 
+        [StructLayout(LayoutKind.Sequential)]
+        public struct WindowCompositionAttributeData
+        {
+            public WindowCompositionAttribute Attribute;
+            public IntPtr Data;
+            public int SizeOfData;
+        }
+
+        public enum WindowCompositionAttribute
+        {
+            WCA_ACCENT_POLICY = 19
+        }
+
+        public enum AccentState
+        {
+            ACCENT_DISABLED = 0,
+            ACCENT_ENABLE_BLURBEHIND = 3,
+            ACCENT_ENABLE_ACRYLICBLURBEHIND = 4
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct AccentPolicy
+        {
+            public AccentState AccentState;
+            public int AccentFlags;
+            public int GradientColor;
+            public int AnimationId;
+        }
         public MainWindow()
         {
             InitializeComponent();
 
 
-            var hotKeyManager = new HotKeyManager();
-            var nextWindowReg = hotKeyManager.Register(_hkNextWindow.Key, _hkNextWindow.Modifiers);
-            var prevWindowReg = hotKeyManager.Register(_hkPrevWindow.Key, _hkPrevWindow.Modifiers);
-            var keyHook = Hook.GlobalEvents();
-            var mouseHook = WindowsInput.Capture.Global.Mouse();
-            _resources.Add(hotKeyManager);
-            _resources.Add(nextWindowReg);
-            _resources.Add(prevWindowReg);
-            _resources.Add(keyHook);
-            _resources.Add(mouseHook);
-
-            mouseHook.ButtonDown += (s, e) =>
-            {
-                var pressed = new MouseShortcut(e.Data.Button switch
-                {
-                    ButtonCode.XButton1 => MouseButtons.XButton1,
-                    ButtonCode.XButton2 => MouseButtons.XButton2,
-                    ButtonCode.Left => MouseButtons.Left,
-                    ButtonCode.Middle => MouseButtons.Middle,
-                    ButtonCode.Right => MouseButtons.Right,
-                    _ => MouseButtons.None
-                },
-                                            Keyboard.Modifiers.HasFlag(ModifierKeys.Alt),
-                                            Keyboard.Modifiers.HasFlag(ModifierKeys.Control),
-                                            Keyboard.Modifiers.HasFlag(ModifierKeys.Shift),
-                                            Keyboard.Modifiers.HasFlag(ModifierKeys.Windows));
-
-                if (pressed.Equals(_hkMinPlain) || pressed.Equals(_hkMin))
-                {
-                    WindowManager.CurrentWindow()?.Minimize();
-                }
-                else if (pressed.Equals(_hkMaxPlain) || pressed.Equals(_hkMax))
-                {
-                    WindowManager.CurrentWindow()?.Maximize();
-                }
-            };
-
-            hotKeyManager.HotKeyPressed.Subscribe(CycleWindows);
-            keyHook.KeyUp += KeyHook_KeyUp;
-            keyHook.MouseDown += KeyHook_MouseDown;
-
+            Loaded += MainWindow_Loaded;
             SizeChanged += MainWindow_SizeChanged;
             IsVisibleChanged += MainWindow_IsVisibleChanged;
             LostFocus += MainWindow_LostFocus;
+            var mgr = WinTabberEventManager.Create();
+            _resources.Add(mgr);
+
+            mgr.Events.Subscribe(e =>
+
+                Dispatcher.InvokeAsync(() =>
+                {
+                    //Console.WriteLine(e);
+                    //Debug.WriteLine(e);
+
+                    switch (e.type)
+                    {
+                        case EventType.NextWindow:
+                            SelectWindow(1);
+                            break;
+                        case EventType.PreviousWindow:
+                            SelectWindow(-1);
+                            break;
+                        case EventType.AppHide:
+                            SwitchWindowAndClose();
+                            break;
+                        case EventType.MinimizeWindow:
+                            WindowManager.CurrentWindow()?.Minimize();
+                            break;
+                        case EventType.MaximizeWindow:
+                            WindowManager.CurrentWindow()?.Maximize();
+                            break;
+                        case EventType.ForegroundChanged:
+                            WindowManager.RegisterForegroundWindowChanged((int)e.data!);
+                            break;
+                    }
+
+                    return e;
+                }).Task.ToObservable()
+            );
+        }
+
+        private void MainWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+
         }
 
         private void MainWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -87,74 +115,43 @@ namespace WinTabberUI
 
         private void MainWindow_LostFocus(object sender, RoutedEventArgs e)
         {
-            SwitchWindowAndClose();
+            //SwitchWindowAndClose();
         }
 
         private void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
         {
             CenterWindow();
-            //Width = SystemParameters.PrimaryScreenWidth * .6;
-            //Height = SystemParameters.PrimaryScreenHeight * .6;
-            //Left = (SystemParameters.PrimaryScreenWidth - ActualWidth) / 2;
-            //Top = (SystemParameters.PrimaryScreenHeight - ActualHeight) / 2;
+            var h = new WindowInteropHelper(this).Handle;
+            var accent = new AccentPolicy();
+            accent.AccentState = AccentState.ACCENT_ENABLE_ACRYLICBLURBEHIND;
+            accent.GradientColor = (100 << 24) | (0x000000 & 0xffffff);
+            var accentSize = Marshal.SizeOf(accent);
+            var accentPtr = Marshal.AllocHGlobal(accentSize);
+            Marshal.StructureToPtr(accent, accentPtr, false);
+
+            var data = new WindowCompositionAttributeData();
+            data.Attribute = WindowCompositionAttribute.WCA_ACCENT_POLICY;
+            data.SizeOfData = accentSize;
+            data.Data = accentPtr;
+            SetWindowCompositionAttribute(h, ref data);
+
+            Marshal.FreeHGlobal(accentPtr);
         }
 
         protected override void OnRender(DrawingContext drawingContext)
         {
             CenterWindow();
-            //Width = SystemParameters.PrimaryScreenWidth *.6;
-            //Height = SystemParameters.PrimaryScreenHeight * .6;
-            //Left = (SystemParameters.PrimaryScreenWidth - Width) / 2;
-            //Top = (SystemParameters.PrimaryScreenHeight - Height) / 2;
             base.OnRender(drawingContext);
-        }
-
-        private void KeyHook_MouseDown(object? sender, System.Windows.Forms.MouseEventArgs e)
-        {
-            var pressed = new MouseShortcut(e.Button,
-                                            Keyboard.Modifiers.HasFlag(ModifierKeys.Alt),
-                                            Keyboard.Modifiers.HasFlag(ModifierKeys.Control),
-                                            Keyboard.Modifiers.HasFlag(ModifierKeys.Shift),
-                                            Keyboard.Modifiers.HasFlag(ModifierKeys.Windows));
-
-            if (pressed.Equals(_hkMinPlain) || pressed.Equals(_hkMin))
-            {
-                WindowManager.CurrentWindow()?.Minimize();
-            }
-            else if (pressed.Equals(_hkMaxPlain) || pressed.Equals(_hkMax))
-            {
-                WindowManager.CurrentWindow()?.Maximize();
-            }
         }
 
         protected override void OnClosed(EventArgs e)
         {
-            foreach(var disposable in _resources)
+            foreach (var disposable in _resources)
             {
                 disposable.Dispose();
             }
-            
+
             base.OnClosed(e);
-        }
-
-        private void CycleWindows(HotKey e)
-        {
-            if (e.Equals(_hkNextWindow))
-            {
-                Dispatcher.Invoke(() => Run(1));
-            }
-            else if (e.Equals(_hkPrevWindow))
-            {
-                Dispatcher.Invoke(() => Run(-1));
-            }
-        }
-
-        private void KeyHook_KeyUp(object? sender, System.Windows.Forms.KeyEventArgs e)
-        {
-            if (e.KeyCode == Keys.LMenu)
-            {
-                Dispatcher.Invoke(SwitchWindowAndClose);
-            }
         }
 
         private void SwitchWindowAndClose()
@@ -177,23 +174,29 @@ namespace WinTabberUI
             var dpiInfo = VisualTreeHelper.GetDpi(this);
 
             WindowData.MaxItemHeight = dpiInfo.DpiScaleY * 300;
-
+            CenterWindow();
             base.OnActivated(e);
         }
 
         private void CenterWindow()
         {
             var screenCenter = WindowData.CenterScreen;
+            var dpiInfo = VisualTreeHelper.GetDpi(this);
+            var scale = dpiInfo.DpiScaleX;
+            MaxWidth = WindowData.CursorScreen.Bounds.Width * .6 * scale;
+            MaxHeight = WindowData.CursorScreen.Bounds.Height * .6 * scale;
 
-            Left = screenCenter.X - ActualWidth;
-            Top = screenCenter.Y - ActualHeight;
+            Left = WindowData.CursorScreen.Bounds.Left * scale + (WindowData.CursorScreen.Bounds.Width / scale - ActualWidth) / 2;
+            //Left = screenCenter.X / (scale*2);
+            Top = WindowData.CursorScreen.Bounds.Top * scale + (WindowData.CursorScreen.Bounds.Height / scale - ActualHeight) / 2;
         }
 
-        public void Run(int direction)
-        {   
+        public void SelectWindow(int direction)
+        {
 
             if (Visibility == Visibility.Visible)
             {
+                CenterWindow();
                 ChangeSelection(direction);
                 return;
             }
@@ -201,17 +204,18 @@ namespace WinTabberUI
             var currentApplication = WindowManager
                 .GetCurrentApplication();
 
-            if(currentApplication is null)
+            if (currentApplication is null)
             {
                 return;
             }
 
-            var windows = currentApplication.GetWindows().ToList();
+            var windows = currentApplication.GetWindows2().ToList();
+            WindowData.SelectedIndex = -1;
             WindowData.WindowItems = windows
                 .Select(w => new WindowItem(w))
                 .ToArray()
                 ?? Array.Empty<WindowItem>();
-            if(windows.Count > 0)
+            if (windows.Count > 0)
             {
                 WindowData.SelectedIndex = 0;
             }
@@ -221,7 +225,7 @@ namespace WinTabberUI
             Focus();
             Activate();
             TabListView.Focus();
-            
+
         }
 
         private void ChangeSelection(int direction)
@@ -231,18 +235,227 @@ namespace WinTabberUI
 
         private void TabListView_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
         {
+            var lv = TabListView;
+            lv.Focus();
+            FocusManager.SetIsFocusScope(lv, true);
+            //var childCount = lv.Items.Count;
+            //var containers = Enumerable.Range(0, childCount).Select(i => (lv.Items[i], lv.ItemContainerGenerator.ContainerFromIndex(i) as Visual)).ToArray();
+            //var coords = containers.Select(container => (container.Item1, container.Item2, container.Item2?.TransformToVisual(lv).Transform(new Point(0, 0)))).ToArray();
+
+            //var zipped = Enumerable.Range(0, childCount).Select(i => (lv.Items[i], containers[i], coords[i])).ToArray();
+            ////FocusManager.
+            //var currentCoords = coords[lv.SelectedIndex].Item3;
+            ///lv.Focus();
+            //e.Handled = true;
+            if(!new Key[] { Key.Down, Key.Up, Key.Left, Key.Right}.Contains(e.SystemKey))
+            {
+                return;
+            }
+            var infos = new List<WindowTileInfo>(lv.Items.Count);
+            for (int i = 0; i < lv.Items.Count; i++)
+            {
+
+                var tile = GetTile(i);
+
+                //if(tile.Location.Y != selectedTile.Location.Y)
+                //{
+                //    continue;
+                //}
+                //var distance = (int)(dir * (tile.Location.X - selectedTile.Location.X));
+                //if (distance < 0)
+                //{
+                //    distance *= lv.Items.Count * -100;
+                //}
+                //tile.Distance = distance;
+
+                infos.Add(tile);
+            }
+            var tileGrid = WindowTileGrid.Create(infos);
             if (e.SystemKey == Key.Down)
             {
-                Dispatcher.Invoke(() => ChangeSelection(1));
+                tileGrid.MoveDown();
+                var next = tileGrid.SelectedItem;
+
+                lv.SelectedItem = next;
+                //Dispatcher.Invoke(() => ChangeSelection(1));
                 e.Handled = true;
             }
             else if (e.SystemKey == Key.Up)
             {
-                Dispatcher.Invoke(() => ChangeSelection(-1));
+                tileGrid.MoveUp();
+                var next = tileGrid.SelectedItem;
+                lv.SelectedItem = next;
                 e.Handled = true;
+            }
+            else if (e.SystemKey == Key.Left)
+            {
+                tileGrid.MoveLeft();
+                var next = tileGrid.SelectedItem;
+                lv.SelectedItem = next;
+                e.Handled = true;
+            }
+            else if (e.SystemKey == Key.Right)
+            {
+                tileGrid.MoveRight();
+                var next = tileGrid.SelectedItem;
+                lv.SelectedItem = next;
+                e.Handled = true;
+                //lv.MoveFocus(new TraversalRequest(FocusNavigationDirection.Right));
+                //MoveFocus(new TraversalRequest(FocusNavigationDirection.Next));
+                ////e.Handled = true;
+
             }
         }
 
+        private WindowTileInfo GetTile(int index)
+        {
+            var container = (Visual)TabListView.ItemContainerGenerator.ContainerFromIndex(index);
+            var item = WindowData.WindowItems[index];
+            var location = container.TransformToVisual(TabListView).Transform(new Point(0, 0));
+
+            return new WindowTileInfo
+            {
+                Container = container,
+                WindowItem = item,
+                Location = location,
+                IsSelected = index == TabListView.SelectedIndex,
+                Index = index
+            };
+        }
+
+        public static (WindowTileInfo[][] grid, int SelectedX, int SelectedY) ToGrid(IEnumerable<WindowTileInfo> items)
+        {
+            if (items == null) throw new ArgumentNullException(nameof(items));
+
+            // Collect unique X and Y coordinates, sorted for consistent order
+            var xs = items.Select(i => i.Location.X).Distinct().OrderBy(x => x).ToList();
+            var ys = items.Select(i => i.Location.Y).Distinct().OrderBy(y => y).ToList();
+
+            int cols = xs.Count;
+            int rows = ys.Count;
+            int selectedX = 0;
+            int selectedY = 0;
+            // Create a 2D array with [row, column] indexing
+            var grid = new WindowTileInfo[rows][];
+            for(int i = 0; i < rows; i++)
+            {
+                grid[i] = new WindowTileInfo[cols];
+            }
+            // Build lookup for coordinate to index
+            var xIndex = xs.Select((x, i) => (x, i)).ToDictionary(t => t.x, t => t.i);
+            var yIndex = ys.Select((y, i) => (y, i)).ToDictionary(t => t.y, t => t.i);
+
+            // Place items into their appropriate cells
+            foreach (var item in items)
+            {
+                int col = xIndex[item.Location.X];
+                int row = yIndex[item.Location.Y];
+                grid[row][col] = item;
+                if (item.IsSelected)
+                {
+                    selectedX = col;
+                    selectedY = row;
+                }
+            }
+
+            for(int i = 0; i < rows; i++)
+            {
+                var realLength = Array.IndexOf(grid[i], null);
+                if(realLength >= 0)
+                {
+                    Array.Resize(ref grid[i], realLength);
+                    Debug.WriteLine($"row {i} length {grid[i].Length}");
+                }
+            }
+            return (grid, selectedX, selectedY);
+        }
+
+        private object GetNearestX(int dir)
+        {
+            var lv = TabListView;
+            //lv.Focus();
+            //FocusManager.SetIsFocusScope(lv, true);
+            Debug.WriteLine($"dir: {dir}");
+            //var selectedTile = GetTile(WindowData.SelectedIndex);
+            var infos = new List<WindowTileInfo>(lv.Items.Count);
+            for (int i = 0; i < lv.Items.Count; i++)
+            {
+
+                var tile = GetTile(i);
+
+                //if(tile.Location.Y != selectedTile.Location.Y)
+                //{
+                //    continue;
+                //}
+                //var distance = (int)(dir * (tile.Location.X - selectedTile.Location.X));
+                //if (distance < 0)
+                //{
+                //    distance *= lv.Items.Count * -100;
+                //}
+                //tile.Distance = distance;
+
+                infos.Add(tile);
+            }
+
+            foreach (var s in infos)
+            {
+                Debug.WriteLine(s.ToString());
+            }
+
+            var (grid, selectedX, selectedY) = ToGrid(infos);
+
+            var selectedColumnLength = grid.Length;
+            var selectedRowLength = grid[selectedY].Length;
+            var nextX = selectedX;
+            var nextY = selectedY;
+            if (dir == 1)
+            {
+                Debug.WriteLine($"current row length = {selectedRowLength}");
+                nextX = (nextX + 1) % selectedRowLength;
+                if(nextX == 0)
+                {
+                    nextY = (nextY + 1) % selectedColumnLength;
+                }
+            }
+            else
+            {
+                nextX -= 1;
+                if (nextX < 0)
+                {
+                    nextX = selectedRowLength - 1;
+                    nextY = (nextY - 1);
+                    if(nextY  < 0)
+                    {
+                        nextY = 0;
+                    }
+                }
+            }
+            var nextItem = grid[nextY][nextX]?.WindowItem; 
+            Debug.WriteLine($"Current {selectedX}, {selectedY}");
+            Debug.WriteLine($"Next {nextX}, {nextY}");
+            Debug.WriteLine($"Next item {nextItem}");
+            return nextItem;
+
+
+
+            //var childCount = lv.Items.Count;
+            //var containers = Enumerable.Range(0, childCount).Select(i => (lv.Items[i], lv.ItemContainerGenerator.ContainerFromIndex(i) as Visual)).ToArray();
+            //var coords = containers.Select(container => (container.Item1, container.Item2, container.Item2?.TransformToVisual(lv).Transform(new Point(0, 0)))).Where(x => x.Item3 != null).ToArray();
+
+            //var zipped = Enumerable.Range(0, childCount).Select(i => (lv.Items[i], containers[i], coords[i])).ToArray();
+            //var currentCoords = coords[lv.SelectedIndex].Item3;
+            //var zz = coords.Where(other => other.Item3.Value.X != currentCoords.Value.X && other.Item3.Value.Y == currentCoords.Value.Y);
+            //var sorted = zz.OrderBy(other => dir * (other.Item3.Value.X - currentCoords.Value.X));
+            //foreach(var s in sorted)
+            //{
+            //    Debug.WriteLine("{4}: {0} - {1},{2} - score {3} ", ((WindowItem)s.Item1).Handle, s.Item3.Value.X, s.Item3.Value.Y, dir * (s.Item3.Value.X - currentCoords.Value.X), lv.Items.IndexOf(s.Item1));
+            //}
+            //var next = sorted.First();
+
+
+            //return next.Item1;
+
+        }
         private void TabListView_MouseDown(object sender, MouseButtonEventArgs e)
         {
             SwitchWindowAndClose();
@@ -254,15 +467,6 @@ namespace WinTabberUI
             {
                 (e.Source as System.Windows.Controls.ListView)?.ScrollIntoView(e.AddedItems[0]);
             }
-            //var hnd = NativeMethods.GetForegroundWindow();
-            //var hnd = new WindowInteropHelper(this).Handle;
-
-            //if(e.AddedItems.Count > 0)
-            //{
-            //    var h = e.AddedItems.OfType<WindowItem>().FirstOrDefault()?.WindowRef.Handle;
-            //    Thumb.SetSourceWindow((nint)h);
-
-            //}
         }
     }
 }

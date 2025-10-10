@@ -1,4 +1,6 @@
 ﻿using System.Diagnostics;
+using System.Runtime.Caching;
+using WinTabber.API.CircularBuffer;
 using WinTabber.Interop;
 
 namespace WinTabber.API
@@ -55,6 +57,31 @@ namespace WinTabber.API
             {
                 throw new InvalidOperationException("The specified window is not owned by this window manager.");
             }
+        }
+
+        private MemoryCache _processWindowCache = new MemoryCache("processWindows");
+        private CircularBuffer<int> _windowActivationHistory = new CircularBuffer<int>(100);
+
+        public void RegisterForegroundWindowChanged(int handle)
+        {
+            _windowActivationHistory.PushFront(handle);
+        }
+
+        internal Dictionary<int, int> GetWindowOrder(IEnumerable<int> handles)
+        {
+            var query = new HashSet<int>(handles);
+            List<KeyValuePair<int, int>> pairs = new();
+            int i = 0;
+            foreach (var handle in _windowActivationHistory)
+            {
+                if(query.Contains(handle))
+                {
+                    pairs.Add(new(handle, i++));
+                    query.Remove(handle);
+                }
+            }
+
+            return new Dictionary<int, int>(pairs);
         }
 
         public void EndPreview()

@@ -1,14 +1,20 @@
-﻿using System;
+﻿using Microsoft.Win32.SafeHandles;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Drawing;
+using System.Globalization;
 using System.Linq;
+using System.Reactive.Linq;
+using System.Reactive.Subjects;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Dwm;
+using Windows.Win32.UI.Accessibility;
 using Windows.Win32.UI.WindowsAndMessaging;
 
 namespace WinTabber.Interop
@@ -114,6 +120,12 @@ namespace WinTabber.Interop
             throw new InvalidOperationException("Could not determine process");
         }
 
+        public unsafe int GetWindowProcessId(int handle)
+        {
+            uint pid = 0;
+            PInvoke.GetWindowThreadProcessId(new HWND(handle), &pid);
+            return (int)pid;
+        }
         public unsafe Process GetWindowProcess(int handle)
         {
             uint pid = 0;
@@ -149,6 +161,105 @@ namespace WinTabber.Interop
         public IEnumerable<int> EnumerateProcessWindowHandles(Process process)
         {
             return NativeMethods.EnumerateProcessWindowHandles(process);
+        }
+
+        delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
+
+
+        public Hook HookForegroundChangeEvent()
+        {        
+            return Hook.Create();
+        }
+
+        public class Hook : SafeHandleZeroOrMinusOneIsInvalid
+        {
+            private static readonly Subject<(int, long)> _subject = new Subject<(int, long)>();
+            private readonly HWINEVENTHOOK _hook;
+            private readonly GCHandle _procHandle;
+            private bool _disposed;
+            private static Hook? _instance;
+
+
+            private Hook() : base(true)
+            {
+                WINEVENTPROC del = new WINEVENTPROC(EventProc);
+                _procHandle = GCHandle.Alloc(EventProc);
+                //_handler = handler;
+                _hook = PInvoke.SetWinEventHook(
+                    PInvoke.EVENT_SYSTEM_FOREGROUND,
+                    PInvoke.EVENT_SYSTEM_FOREGROUND,
+                    new HMODULE(Process.GetCurrentProcess().MainModule?.BaseAddress ?? -1),
+                    EventProc,
+                    0,
+                    0,
+                    PInvoke.WINEVENT_OUTOFCONTEXT);
+
+                if (_hook.IsNull)
+                {
+                    //_procHandle.Free();
+                    ThrowLastUnmanagedErrorAsException();
+                }
+            }
+
+            public IObservable<(int, long)> Events
+            {
+                get
+                {
+                    Create();
+
+                    return _subject.AsObservable();
+                }
+            }
+            protected static void ThrowLastUnmanagedErrorAsException()
+            {
+                var errorCode = Marshal.GetLastWin32Error();
+                throw new Win32Exception(errorCode);
+            }
+            private unsafe static void EventProc(HWINEVENTHOOK hWinEventHook, uint eventId, HWND hwnd, int idObject, int idChild, uint idEventThread, uint dwmsEventTime)
+            {
+                _subject.OnNext(((int)hwnd.Value, idChild));
+            }
+            internal static Hook Create()
+            {
+                if(_instance is null)
+                {
+                    _instance = new Hook();
+                }
+
+                return _instance;
+            }
+
+            public static void Release()
+            {
+                _instance?.Dispose();
+                _instance = null;
+            }
+            public void Dispose()
+            {
+
+            }
+
+            protected override bool ReleaseHandle()
+            {
+                if (_disposed)
+                {
+                    return true;
+                }
+
+                var ret = PInvoke.UnhookWinEvent(_hook);
+                if (_procHandle.IsAllocated)
+                {
+                    _procHandle.Free();
+                }
+                _disposed = true;
+
+                return ret;
+            }
+
+            ~Hook()
+            {
+                Dispose();
+            }
         }
 
 

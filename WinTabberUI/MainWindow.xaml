@@ -6,101 +6,49 @@
         xmlns:local="clr-namespace:WinTabberUI"
         mc:Ignorable="d"
         Title="MainWindow"
-        WindowStyle="None"
         WindowStartupLocation="CenterScreen"
-        BorderThickness="0"
-        Padding="0"
-        Topmost="True"
-        Margin="0"
-        AllowsTransparency="True"
         Visibility="Hidden"
         Name="Foo"
-        IsHitTestVisible="True"
-        Background="Transparent"
-        KeyDown="TabListView_KeyDown"
-        SizeToContent="WidthAndHeight"
         >
     <Window.Resources>
-        <Style x:Key="FocusVisual">
-            <Setter Property="Control.Template">
-                <Setter.Value>
-                    <ControlTemplate>
-                        <Rectangle Margin="2" SnapsToDevicePixels="true" Stroke="{DynamicResource {x:Static SystemColors.ControlTextBrushKey}}" StrokeThickness="1" StrokeDashArray="1 2"/>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-        </Style>
+        
     </Window.Resources>
-    <Border BorderThickness="1" CornerRadius="20" Background="{DynamicResource {x:Static SystemColors.ControlDarkDarkBrushKey}}" Padding="40" >
-            <ListView x:Name="TabListView" Margin="0" SelectionMode="Single" BorderThickness="0" Focusable="True"                      
-                  KeyDown="TabListView_KeyDown"  IsHitTestVisible="True"  ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                      MouseDown="TabListView_MouseDown"
-                  SelectionChanged="TabListView_SelectionChanged"
-                  ItemsSource="{Binding WindowItems}" 
-                  SelectedIndex="{Binding Mode=TwoWay, Path=SelectedIndex}" 
-                  Background="Transparent" Foreground="White">
-                <ListView.ItemsPanel>
-                    <ItemsPanelTemplate>
-                        <WrapPanel Orientation="Horizontal" ItemHeight="{Binding MaxItemHeight}" ItemWidth="{Binding MaxItemHeight}" ScrollViewer.HorizontalScrollBarVisibility="Disabled" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-                    </ItemsPanelTemplate>
-                </ListView.ItemsPanel>
-                <ListView.ItemContainerStyle>
-                    <Style TargetType="ListViewItem">
-                    <Setter Property="FocusVisualStyle" Value="{StaticResource FocusVisual}"/>
-                    <Setter Property="Padding" Value="4"/>
-                        <Setter Property="Margin" Value="20"/>
-                        <Setter Property="Foreground" Value="Black"/>
-                        <Style.Triggers>
-                            <Trigger Property="IsSelected" Value="True">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListViewItem">
-                                            <Border Background="#aa444444" CornerRadius="5" Padding="15">
-                                                <ContentPresenter/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Setter Property="Foreground" Value="White"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="False">
-                                <Setter Property="Template">
-                                    <Setter.Value>
-                                        <ControlTemplate TargetType="ListViewItem">
-                                            <Border Background="Transparent" CornerRadius="5" Padding="15" Margin="0">
-                                                <ContentPresenter/>
-                                            </Border>
-                                        </ControlTemplate>
-                                    </Setter.Value>
-                                </Setter>
-                                <Setter Property="Foreground" Value="White"/>
-                            </Trigger>
-                            <Trigger Property="IsSelected" Value="False">
-                                <Setter Property="Foreground" Value="White"/>
-                            </Trigger>
-                        </Style.Triggers>
-                    </Style>
-                </ListView.ItemContainerStyle>
-                <ListView.ItemTemplate>
-                    <DataTemplate>
-                        <Grid Margin="10">
-                            <Grid.RowDefinitions>
-                                <RowDefinition Height="auto"/>
-                                <RowDefinition Height="*"/>
-                            </Grid.RowDefinitions>
-                            <TextBlock Text="{Binding Title}" FontSize="16" Padding="5" Grid.Row="0" TextWrapping="NoWrap" MaxWidth="400" TextTrimming="CharacterEllipsis" />
-                            <Viewbox Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Center" Stretch="Uniform">
-                                <!--<Image>
-                                    <Image.Source>
-                                        <BitmapImage UriSource="C:\Users\kir\Downloads\image.png"/>
-                                    </Image.Source>
-                                </Image>-->
-                                <!--<local:ThumbnailContainer DataContext="{Binding Path=.}" />-->
+    <Border BorderThickness="1" CornerRadius="20" Background="Transparent" Padding="20" >
+        <ListView 
+                x:Name="TabListView" 
+                SelectionMode="Single" 
+                PreviewMouseDown="TabListView_MouseDown"
+                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+                SelectionChanged="TabListView_SelectionChanged"
+                PreviewKeyDown="TabListView_KeyDown"
+                ItemsSource="{Binding WindowItems}" 
+                SelectedIndex="{Binding Mode=TwoWay, Path=SelectedIndex}">
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <WrapPanel 
+                        Orientation="Horizontal" 
+                        KeyboardNavigation.DirectionalNavigation="None"
+                        ItemWidth="{Binding MaxItemHeight}" 
+                        ScrollViewer.HorizontalScrollBarVisibility="Disabled" 
+                        VerticalAlignment="Center" 
+                        HorizontalAlignment="Center"
+                        />
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+            <ListView.ItemTemplate>
+                <DataTemplate>
+                    <Grid Margin="10">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="auto"/>
+                            <RowDefinition Height="*"/>
+                        </Grid.RowDefinitions>
+                        <TextBlock Text="{Binding Title}" FontSize="16" Margin="0 0 0 10" Padding="0" Grid.Row="0" TextWrapping="NoWrap" MaxWidth="400" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <Viewbox Grid.Row="1"  HorizontalAlignment="Center" VerticalAlignment="Top" Stretch="Uniform">
                             <local:WindowThumbnail Source="{Binding Path=Handle}" />
                         </Viewbox>
-                        </Grid>
-                    </DataTemplate>
-                </ListView.ItemTemplate>
-            </ListView>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
     </Border>
 </Window>

@@ -21,6 +21,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\WinTabber.API\WinTabber.API.csproj" />
+    <ProjectReference Include="..\WinTabber.Events\WinTabber.Events.csproj" />
   </ItemGroup>
 
   <ItemGroup>

@@ -16,6 +16,27 @@ namespace WinTabber.API
                 .ToArray();
         }
 
+
+
+        public WindowRef[] GetWindows2()
+        {
+            //var fgWindow = WindowManager.Interop.GetForegroundWindowHandle();
+            var processes = Process.GetProcessesByName(ProcessName)
+                .SelectMany(process => NewWindowProcessRef(process).GetWindows())
+                .Where(ValidateWindow) // Filter out windows without titles (often invisible or non-interactive windows)
+                                       //.OrderBy(w => w.Handle == fgWindow)
+                                       //.ThenBy(w => w.Handle)
+                .ToArray();
+
+            var lookup = WindowManager.GetWindowOrder(processes.Select(processes => processes.Handle));
+
+            var x = processes
+                .OrderBy(w => lookup.TryGetValue(w.Handle, out var idx) ? idx : int.MaxValue)
+                .ThenBy(w => w.Handle) // Then by handle to ensure consistent ordering
+                .ToArray();
+            //var zz = string.Join('|', x.Select(z => z.Title + " " + z.Handle));
+            return x;
+        }
         private static bool ValidateWindow(WindowRef window)
         {
             return window.Title != string.Empty;
@@ -23,7 +44,7 @@ namespace WinTabber.API
 
         protected override void AssertOwnsWindow(WindowRef window)
         {
-            if(window.Process.Application != this)
+            if (window.Process.Application != this)
             {
                 throw new InvalidOperationException("The specified window is not owned by this application.");
             }
