@@ -4,51 +4,53 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WinTabberUI"
+        xmlns:chrome="clr-namespace:WinTabberUI.Chrome"
         mc:Ignorable="d"
         Title="MainWindow"
         WindowStartupLocation="CenterScreen"
         Visibility="Hidden"
+        FocusManager.FocusedElement="{Binding ElementName=TabListView}"
+        Focusable="true"
         Name="Foo"
         >
-    <Window.Resources>
-        
-    </Window.Resources>
-    <Border BorderThickness="1" CornerRadius="20" Background="Transparent" Padding="20" >
-        <ListView 
-                x:Name="TabListView" 
-                SelectionMode="Single" 
-                PreviewMouseDown="TabListView_MouseDown"
-                ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-                SelectionChanged="TabListView_SelectionChanged"
-                PreviewKeyDown="TabListView_KeyDown"
-                ItemsSource="{Binding WindowItems}" 
-                SelectedIndex="{Binding Mode=TwoWay, Path=SelectedIndex}">
-            <ListView.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <WrapPanel 
+    <chrome:AcrylicChrome.AcrylicChrome>
+        <chrome:AcrylicChrome AccentState="ACCENT_ENABLE_ACRYLICBLURBEHIND" CornerPreference="DWMWCP_ROUND" />
+    </chrome:AcrylicChrome.AcrylicChrome>
+    <ListView 
+        x:Name="TabListView" 
+        SelectionMode="Single"
+        PreviewMouseDown="TabListView_MouseDown"
+        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+        SelectionChanged="TabListView_SelectionChanged"
+        PreviewKeyDown="TabListView_KeyDown"
+        PreviewKeyUp="TabListView_PreviewKeyUp"
+        ItemsSource="{Binding WindowItems}" 
+        SelectedIndex="{Binding Mode=TwoWay, Path=SelectedIndex}">
+        <ListView.ItemsPanel>
+            <ItemsPanelTemplate>
+                <WrapPanel 
                         Orientation="Horizontal" 
                         KeyboardNavigation.DirectionalNavigation="None"
-                        ItemWidth="{Binding MaxItemHeight}" 
+                        ItemWidth="{Binding  Path=MaxItemHeight, RelativeSource={RelativeSource AncestorType=Window}}" 
                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" 
                         VerticalAlignment="Center" 
                         HorizontalAlignment="Center"
                         />
-                </ItemsPanelTemplate>
-            </ListView.ItemsPanel>
-            <ListView.ItemTemplate>
-                <DataTemplate>
-                    <Grid Margin="10">
-                        <Grid.RowDefinitions>
-                            <RowDefinition Height="auto"/>
-                            <RowDefinition Height="*"/>
-                        </Grid.RowDefinitions>
-                        <TextBlock Text="{Binding Title}" FontSize="16" Margin="0 0 0 10" Padding="0" Grid.Row="0" TextWrapping="NoWrap" MaxWidth="400" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                        <Viewbox Grid.Row="1"  HorizontalAlignment="Center" VerticalAlignment="Top" Stretch="Uniform">
-                            <local:WindowThumbnail Source="{Binding Path=Handle}" />
-                        </Viewbox>
-                    </Grid>
-                </DataTemplate>
-            </ListView.ItemTemplate>
-        </ListView>
-    </Border>
+            </ItemsPanelTemplate>
+        </ListView.ItemsPanel>
+        <ListView.ItemTemplate>
+            <DataTemplate>
+                <Grid Margin="10">
+                    <Grid.RowDefinitions>
+                        <RowDefinition Height="auto"/>
+                        <RowDefinition Height="*"/>
+                    </Grid.RowDefinitions>
+                    <TextBlock Text="{Binding Title}" FontSize="16" Margin="0 0 0 10" Padding="0" Grid.Row="0" TextWrapping="NoWrap" MaxWidth="400" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <Viewbox Grid.Row="1"  HorizontalAlignment="Center" VerticalAlignment="Top" Stretch="Uniform">
+                        <local:WindowThumbnail Source="{Binding Path=Handle}" />
+                    </Viewbox>
+                </Grid>
+            </DataTemplate>
+        </ListView.ItemTemplate>
+    </ListView>
 </Window>

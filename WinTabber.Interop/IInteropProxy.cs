@@ -8,8 +8,8 @@ public interface IInteropProxy
     void BringWindowToFront(int handle);
     IEnumerable<int> EnumerateProcessWindowHandles(Process process);
     void ForceForeground(int hWnd);
-    Process GetForegroundProcess();
-    Process GetWindowProcess(int handle);
+    Process? GetForegroundProcess();
+    Process? GetWindowProcess(int handle);
     int GetWindowProcessId(int handle);
 
     string GetWindowTitle(int hWnd);
@@ -31,5 +31,6 @@ public interface IInteropProxy
     /// Deactivates the live preview
     /// </summary>
     public void DeactivateLivePreview();
-
+    WindowPlacement.WindowState GetWindowPlacement(int handle);
+    void SetWindowText(int handle, string title);
 }

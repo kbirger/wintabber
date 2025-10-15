@@ -10,3 +10,8 @@ DWM_TNP_VISIBLE
 DWM_TNP_SOURCECLIENTAREAONLY
 DwmQueryThumbnailSourceSize
 DwmIsCompositionEnabled
+DwmSetWindowAttribute
+DWM_WINDOW_CORNER_PREFERENCE
+SystemParametersInfoForDpi
+SystemParametersInfoA
+SystemParametersInfoW

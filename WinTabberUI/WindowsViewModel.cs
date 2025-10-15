@@ -6,103 +6,132 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
+using WinTabber.API;
+using WinTabber.Interop;
 
-namespace WinTabberUI
+namespace WinTabberUI;
+
+public class WindowsViewModel : DependencyObject, INotifyPropertyChanged
 {
-    public class WindowsViewModel : DependencyObject, INotifyPropertyChanged
+
+    //public event PropertyChangedEventHandler? PropertyChanged;
+    public WindowManager WindowManager { get; } = new(new InteropProxy());
+
+
+    private System.Drawing.Point Cursor => System.Windows.Forms.Control.MousePosition;
+
+    public Screen CursorScreen => Screen.FromPoint(Cursor);
+
+    public System.Drawing.Point CenterScreen => new System.Drawing.Point(CursorScreen.Bounds.X + CursorScreen.Bounds.Width / 2, CursorScreen.Bounds.Y + CursorScreen.Bounds.Height / 2);
+
+    public void Activate()
     {
+        var currentApplication = WindowManager.GetCurrentApplication();
 
-        //public event PropertyChangedEventHandler? PropertyChanged;
-
-
-        private System.Drawing.Point Cursor => System.Windows.Forms.Control.MousePosition;
-
-        public Screen CursorScreen => Screen.FromPoint(Cursor);
-
-        public System.Drawing.Point CenterScreen => new System.Drawing.Point(CursorScreen.Bounds.X + CursorScreen.Bounds.Width / 2, CursorScreen.Bounds.Y + CursorScreen.Bounds.Height / 2);
-        public WindowItem[] WindowItems
+        if (currentApplication is null)
         {
-            get
-            {
-                return (WindowItem[])GetValue(_windowItems);
-            }
-
-            set
-            {
-                SetValue(_windowItems, value);
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(WindowItems)));
-            }
+            WindowItems = [];
+            return;
         }
 
-        private DependencyProperty _maxItemHeight = DependencyProperty.Register(
-            "MaxItemHeight",
-            typeof(double),
-            typeof(WindowsViewModel),
-            new PropertyMetadata(400.0));
+        var windows = currentApplication.GetWindows2().ToList();
+        SelectedIndex = -1;
+        WindowItems = windows
+            .Select(w => new WindowItem(w))
+            .ToArray()
+            ?? Array.Empty<WindowItem>();
 
-        private DependencyProperty _selectedItem = DependencyProperty.Register(
-            "SelectedItem",
-            typeof(WindowItem),
-            typeof(WindowsViewModel),
-            new PropertyMetadata(null));
-        private DependencyProperty _selectedIndex = DependencyProperty.Register(
-            "SelectedIndex",
-            typeof(int),
-            typeof(WindowsViewModel),
-            new PropertyMetadata(-1));
-
-        private DependencyProperty _windowItems = DependencyProperty.Register(
-            "WindowItems",
-            typeof(WindowItem[]),
-            typeof(WindowsViewModel),
-            new PropertyMetadata(Array.Empty<WindowItem>()));
-
-        public event PropertyChangedEventHandler? PropertyChanged;
-
-        public double MaxItemHeight
+        if (windows.Count > 0)
         {
-            get { return (double)GetValue(_maxItemHeight); }
-            set
-            {
-                SetValue(_maxItemHeight, value);
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(MaxItemHeight)));
-            }
+            SelectedIndex = 0;
+        }
+    }
+
+    internal void Deactivate()
+    {
+        WindowItems = [];
+        SelectedItem = null;
+    }
+
+    public WindowItem[] WindowItems
+    {
+        get
+        {
+            return (WindowItem[])GetValue(_windowItems);
         }
 
-        public WindowItem SelectedItem
+        set
         {
-            get { return (WindowItem)GetValue(_selectedItem); }
-            set
+            SetValue(_windowItems, value);
+            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(WindowItems)));
+        }
+    }
+
+
+
+    private DependencyProperty _selectedItem = DependencyProperty.Register(
+        "SelectedItem",
+        typeof(WindowItem),
+        typeof(WindowsViewModel),
+        new PropertyMetadata(null));
+    private DependencyProperty _selectedIndex = DependencyProperty.Register(
+        "SelectedIndex",
+        typeof(int),
+        typeof(WindowsViewModel),
+        new PropertyMetadata(-1));
+
+    private DependencyProperty _windowItems = DependencyProperty.Register(
+        "WindowItems",
+        typeof(WindowItem[]),
+        typeof(WindowsViewModel),
+        new PropertyMetadata(Array.Empty<WindowItem>()));
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+
+
+    public void PreviewSelectedWindow()
+    {
+        SelectedItem?.WindowRef.Preview(SelectedItem.Handle);
+    }
+
+    public void EndPreview()
+    {
+        WindowManager.EndPreview();
+    }
+
+    public WindowItem SelectedItem
+    {
+        get { return (WindowItem)GetValue(_selectedItem); }
+        set
+        {
+            if (value != SelectedItem)
             {
-                if (value != SelectedItem)
-                {
-                    SetValue(_selectedItem, value);
-                    SetValue(_selectedIndex, Array.IndexOf(WindowItems, value));
-                    PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedItem)));
-                }
+                SetValue(_selectedItem, value);
+                SetValue(_selectedIndex, Array.IndexOf(WindowItems, value));
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedItem)));
             }
         }
-        public int SelectedIndex
+    }
+    public int SelectedIndex
+    {
+        get { return (int)GetValue(_selectedIndex); }
+        set
         {
-            get { return (int)GetValue(_selectedIndex); }
-            set
+            if (value >= WindowItems.Length)
             {
-                if (value >= WindowItems.Length)
-                {
-                    value = 0;
-                }
-                else if (value < 0)
-                {
-                    value = WindowItems.Length - 1;
-                }
-
-                if(value != SelectedIndex)
-                {
-                    SetValue(_selectedIndex, value);
-                    SetValue(_selectedItem, WindowItems[value]);
-                }
-
+                value = 0;
             }
+            else if (value < 0)
+            {
+                value = WindowItems.Length - 1;
+            }
+
+            if(value != SelectedIndex)
+            {
+                SetValue(_selectedIndex, value);
+                SetValue(_selectedItem, WindowItems[value]);
+            }
+
         }
     }
 }

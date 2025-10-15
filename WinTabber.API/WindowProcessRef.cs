@@ -5,36 +5,35 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WinTabber.API
+namespace WinTabber.API;
+
+public class WindowProcessRef(Process process, ApplicationRef application) : WindowOwner(application.WindowManager)
 {
-    public class WindowProcessRef(Process process, ApplicationRef application) : WindowOwner(application.WindowManager)
+    public Process Process { get; } = process;
+
+    public ApplicationRef Application { get; } = application;
+
+    internal WindowRef NewWindow(int handle)
     {
-        public Process Process { get; } = process;
+        return new WindowRef(handle, this);
+    }
 
-        public ApplicationRef Application { get; } = application;
+    public override WindowRef[] GetWindows()
+    {
+        var fgWindow = WindowManager.Interop.GetForegroundWindowHandle();
+        return WindowManager.Interop.EnumerateProcessWindowHandles(Process)
+            .OrderBy(handle => handle != fgWindow)
+            .ThenBy(handle => handle)
+            .Select(NewWindow)
+            .Where(window => window.Title != string.Empty) // Filter out windows without titles (often invisible or non-interactive windows)
+            .ToArray();
+    }
 
-        internal WindowRef NewWindow(int handle)
-        {
-            return new WindowRef(handle, this);
-        }
-
-        public override WindowRef[] GetWindows()
-        {
-            var fgWindow = WindowManager.Interop.GetForegroundWindowHandle();
-            return WindowManager.Interop.EnumerateProcessWindowHandles(Process)
-                .OrderBy(handle => handle != fgWindow)
-                .ThenBy(handle => handle)
-                .Select(NewWindow)
-                .Where(window => window.Title != string.Empty) // Filter out windows without titles (often invisible or non-interactive windows)
-                .ToArray();
-        }
-
-        protected override void AssertOwnsWindow(WindowRef window)
-        {
-            if(window.Process != this)
-                            {
-                throw new InvalidOperationException("The specified window is not owned by this process.");
-            }
+    protected override void AssertOwnsWindow(WindowRef window)
+    {
+        if(window.Process != this)
+                        {
+            throw new InvalidOperationException("The specified window is not owned by this process.");
         }
     }
 }

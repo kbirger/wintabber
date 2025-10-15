@@ -4,15 +4,15 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WinTabber.Events
+namespace WinTabber.Events;
+
+public enum EventType
 {
-    public enum EventType
-    {
-        NextWindow,
-        PreviousWindow,
-        AppHide,
-        MinimizeWindow,
-        MaximizeWindow,
-        ForegroundChanged
-    }
+    NextWindow,
+    PreviousWindow,
+    AppHide,
+    MinimizeWindow,
+    MaximizeWindow,
+    ForegroundChanged,
+    DockWindow
 }
