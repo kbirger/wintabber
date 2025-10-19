@@ -1,14 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows;
 using System.Windows.Media;
 using WinTabber.API;
 
 namespace WinTabberUI;
 
-public class WindowItem
+public class WindowItem : INotifyPropertyChanged
 {
     public WindowItem(WindowRef windowRef)
     {
@@ -20,10 +22,44 @@ public class WindowItem
 
     public string ProcessName => WindowRef.Process.Process.ProcessName;
 
-    public string Title => WindowRef.Title;
+    public string Title
+    {
+        get
+        {
+            return WindowRef.Title;
+        }
+        set
+        {
+            WindowRef.SetTitle(value);
+            OnPropertyChanged(nameof(Title));
+        }
+    }
 
     public IntPtr Handle => WindowRef.Handle;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
+    private bool _isEditing = false;
+    public bool IsEditing
+    {
+        get => _isEditing;
+        set
+        {
+            if(_isEditing != value)
+            {
+                _isEditing = value;
+                OnPropertyChanged(nameof(IsEditing));
+            }
+        }
+    }
+
+    private void OnPropertyChanged(string propertyName)
+    {
+        PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
     //public ImageSource Icon { get; set; }
 
     public void Activate() => WindowRef.BringToFront();
+
+
 }

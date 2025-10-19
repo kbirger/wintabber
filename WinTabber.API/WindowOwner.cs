@@ -32,6 +32,10 @@ public abstract class WindowOwner
         var foregroundHandle = WindowManager.Interop.GetForegroundWindowHandle();
         var process = WindowManager.Interop.GetForegroundProcess();
 
+        if(process is null)
+        {
+            return null;
+        }
         return WindowManager.NewApplicationRef(process.ProcessName)
             .NewWindowProcessRef(process)
             .NewWindow(foregroundHandle);

@@ -5,6 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WinTabberUI"
         xmlns:chrome="clr-namespace:WinTabberUI.Chrome"
+         xmlns:fa="http://schemas.awesome.incremented/wpf/xaml/fontawesome.sharp"
         mc:Ignorable="d"
         Title="MainWindow"
         WindowStartupLocation="CenterScreen"
@@ -19,10 +20,10 @@
     <ListView 
         x:Name="TabListView" 
         SelectionMode="Single"
-        PreviewMouseDown="TabListView_MouseDown"
         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
         SelectionChanged="TabListView_SelectionChanged"
         PreviewKeyDown="TabListView_KeyDown"
+        MouseUp="TabListView_MouseDown"
         PreviewKeyUp="TabListView_PreviewKeyUp"
         ItemsSource="{Binding WindowItems}" 
         SelectedIndex="{Binding Mode=TwoWay, Path=SelectedIndex}">
@@ -40,13 +41,17 @@
         </ListView.ItemsPanel>
         <ListView.ItemTemplate>
             <DataTemplate>
-                <Grid Margin="10">
+                <Grid Margin="0" Background="#01000000" MouseUp="Grid_MouseUp">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <TextBlock Text="{Binding Title}" FontSize="16" Margin="0 0 0 10" Padding="0" Grid.Row="0" TextWrapping="NoWrap" MaxWidth="400" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                    <Viewbox Grid.Row="1"  HorizontalAlignment="Center" VerticalAlignment="Top" Stretch="Uniform">
+                    <!--<TextBlock Text="{Binding Title}" FontSize="16" Margin="0" Padding="0" Grid.Row="0" TextWrapping="NoWrap" MaxWidth="400" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                    <Button Style="{StaticResource HoverButton}" HorizontalAlignment="Right" Click="Button_Click" DataContext="{Binding Path=.}">
+                        <fa:IconBlock Icon="Pen"/>-->
+                    <!--</Button>-->
+                    <local:EditableTextBlock OriginalText="{Binding Path=Title}" IsEditing="{Binding Path=IsEditing, Mode=OneWayToSource}" TextChanged="EditableTextBlock_TextChanged" />
+                    <Viewbox Grid.Row="1"  HorizontalAlignment="Center" VerticalAlignment="Top" Stretch="Uniform" Margin="0 10 0 0">
                         <local:WindowThumbnail Source="{Binding Path=Handle}" />
                     </Viewbox>
                 </Grid>

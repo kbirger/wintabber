@@ -19,6 +19,14 @@ public class WindowRef(int handle, WindowProcessRef process) : IEquatable<Window
         }
     }
 
+    public string Class
+    {
+        get
+        {
+            return Process.WindowManager.Interop.GetClassName(Handle);
+        }
+    }
+
     public WindowProcessRef Process { get; } = process;
     public override bool Equals(object? obj)
     {
@@ -73,7 +81,12 @@ public class WindowRef(int handle, WindowProcessRef process) : IEquatable<Window
 
     public void SetTitle(string title)
     {
+        if(string.IsNullOrWhiteSpace(title))
+        {
+            return; // not allowed
+        }
         Process.WindowManager.Interop.SetWindowText(Handle, title);
+        Process.WindowManager.TitleStore.OverrideTitle(Handle, title);
     }
 
 

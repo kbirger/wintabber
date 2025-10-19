@@ -16,6 +16,7 @@ using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Dwm;
 using Windows.Win32.UI.Accessibility;
 using Windows.Win32.UI.WindowsAndMessaging;
+using static WinTabber.Interop.InteropProxy;
 using static WinTabber.Interop.WindowPlacement;
 
 namespace WinTabber.Interop;
@@ -27,11 +28,11 @@ public class InteropProxy : IInteropProxy
         var process = GetWindowProcess(handle);
         var processName = process.ProcessName;
         var hwnd = new HWND(handle);
-        if(processName == "devzenv")
+        if (processName == "devzenv")
         {
             SwitchToDevenv(process, handle);
         }
-        else if(UacHelper.IsProcessElevated(process.Id))
+        else if (UacHelper.IsProcessElevated(process.Id))
         {
             SwitchToWindowElevated(process, hwnd);
         }
@@ -107,7 +108,7 @@ public class InteropProxy : IInteropProxy
         var wp = new WINDOWPLACEMENT();
         var result = PInvoke.GetWindowPlacement(hwnd, ref wp);
 
-        var isMax = wp.showCmd == SHOW_WINDOW_CMD.SW_MAXIMIZE|| wp.showCmd == SHOW_WINDOW_CMD.SW_SHOWMAXIMIZED;
+        var isMax = wp.showCmd == SHOW_WINDOW_CMD.SW_MAXIMIZE || wp.showCmd == SHOW_WINDOW_CMD.SW_SHOWMAXIMIZED;
         if (isMax)
         {
             PInvoke.ShowWindowAsync(hwnd, SHOW_WINDOW_CMD.SW_RESTORE);
@@ -143,6 +144,7 @@ public class InteropProxy : IInteropProxy
         PInvoke.GetWindowThreadProcessId(new HWND(handle), &pid);
         return (int)pid;
     }
+
     public unsafe Process GetWindowProcess(int handle)
     {
         uint pid = 0;
@@ -183,131 +185,157 @@ public class InteropProxy : IInteropProxy
     delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
 
 
-    public Hook HookForegroundChangeEvent()
-    {        
-        return Hook.Create();
-    }
-
-    public class Hook : SafeHandleZeroOrMinusOneIsInvalid
+    public unsafe IObservable<ActiveWindowChangeData> ActiveWindowChangedEvents()
     {
-        private static readonly Subject<(int, long)> _subject = new Subject<(int, long)>();
-        private HWINEVENTHOOK _hook;
-        private readonly GCHandle _procHandle;
-        private bool _disposed;
-        private static Hook? _instance;
-        public IObservable<(int, long)> Events { get; private set; }
-
-        private unsafe Hook() : base(true)
+        return Observable.Create<ActiveWindowChangeData>(observer =>
         {
-            Events = Observable.Create<(int, long)>(observer =>
+            WINEVENTPROC callback = (hHook, type, hwnd, obj, idChild, threadId, time) =>
             {
-                var thread = new Thread(() =>
+                if (hwnd.IsNull)
                 {
-                    WINEVENTPROC callback = (hHook, type, hwnd, obj, idChild, threadId, time) =>
-                        observer.OnNext(((int)hwnd.Value, idChild));
+                    return;
+                }
+                observer.OnNext(new ActiveWindowChangeData(((nint)hwnd.Value).ToInt32(), idChild, threadId, time));
+            };
+            var procHandle = GCHandle.Alloc(callback);
 
-                    _hook = PInvoke.SetWinEventHook(
-                        PInvoke.EVENT_SYSTEM_FOREGROUND,
-                        PInvoke.EVENT_SYSTEM_FOREGROUND,
-                        new HMODULE(Process.GetCurrentProcess().MainModule?.BaseAddress ?? -1),
-                        EventProc,
-                        0,
-                        0,
-                        PInvoke.WINEVENT_OUTOFCONTEXT);
-
-                    Application.Run();
-                    ReleaseHandle();
-                    observer.OnCompleted();
-                });
-
-                thread.SetApartmentState(ApartmentState.STA);
-                thread.Start();
-
-                return () =>
-                {
-                    if (thread.IsAlive)
-                        thread.Interrupt();
-                };
-            });
-            WINEVENTPROC del = new WINEVENTPROC(EventProc);
-            _procHandle = GCHandle.Alloc(EventProc);
-            //_handler = handler;
-            _hook = PInvoke.SetWinEventHook(
+            var hook = PInvoke.SetWinEventHook(
                 PInvoke.EVENT_SYSTEM_FOREGROUND,
                 PInvoke.EVENT_SYSTEM_FOREGROUND,
                 new HMODULE(Process.GetCurrentProcess().MainModule?.BaseAddress ?? -1),
-                EventProc,
+                callback,
                 0,
                 0,
                 PInvoke.WINEVENT_OUTOFCONTEXT);
 
-            if (_hook.IsNull)
+            if (hook.IsNull)
             {
-                //_procHandle.Free();
-                ThrowLastUnmanagedErrorAsException();
+                procHandle.Free();
             }
-        }
-
-        //public IObservable<(int, long)> Events
-        //{
-        //    get
-        //    {
-        //        Create();
-
-        //        return _subject.AsObservable();
-        //    }
-        //}
-        protected static void ThrowLastUnmanagedErrorAsException()
-        {
-            var errorCode = Marshal.GetLastWin32Error();
-            throw new Win32Exception(errorCode);
-        }
-        private unsafe static void EventProc(HWINEVENTHOOK hWinEventHook, uint eventId, HWND hwnd, int idObject, int idChild, uint idEventThread, uint dwmsEventTime)
-        {
-            _subject.OnNext(((int)hwnd.Value, idChild));
-        }
-        internal static Hook Create()
-        {
-            if(_instance is null)
+            return () =>
             {
-                _instance = new Hook();
-            }
-
-            return _instance;
-        }
-
-        public static void Release()
-        {
-            _instance?.Dispose();
-            _instance = null;
-        }
-        public void Dispose()
-        {
-
-        }
-
-        protected override bool ReleaseHandle()
-        {
-            if (_disposed)
-            {
-                return true;
-            }
-
-            var ret = PInvoke.UnhookWinEvent(_hook);
-            if (_procHandle.IsAllocated)
-            {
-                _procHandle.Free();
-            }
-            _disposed = true;
-
-            return ret;
-        }
-
-        ~Hook()
-        {
-            Dispose();
-        }
+                if (procHandle.IsAllocated)
+                {
+                    procHandle.Free();
+                }
+                PInvoke.UnhookWinEvent(hook);
+            };
+        });
     }
+
+    public string GetClassName(int handle)
+    {
+        Span<char> className = Span<char>.Empty;
+        if (PInvoke.GetClassName(new HWND(handle), className) != 0)
+        {
+            throw new Win32Exception(Marshal.GetLastWin32Error());
+        }
+        ;
+
+        return className.ToString();
+    }
+
+    private static void ThrowLastUnmanagedErrorAsException()
+    {
+        var errorCode = Marshal.GetLastWin32Error();
+        throw new Win32Exception(errorCode);
+    }
+    //public Hook HookForegroundChangeEvent()
+    //{
+    //    return Hook.Create();
+    //}
+
+    //public class Hook : SafeHandleZeroOrMinusOneIsInvalid
+    //{
+    //    private static readonly Subject<(int, long)> _subject = new Subject<(int, long)>();
+    //    private HWINEVENTHOOK _hook;
+    //    private readonly GCHandle _procHandle;
+    //    private bool _disposed;
+    //    private static Hook? _instance;
+    //    public IObservable<(int, long)> Events { get; private set; }
+
+    //    private unsafe Hook() : base(true)
+    //    {
+    //        Events = 
+    //        //WINEVENTPROC del = new WINEVENTPROC(EventProc);
+    //        //_procHandle = GCHandle.Alloc(EventProc);
+    //        ////_handler = handler;
+    //        //_hook = PInvoke.SetWinEventHook(
+    //        //    PInvoke.EVENT_SYSTEM_FOREGROUND,
+    //        //    PInvoke.EVENT_SYSTEM_FOREGROUND,
+    //        //    new HMODULE(Process.GetCurrentProcess().MainModule?.BaseAddress ?? -1),
+    //        //    EventProc,
+    //        //    0,
+    //        //    0,
+    //        //    PInvoke.WINEVENT_OUTOFCONTEXT);
+
+    //        //if (_hook.IsNull)
+    //        //{
+    //        //    //_procHandle.Free();
+    //        //    ThrowLastUnmanagedErrorAsException();
+    //        //}
+    //    }
+
+    //    //public IObservable<(int, long)> Events
+    //    //{
+    //    //    get
+    //    //    {
+    //    //        Create();
+
+    //    //        return _subject.AsObservable();
+    //    //    }
+    //    //}
+    //    protected static void ThrowLastUnmanagedErrorAsException()
+    //    {
+    //        var errorCode = Marshal.GetLastWin32Error();
+    //        throw new Win32Exception(errorCode);
+    //    }
+    //    private unsafe static void EventProc(HWINEVENTHOOK hWinEventHook, uint eventId, HWND hwnd, int idObject, int idChild, uint idEventThread, uint dwmsEventTime)
+    //    {
+    //        _subject.OnNext(((int)hwnd.Value, idChild));
+    //    }
+    //    internal static Hook Create()
+    //    {
+    //        if (_instance is null)
+    //        {
+    //            _instance = new Hook();
+    //        }
+
+    //        return _instance;
+    //    }
+
+    //    public static void Release()
+    //    {
+    //        _instance?.Dispose();
+    //        _instance = null;
+    //    }
+    //    public void Dispose()
+    //    {
+
+    //    }
+
+    //    protected override bool ReleaseHandle()
+    //    {
+    //        if (_disposed)
+    //        {
+    //            return true;
+    //        }
+
+    //        var ret = PInvoke.UnhookWinEvent(_hook);
+    //        if (_procHandle.IsAllocated)
+    //        {
+    //            _procHandle.Free();
+    //        }
+    //        _disposed = true;
+
+    //        return ret;
+    //    }
+
+    //    ~Hook()
+    //    {
+    //        Dispose();
+    //    }
+    //}
 
     //public void MoveWindow(int handle, int x, int y)
     //{
@@ -341,7 +369,7 @@ public class InteropProxy : IInteropProxy
         var hwnd = new HWND(handle);
         var ret = PInvoke.SetWindowText(hwnd, title);
 
-        if(!ret)
+        if (!ret)
         {
             var errorCode = Marshal.GetLastWin32Error();
             throw new Win32Exception(errorCode);

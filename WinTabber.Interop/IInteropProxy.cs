@@ -16,7 +16,7 @@ public interface IInteropProxy
     void MaximizeWindow(int handle);
     void MinimizeWindow(int handle);
     //public Icon GetWindowIcon(int handle);
-    Hook HookForegroundChangeEvent();
+    //Hook HookForegroundChangeEvent();
 
     public int GetForegroundWindowHandle();
 
@@ -33,4 +33,6 @@ public interface IInteropProxy
     public void DeactivateLivePreview();
     WindowPlacement.WindowState GetWindowPlacement(int handle);
     void SetWindowText(int handle, string title);
+    IObservable<ActiveWindowChangeData> ActiveWindowChangedEvents();
+    string GetClassName(int handle);
 }

@@ -5,6 +5,10 @@
              StartupUri="MainWindow.xaml">
     <Application.Resources>
         <ResourceDictionary>
+            <local:BoolToThicknessConverter x:Key="BoolToThicknessConverter"/>
+            <local:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
+            <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
+            <local:InverseBoolConverter x:Key="InverseBoolConverter"/>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/Resources.xaml"/>
                 <!-- Replace 'YourAssemblyName' with the actual name of your assembly -->

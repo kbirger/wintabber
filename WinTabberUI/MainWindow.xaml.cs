@@ -3,6 +3,7 @@ using GlobalHotKeys.Native.Types;
 using Gma.System.MouseKeyHook;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
 using System.Reactive.Threading.Tasks;
 using System.Runtime.InteropServices;
@@ -20,6 +21,7 @@ using WindowsInput.Events;
 using WinTabber.API;
 using WinTabber.Events;
 using WinTabber.Interop;
+using static WinTabberUI.EditableTextBlock;
 
 namespace WinTabberUI;
 
@@ -33,17 +35,17 @@ public partial class MainWindow : Window
     private WindowTileGrid? _tileGrid;
     private readonly WindowInteropHelper _hwndSource;
 
-    private DependencyProperty _maxItemHeight = DependencyProperty.Register(
+    public static DependencyProperty MaxItemHeightProperty = DependencyProperty.Register(
         "MaxItemHeight",
         typeof(double),
         typeof(MainWindow),
         new PropertyMetadata(400.0));
     public double MaxItemHeight
     {
-        get { return (double)GetValue(_maxItemHeight); }
+        get { return (double)GetValue(MaxItemHeightProperty); }
         set
         {
-            SetValue(_maxItemHeight, value);
+            SetValue(MaxItemHeightProperty, value);
         }
     }
 
@@ -56,21 +58,15 @@ public partial class MainWindow : Window
         IsVisibleChanged += MainWindow_IsVisibleChanged;
         LayoutUpdated += MainWindow_LayoutUpdated;
 
-        var mgr = WinTabberEventManager.Instance;
+        var mgr = WinTabberEventManagerThreadHost.Instance;
         _resources.Add(mgr);
 
         ArgumentNullException.ThrowIfNull(SynchronizationContext.Current);
-        var app = System.Windows.Application.Current as App;
-        ArgumentNullException.ThrowIfNull(app);
-        mgr.Events
+        mgr.CommandEvents
             .ObserveOn(SynchronizationContext.Current)
             .Subscribe(e =>
-            //Dispatcher.InvokeAsync(() =>
             {
-                //Console.WriteLine(e);
-                //Debug.WriteLine(e);
-
-                switch (e.type)
+                switch (e.Type)
                 {
                     case EventType.NextWindow:
                         SelectWindow(1);
@@ -79,7 +75,10 @@ public partial class MainWindow : Window
                         SelectWindow(-1);
                         break;
                     case EventType.AppHide:
-                        SwitchWindowAndClose();
+                        if(WindowData.SelectedItem is null || !WindowData.SelectedItem.IsEditing)
+                        {
+                            SwitchWindowAndClose();
+                        }
                         break;
                     case EventType.MinimizeWindow:
                         WindowData.WindowManager.CurrentWindow()?.Minimize();
@@ -87,18 +86,8 @@ public partial class MainWindow : Window
                     case EventType.MaximizeWindow:
                         WindowData.WindowManager.CurrentWindow()?.Maximize();
                         break;
-                    case EventType.ForegroundChanged:
-                        WindowData.WindowManager.RegisterForegroundWindowChanged((int)e.data!);
-                        break;
-                    case EventType.DockWindow:
-                        var dock = app._dock;
-                        dock.Show();
-                        break;
                 }
-
-                //return e;
-            });
-        //);
+            });        
     }
 
     private void MainWindow_LayoutUpdated(object? sender, EventArgs e)
@@ -135,7 +124,7 @@ public partial class MainWindow : Window
     {
         if (Visibility == Visibility.Visible && WindowData.SelectedIndex >= 0 && WindowData.SelectedIndex < WindowData.WindowItems.Length)
         {
-            Thread.Sleep(10);
+            //Thread.Sleep(100);
             WindowData.SelectedItem.Activate();
         }
         WindowData.Deactivate();
@@ -156,6 +145,7 @@ public partial class MainWindow : Window
         base.OnActivated(e);
     }
 
+    [MemberNotNull(nameof(_tileGrid))]
     private void InitializeTileGrid()
     {
         if(_tileGrid is not null)
@@ -173,7 +163,7 @@ public partial class MainWindow : Window
 
     protected override void OnDeactivated(EventArgs e)
     {
-        SwitchWindowAndClose();
+        //SwitchWindowAndClose();
         base.OnDeactivated(e);
     }
 
@@ -203,6 +193,7 @@ public partial class MainWindow : Window
         Show();
         Focus();
         Activate();
+        TabListView.Focus();
     }
 
     protected override void OnVisualChildrenChanged(DependencyObject visualAdded, DependencyObject visualRemoved)
@@ -223,23 +214,25 @@ public partial class MainWindow : Window
     private void TabListView_KeyDown(object sender, System.Windows.Input.KeyEventArgs e)
     {
         var lv = TabListView;
-        lv.Focus();
+        //lv.Focus();
 
-        if(e.Key == Key.LeftCtrl)
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+
+        if(key == Key.LeftCtrl)
         {
-            WindowData.PreviewSelectedWindow();
+            //WindowData.PreviewSelectedWindow();
             return;
         }
 
 
 
-        if (!new Key[] { Key.Down, Key.Up, Key.Left, Key.Right }.Contains(e.SystemKey))
+        if (!new Key[] { Key.Down, Key.Up, Key.Left, Key.Right }.Contains(key))
         {
             return;
         }
         InitializeTileGrid();
 
-        var next = e.SystemKey switch
+        var next = key switch
         {
             Key.Down => _tileGrid.MoveDown(),
             Key.Up => _tileGrid.MoveUp(),
@@ -273,22 +266,38 @@ public partial class MainWindow : Window
 
     private void TabListView_MouseDown(object sender, MouseButtonEventArgs e)
     {
-        SwitchWindowAndClose();
+        //SwitchWindowAndClose();
     }
 
     private void TabListView_PreviewKeyUp(object sender, System.Windows.Input.KeyEventArgs e)
     {
-        if(e.SystemKey == Key.LeftCtrl)
-        {
-            WindowData.EndPreview();
-        }
+        //if(e.SystemKey == Key.LeftCtrl)
+        //{
+        //    WindowData.EndPreview();
+        //}
+    }
+
+    private void Button_Click(object sender, RoutedEventArgs e)
+    {
+        RenameWindow.ShowFor(((FrameworkElement)e.Source).DataContext as WindowItem);
+    }
+
+    private void EditableTextBlock_TextChanged(object sender, TextUpdatedEventArgs e)
+    {
+        WindowData.SelectedItem.Title = e.NewValue;
+    }
+
+    private void Grid_MouseUp(object sender, MouseButtonEventArgs e)
+    {
+        SwitchWindowAndClose();
     }
 
     private void TabListView_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        if (e.AddedItems.Count > 0)
+        if (e.AddedItems.Count > 0 && e.AddedItems[0] is WindowItem windowItem)
         {
-            TabListView.ScrollIntoView(e.AddedItems[0]);
+            WindowData.SelectedItem = windowItem;
+            TabListView.ScrollIntoView(windowItem);
         }
     }
 }

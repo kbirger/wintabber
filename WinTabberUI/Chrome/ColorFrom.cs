@@ -42,47 +42,14 @@ internal static class ColorFrom
 
         if (color == null) return c;
 
-        try
+        c = color switch
         {
-            c = (Color)color;
-        }
-        catch (Exception)
-        {
-
-            try
-            {
-                c = ((int)color).ToColor();
-            }
-            catch (Exception)
-            {
-                try
-                {
-                    c = ((uint)color).ToColor();
-                }
-                catch (Exception)
-                {
-
-                    try
-                    {
-                        c = ((long)color).ToColor();
-                    }
-                    catch (Exception)
-                    {
-                        try
-                        {
-                            c = ColorFrom.String((string)color);
-                        }
-                        catch (Exception e)
-                        {
-                            throw new InvalidOperationException("Color convert Error", e);
-                        }
-                    }
-
-
-                }
-            }
-
-        }
+            _ when color is int intColor => intColor.ToColor(),
+            _ when color is uint uintColor => uintColor.ToColor(),
+            _ when color is long longColor => longColor.ToColor(),
+            _ when color is string stringColor => ColorFrom.String(stringColor),
+            _ => throw new InvalidOperationException("Color convert error")
+        };        
 
         return c;
     }

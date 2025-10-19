@@ -28,7 +28,9 @@ UnhookWinEvent
 MoveWindow
 GetWindowRect
 SetWindowText
-
+GetProcessIdOfThread
+GetClassName
+SendInput
 
 WM_SYSCOMMAND
 WM_SYSCOMMAND

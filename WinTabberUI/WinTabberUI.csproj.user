@@ -5,5 +5,14 @@
     <Compile Update="DockWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Update="EditableTextBlock.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="MediaControlsWindow.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
+    <Compile Update="RenameWindow.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
 </Project>

@@ -16,6 +16,8 @@ public class WindowManager : WindowOwner
 
     internal IInteropProxy Interop { get; }
 
+    internal WindowTitleStore TitleStore { get; } = new WindowTitleStore();
+
     internal ApplicationRef NewApplicationRef(string processName)
     {
         return new ApplicationRef(processName, this);
@@ -48,6 +50,18 @@ public class WindowManager : WindowOwner
         }
 
         return null;
+    }
+
+    public WindowRef? GetWindow(int handle)
+    {
+        var process = Interop.GetWindowProcess(handle);
+        if (process is null)
+        {
+            return null;
+        }
+        return NewApplicationRef(process.ProcessName)
+            .NewWindowProcessRef(process)
+            .NewWindow(handle);
     }
 
     public WindowProcessRef? GetCurrentProcess()

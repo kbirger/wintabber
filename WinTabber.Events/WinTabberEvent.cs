@@ -6,9 +6,7 @@ using System.Threading.Tasks;
 
 namespace WinTabber.Events;
 
-public record WinTabberEvent(EventType type, object? data = null)
+public record WinTabberEvent(EventType Type)
 {
-    public WinTabberEvent(EventType type) : this(type, null) { }
-
     public static implicit operator WinTabberEvent(EventType type) => new WinTabberEvent(type);
 }

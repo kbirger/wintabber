@@ -13,6 +13,9 @@ public enum EventType
     AppHide,
     MinimizeWindow,
     MaximizeWindow,
-    ForegroundChanged,
+    ActiveWindowChanged,
+    ActiveApplicatonChanged,
+    GameBar,
+    MediaWindow,
     DockWindow
 }

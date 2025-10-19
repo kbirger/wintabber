@@ -6,8 +6,8 @@
         xmlns:chrome="clr-namespace:WinTabberUI.Chrome"
         xmlns:local="clr-namespace:WinTabberUI"
         mc:Ignorable="d"
-                                ScrollViewer.HorizontalScrollBarVisibility="Disabled" 
-                        ScrollViewer.VerticalScrollBarVisibility="Hidden" 
+        ScrollViewer.HorizontalScrollBarVisibility="Disabled" 
+        ScrollViewer.VerticalScrollBarVisibility="Hidden" 
         Title="DockWindow" Width="200" Padding="10" Margin="10">
     <chrome:AcrylicChrome.AcrylicChrome>
         <chrome:AcrylicChrome AccentState="ACCENT_ENABLE_BLURBEHIND" CornerPreference="DWMWCP_ROUNDSMALL" UnderStratumColor="#55ff0000" />

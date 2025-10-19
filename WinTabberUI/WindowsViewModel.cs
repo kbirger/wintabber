@@ -15,6 +15,7 @@ public class WindowsViewModel : DependencyObject, INotifyPropertyChanged
 {
 
     //public event PropertyChangedEventHandler? PropertyChanged;
+
     public WindowManager WindowManager { get; } = new(new InteropProxy());
 
 
@@ -129,7 +130,7 @@ public class WindowsViewModel : DependencyObject, INotifyPropertyChanged
             if(value != SelectedIndex)
             {
                 SetValue(_selectedIndex, value);
-                SetValue(_selectedItem, WindowItems[value]);
+                SetValue(_selectedItem, WindowItems.ElementAtOrDefault(value));
             }
 
         }
