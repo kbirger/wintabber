@@ -15,7 +15,6 @@ public enum EventType
     MaximizeWindow,
     ActiveWindowChanged,
     ActiveApplicatonChanged,
-    GameBar,
     MediaWindow,
     DockWindow
 }

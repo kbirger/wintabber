@@ -15,7 +15,6 @@ using System.Windows.Media;
 using System.Windows.Threading;
 using WindowsInput.Events;
 using WindowsInput.Events.Sources;
-using WinTabber.GameBar;
 using WinTabber.Interop;
 
 namespace WinTabber.Events;
@@ -50,10 +49,10 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
 
     public record MouseShortcut(MouseButtons mouseButton, bool alt, bool ctrl, bool shift, bool windows);
     private List<IDisposable> _resources = new();
-    private readonly IRegistration _hkNextWindow;
-    private readonly IRegistration _hkPrevWindow;
-    private readonly IRegistration _hkDockWindow;
-    private readonly IRegistration _hkMediaWindow;
+    private IRegistration? _hkNextWindow;
+    private IRegistration? _hkPrevWindow;
+    private IRegistration? _hkDockWindow;
+    private IRegistration? _hkMediaWindow;
     private readonly MouseShortcut _hkMinPlain = new MouseShortcut(MouseButtons.Left, true, true, false, false);
     private readonly MouseShortcut _hkMaxPlain = new MouseShortcut(MouseButtons.Right, true, true, false, false);
     private readonly MouseShortcut _hkMin = new MouseShortcut(MouseButtons.XButton2, false, true, false, false);
@@ -63,10 +62,10 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
     internal WinTabberEventManager Init()
     {
         var hotKeyManager = new HotKeyManager();
-        var _hkNextWindow = hotKeyManager.Register(VirtualKeyCode.VK_OEM_3, Modifiers.Alt);
-        var _hkPrevWindow = hotKeyManager.Register(VirtualKeyCode.VK_OEM_3, Modifiers.Alt | Modifiers.Shift);
-        var _hkMediaWindow = hotKeyManager.Register(VirtualKeyCode.KEY_G, Modifiers.Alt | Modifiers.Control);
-
+        _hkNextWindow = hotKeyManager.Register(VirtualKeyCode.VK_OEM_3, Modifiers.Alt);
+        _hkPrevWindow = hotKeyManager.Register(VirtualKeyCode.VK_OEM_3, Modifiers.Alt | Modifiers.Shift);
+        _hkMediaWindow = hotKeyManager.Register(VirtualKeyCode.KEY_G, Modifiers.Alt | Modifiers.Control);
+        
         //var _hkDockWindow = hotKeyManager.Register(Modifiers.Alt | Modifiers.Control, VirtualKeyCode.VK_LEFT);
         var keyHook = Hook.GlobalEvents();
         //var otherKeys = new KeyChordEventSource(keyHook, new ChordClick(KeyCode.LWin, KeyCode.LControl, KeyCode.Left));
@@ -77,7 +76,8 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
             //{_hkDockWindow.Id, EventType.NextWindow },
             {_hkMediaWindow.Id, EventType.MediaWindow },
         };
-        var mouseHook = WindowsInput.Capture.Global.Mouse();
+        var mouseHook = WindowsInput.Capture.Global.MouseAsync();
+        var keyHook2 = WindowsInput.Capture.Global.KeyboardAsync();
         _resources.Add(hotKeyManager);
         _resources.Add(_hkNextWindow);
         _resources.Add(_hkPrevWindow);
@@ -94,15 +94,62 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
 
         CommandEvents = Observable.Merge(
             _subject,
+            Observable.Create<WinTabberEvent>((observer) =>
+            {
+                Debug.WriteLine($"subscibeTEST TEST from {Thread.CurrentThread.ManagedThreadId}");
+                return () => { };
+            }),
             ObserveHotkeys(hotKeyManager),
             ObserveKeyHook(keyHook),
-            ObserveMouseHook(keyHook)
+            ObserveMouseHook(keyHook),
+            ObserveKeyChords(keyHook)
         );
 
         WindowChange = ObserveActiveWindowChange();
         ApplicationChange = ObserveActievApplicationChange();
-        GameBarVisibilityChange = ObserveGameBar();
         return this;
+    }
+
+    private IObservable<WinTabberEvent> ObserveKeyChords(IKeyboardEventSource keyHook)
+    {
+        var eventSource = new KeyChordEventSource(keyHook, new ChordClick(KeyCode.Control, KeyCode.LWin, KeyCode.Left));
+        eventSource.Enabled = true;
+        eventSource.Triggered += EventSource_Triggered;
+        return Observable.FromEventPattern<KeyChordEventArgs>(
+            eventSource,
+            nameof(eventSource.Triggered))
+            .Select(evt => new WinTabberEvent(EventType.DockWindow));
+    }
+
+    private IObservable<WinTabberEvent> ObserveKeyChords(IKeyboardMouseEvents keyHook)
+    {
+        return Observable.Create<WinTabberEvent>((observer) =>
+        {
+
+            keyHook.OnCombination(new KeyValuePair<Combination, Action>[]
+            {
+             new (Combination.TriggeredBy(Keys.Left).With(Keys.LWin).With(Keys.Control), () => { observer.OnNext(new WinTabberEvent(EventType.DockWindow)); })
+            } );
+
+
+            return () => observer.OnCompleted();
+        });
+        
+
+
+        //var eventSource = new KeyChordEventSource(keyHook, new ChordClick(KeyCode.Control, KeyCode.LWin, KeyCode.Left));
+        //eventSource.Enabled = true;
+        //eventSource.Triggered += EventSource_Triggered;
+        //return Observable.FromEventPattern<KeyChordEventArgs>(
+        //    eventSource,
+        //    nameof(eventSource.Triggered))
+        //    .Select(evt => new WinTabberEvent(EventType.DockWindow));
+    }
+
+
+    private void EventSource_Triggered(object? sender, KeyChordEventArgs e)
+    {
+        Debug.WriteLine("boom");
     }
 
     private IObservable<WinTabberEvent<string>> ObserveActievApplicationChange()
@@ -115,11 +162,6 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
     private IObservable<WinTabberEvent> ObserveHotkeys(HotKeyManager hotKeyManager)
     {
         return hotKeyManager.HotKeyPressed.Select(MapHotKeyToEvent);
-    }
-
-    private IObservable<WinTabberEvent<bool>> ObserveGameBar()
-    {
-        return GameBarDetector.GameBarVisibility.Select(visible => new WinTabberEvent<bool>(EventType.GameBar, visible));
     }
 
     private IObservable<WinTabberEvent<ActiveWindowChangeData>> ObserveActiveWindowChange()

@@ -24,7 +24,12 @@ namespace WinTabberUI.Windowing
         {
             //PInvoke.SystemParametersInfoForDpi()
             RECT area = new RECT((int)rect.Left, (int)rect.Top, (int)rect.Right, (int)rect.Bottom);
-            PInvoke.SystemParametersInfo(SYSTEM_PARAMETERS_INFO_ACTION.SPI_SETWORKAREA, 0, &area, 0);
+            RECT area2 = new RECT((int)rect.Left, (int)rect.Top, (int)rect.Right, (int)rect.Bottom);
+            var ret = PInvoke.SystemParametersInfo(SYSTEM_PARAMETERS_INFO_ACTION.SPI_SETWORKAREA, 0, &area, 0);
+            if(ret > 0)
+            {
+
+            }
         }
     }
 }

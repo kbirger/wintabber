@@ -70,10 +70,23 @@ internal static class UacHelper
     {
         get
         {
-            return false;
-            //RegistryKey uacKey = Registry.LocalMachine.OpenSubKey(uacRegistryKey, false);
-            //bool result = uacKey.GetValue(uacRegistryValue).Equals(1);
-            //return result;
+            try
+            {
+
+                RegistryKey? uacKey = Registry.LocalMachine.OpenSubKey(uacRegistryKey, false);
+                if (uacKey is not null)
+                {
+                    
+                    bool result = uacKey.GetValue(uacRegistryValue)?.Equals(1) ?? true;
+                    return result;
+                }
+            }
+            catch
+            {
+                return true;
+            }
+
+            return true;
         }
     }
 
@@ -111,6 +124,50 @@ internal static class UacHelper
             else
             {
                 throw new ApplicationException("Unable to determine the current elevation.");
+            }
+        }
+        else
+        {
+            WindowsIdentity identity = WindowsIdentity.GetCurrent();
+            WindowsPrincipal principal = new WindowsPrincipal(identity);
+            bool result = principal.IsInRole(WindowsBuiltInRole.Administrator);
+            return result;
+        }
+    }
+
+    public static bool IsProcessElevated(Process process)
+    {
+        if (IsUacEnabled)
+        {
+            try
+            {
+                IntPtr tokenHandle;
+                if (!OpenProcessToken(process.Handle, TOKEN_READ, out tokenHandle))
+                {
+                    throw new ApplicationException("Could not get process token.  Win32 Error Code: " + Marshal.GetLastWin32Error());
+                }
+
+                TOKEN_ELEVATION_TYPE elevationResult = TOKEN_ELEVATION_TYPE.TokenElevationTypeDefault;
+
+                int elevationResultSize = Marshal.SizeOf((int)elevationResult);
+                uint returnedSize = 0;
+                IntPtr elevationTypePtr = Marshal.AllocHGlobal(elevationResultSize);
+
+                bool success = GetTokenInformation(tokenHandle, TOKEN_INFORMATION_CLASS.TokenElevationType, elevationTypePtr, (uint)elevationResultSize, out returnedSize);
+                if (success)
+                {
+                    elevationResult = (TOKEN_ELEVATION_TYPE)Marshal.ReadInt32(elevationTypePtr);
+                    bool isProcessAdmin = elevationResult == TOKEN_ELEVATION_TYPE.TokenElevationTypeFull;
+                    return isProcessAdmin;
+                }
+                else
+                {
+                    throw new ApplicationException("Unable to determine the current elevation.");
+                }
+            }
+            catch
+            {
+                return true;
             }
         }
         else

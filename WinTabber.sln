@@ -11,11 +11,14 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinTabber.API", "WinTabber.
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinTabber.Interop", "WinTabber.Interop\WinTabber.Interop.csproj", "{407D613B-DBEA-49E9-BEBC-8FFEE8099EE4}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinTabberWinUI", "WinTabberWinUI\WinTabberWinUI.csproj", "{EA2D681B-FA32-4A94-A897-865FA8866B68}"
-EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinTabber.Events", "WinTabber.Events\WinTabber.Events.csproj", "{0671AA43-753F-4F2D-953E-FF7CA5FEFBE5}"
 EndProject
-Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinTabber.GameBar", "WinTabber.GameBar\WinTabber.GameBar.csproj", "{01C320E8-C86E-4E8F-B09B-4D53DAA88FC8}"
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinTabber.Generators", "WinTabber.Generators\WinTabber.Generators.csproj", "{68AE6CF6-7E8A-4B28-9C9D-A7A30202A823}"
+EndProject
+Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
+	ProjectSection(SolutionItems) = preProject
+		global.json = global.json
+	EndProjectSection
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -39,20 +42,14 @@ Global
 		{407D613B-DBEA-49E9-BEBC-8FFEE8099EE4}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{407D613B-DBEA-49E9-BEBC-8FFEE8099EE4}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{407D613B-DBEA-49E9-BEBC-8FFEE8099EE4}.Release|Any CPU.Build.0 = Release|Any CPU
-		{EA2D681B-FA32-4A94-A897-865FA8866B68}.Debug|Any CPU.ActiveCfg = Debug|x64
-		{EA2D681B-FA32-4A94-A897-865FA8866B68}.Debug|Any CPU.Build.0 = Debug|x64
-		{EA2D681B-FA32-4A94-A897-865FA8866B68}.Debug|Any CPU.Deploy.0 = Debug|x64
-		{EA2D681B-FA32-4A94-A897-865FA8866B68}.Release|Any CPU.ActiveCfg = Release|x64
-		{EA2D681B-FA32-4A94-A897-865FA8866B68}.Release|Any CPU.Build.0 = Release|x64
-		{EA2D681B-FA32-4A94-A897-865FA8866B68}.Release|Any CPU.Deploy.0 = Release|x64
 		{0671AA43-753F-4F2D-953E-FF7CA5FEFBE5}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
 		{0671AA43-753F-4F2D-953E-FF7CA5FEFBE5}.Debug|Any CPU.Build.0 = Debug|Any CPU
 		{0671AA43-753F-4F2D-953E-FF7CA5FEFBE5}.Release|Any CPU.ActiveCfg = Release|Any CPU
 		{0671AA43-753F-4F2D-953E-FF7CA5FEFBE5}.Release|Any CPU.Build.0 = Release|Any CPU
-		{01C320E8-C86E-4E8F-B09B-4D53DAA88FC8}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
-		{01C320E8-C86E-4E8F-B09B-4D53DAA88FC8}.Debug|Any CPU.Build.0 = Debug|Any CPU
-		{01C320E8-C86E-4E8F-B09B-4D53DAA88FC8}.Release|Any CPU.ActiveCfg = Release|Any CPU
-		{01C320E8-C86E-4E8F-B09B-4D53DAA88FC8}.Release|Any CPU.Build.0 = Release|Any CPU
+		{68AE6CF6-7E8A-4B28-9C9D-A7A30202A823}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{68AE6CF6-7E8A-4B28-9C9D-A7A30202A823}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{68AE6CF6-7E8A-4B28-9C9D-A7A30202A823}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{68AE6CF6-7E8A-4B28-9C9D-A7A30202A823}.Release|Any CPU.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

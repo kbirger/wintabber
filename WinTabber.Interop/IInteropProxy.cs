@@ -31,8 +31,14 @@ public interface IInteropProxy
     /// Deactivates the live preview
     /// </summary>
     public void DeactivateLivePreview();
-    WindowPlacement.WindowState GetWindowPlacement(int handle);
+    WindowPlacement.WindowState GetWindowState(int handle);
+    WindowPlacement GetWindowPlacement(int handle);
     void SetWindowText(int handle, string title);
     IObservable<ActiveWindowChangeData> ActiveWindowChangedEvents();
     string GetClassName(int handle);
+    void MoveWindow(int handle, Point point);
+    bool IsTopLevel(int handle);
+    WindowStyles GetWindowStyles(int handle);
+    bool IsWindowVisible(int handle);
+    bool IsProcessElevated(Process process);
 }

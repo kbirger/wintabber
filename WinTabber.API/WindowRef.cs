@@ -1,33 +1,73 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Drawing;
 using System.Linq;
+using System.Reflection.Metadata;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Threading.Tasks;
+using WinTabber.Interop;
 using static WinTabber.Interop.WindowPlacement;
 
 namespace WinTabber.API;
 
-public class WindowRef(int handle, WindowProcessRef process) : IEquatable<WindowRef>
+[DebuggerDisplay("{Process.Process.ProcessName} - {Title}", Name = "WindowRef")]
+public partial class WindowRef : IEquatable<WindowRef>
 {
-    public int Handle { get; } = handle;
-
-    public string Title
+    public WindowRef(int handle, WindowProcessRef process)
     {
-        get
-        {
-            return Process.WindowManager.Interop.GetWindowTitle(Handle);
-        }
+        Handle = handle;
+        Process = process;
+        OnConstructed();
+    }
+    public int Handle { get; }
+
+    [Lazy]
+    public bool GetIsValidUserWindow()
+    {
+        return IsVisible
+            && IsTopLevel
+            && !Style.ToolWindow
+            && !Style.CannotBeActivated
+            && !string.IsNullOrWhiteSpace(Title);
     }
 
-    public string Class
+    [Lazy]
+    public bool GetIsVisible()
     {
-        get
-        {
-            return Process.WindowManager.Interop.GetClassName(Handle);
-        }
+        return Process.Manager.Interop.IsWindowVisible(Handle);
     }
 
-    public WindowProcessRef Process { get; } = process;
+    //public string Title
+    //{
+    //    get
+    //    {
+    //        return Process.WindowManager.Interop.GetWindowTitle(Handle);
+    //    }
+    //}
+
+    [Lazy]
+    public string GetTitle()
+    {
+        return Process.Manager.Interop.GetWindowTitle(Handle);
+    }
+
+    //public string Class
+    //{
+    //    get
+    //    {
+    //        return Process.WindowManager.Interop.GetClassName(Handle);
+    //    }
+    //}
+
+    [Lazy]
+    private string GetClass()
+    {
+        return Process.Manager.Interop.GetClassName(Handle);
+    }
+
+    public WindowProcessRef Process { get; }
     public override bool Equals(object? obj)
     {
         return Equals(obj as WindowRef);
@@ -52,42 +92,94 @@ public class WindowRef(int handle, WindowProcessRef process) : IEquatable<Window
 
     public void BringToFront()
     {
-        Process.WindowManager.Interop.BringWindowToFront(Handle);
+        Process.Manager.Interop.BringWindowToFront(Handle);
     }
 
     public void Maximize()
-                {
-        Process.WindowManager.Interop.MaximizeWindow(Handle);
+    {
+        Process.Manager.Interop.MaximizeWindow(Handle);
     }
 
     public void Minimize()
     {
-        Process.WindowManager.Interop.MinimizeWindow(Handle);
+        Process.Manager.Interop.MinimizeWindow(Handle);
     }
 
-    public WindowState State
+    //public WindowState State
+    //{
+    //    get
+    //    {
+    //        return Process.WindowManager.Interop.GetWindowState(Handle);
+    //    }
+    //}
+
+    [Lazy]
+    private WindowState GetState()
+    {
+        return Process.Manager.Interop.GetWindowState(Handle);
+    }
+
+    
+
+    public Rectangle Bounds
     {
         get
         {
-            return Process.WindowManager.Interop.GetWindowPlacement(Handle);
+            var placement = Process.Manager.Interop.GetWindowPlacement(Handle);
+            return placement.Bounds;
+        }
+    }
+
+    public void MoveTo(Point point)
+    {
+        if (!Process.IsProcessElevated)
+        {
+            Process.Manager.Interop.MoveWindow(Handle, point);
         }
     }
 
 
     public void Preview(nint handleToSpare)
     {
-        Process.WindowManager.Interop.ActivateLivePreview(Handle, handleToSpare);
+        Process.Manager.Interop.ActivateLivePreview(Handle, handleToSpare);
     }
 
     public void SetTitle(string title)
     {
-        if(string.IsNullOrWhiteSpace(title))
+        if (string.IsNullOrWhiteSpace(title))
         {
             return; // not allowed
         }
-        Process.WindowManager.Interop.SetWindowText(Handle, title);
-        Process.WindowManager.TitleStore.OverrideTitle(Handle, title);
+        Process.Manager.Interop.SetWindowText(Handle, title);
+        Process.Manager.TitleStore.OverrideTitle(Handle, title);
     }
 
+    //public bool IsTopLevel
+    //{
+    //    get
+    //    {
+    //        return Process.WindowManager.Interop.IsTopLevel(Handle);
+    //    }
+    //}
+
+    //public WindowStyles Style
+    //{
+    //    get
+    //    {
+    //        return Process.WindowManager.Interop.GetWindowStyles(Handle);
+    //    }
+    //}
+
+    [Lazy]
+    private bool GetIsTopLevel()
+    {
+        return Process.Manager.Interop.IsTopLevel(Handle);
+    }
+    [Lazy]
+    private WindowStyles GetStyle()
+    {
+        return Process.Manager.Interop.GetWindowStyles(Handle);
+
+    }
 
 }

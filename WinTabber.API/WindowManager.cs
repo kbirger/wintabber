@@ -8,15 +8,15 @@ namespace WinTabber.API;
 public class WindowManager : WindowOwner
 {
     public WindowManager(IInteropProxy interop)
-        : base()
     {
-        WindowManager = this;
         Interop = interop;
     }
 
     internal IInteropProxy Interop { get; }
 
     internal WindowTitleStore TitleStore { get; } = new WindowTitleStore();
+
+    public override WindowManager Manager => this;
 
     internal ApplicationRef NewApplicationRef(string processName)
     {
@@ -27,8 +27,9 @@ public class WindowManager : WindowOwner
     public override WindowRef[] GetWindows()
     {
         return Process.GetProcesses()
+            .Where(process => !string.IsNullOrWhiteSpace(process.MainWindowTitle))
             .GroupBy(Process => Process.ProcessName)
-            .SelectMany(processGroup => NewApplicationRef(processGroup.Key).GetWindows())
+            .SelectMany(processGroup => NewApplicationRef(processGroup.Key).GetWindows(processGroup))
             .OrderBy(w => w.Handle)
             .ToArray();
     }
@@ -75,18 +76,21 @@ public class WindowManager : WindowOwner
 
     protected override void AssertOwnsWindow(WindowRef window)
     {
-        if (window.Process.WindowManager != this)
+        if (window.Process.Manager != this)
         {
             throw new InvalidOperationException("The specified window is not owned by this window manager.");
         }
     }
 
-    private MemoryCache _processWindowCache = new MemoryCache("processWindows");
     private CircularBuffer<int> _windowActivationHistory = new CircularBuffer<int>(100);
 
     public void RegisterForegroundWindowChanged(int handle)
     {
-        _windowActivationHistory.PushFront(handle);
+        var window = GetWindow(handle);
+        if(window is not null)
+        {
+            _windowActivationHistory.PushFront(handle);
+        }
     }
 
     internal Dictionary<int, int> GetWindowOrder(IEnumerable<int> handles)

@@ -4,15 +4,9 @@ namespace WinTabber.API;
 
 public abstract class WindowOwner
 {
-
-    protected WindowOwner() { }
-    protected WindowOwner(WindowManager windowManager)
-    {
-        WindowManager = windowManager;
-    }
     protected abstract void AssertOwnsWindow(WindowRef window);
     public abstract WindowRef[] GetWindows();
-    public WindowManager WindowManager { get; init; }
+    public abstract WindowManager Manager { get; }
     
     internal int IndexOf(WindowRef window)
     {
@@ -29,16 +23,23 @@ public abstract class WindowOwner
 
     public WindowRef? CurrentWindow()
     {
-        var foregroundHandle = WindowManager.Interop.GetForegroundWindowHandle();
-        var process = WindowManager.Interop.GetForegroundProcess();
+        var foregroundHandle = Manager.Interop.GetForegroundWindowHandle();
+        var process = Manager.Interop.GetForegroundProcess();
 
         if(process is null)
         {
             return null;
         }
-        return WindowManager.NewApplicationRef(process.ProcessName)
+        var currentWindow = Manager.NewApplicationRef(process.ProcessName)
             .NewWindowProcessRef(process)
             .NewWindow(foregroundHandle);
+
+        if(currentWindow.IsValidUserWindow)
+        {
+            return currentWindow;
+        }
+
+        return null;
     }
 
     public WindowRef? NextWindow()

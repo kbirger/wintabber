@@ -1,6 +1,11 @@
 ﻿using System.ComponentModel;
+using System.Drawing;
 using System.Windows;
 using System.Windows.Forms;
+using System.Windows.Interop;
+using System.Windows.Media;
+using WinTabber.API;
+using WinTabber.Interop;
 using WinTabberUI.Windowing;
 
 namespace WinTabberUI
@@ -11,30 +16,77 @@ namespace WinTabberUI
     public partial class DockWindow : Window
     {
         public DockWindowViewModel _viewModel = new DockWindowViewModel();
-        private System.Drawing.Rectangle? _rect;
+        private WindowManager _windowManger = new WindowManager(new InteropProxy());
+        private Rectangle? _rect;
         public DockWindow()
         {
             InitializeComponent();
             Resources.MergedDictionaries.Add(System.Windows.Application.Current.Resources);
             DataContext = _viewModel;
+            _viewModel.ApplicationName = ApplicationName;
             Top = 0;
             Left = 0;
             //Top = Screen.PrimaryScreen.Bounds.Top / 2;
             //Left = Screen.PrimaryScreen.Bounds.Width - ActualWidth;
             IsVisibleChanged += DockWindow_IsVisibleChanged;
+            LayoutUpdated += DockWindow_LayoutUpdated;
+            Loaded += DockWindow_Loaded;
+        }
+
+        private void DockWindow_Loaded(object sender, RoutedEventArgs e)
+        {
+            MakeSpace();
+        }
+
+        private void DockWindow_LayoutUpdated(object? sender, EventArgs e)
+        {
+            //MakeSpace();
         }
 
         private void DockWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
         {
-            if(Visibility == Visibility.Visible)
+            if (e.NewValue.Equals(true))
             {
-                if (_rect is null)
-                {
-                    _rect = Screen.PrimaryScreen?.WorkingArea;
-                    DesktopHelper.SetDesktopArea(new Rect(_rect.Value.X + ActualWidth * 1.25, _rect.Value.Y, _rect.Value.Width - ActualWidth * 1.25, _rect.Value.Height));
-
-                }
+                //MakeSpace();
             }
+        }
+
+        private void MakeSpace()
+        {
+            if (_rect is null && ActualWidth > 0)
+            {
+                var dpiInfo = VisualTreeHelper.GetDpi(this);
+                var screen = Screen.FromHandle(new WindowInteropHelper(this).Handle);
+                //var oldWorkingArea = DesktopHelper.GetDesktopArea();
+                _rect = screen.WorkingArea;
+                //if (oldWorkingArea is null)
+                //{
+                //    return;
+                //}
+                //_rect = oldWorkingArea;
+                var newWorkingArea = new Rect(
+                    screen.Bounds.Left + ActualWidth * dpiInfo.DpiScaleX, 
+                    _rect.Value.Y , 
+                    screen.Bounds.Width  - ActualWidth * dpiInfo.DpiScaleX,
+                    _rect.Value.Height );
+                DesktopHelper.SetDesktopArea(newWorkingArea);
+
+                //Task.Run(() =>
+                //{
+                    var windows = _windowManger.GetWindows()
+                        .Where(window => window.State != WindowPlacement.WindowState.Minimized && window.State != WindowPlacement.WindowState.Hidden && window.Bounds.X < newWorkingArea.X && window.Bounds.Width > 0);
+
+                    foreach (var window in windows)
+                    {
+                        if (!window.Process.IsProcessElevated)
+                        {
+                            window.MoveTo(new System.Drawing.Point((int)newWorkingArea.X, window.Bounds.Y));
+
+                        }
+                    }
+                //});
+            }
+
         }
 
         protected override void OnActivated(EventArgs e)
@@ -43,16 +95,16 @@ namespace WinTabberUI
         }
         protected override void OnClosing(CancelEventArgs e)
         {
-            Hide();
             if(_rect is not null)
             {
-                DesktopHelper.SetDesktopArea(new Rect(0, _rect.Value.Y, _rect.Value.Width, _rect.Value.Height));
+                var screen = Screen.FromHandle(new WindowInteropHelper(this).Handle).Bounds;
+                var rect = new Rect(screen.Left, screen.Top, screen.Width, _rect.Value.Height);
+                DesktopHelper.SetDesktopArea(rect);
                 _rect = null;
             }
-            e.Cancel = true;
         }
 
-        private DependencyProperty _applicationName = DependencyProperty.Register(
+        public static DependencyProperty ApplicationNameProperty = DependencyProperty.Register(
         "ApplicationName",
         typeof(string),
         typeof(DockWindow),
@@ -66,11 +118,8 @@ namespace WinTabberUI
 
         public string ApplicationName
         {
-            get { return (string)GetValue(_applicationName); }
-            set
-            {
-                SetValue(_applicationName, value);
-            }
+            get => _viewModel.ApplicationName;
+            set => _viewModel.ApplicationName = value;
         }
     }
 }

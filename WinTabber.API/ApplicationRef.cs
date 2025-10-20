@@ -2,13 +2,20 @@
 
 namespace WinTabber.API;
 
-public class ApplicationRef(string processName, WindowManager windowManager) : WindowOwner(windowManager)
+[DebuggerDisplay("{ProcessName}", Name = "ApplicationRef")]
+
+public class ApplicationRef(string processName, WindowManager windowManager) : WindowOwner
 {
     public string ProcessName { get; } = processName;
     public override WindowRef[] GetWindows()
     {
-        var fgWindow = WindowManager.Interop.GetForegroundWindowHandle();
-        return Process.GetProcessesByName(ProcessName)
+        return GetWindows(Process.GetProcessesByName(ProcessName));
+    }
+    internal WindowRef[] GetWindows(IEnumerable<Process> processes)
+    {
+        var fgWindow = Manager.Interop.GetForegroundWindowHandle();
+        return processes
+            .Where(ValidateProcesses)
             .SelectMany(process => NewWindowProcessRef(process).GetWindows())
             .Where(ValidateWindow) // Filter out windows without titles (often invisible or non-interactive windows)
             .OrderBy(w => w.Handle == fgWindow)
@@ -16,19 +23,25 @@ public class ApplicationRef(string processName, WindowManager windowManager) : W
             .ToArray();
     }
 
+    public override WindowManager Manager { get; } = windowManager;
 
+    private bool ValidateProcesses(Process process)
+    {
+        return process.Id > 0 && !string.Equals(process.ProcessName, "explorer", StringComparison.OrdinalIgnoreCase);
+    }
 
     public WindowRef[] GetWindows2()
     {
         //var fgWindow = WindowManager.Interop.GetForegroundWindowHandle();
         var processes = Process.GetProcessesByName(ProcessName)
+            .Where(ValidateProcesses)
             .SelectMany(process => NewWindowProcessRef(process).GetWindows())
             .Where(ValidateWindow) // Filter out windows without titles (often invisible or non-interactive windows)
                                    //.OrderBy(w => w.Handle == fgWindow)
                                    //.ThenBy(w => w.Handle)
             .ToArray();
 
-        var lookup = WindowManager.GetWindowOrder(processes.Select(processes => processes.Handle));
+        var lookup = Manager.GetWindowOrder(processes.Select(processes => processes.Handle));
 
         var x = processes
             .OrderBy(w => lookup.TryGetValue(w.Handle, out var idx) ? idx : int.MaxValue)
@@ -39,7 +52,8 @@ public class ApplicationRef(string processName, WindowManager windowManager) : W
     }
     private static bool ValidateWindow(WindowRef window)
     {
-        return window.Title != string.Empty;
+        //return window.Title != string.Empty;
+        return window.IsValidUserWindow;
     }
 
     protected override void AssertOwnsWindow(WindowRef window)

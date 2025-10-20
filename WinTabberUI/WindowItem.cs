@@ -20,7 +20,7 @@ public class WindowItem : INotifyPropertyChanged
 
     public WindowRef WindowRef { get; }
 
-    public string ProcessName => WindowRef.Process.Process.ProcessName;
+    public string ProcessName => WindowRef.Process.ProcessInstance.ProcessName;
 
     public string Title
     {

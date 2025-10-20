@@ -31,11 +31,20 @@ SetWindowText
 GetProcessIdOfThread
 GetClassName
 SendInput
-
+GetShellWindow
+GetDesktopWindow
+GetAncestor
+GetWindowLong
 WM_SYSCOMMAND
 WM_SYSCOMMAND
 SC_RESTORE
 WINEVENT_OUTOFCONTEXT
 EVENT_SYSTEM_FOREGROUND
 
-
+CloseHandle
+GetTokenInformation
+OpenProcess
+OpenProcessToken
+TOKEN_QUERY 
+WINDOW_EX_STYLE
+TOKEN_ELEVATION

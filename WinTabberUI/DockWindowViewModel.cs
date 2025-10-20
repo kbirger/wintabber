@@ -24,7 +24,7 @@ namespace WinTabberUI
         private ApplicationRef? _application;
 
         private ApplicationRef Application => _application ?? throw new InvalidOperationException("No active application");
-        private DependencyProperty _applicationName = DependencyProperty.Register(
+        private static DependencyProperty ApplicationNameProperty = DependencyProperty.Register(
             "ApplicationName",
             typeof(string),
             typeof(DockWindowViewModel),
@@ -60,14 +60,14 @@ namespace WinTabberUI
 
         public string ApplicationName
         {
-            get { return (string)GetValue(_applicationName); }
+            get { return (string)GetValue(ApplicationNameProperty); }
             set
             {
-                SetValue(_applicationName, value);
+                SetValue(ApplicationNameProperty, value);
             }
         }
 
-        private DependencyProperty _windows = DependencyProperty.Register(
+        public static DependencyProperty WindowsProperty = DependencyProperty.Register(
             "Windows",
             typeof(ObservableCollection<WindowItem>),
             typeof(DockWindowViewModel),
@@ -77,10 +77,10 @@ namespace WinTabberUI
 
         public ObservableCollection<WindowItem> Windows
         {
-            get { return (ObservableCollection<WindowItem>)GetValue(_windows); }
+            get { return (ObservableCollection<WindowItem>)GetValue(WindowsProperty); }
             set
             {
-                SetValue(_windows, value);
+                SetValue(WindowsProperty, value);
             }
         }
 

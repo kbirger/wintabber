@@ -1,4 +1,8 @@
 ﻿using Microsoft.Win32.SafeHandles;
+
+using Windows.Win32.Security;
+
+using Windows.Win32.System.Threading;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -87,20 +91,67 @@ public class InteropProxy : IInteropProxy
         return buffer[..length].ToString();
     }
 
-    public WindowState GetWindowPlacement(int handle)
+    public WindowState GetWindowState(int handle)
     {
         var hwnd = new HWND(handle);
         var wp = new WINDOWPLACEMENT();
         var result = PInvoke.GetWindowPlacement(hwnd, ref wp);
 
-        return wp.showCmd switch
+
+        switch(wp.showCmd)
+        {
+            case SHOW_WINDOW_CMD.SW_HIDE:
+                return WindowState.Hidden;
+            case SHOW_WINDOW_CMD.SW_SHOWNORMAL:
+            case SHOW_WINDOW_CMD.SW_RESTORE:
+                return WindowState.Normal;
+            case SHOW_WINDOW_CMD.SW_MAXIMIZE:
+                return WindowState.Maximized;
+            case SHOW_WINDOW_CMD.SW_MINIMIZE:
+            case SHOW_WINDOW_CMD.SW_SHOWMINIMIZED:
+            case SHOW_WINDOW_CMD.SW_FORCEMINIMIZE:
+                return WindowState.Minimized;
+            default:
+                return 0;
+        };
+    }
+
+    public WindowPlacement GetWindowPlacement(int handle)
+    {
+        var hwnd = new HWND(handle);
+        var wp = new WINDOWPLACEMENT();
+        var result = PInvoke.GetWindowPlacement(hwnd, ref wp);
+
+        var state = wp.showCmd switch
         {
             SHOW_WINDOW_CMD.SW_HIDE => WindowPlacement.WindowState.Hidden,
             _ when wp.showCmd == SHOW_WINDOW_CMD.SW_SHOWNORMAL || wp.showCmd == SHOW_WINDOW_CMD.SW_RESTORE || wp.showCmd == SHOW_WINDOW_CMD.SW_NORMAL => WindowPlacement.WindowState.Normal,
             _ when wp.showCmd == SHOW_WINDOW_CMD.SW_SHOWMINIMIZED || wp.showCmd == SHOW_WINDOW_CMD.SW_MINIMIZE => WindowPlacement.WindowState.Minimized,
             _ when wp.showCmd == SHOW_WINDOW_CMD.SW_SHOWMAXIMIZED || wp.showCmd == SHOW_WINDOW_CMD.SW_MAXIMIZE => WindowPlacement.WindowState.Maximized
         };
+        var primaryScreen = Screen.PrimaryScreen.Bounds;
+        return new WindowPlacement
+        {
+            State = state,
+            Bounds = state switch
+            {
+                WindowState.Maximized => new Rectangle(wp.ptMaxPosition, primaryScreen.Size),
+                WindowState.Minimized => new Rectangle(wp.ptMinPosition, primaryScreen.Size),
+                WindowState.Normal => wp.rcNormalPosition,
+                WindowState.Hidden => wp.rcNormalPosition
+            }
+        };
     }
+
+    public void MoveWindow(int handle, Point point)
+    {
+        var placement = GetWindowPlacement(handle);
+        if(!PInvoke.MoveWindow(new HWND(handle), point.X, point.Y, placement.Bounds.Width, placement.Bounds.Height, true))
+        {
+            ThrowLastUnmanagedErrorAsException();
+        }
+    }
+
 
     public void MaximizeWindow(int handle)
     {
@@ -176,10 +227,32 @@ public class InteropProxy : IInteropProxy
             PInvoke.SetForegroundWindow(hWnd);
         }
     }
+    public bool IsTopLevel(int handle)
+    {
+        var hwnd = new HWND(handle);
+        IntPtr root = PInvoke.GetAncestor(hwnd, GET_ANCESTOR_FLAGS.GA_ROOTOWNER);
+        return root == hwnd;            
+    }
 
     public IEnumerable<int> EnumerateProcessWindowHandles(Process process)
     {
         return NativeMethods.EnumerateProcessWindowHandles(process);
+    }
+
+    public bool IsWindowVisible(int handle)
+    {
+        return PInvoke.IsWindowVisible(new HWND(handle));
+    }
+
+    public WindowStyles GetWindowStyles(int handle)
+    {
+        var hwnd = new HWND(handle);
+        var exStyle = (WINDOW_EX_STYLE)PInvoke.GetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
+        if(exStyle == 0)
+        {
+            ThrowLastUnmanagedErrorAsException();
+        }
+        return WindowStyles.FromFlags(exStyle);
     }
 
     delegate void WinEventDelegate(IntPtr hWinEventHook, uint eventType, IntPtr hwnd, int idObject, int idChild, uint dwEventThread, uint dwmsEventTime);
@@ -233,6 +306,57 @@ public class InteropProxy : IInteropProxy
         ;
 
         return className.ToString();
+    }
+
+
+    public bool IsProcessElevated(Process process)
+    {
+        return UacHelper.IsProcessElevated(process);
+        //SafeFileHandle tokenHandle = new SafeFileHandle();
+        //try
+        //{
+
+        //    var processHandle = PInvoke.OpenProcess(PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_INFORMATION, false, );
+        //    if (!PInvoke.OpenProcessToken(hnd,
+        //                          TOKEN_ACCESS_MASK.TOKEN_QUERY, out tokenHandle))
+        //    {
+        //        // Handle error if token cannot be opened
+        //        return false;
+        //    }
+
+        //    TOKEN_ELEVATION elevation;
+        //    uint returnLength;
+        //    uint elevationSize = (uint)Marshal.SizeOf(typeof(TOKEN_ELEVATION));
+        //    var elevationPtr = Marshal.AllocHGlobal((int)elevationSize);
+        //    try
+        //    {
+        //        if (PInvoke.GetTokenInformation(
+        //            tokenHandle, 
+        //            TOKEN_INFORMATION_CLASS.TokenElevation,
+        //            elevationPtr.ToPointer(), 
+        //            elevationSize, out returnLength))
+        //        {
+        //            elevation = Marshal.PtrToStructure<TOKEN_ELEVATION>(elevationPtr);
+        //            return elevation.TokenIsElevated != 0;
+        //        }
+        //        else
+        //        {
+        //            // Handle error if token information cannot be retrieved
+        //            return false;
+        //        }
+        //    }
+        //    finally
+        //    {
+        //        Marshal.FreeHGlobal(elevationPtr);
+        //    }
+        //}
+        //finally
+        //{
+        //    if (!tokenHandle.IsInvalid && !tokenHandle.IsClosed)
+        //    {
+        //        tokenHandle.Dispose();
+        //    }
+        //}
     }
 
     private static void ThrowLastUnmanagedErrorAsException()

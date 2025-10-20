@@ -17,7 +17,7 @@ namespace WinTabberUI;
 public partial class App : Application
 {
 
-    internal DockWindow _dock;
+    internal DockWindow? _dock;
     internal MediaControlsWindow? _mediaWindow;
     //System.Timers.Timer _timer = new(1000);
     internal WindowManager wm = new WindowManager(new InteropProxy());
@@ -36,6 +36,7 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        var isElevated = wm.GetCurrentProcess()!.IsProcessElevated;
         //_timer.Enabled = true;
         //_timer.AutoReset = true;
         //_timer.Elapsed += _timer_Elapsed;
@@ -43,7 +44,6 @@ public partial class App : Application
         {
             throw new InvalidOperationException();
         }
-        _dock = new DockWindow();
         var currentProcess = Process.GetCurrentProcess().ProcessName;
         var mgr = WinTabberEventManagerThreadHost.Instance;
         mgr.ApplicationChange
@@ -51,6 +51,10 @@ public partial class App : Application
         .Where(evt => evt.Arg != currentProcess)
         .Subscribe(evt =>
         {
+            if (_dock is null)
+            {
+                return;
+            }
             if (_dock.ApplicationName != evt.Arg)
             {
                 _dock.ApplicationName = evt.Arg;
@@ -67,33 +71,29 @@ public partial class App : Application
         mgr.CommandEvents
             .ObserveOn(SynchronizationContext.Current)
             .Where(evt => evt.Type == EventType.DockWindow)
-            .Subscribe(evt => _dock.Show());
+            .Subscribe(evt => ToggleWindow(ref _dock, () => new DockWindow() { ApplicationName = wm.GetCurrentApplication()?.ProcessName }, () => _dock = null));
 
         mgr.CommandEvents
             .ObserveOn(SynchronizationContext.Current)
             .Where(evt => evt.Type == EventType.MediaWindow)
-            .Subscribe(evt =>
-            {
-                if (_mediaWindow is null)
-                {
-                    _mediaWindow = new MediaControlsWindow();
-                    _mediaWindow.Closed += _mediaWindow_Closed;
-
-                    _mediaWindow.Show();
-                }
-                else
-                {
-                    _mediaWindow?.Close();
-                    _mediaWindow = null;
-                }
-
-            });
+            .Subscribe(evt => ToggleWindow(ref _mediaWindow, () => new MediaControlsWindow(), () => _mediaWindow = null));
         base.OnStartup(e);
     }
 
-    private void _mediaWindow_Closed(object? sender, EventArgs e)
+    private void ToggleWindow<T>(ref T? window, Func<T> create, Action unset) where T: Window
     {
-        _mediaWindow = null;
+        if (window is null)
+        {
+            window = create();
+            window.Closed += (_, _) => unset();
+
+            window.Show();
+        }
+        else
+        {
+            window?.Close();
+            unset();
+        }
     }
 
     private void _timer_Elapsed(object? sender, ElapsedEventArgs e)
