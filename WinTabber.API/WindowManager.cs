@@ -65,6 +65,11 @@ public class WindowManager : WindowOwner
             .NewWindow(handle);
     }
 
+    public ApplicationRef GetApplication(string processName)
+    {
+        return NewApplicationRef(processName);
+    }
+
     public WindowProcessRef? GetCurrentProcess()
     {
         if (Interop.GetForegroundProcess() is { } process)

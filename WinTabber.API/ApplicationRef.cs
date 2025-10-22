@@ -4,9 +4,28 @@ namespace WinTabber.API;
 
 [DebuggerDisplay("{ProcessName}", Name = "ApplicationRef")]
 
-public class ApplicationRef(string processName, WindowManager windowManager) : WindowOwner
+public partial class ApplicationRef : WindowOwner
 {
-    public string ProcessName { get; } = processName;
+    private static readonly string _winTabberApplication;
+    private static readonly HashSet<string> _ignoredProcesses;
+    static ApplicationRef()
+    {
+        _winTabberApplication = Process.GetCurrentProcess().ProcessName;
+        _ignoredProcesses = new HashSet<string>([
+        "explorer",
+        "idle",
+        _winTabberApplication
+    ], StringComparer.OrdinalIgnoreCase);
+    }
+    public ApplicationRef(string processName, WindowManager windowManager)
+        : base()
+    {
+        ProcessName = processName;
+        Manager = windowManager;
+        IsValidProcess = !_ignoredProcesses.Contains(processName);
+    }
+
+    public string ProcessName { get; }
     public override WindowRef[] GetWindows()
     {
         return GetWindows(Process.GetProcessesByName(ProcessName));
@@ -15,7 +34,7 @@ public class ApplicationRef(string processName, WindowManager windowManager) : W
     {
         var fgWindow = Manager.Interop.GetForegroundWindowHandle();
         return processes
-            .Where(ValidateProcesses)
+            .Where(ValidateProcess)
             .SelectMany(process => NewWindowProcessRef(process).GetWindows())
             .Where(ValidateWindow) // Filter out windows without titles (often invisible or non-interactive windows)
             .OrderBy(w => w.Handle == fgWindow)
@@ -23,18 +42,21 @@ public class ApplicationRef(string processName, WindowManager windowManager) : W
             .ToArray();
     }
 
-    public override WindowManager Manager { get; } = windowManager;
+    public override WindowManager Manager { get; }
 
-    private bool ValidateProcesses(Process process)
+    private static bool ValidateProcess(Process process)
     {
-        return process.Id > 0 && !string.Equals(process.ProcessName, "explorer", StringComparison.OrdinalIgnoreCase);
+        return process.Id > 0 && !_ignoredProcesses.Contains(process.ProcessName);
     }
+
+    public bool IsValidProcess { get; private init; }
+
 
     public WindowRef[] GetWindows2()
     {
         //var fgWindow = WindowManager.Interop.GetForegroundWindowHandle();
         var processes = Process.GetProcessesByName(ProcessName)
-            .Where(ValidateProcesses)
+            .Where(ValidateProcess)
             .SelectMany(process => NewWindowProcessRef(process).GetWindows())
             .Where(ValidateWindow) // Filter out windows without titles (often invisible or non-interactive windows)
                                    //.OrderBy(w => w.Handle == fgWindow)

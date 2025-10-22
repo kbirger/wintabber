@@ -106,7 +106,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
         );
 
         WindowChange = ObserveActiveWindowChange();
-        ApplicationChange = ObserveActievApplicationChange();
+        ApplicationChange = ObserveActiveApplicationChange();
         return this;
     }
 
@@ -152,9 +152,9 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
         Debug.WriteLine("boom");
     }
 
-    private IObservable<WinTabberEvent<string>> ObserveActievApplicationChange()
+    private IObservable<WinTabberEvent<string>> ObserveActiveApplicationChange()
     {
-        return WindowChange.Select(evt => _interop.GetWindowProcessId((int)evt.Arg.Handle))
+        return WindowChange.Select(evt => _interop.GetWindowProcessId(evt.Arg))
         .DistinctUntilChanged()
         .Select(pid => new WinTabberEvent<string>(EventType.ActiveApplicatonChanged, Process.GetProcessById(pid).ProcessName));
     }
@@ -164,12 +164,14 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
         return hotKeyManager.HotKeyPressed.Select(MapHotKeyToEvent);
     }
 
-    private IObservable<WinTabberEvent<ActiveWindowChangeData>> ObserveActiveWindowChange()
+    private IObservable<WinTabberEvent<int>> ObserveActiveWindowChange()
     {
         return _interop.ActiveWindowChangedEvents()
-            .DistinctUntilChanged(evt => evt.Handle)
-            .Where(evt => evt.Handle != 0)
-            .Select(evt => new WinTabberEvent<ActiveWindowChangeData>(EventType.ActiveWindowChanged, evt));
+            .Select(data => data.Handle)
+            .StartWith(_interop.GetForegroundWindowHandle())
+            .DistinctUntilChanged()
+            .Where(evt => evt!= 0)
+            .Select(evt => new WinTabberEvent<int>(EventType.ActiveWindowChanged, evt));
     }
 
     public void SendEvent(WinTabberEvent evt)
@@ -225,10 +227,8 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
     }
 
     public IObservable<WinTabberEvent> CommandEvents { get; private set; }
-    public IObservable<WinTabberEvent<ActiveWindowChangeData>> WindowChange { get; private set; }
+    public IObservable<WinTabberEvent<int>> WindowChange { get; private set; }
     public IObservable<WinTabberEvent<string>> ApplicationChange { get; private set; }
-    public IObservable<WinTabberEvent<bool>> GameBarVisibilityChange { get; private set; }
-
     private WinTabberEvent MapHotKeyToEvent(HotKey e)
     {
         return _mappings.TryGetValue(e.Id, out var eventType) ? eventType : 0;

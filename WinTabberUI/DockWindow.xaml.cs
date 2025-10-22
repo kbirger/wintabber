@@ -6,6 +6,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using WinTabber.API;
 using WinTabber.Interop;
+using WinTabberUI.ViewModels;
 using WinTabberUI.Windowing;
 
 namespace WinTabberUI
@@ -15,14 +16,16 @@ namespace WinTabberUI
     /// </summary>
     public partial class DockWindow : Window
     {
-        public DockWindowViewModel _viewModel = new DockWindowViewModel();
-        private WindowManager _windowManger = new WindowManager(new InteropProxy());
+        public readonly DockWindowViewModel _viewModel;
+        private WindowManager _windowManger;
         private Rectangle? _rect;
-        public DockWindow()
+        public DockWindow(DockWindowViewModel viewModel, WindowManager windowManager)
         {
             InitializeComponent();
             Resources.MergedDictionaries.Add(System.Windows.Application.Current.Resources);
-            DataContext = _viewModel;
+            _viewModel = viewModel;
+            DataContext = viewModel;
+            _windowManger = windowManager;
             _viewModel.ApplicationName = ApplicationName;
             Top = 0;
             Left = 0;

@@ -8,18 +8,15 @@ using System.Windows;
 using System.Windows.Forms;
 using WinTabber.API;
 using WinTabber.Interop;
+using WinTabberUI.Models;
 
-namespace WinTabberUI;
+namespace WinTabberUI.ViewModels;
 
-public class WindowsViewModel : DependencyObject, INotifyPropertyChanged
+public class WindowsViewModel(EventMonitor applicationState, WindowManager windowManager) : DependencyObject
 {
+    public WindowManager WindowManager { get; } = windowManager;
 
-    //public event PropertyChangedEventHandler? PropertyChanged;
-
-    public WindowManager WindowManager { get; } = new(new InteropProxy());
-
-
-    private System.Drawing.Point Cursor => System.Windows.Forms.Control.MousePosition;
+    private System.Drawing.Point Cursor => Control.MousePosition;
 
     public Screen CursorScreen => Screen.FromPoint(Cursor);
 
@@ -86,6 +83,8 @@ public class WindowsViewModel : DependencyObject, INotifyPropertyChanged
         typeof(WindowItem[]),
         typeof(WindowsViewModel),
         new PropertyMetadata(Array.Empty<WindowItem>()));
+    
+    private readonly EventMonitor _applicationState = applicationState;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 

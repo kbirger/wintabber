@@ -30,9 +30,13 @@ namespace WinTabber.Events
         {
             _manager = WinTabberEventManager.Instance;
             var scheduler = GetScheduler();
-            CommandEvents = _manager.CommandEvents.SubscribeOn(scheduler);
-            WindowChange = _manager.WindowChange.SubscribeOn(scheduler);
-            ApplicationChange = _manager.ApplicationChange.SubscribeOn(scheduler);
+            CommandEvents = _manager.CommandEvents
+                .SubscribeOn(scheduler);
+
+            WindowChange = _manager.WindowChange
+                .SubscribeOn(scheduler);
+            ApplicationChange = _manager.ApplicationChange
+                .SubscribeOn(scheduler);
 
             return this;
         }
@@ -76,7 +80,7 @@ namespace WinTabber.Events
         public IObservable<WinTabberEvent<string>> ApplicationChange { get; private set; }
 
 
-        public IObservable<WinTabberEvent<ActiveWindowChangeData>> WindowChange { get; private set; }
+        public IObservable<WinTabberEvent<int>> WindowChange { get; private set; }
 
         public IObservable<WinTabberEvent<bool>> GameBarVisibilityChange { get; private set; }
 

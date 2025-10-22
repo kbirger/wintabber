@@ -6,8 +6,7 @@ namespace WinTabber.Events
     {
         IObservable<WinTabberEvent<string>> ApplicationChange { get; }
         IObservable<WinTabberEvent> CommandEvents { get; }
-        IObservable<WinTabberEvent<ActiveWindowChangeData>> WindowChange { get; }
-        IObservable<WinTabberEvent<bool>> GameBarVisibilityChange { get; }
+        IObservable<WinTabberEvent<int>> WindowChange { get; }
 
         void SendEvent(WinTabberEvent evt);
     }

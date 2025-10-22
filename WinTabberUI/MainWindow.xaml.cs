@@ -21,6 +21,7 @@ using WindowsInput.Events;
 using WinTabber.API;
 using WinTabber.Events;
 using WinTabber.Interop;
+using WinTabberUI.ViewModels;
 using static WinTabberUI.EditableTextBlock;
 
 namespace WinTabberUI;
@@ -49,9 +50,11 @@ public partial class MainWindow : Window
         }
     }
 
-    public MainWindow()
+    public MainWindow(WindowsViewModel viewModel)
     {
         InitializeComponent();
+        WindowData = viewModel;
+        DataContext = viewModel;
         _hwndSource = new WindowInteropHelper(this);
         Loaded += MainWindow_Loaded;
         SizeChanged += MainWindow_SizeChanged;
@@ -133,11 +136,10 @@ public partial class MainWindow : Window
         _tileGrid = null;
     }
 
-    public WindowsViewModel WindowData { get; set; } = new WindowsViewModel();
+    public WindowsViewModel WindowData { get; private set; }
 
     protected override void OnActivated(EventArgs e)
     {
-        DataContext = WindowData;
         var dpiInfo = VisualTreeHelper.GetDpi(this);
 
         MaxItemHeight = dpiInfo.DpiScaleY * 300;

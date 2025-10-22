@@ -9,7 +9,7 @@ using System.Windows.Forms;
 using WinTabber.API;
 using WinTabber.Interop;
 
-namespace WinTabberUI;
+namespace WinTabberUI.ViewModels;
 
 public class WindowRenameViewModel : DependencyObject
 {

@@ -330,7 +330,7 @@ public sealed class AcrylicChrome : WindowChrome
 
     public bool IsInitialized { set; get; }
 
-    protected uint gbrColor = (uint)UsingColors.Transparent;
+    private uint gbrColor = (uint)UsingColors.Transparent;
 
     protected override Freezable CreateInstanceCore()
     {

@@ -9,21 +9,20 @@ using System.Windows;
 using WinTabber.API;
 using WinTabber.Interop;
 
-namespace WinTabberUI
+namespace WinTabberUI.ViewModels
 {
     public class DockWindowViewModel : DependencyObject
     {
 
-        public DockWindowViewModel()
+        public DockWindowViewModel(WindowManager windowManager)
         {
-            
+            _windowManager = windowManager;
         }
 
 
-        private WindowManager _windowManager = new WindowManager(new InteropProxy());
+        private WindowManager _windowManager;
         private ApplicationRef? _application;
 
-        private ApplicationRef Application => _application ?? throw new InvalidOperationException("No active application");
         private static DependencyProperty ApplicationNameProperty = DependencyProperty.Register(
             "ApplicationName",
             typeof(string),

@@ -10,6 +10,11 @@ namespace WinTabber.API;
 [DebuggerDisplay("{ProcessName}", Name = "WindowProcessRef")]
 public partial class WindowProcessRef : WindowOwner
 {
+    private static int _currentProcessPid = 0;
+    static WindowProcessRef()
+    {
+        _currentProcessPid = Process.GetCurrentProcess().Id;
+    }
     public WindowProcessRef(Process process, ApplicationRef application)
     {
         ProcessInstance = process;
@@ -31,6 +36,10 @@ public partial class WindowProcessRef : WindowOwner
     {
         return new WindowRef(handle, this);
     }
+
+    public bool IsValid => ProcessInstance.Id > 1 && 
+        ProcessInstance.Id != _currentProcessPid &&
+        Application.IsValidProcess;
 
     public override WindowRef[] GetWindows()
     {
