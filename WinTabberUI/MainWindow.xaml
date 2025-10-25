@@ -8,10 +8,10 @@
          xmlns:fa="http://schemas.awesome.incremented/wpf/xaml/fontawesome.sharp"
         mc:Ignorable="d"
         Title="MainWindow"
-        WindowStartupLocation="CenterScreen"
         Visibility="Hidden"
         FocusManager.FocusedElement="{Binding ElementName=TabListView}"
         Focusable="true"
+        ShowActivated="True"
         Name="Foo"
         >
     <chrome:AcrylicChrome.AcrylicChrome>
@@ -25,7 +25,7 @@
         PreviewKeyDown="TabListView_KeyDown"
         MouseUp="TabListView_MouseDown"
         PreviewKeyUp="TabListView_PreviewKeyUp"
-        ItemsSource="{Binding WindowItems}" 
+        ItemsSource="{Binding WindowItems}"
         SelectedIndex="{Binding Mode=TwoWay, Path=SelectedIndex}">
         <ListView.ItemsPanel>
             <ItemsPanelTemplate>

@@ -1,20 +1,73 @@
-﻿using System;
+﻿using DynamicData;
+using ReactiveUI;
+using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using WinTabber.API;
+using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabberUI.Models;
 
 namespace WinTabberUI.ViewModels;
 
-public class WindowsViewModel(EventMonitor applicationState, WindowManager windowManager) : DependencyObject
+public class WindowSelectorViewModel : DependencyObject
 {
-    public WindowManager WindowManager { get; } = windowManager;
+    private static bool EventOneOf(EventType type, params EventType[] types)
+    {
+        return types.Contains(type);
+    }
+    public WindowSelectorViewModel(ApplicationStateMonitor applicationState, WinTabberEventManagerThreadHost eventManager, WindowManager windowManager)
+    {
+        _applicationState = applicationState ?? throw new ArgumentNullException(nameof(applicationState));
+        WindowManager = windowManager ?? throw new ArgumentNullException(nameof(windowManager));
+        _eventManager = eventManager;
+        _applicationState.ActiveApplicationChanges
+            .Where(app => app is null)
+            .ObserveOnDispatcher()
+            .Subscribe(Clear);
+
+        _applicationState.ActiveApplicationChanges
+            .ObserveOn(SynchronizationContext.Current)
+            .Where(app => app is not null)
+            .Select(GetWindows)
+            .ObserveOnDispatcher()
+            .Subscribe(Activate);
+
+        eventManager.CommandEvents
+            .Where(evt => evt.Type == EventType.CmdNextWindow)
+            .ObserveOnDispatcher()
+            .Subscribe(_ => SelectedIndex++);
+
+        eventManager.CommandEvents
+            .Where(evt => evt.Type == EventType.CmdPreviousWindow)
+            .ObserveOnDispatcher()
+            .Subscribe(_ => SelectedIndex--);
+
+        eventManager.CommandEvents
+            .Where(evt => evt.Type == EventType.CmdAppHide)
+            .ObserveOnDispatcher()
+            .Subscribe(SelectAndClose);
+    }
+
+    private void SelectAndClose(WinTabberEvent evt)
+    {
+        if(SelectedItem is not null && !SelectedItem.IsEditing)
+        {
+            SelectedItem.Activate();
+            _eventManager.SendEvent(EventType.WindowSelected);
+        }
+    }
+
+    public WindowManager WindowManager { get; }
+
+    private readonly WinTabberEventManagerThreadHost _eventManager;
 
     private System.Drawing.Point Cursor => Control.MousePosition;
 
@@ -22,18 +75,28 @@ public class WindowsViewModel(EventMonitor applicationState, WindowManager windo
 
     public System.Drawing.Point CenterScreen => new System.Drawing.Point(CursorScreen.Bounds.X + CursorScreen.Bounds.Width / 2, CursorScreen.Bounds.Y + CursorScreen.Bounds.Height / 2);
 
-    public void Activate()
+    private void Clear(ApplicationRef? currentApplication)
     {
-        var currentApplication = WindowManager.GetCurrentApplication();
+        WindowItems = [];
+    }
 
-        if (currentApplication is null)
-        {
-            WindowItems = [];
-            return;
-        }
+    private List<WindowRef> GetWindows(ApplicationRef? application)
+    {
+        return application!.GetWindows2().ToList();
+    }
+    public void Activate(List<WindowRef> windows)
+    {
+        //var currentApplication = _applicationState.ActiveApplication;
 
-        var windows = currentApplication.GetWindows2().ToList();
+        //if (currentApplication is null)
+        //{
+        //    WindowItems.Clear();
+        //    return;
+        //}
+
+        //var windows = currentApplication.GetWindows2().ToList();
         SelectedIndex = -1;
+        //WindowItems.Clear();
         WindowItems = windows
             .Select(w => new WindowItem(w))
             .ToArray()
@@ -58,7 +121,7 @@ public class WindowsViewModel(EventMonitor applicationState, WindowManager windo
             return (WindowItem[])GetValue(_windowItems);
         }
 
-        set
+        private set
         {
             SetValue(_windowItems, value);
             PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(WindowItems)));
@@ -70,21 +133,21 @@ public class WindowsViewModel(EventMonitor applicationState, WindowManager windo
     private DependencyProperty _selectedItem = DependencyProperty.Register(
         "SelectedItem",
         typeof(WindowItem),
-        typeof(WindowsViewModel),
+        typeof(WindowSelectorViewModel),
         new PropertyMetadata(null));
     private DependencyProperty _selectedIndex = DependencyProperty.Register(
         "SelectedIndex",
         typeof(int),
-        typeof(WindowsViewModel),
+        typeof(WindowSelectorViewModel),
         new PropertyMetadata(-1));
 
     private DependencyProperty _windowItems = DependencyProperty.Register(
         "WindowItems",
         typeof(WindowItem[]),
-        typeof(WindowsViewModel),
+        typeof(WindowSelectorViewModel),
         new PropertyMetadata(Array.Empty<WindowItem>()));
-    
-    private readonly EventMonitor _applicationState = applicationState;
+
+    private readonly ApplicationStateMonitor _applicationState;
 
     public event PropertyChangedEventHandler? PropertyChanged;
 
@@ -107,7 +170,7 @@ public class WindowsViewModel(EventMonitor applicationState, WindowManager windo
             if (value != SelectedItem)
             {
                 SetValue(_selectedItem, value);
-                SetValue(_selectedIndex, Array.IndexOf(WindowItems, value));
+                SetValue(_selectedIndex, WindowItems.IndexOf(value));
                 PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedItem)));
             }
         }

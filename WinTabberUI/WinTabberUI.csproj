@@ -21,8 +21,10 @@
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
+		<PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
 		<PackageReference Include="MouseKeyHook" Version="5.7.1" />
 		<PackageReference Include="ReactiveUI" Version="22.1.1" />
+		<PackageReference Include="reactiveui.wpf" Version="22.1.1" />
 		<PackageReference Include="windowsinput" Version="6.4.1" />
 	</ItemGroup>
 

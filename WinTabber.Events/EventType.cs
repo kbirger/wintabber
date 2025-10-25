@@ -8,13 +8,14 @@ namespace WinTabber.Events;
 
 public enum EventType
 {
-    NextWindow,
-    PreviousWindow,
-    AppHide,
-    MinimizeWindow,
-    MaximizeWindow,
+    CmdNextWindow,
+    CmdPreviousWindow,
+    CmdAppHide,
+    CmdMinimizeWindow,
+    CmdMaximizeWindow,
     ActiveWindowChanged,
     ActiveApplicatonChanged,
-    MediaWindow,
-    DockWindow
+    CmdMediaWindow,
+    CmdDockWindow,
+    WindowSelected
 }

@@ -14,32 +14,24 @@ namespace WinTabber.Events
 {
     public class WinTabberEventManagerThreadHost : IWinTabberEventManager
     {
-        private static WinTabberEventManagerThreadHost? _instance;
-        private WinTabberEventManagerThreadHost()
+        public WinTabberEventManagerThreadHost(WinTabberEventManager eventManager)
         {
-
-        }
-
-        private static WinTabberEventManagerThreadHost Create()
-        {
-            return new WinTabberEventManagerThreadHost().Init();
-        }
-
-        private WinTabberEventManager? _manager;
-        private WinTabberEventManagerThreadHost Init()
-        {
-            _manager = WinTabberEventManager.Instance;
+            _manager = eventManager;
             var scheduler = GetScheduler();
             CommandEvents = _manager.CommandEvents
+                .Publish()
+                .RefCount()
                 .SubscribeOn(scheduler);
 
             WindowChange = _manager.WindowChange
                 .SubscribeOn(scheduler);
             ApplicationChange = _manager.ApplicationChange
                 .SubscribeOn(scheduler);
-
-            return this;
         }
+
+
+
+        private readonly WinTabberEventManager _manager;
 
         private EventLoopScheduler GetScheduler()
         {
@@ -72,17 +64,10 @@ namespace WinTabber.Events
 
         public IObservable<WinTabberEvent> CommandEvents { get; private set; }
 
-        public static WinTabberEventManagerThreadHost Instance
-        {
-            get => _instance ??= Create();
-        }
-
         public IObservable<WinTabberEvent<string>> ApplicationChange { get; private set; }
 
 
         public IObservable<WinTabberEvent<int>> WindowChange { get; private set; }
-
-        public IObservable<WinTabberEvent<bool>> GameBarVisibilityChange { get; private set; }
 
     }
 }

@@ -1,4 +1,5 @@
-﻿using System.ComponentModel;
+﻿using CommunityToolkit.Mvvm.DependencyInjection;
+using System.ComponentModel;
 using System.Drawing;
 using System.Windows;
 using System.Windows.Forms;
@@ -6,6 +7,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using WinTabber.API;
 using WinTabber.Interop;
+using WinTabberUI.Coordinators;
 using WinTabberUI.ViewModels;
 using WinTabberUI.Windowing;
 
@@ -19,13 +21,13 @@ namespace WinTabberUI
         public readonly DockWindowViewModel _viewModel;
         private WindowManager _windowManger;
         private Rectangle? _rect;
-        public DockWindow(DockWindowViewModel viewModel, WindowManager windowManager)
+        public DockWindow()
         {
             InitializeComponent();
             Resources.MergedDictionaries.Add(System.Windows.Application.Current.Resources);
-            _viewModel = viewModel;
-            DataContext = viewModel;
-            _windowManger = windowManager;
+            _windowManger = Ioc.Default.GetRequiredService<WindowManager>();
+            _viewModel = Ioc.Default.GetRequiredService<DockWindowViewModel>();
+            DataContext = _viewModel;            
             _viewModel.ApplicationName = ApplicationName;
             Top = 0;
             Left = 0;

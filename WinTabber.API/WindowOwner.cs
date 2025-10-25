@@ -1,9 +1,18 @@
-﻿using System.Threading.Channels;
+﻿using System.Diagnostics;
+using System.Reactive.Linq;
+using System.Threading.Channels;
 
 namespace WinTabber.API;
 
 public abstract class WindowOwner
 {
+    //protected static IObservable<ILookup<string, Process>> Processes { get; } = Observable
+    //    .Interval(TimeSpan.FromSeconds(5))
+    //    .StartWith(0)
+    //    .Select(_ => Process.GetProcesses())
+    //    .Select(processes => processes.ToLookup(p => p.ProcessName, StringComparer.OrdinalIgnoreCase))
+    //    .Replay(1)
+    //    .RefCount();
     protected abstract void AssertOwnsWindow(WindowRef window);
     public abstract WindowRef[] GetWindows();
     public abstract WindowManager Manager { get; }

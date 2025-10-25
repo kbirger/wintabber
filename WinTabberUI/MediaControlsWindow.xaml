@@ -1,4 +1,4 @@
-﻿<Window x:Class="WinTabberUI.MediaControlsWindow"
+﻿<reactiveui:ReactiveWindow x:TypeArguments="vm:MediaControlsViewModel" x:Class="WinTabberUI.MediaControlsWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
@@ -7,6 +7,8 @@
         xmlns:fa="http://schemas.awesome.incremented/wpf/xaml/fontawesome.sharp"
         xmlns:mdi="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF" 
         xmlns:local="clr-namespace:WinTabberUI"
+        xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
+        xmlns:reactiveui="http://reactiveui.net"
         mc:Ignorable="d"
         AllowsTransparency="True"
         Background="Transparent"
@@ -54,14 +56,14 @@
         </Style>
     </Window.Resources>
     <UniformGrid Columns="3">
-        <Button Style="{StaticResource MediaButton}" Click="Prev_Click">
+        <Button Style="{StaticResource MediaButton}" Command="{Binding Prev}">
             <mdi:MaterialIconExt Kind="SkipPrevious"/>
         </Button>
-        <Button Style="{StaticResource MediaButton}" Click="PlayPause_Click">
+        <Button Style="{StaticResource MediaButton}" Command="{Binding PlayPause}">
             <mdi:MaterialIconExt Kind="PlayPause" Animation="Pulse"/>
         </Button>
-        <Button Style="{StaticResource MediaButton}" Click="Next_Click">
+        <Button Style="{StaticResource MediaButton}" Command="{Binding Next}">
             <mdi:MaterialIconExt Kind="SkipNext"/>
         </Button>
     </UniformGrid>
-</Window>
+</reactiveui:ReactiveWindow>

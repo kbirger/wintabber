@@ -21,31 +21,13 @@ namespace WinTabber.Events;
 
 public class WinTabberEventManager : IDisposable, IWinTabberEventManager
 {
-    private static int _counter = 0;
     private IInteropProxy _interop;
-    private WinTabberEventManager()
+    public  WinTabberEventManager(IInteropProxy interop)
     {
-        _interop = new InteropProxy();
-        if (_counter > 0)
-        {
-            throw new InvalidOperationException("Can only have one instance of EventManager");
-        }
-        _counter++;
-    }
-    private static WinTabberEventManager Create()
-    {
-        return new WinTabberEventManager().Init();
+        _interop = interop;
+        Init();
     }
 
-    private static WinTabberEventManager? _instance;
-    public static WinTabberEventManager Instance
-    {
-        get
-        {
-            _instance ??= Create();
-            return _instance;
-        }
-    }
 
     public record MouseShortcut(MouseButtons mouseButton, bool alt, bool ctrl, bool shift, bool windows);
     private List<IDisposable> _resources = new();
@@ -71,10 +53,10 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
         //var otherKeys = new KeyChordEventSource(keyHook, new ChordClick(KeyCode.LWin, KeyCode.LControl, KeyCode.Left));
         _mappings = new()
         {
-            {_hkNextWindow.Id, EventType.NextWindow },
-            {_hkPrevWindow.Id, EventType.PreviousWindow },
+            {_hkNextWindow.Id, EventType.CmdNextWindow },
+            {_hkPrevWindow.Id, EventType.CmdPreviousWindow },
             //{_hkDockWindow.Id, EventType.NextWindow },
-            {_hkMediaWindow.Id, EventType.MediaWindow },
+            {_hkMediaWindow.Id, EventType.CmdMediaWindow },
         };
         var mouseHook = WindowsInput.Capture.Global.MouseAsync();
         var keyHook2 = WindowsInput.Capture.Global.KeyboardAsync();
@@ -118,7 +100,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
         return Observable.FromEventPattern<KeyChordEventArgs>(
             eventSource,
             nameof(eventSource.Triggered))
-            .Select(evt => new WinTabberEvent(EventType.DockWindow));
+            .Select(evt => new WinTabberEvent(EventType.CmdDockWindow));
     }
 
     private IObservable<WinTabberEvent> ObserveKeyChords(IKeyboardMouseEvents keyHook)
@@ -128,7 +110,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
 
             keyHook.OnCombination(new KeyValuePair<Combination, Action>[]
             {
-             new (Combination.TriggeredBy(Keys.Left).With(Keys.LWin).With(Keys.Control), () => { observer.OnNext(new WinTabberEvent(EventType.DockWindow)); })
+             new (Combination.TriggeredBy(Keys.Left).With(Keys.LWin).With(Keys.Control), () => { observer.OnNext(new WinTabberEvent(EventType.CmdDockWindow)); })
             } );
 
 
@@ -193,11 +175,11 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
 
                 if (pressed.Equals(_hkMinPlain) || pressed.Equals(_hkMin))
                 {
-                    handler(EventType.MinimizeWindow);
+                    handler(EventType.CmdMinimizeWindow);
                 }
                 else if (pressed.Equals(_hkMaxPlain) || pressed.Equals(_hkMax))
                 {
-                    handler(EventType.MaximizeWindow);
+                    handler(EventType.CmdMaximizeWindow);
 
                 }
             };
@@ -215,7 +197,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
             {
                 if (e.KeyCode == Keys.LMenu)
                 {
-                    handler(EventType.AppHide);
+                    handler(EventType.CmdAppHide);
                 }
             };
 
@@ -236,7 +218,6 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
 
     public void Dispose()
     {
-        _counter--;
         _resources.ForEach(r => r.Dispose());
     }
 }

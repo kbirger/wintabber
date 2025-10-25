@@ -1,4 +1,6 @@
-﻿using System;
+﻿using CommunityToolkit.Mvvm.DependencyInjection;
+using ReactiveUI;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Text;
@@ -13,37 +15,22 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using WinTabber.Interop;
+using WinTabberUI.ViewModels;
 
 namespace WinTabberUI
 {
     /// <summary>
     /// Interaction logic for MediaControlsWindow.xaml
     /// </summary>
-    public partial class MediaControlsWindow : Window
+    public partial class MediaControlsWindow
     {
         public MediaControlsWindow()
         {
+            DataContext = Ioc.Default.GetRequiredService<MediaControlsViewModel>();
             InitializeComponent();
         }
 
 
-        private void Prev_Click(object sender, RoutedEventArgs e)
-        {
-            MediaKeySender.Prev();
-        }
-
-        private void PlayPause_Click(object sender, RoutedEventArgs e)
-        {
-            MediaKeySender.PlayPause();
-
-        }
-
-        private void Next_Click(object sender, RoutedEventArgs e)
-        {
-            MediaKeySender.Next();
-        }
-
-        
 
         protected override void OnActivated(EventArgs e)
         {

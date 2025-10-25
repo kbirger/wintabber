@@ -1,4 +1,5 @@
 ﻿using System.Diagnostics;
+using System.Reactive.Linq;
 
 namespace WinTabber.API;
 
@@ -28,7 +29,8 @@ public partial class ApplicationRef : WindowOwner
     public string ProcessName { get; }
     public override WindowRef[] GetWindows()
     {
-        return GetWindows(Process.GetProcessesByName(ProcessName));
+        return GetWindows(ProcessMonitor.Processes.Take(1).Wait()[ProcessName].ToArray());
+        //return GetWindows(Process.GetProcessesByName(ProcessName));
     }
     internal WindowRef[] GetWindows(IEnumerable<Process> processes)
     {
@@ -55,7 +57,7 @@ public partial class ApplicationRef : WindowOwner
     public WindowRef[] GetWindows2()
     {
         //var fgWindow = WindowManager.Interop.GetForegroundWindowHandle();
-        var processes = Process.GetProcessesByName(ProcessName)
+        var processes = ProcessMonitor.Processes.Take(1).Wait()[ProcessName]
             .Where(ValidateProcess)
             .SelectMany(process => NewWindowProcessRef(process).GetWindows())
             .Where(ValidateWindow) // Filter out windows without titles (often invisible or non-interactive windows)

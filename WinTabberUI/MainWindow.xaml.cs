@@ -1,26 +1,13 @@
-﻿using GlobalHotKeys;
-using GlobalHotKeys.Native.Types;
-using Gma.System.MouseKeyHook;
-using System.ComponentModel;
-using System.Diagnostics;
+﻿using CommunityToolkit.Mvvm.DependencyInjection;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
-using System.Reactive.Threading.Tasks;
-using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
-using System.Windows.Shell;
-using Windows.Win32;
-using Windows.Win32.Foundation;
-using Windows.Win32.Graphics.Dwm;
-using WindowsInput.Events;
-using WinTabber.API;
 using WinTabber.Events;
-using WinTabber.Interop;
 using WinTabberUI.ViewModels;
 using static WinTabberUI.EditableTextBlock;
 
@@ -50,18 +37,19 @@ public partial class MainWindow : Window
         }
     }
 
-    public MainWindow(WindowsViewModel viewModel)
+    public MainWindow()
     {
         InitializeComponent();
-        WindowData = viewModel;
-        DataContext = viewModel;
+        WindowData = Ioc.Default.GetRequiredService<WindowSelectorViewModel>();
+        DataContext = WindowData;
         _hwndSource = new WindowInteropHelper(this);
         Loaded += MainWindow_Loaded;
         SizeChanged += MainWindow_SizeChanged;
         IsVisibleChanged += MainWindow_IsVisibleChanged;
         LayoutUpdated += MainWindow_LayoutUpdated;
+        
 
-        var mgr = WinTabberEventManagerThreadHost.Instance;
+        var mgr = Ioc.Default.GetRequiredService<WinTabberEventManagerThreadHost>();
         _resources.Add(mgr);
 
         ArgumentNullException.ThrowIfNull(SynchronizationContext.Current);
@@ -71,22 +59,22 @@ public partial class MainWindow : Window
             {
                 switch (e.Type)
                 {
-                    case EventType.NextWindow:
-                        SelectWindow(1);
+                    case EventType.CmdNextWindow:
+                        //SelectWindow(1);
                         break;
-                    case EventType.PreviousWindow:
-                        SelectWindow(-1);
+                    case EventType.CmdPreviousWindow:
+                        //SelectWindow(-1);
                         break;
-                    case EventType.AppHide:
+                    case EventType.CmdAppHide:
                         if(WindowData.SelectedItem is null || !WindowData.SelectedItem.IsEditing)
                         {
-                            SwitchWindowAndClose();
+                            //SwitchWindowAndClose();
                         }
                         break;
-                    case EventType.MinimizeWindow:
+                    case EventType.CmdMinimizeWindow:
                         WindowData.WindowManager.CurrentWindow()?.Minimize();
                         break;
-                    case EventType.MaximizeWindow:
+                    case EventType.CmdMaximizeWindow:
                         WindowData.WindowManager.CurrentWindow()?.Maximize();
                         break;
                 }
@@ -95,11 +83,12 @@ public partial class MainWindow : Window
 
     private void MainWindow_LayoutUpdated(object? sender, EventArgs e)
     {
+        CenterWindow();
+
     }
 
     private void MainWindow_Loaded(object sender, RoutedEventArgs e)
     {
-
     }
 
     private void MainWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -136,7 +125,7 @@ public partial class MainWindow : Window
         _tileGrid = null;
     }
 
-    public WindowsViewModel WindowData { get; private set; }
+    public WindowSelectorViewModel WindowData { get; private set; }
 
     protected override void OnActivated(EventArgs e)
     {
@@ -187,15 +176,31 @@ public partial class MainWindow : Window
         {
             WindowData.EndPreview();
             CenterWindow();
-            ChangeSelection(direction);
+            //ChangeSelection(direction);
             return;
         }
 
-        WindowData.Activate();
+        //WindowData.Activate();
+        //UpdateLayout();
+        //Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        //Arrange(new Rect(DesiredSize));
+        //UpdateLayout();
+        //SizeToContent = SizeToContent.Manual; // lock size
+        //Show();
+        //SizeToContent = SizeToContent.WidthAndHeight;
+        //Focus();
+        //Activate();
+        //TabListView.Focus();
+    }
+
+    public void ShowWindowSelector()
+    {
+        Top = -1000;
         Show();
         Focus();
         Activate();
         TabListView.Focus();
+
     }
 
     protected override void OnVisualChildrenChanged(DependencyObject visualAdded, DependencyObject visualRemoved)

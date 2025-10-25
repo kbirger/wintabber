@@ -248,10 +248,10 @@ public class InteropProxy : IInteropProxy
     {
         var hwnd = new HWND(handle);
         var exStyle = (WINDOW_EX_STYLE)PInvoke.GetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
-        if(exStyle == 0)
-        {
-            ThrowLastUnmanagedErrorAsException();
-        }
+        //if(exStyle == 0)
+        //{
+        //    ThrowLastUnmanagedErrorAsException();
+        //}
         return WindowStyles.FromFlags(exStyle);
     }
 
