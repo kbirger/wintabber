@@ -44,7 +44,7 @@ public partial class MainWindow : Window
         LayoutUpdated += MainWindow_LayoutUpdated;
         
 
-        var mgr = Ioc.Default.GetRequiredService<WinTabberEventManagerThreadHost>();
+        var mgr = Ioc.Default.GetRequiredService<WinTabberEventManager>();
         _resources.Add(mgr);
 
         ArgumentNullException.ThrowIfNull(SynchronizationContext.Current);

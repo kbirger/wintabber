@@ -23,7 +23,7 @@ public class WindowSelectorViewModel : DependencyObject
     {
         return types.Contains(type);
     }
-    public WindowSelectorViewModel(ApplicationStateMonitor applicationState, WinTabberEventManagerThreadHost eventManager, WindowManager windowManager)
+    public WindowSelectorViewModel(ApplicationStateMonitor applicationState, WinTabberEventManager eventManager, WindowManager windowManager)
     {
         _applicationState = applicationState ?? throw new ArgumentNullException(nameof(applicationState));
         WindowManager = windowManager ?? throw new ArgumentNullException(nameof(windowManager));
@@ -66,7 +66,7 @@ public class WindowSelectorViewModel : DependencyObject
 
     public WindowManager WindowManager { get; }
 
-    private readonly WinTabberEventManagerThreadHost _eventManager;
+    private readonly WinTabberEventManager _eventManager;
 
     private System.Drawing.Point Cursor => Control.MousePosition;
 

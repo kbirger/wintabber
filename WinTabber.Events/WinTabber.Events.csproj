@@ -9,7 +9,6 @@
 		<PackageReference Include="GlobalHotKeys.Windows" Version="0.1.0" />
 		<PackageReference Include="MouseKeyHook" Version="5.7.1" />
 		<PackageReference Include="System.Management" Version="9.0.10" />
-		<PackageReference Include="windowsinput" Version="6.4.1" />
 		<PackageReference Include="System.Reactive" Version="6.1.0" />
 	</ItemGroup>
 	<ItemGroup>

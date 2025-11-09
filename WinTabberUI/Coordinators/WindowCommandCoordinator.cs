@@ -6,11 +6,11 @@ using WinTabberUI.Extensions;
 namespace WinTabberUI.Coordinators;
 public class WindowCommandCoordinator : IDisposable
 {
-    private readonly WinTabberEventManagerThreadHost _eventManager;
+    private readonly WinTabberEventManager _eventManager;
     private readonly WindowManager _windowManager;
     private IDisposable _subscription;
 
-    public WindowCommandCoordinator(WinTabberEventManagerThreadHost eventManager, WindowManager windowManager)
+    public WindowCommandCoordinator(WinTabberEventManager eventManager, WindowManager windowManager)
     {
         _eventManager = eventManager;
         _windowManager = windowManager;

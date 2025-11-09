@@ -54,7 +54,7 @@ namespace WinTabberUI.Coordinators
 
         public WinTabberWindowCoordinator(
             ApplicationStateMonitor applicationState, 
-            WinTabberEventManagerThreadHost eventManager, 
+            WinTabberEventManager eventManager, 
             IServiceProvider serviceProvider)
         {
             IConfigurationItem[] configuration = [

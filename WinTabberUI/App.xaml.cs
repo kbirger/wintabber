@@ -27,7 +27,7 @@ public partial class App : Application
     private WinTabberWindowCoordinator? _windowCoordinator;
     private WindowCommandCoordinator? _commandCoordinator;
     private ApplicationStateMonitor? _appState;
-    private WinTabberEventManagerThreadHost? _eventManager;
+    private WinTabberEventManager? _eventManager;
 
     protected override void OnActivated(EventArgs e)
     {
@@ -39,13 +39,12 @@ public partial class App : Application
     protected override void OnDeactivated(EventArgs e)
     {
         base.OnDeactivated(e);
-        //WinTabberEventManagerThreadHost.Instance.SendEvent(EventType.AppHide);
+        //WinTabberEventManager.Instance.SendEvent(EventType.AppHide);
     }
 
     protected override void OnStartup(StartupEventArgs e)
     {
         var serviceProvider = new ServiceCollection()
-            .AddSingleton<WinTabberEventManagerThreadHost>()
             .AddSingleton<WinTabberEventManager>()
             .AddSingleton<ApplicationStateMonitor>()
             .AddSingleton<ApplicationState>()
@@ -68,7 +67,7 @@ public partial class App : Application
         _commandCoordinator = Ioc.Default.GetRequiredService<WindowCommandCoordinator>();
         _appState = Ioc.Default.GetRequiredService<ApplicationStateMonitor>();
         var wm = Ioc.Default.GetRequiredService<WindowManager>();
-        _eventManager = Ioc.Default.GetRequiredService<WinTabberEventManagerThreadHost>();
+        _eventManager = Ioc.Default.GetRequiredService<WinTabberEventManager>();
 
         
         var currentProcess = Process.GetCurrentProcess().ProcessName;

@@ -16,9 +16,9 @@ namespace WinTabberUI.Models
     public partial class ApplicationStateMonitor : ReactiveObject
     {
         private readonly WindowManager _windowManager;
-        private readonly WinTabberEventManagerThreadHost _eventManager;
+        private readonly WinTabberEventManager _eventManager;
 
-        public ApplicationStateMonitor(WindowManager windowManager, WinTabberEventManagerThreadHost eventManager)
+        public ApplicationStateMonitor(WindowManager windowManager, WinTabberEventManager eventManager)
         {
             _windowManager = windowManager;
             _eventManager = eventManager;
