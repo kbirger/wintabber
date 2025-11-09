@@ -26,17 +26,17 @@ namespace WinTabberUI.Models
             var commandEvents = _eventManager.CommandEvents.SubscribeOn(RxApp.TaskpoolScheduler);
 
             ActiveWindowChanges = _eventManager.WindowChange
-                .Replay(1)
-                .RefCount()
                 .Select(data => _windowManager.GetWindow(data.Arg))
                 .Where(windowRef => windowRef is null || windowRef.IsValidUserWindow && windowRef.Process.IsValid)
+                .Replay(1)
+                .RefCount()
                 .ObserveOnDispatcher();
 
             ActiveApplicationChanges = _eventManager.ApplicationChange
-                .Replay(1)
-                .RefCount()
                 .Select(data => _windowManager.GetApplication(data.Arg))
                 .Where(applicationRef => applicationRef is null || applicationRef.IsValidProcess)
+                .Replay(1)
+                .RefCount()
                 .ObserveOnDispatcher();
 
             IsSwitcherActiveChanges = commandEvents

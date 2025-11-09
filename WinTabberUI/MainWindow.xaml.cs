@@ -18,10 +18,8 @@ namespace WinTabberUI;
 /// </summary>
 public partial class MainWindow : Window
 {
-    public record MouseShortcut(MouseButtons mouseButton, bool alt, bool ctrl, bool shift, bool windows);
     private List<IDisposable> _resources = new();
     private WindowTileGrid? _tileGrid;
-    private readonly WindowInteropHelper _hwndSource;
 
     public static DependencyProperty MaxItemHeightProperty = DependencyProperty.Register(
         "MaxItemHeight",
@@ -42,10 +40,7 @@ public partial class MainWindow : Window
         InitializeComponent();
         WindowData = Ioc.Default.GetRequiredService<WindowSelectorViewModel>();
         DataContext = WindowData;
-        _hwndSource = new WindowInteropHelper(this);
-        Loaded += MainWindow_Loaded;
         SizeChanged += MainWindow_SizeChanged;
-        IsVisibleChanged += MainWindow_IsVisibleChanged;
         LayoutUpdated += MainWindow_LayoutUpdated;
         
 
@@ -85,16 +80,6 @@ public partial class MainWindow : Window
     {
         CenterWindow();
 
-    }
-
-    private void MainWindow_Loaded(object sender, RoutedEventArgs e)
-    {
-    }
-
-    private void MainWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
-    {
-
-        //CenterWindow();
     }
 
     private unsafe void MainWindow_SizeChanged(object sender, SizeChangedEventArgs e)
@@ -201,16 +186,6 @@ public partial class MainWindow : Window
         Activate();
         TabListView.Focus();
 
-    }
-
-    protected override void OnVisualChildrenChanged(DependencyObject visualAdded, DependencyObject visualRemoved)
-    {
-        base.OnVisualChildrenChanged(visualAdded, visualRemoved);
-    }
-
-    protected override Size MeasureOverride(Size availableSize)
-    {
-        return base.MeasureOverride(availableSize);
     }
 
     private void ChangeSelection(int direction)

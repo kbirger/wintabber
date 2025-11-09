@@ -27,8 +27,8 @@ public class WindowManager : WindowOwner
     public override WindowRef[] GetWindows()
     {
         return Process.GetProcesses()
-            .Where(process => !string.IsNullOrWhiteSpace(process.MainWindowTitle))
-            .GroupBy(Process => Process.ProcessName)
+            // .Where(process => !string.IsNullOrWhiteSpace(process.MainWindowTitle))
+            .GroupBy(process => process.ProcessName)
             .SelectMany(processGroup => NewApplicationRef(processGroup.Key).GetWindows(processGroup))
             .OrderBy(w => w.Handle)
             .ToArray();

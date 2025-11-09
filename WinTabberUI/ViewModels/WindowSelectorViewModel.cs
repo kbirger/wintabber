@@ -34,7 +34,6 @@ public class WindowSelectorViewModel : DependencyObject
             .Subscribe(Clear);
 
         _applicationState.ActiveApplicationChanges
-            .ObserveOn(SynchronizationContext.Current)
             .Where(app => app is not null)
             .Select(GetWindows)
             .ObserveOnDispatcher()
@@ -82,7 +81,7 @@ public class WindowSelectorViewModel : DependencyObject
 
     private List<WindowRef> GetWindows(ApplicationRef? application)
     {
-        return application!.GetWindows2().ToList();
+        return application!.GetWindows().ToList();
     }
     public void Activate(List<WindowRef> windows)
     {
@@ -162,7 +161,7 @@ public class WindowSelectorViewModel : DependencyObject
         WindowManager.EndPreview();
     }
 
-    public WindowItem SelectedItem
+    public WindowItem? SelectedItem
     {
         get { return (WindowItem)GetValue(_selectedItem); }
         set

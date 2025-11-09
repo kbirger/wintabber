@@ -59,7 +59,7 @@ namespace WinTabberUI.Coordinators
         {
             IConfigurationItem[] configuration = [
                 new ConfigurationItem<MainWindow>(applicationState.IsSwitcherActiveChanges, CloseStateStrategy.Hide, (w) => w.ShowWindowSelector(), EventType.WindowSelected),
-                new ConfigurationItem<DockWindow>(applicationState.IsDockActiveChanges, CloseStateStrategy.Close),
+                // new ConfigurationItem<DockWindow>(applicationState.IsDockActiveChanges, CloseStateStrategy.Close),
                 new ConfigurationItem<MediaControlsWindow>(applicationState.IsMediaControlsActiveChanges, CloseStateStrategy.Close),
             ];
 

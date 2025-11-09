@@ -138,7 +138,9 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
     {
         return WindowChange.Select(evt => _interop.GetWindowProcessId(evt.Arg))
         .DistinctUntilChanged()
-        .Select(pid => new WinTabberEvent<string>(EventType.ActiveApplicatonChanged, Process.GetProcessById(pid).ProcessName));
+        .Select(pid => Process.GetProcessById(pid).ProcessName)
+        .DistinctUntilChanged()
+        .Select(processName => new WinTabberEvent<string>(EventType.ActiveApplicatonChanged, processName));
     }
 
     private IObservable<WinTabberEvent> ObserveHotkeys(HotKeyManager hotKeyManager)

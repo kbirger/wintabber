@@ -29,20 +29,50 @@ public partial class ApplicationRef : WindowOwner
     public string ProcessName { get; }
     public override WindowRef[] GetWindows()
     {
-        return GetWindows(ProcessMonitor.Processes.Take(1).Wait()[ProcessName].ToArray());
-        //return GetWindows(Process.GetProcessesByName(ProcessName));
+        // return GetWindows(ProcessMonitor.Processes.Take(1).Wait()[ProcessName].ToArray());
+        return GetWindows(
+            Process.GetProcessesByName(ProcessName)
+        );
     }
+
+
     internal WindowRef[] GetWindows(IEnumerable<Process> processes)
     {
         var fgWindow = Manager.Interop.GetForegroundWindowHandle();
-        return processes
+        var validWindows = processes
             .Where(ValidateProcess)
             .SelectMany(process => NewWindowProcessRef(process).GetWindows())
             .Where(ValidateWindow) // Filter out windows without titles (often invisible or non-interactive windows)
-            .OrderBy(w => w.Handle == fgWindow)
-            .ThenBy(w => w.Handle)
+            .ToArray();
+
+        var lookup = Manager.GetWindowOrder(validWindows.Select(process => process.Handle));
+
+        return validWindows
+            .OrderBy(w => lookup.TryGetValue(w.Handle, out var idx) ? idx : int.MaxValue)
+            .ThenBy(w => w.Handle) // Then by handle to ensure consistent ordering
             .ToArray();
     }
+
+    // public WindowRef[] GetWindows2()
+    // {
+    //     //var fgWindow = WindowManager.Interop.GetForegroundWindowHandle();
+    //     var processes = ProcessMonitor.Processes.Take(1).Wait()[ProcessName]
+    //         .Where(ValidateProcess)
+    //         .SelectMany(process => NewWindowProcessRef(process).GetWindows())
+    //         .Where(ValidateWindow) // Filter out windows without titles (often invisible or non-interactive windows)
+    //                                //.OrderBy(w => w.Handle == fgWindow)
+    //                                //.ThenBy(w => w.Handle)
+    //         .ToArray();
+
+    //     var lookup = Manager.GetWindowOrder(processes.Select(processes => processes.Handle));
+
+    //     var x = processes
+    //         .OrderBy(w => lookup.TryGetValue(w.Handle, out var idx) ? idx : int.MaxValue)
+    //         .ThenBy(w => w.Handle) // Then by handle to ensure consistent ordering
+    //         .ToArray();
+    //     //var zz = string.Join('|', x.Select(z => z.Title + " " + z.Handle));
+    //     return x;
+    // }
 
     public override WindowManager Manager { get; }
 
@@ -53,27 +83,6 @@ public partial class ApplicationRef : WindowOwner
 
     public bool IsValidProcess { get; private init; }
 
-
-    public WindowRef[] GetWindows2()
-    {
-        //var fgWindow = WindowManager.Interop.GetForegroundWindowHandle();
-        var processes = ProcessMonitor.Processes.Take(1).Wait()[ProcessName]
-            .Where(ValidateProcess)
-            .SelectMany(process => NewWindowProcessRef(process).GetWindows())
-            .Where(ValidateWindow) // Filter out windows without titles (often invisible or non-interactive windows)
-                                   //.OrderBy(w => w.Handle == fgWindow)
-                                   //.ThenBy(w => w.Handle)
-            .ToArray();
-
-        var lookup = Manager.GetWindowOrder(processes.Select(processes => processes.Handle));
-
-        var x = processes
-            .OrderBy(w => lookup.TryGetValue(w.Handle, out var idx) ? idx : int.MaxValue)
-            .ThenBy(w => w.Handle) // Then by handle to ensure consistent ordering
-            .ToArray();
-        //var zz = string.Join('|', x.Select(z => z.Title + " " + z.Handle));
-        return x;
-    }
     private static bool ValidateWindow(WindowRef window)
     {
         //return window.Title != string.Empty;

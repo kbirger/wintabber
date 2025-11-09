@@ -1,0 +1,1 @@
+public record struct ProcessInfo(int Id, string ProcessName, int ParentId);
