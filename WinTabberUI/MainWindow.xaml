@@ -17,45 +17,42 @@
     <chrome:AcrylicChrome.AcrylicChrome>
         <chrome:AcrylicChrome AccentState="ACCENT_ENABLE_ACRYLICBLURBEHIND" CornerPreference="DWMWCP_ROUND" />
     </chrome:AcrylicChrome.AcrylicChrome>
-    <ListView 
+    <local:SpatialNavigationListView
         x:Name="TabListView" 
+        Style="{StaticResource WindowItemList}"
         SelectionMode="Single"
         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
-        SelectionChanged="TabListView_SelectionChanged"
-        PreviewKeyDown="TabListView_KeyDown"
-        MouseUp="TabListView_MouseDown"
-        PreviewKeyUp="TabListView_PreviewKeyUp"
         ItemsSource="{Binding WindowItems}"
-        SelectedIndex="{Binding Mode=TwoWay, Path=SelectedIndex}">
-        <ListView.ItemsPanel>
+        SelectedItem="{Binding Mode=TwoWay, Path=SelectedItem}">
+        <local:SpatialNavigationListView.ItemsPanel>
             <ItemsPanelTemplate>
                 <WrapPanel 
                         Orientation="Horizontal" 
                         KeyboardNavigation.DirectionalNavigation="None"
-                        ItemWidth="{Binding  Path=MaxItemHeight, RelativeSource={RelativeSource AncestorType=Window}}" 
+                        ItemHeight="{Binding  Path=MaxItemHeight, RelativeSource={RelativeSource AncestorType=Window}}" 
+                        ItemWidth="{Binding  Path=MaxItemWidth, RelativeSource={RelativeSource AncestorType=Window}}" 
                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" 
                         VerticalAlignment="Center" 
                         HorizontalAlignment="Center"
                         />
             </ItemsPanelTemplate>
-        </ListView.ItemsPanel>
-        <ListView.ItemTemplate>
+        </local:SpatialNavigationListView.ItemsPanel>
+        <local:SpatialNavigationListView.ItemTemplate>
             <DataTemplate>
-                <Grid Margin="0" Background="#01000000" MouseUp="Grid_MouseUp">
+                <Grid Margin="0" Background="Transparent" IsHitTestVisible="True" MouseUp="Grid_MouseUp">
                     <Grid.RowDefinitions>
                         <RowDefinition Height="auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <!--<TextBlock Text="{Binding Title}" FontSize="16" Margin="0" Padding="0" Grid.Row="0" TextWrapping="NoWrap" MaxWidth="400" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                    <Button Style="{StaticResource HoverButton}" HorizontalAlignment="Right" Click="Button_Click" DataContext="{Binding Path=.}">
-                        <fa:IconBlock Icon="Pen"/>-->
-                    <!--</Button>-->
-                    <local:EditableTextBlock OriginalText="{Binding Path=Title}" IsEditing="{Binding Path=IsEditing, Mode=OneWayToSource}" TextChanged="EditableTextBlock_TextChanged" />
+                    <local:EditableTextBlock 
+                        OriginalText="{Binding Path=Title}" 
+                        IsEditing="{Binding Path=IsEditing, Mode=OneWayToSource}" 
+                        EditCommand="{Binding Path=EditTitleCommand}"  />
                     <Viewbox Grid.Row="1"  HorizontalAlignment="Center" VerticalAlignment="Top" Stretch="Uniform" Margin="0 10 0 0">
                         <local:WindowThumbnail Source="{Binding Path=Handle}" />
                     </Viewbox>
                 </Grid>
             </DataTemplate>
-        </ListView.ItemTemplate>
-    </ListView>
+        </local:SpatialNavigationListView.ItemTemplate>
+    </local:SpatialNavigationListView>
 </Window>

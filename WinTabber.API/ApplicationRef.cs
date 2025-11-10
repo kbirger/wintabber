@@ -13,7 +13,6 @@ public partial class ApplicationRef : WindowOwner
     {
         _winTabberApplication = Process.GetCurrentProcess().ProcessName;
         _ignoredProcesses = new HashSet<string>([
-        "explorer",
         "idle",
         _winTabberApplication
     ], StringComparer.OrdinalIgnoreCase);

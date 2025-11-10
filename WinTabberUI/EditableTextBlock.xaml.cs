@@ -22,8 +22,10 @@ public partial class EditableTextBlock : UserControl
     {
         public string NewValue { get; } = newValue;
     }
-    
+
     public delegate void TextUpdatedEventHandler(object sender, TextUpdatedEventArgs e);
+
+
 
     public EditableTextBlock()
     {
@@ -36,7 +38,11 @@ public partial class EditableTextBlock : UserControl
         DependencyProperty.Register(nameof(IsEditing), typeof(bool), typeof(EditableTextBlock), new PropertyMetadata(false));
 
     public static readonly DependencyProperty CurrentTextProperty =
-    DependencyProperty.Register(nameof(CurrentText), typeof(string), typeof(EditableTextBlock), new PropertyMetadata(string.Empty));
+        DependencyProperty.Register(nameof(CurrentText), typeof(string), typeof(EditableTextBlock), new PropertyMetadata(string.Empty));
+
+
+    public static readonly DependencyProperty EditCommandProperty =
+        DependencyProperty.Register(nameof(EditCommand), typeof(ICommand), typeof(EditableTextBlock), new PropertyMetadata(null));
 
     private void BorderContainer_MouseEnter(object sender, MouseEventArgs e)
     {
@@ -53,7 +59,11 @@ public partial class EditableTextBlock : UserControl
     }
 
     public static readonly DependencyProperty OriginalTextProperty =
-        DependencyProperty.Register(nameof(OriginalText), typeof(string), typeof(EditableTextBlock), new PropertyMetadata(string.Empty, OnOriginalTextChanged));
+        DependencyProperty.Register(
+            nameof(OriginalText),
+            typeof(string),
+            typeof(EditableTextBlock),
+            new PropertyMetadata(string.Empty, OnOriginalTextChanged));
 
     public string OriginalText
     {
@@ -113,7 +123,16 @@ public partial class EditableTextBlock : UserControl
 
     private void OnTextChanged(string newValue)
     {
+        if (EditCommand?.CanExecute(newValue) ?? false)
+        {
+            EditCommand.Execute(newValue);
+        }
         RaiseEvent(new TextUpdatedEventArgs(TextChangedEvent, newValue));
+    }
+    public ICommand? EditCommand 
+    { 
+        get => (ICommand?)GetValue(EditCommandProperty);
+        set => SetValue(EditCommandProperty, value);
     }
 
     private void OnEditCanceled()

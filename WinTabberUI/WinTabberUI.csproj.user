@@ -14,5 +14,8 @@
     <Compile Update="RenameWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Update="SysColor.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
   </ItemGroup>
 </Project>

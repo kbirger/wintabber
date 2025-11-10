@@ -6,14 +6,10 @@ using WinTabberUI.Extensions;
 namespace WinTabberUI.Coordinators;
 public class WindowCommandCoordinator : IDisposable
 {
-    private readonly WinTabberEventManager _eventManager;
-    private readonly WindowManager _windowManager;
     private IDisposable _subscription;
 
     public WindowCommandCoordinator(WinTabberEventManager eventManager, WindowManager windowManager)
     {
-        _eventManager = eventManager;
-        _windowManager = windowManager;
         ArgumentNullException.ThrowIfNull(SynchronizationContext.Current);
         _subscription = eventManager.CommandEvents
             .Where(evt => evt.Type.IsOneOf(EventType.CmdMinimizeWindow, EventType.CmdMaximizeWindow))

@@ -1,6 +1,4 @@
 ﻿using Microsoft.Xaml.Behaviors;
-using System;
-using System.Reactive.Subjects;
 using System.Windows;
 
 namespace WinTabberUI.Behaviors

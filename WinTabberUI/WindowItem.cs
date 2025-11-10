@@ -5,8 +5,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Input;
 using System.Windows.Media;
 using WinTabber.API;
+using WinTabberUI.Commands;
 
 namespace WinTabberUI;
 
@@ -16,10 +18,12 @@ public class WindowItem : INotifyPropertyChanged
     {
         WindowRef = windowRef ?? throw new ArgumentNullException(nameof(windowRef));
         //Icon = WindowRef.GetIcon().ToImageSource(); 
+        EditTitleCommand = new EditTitleCommand(this);
     }
 
     public WindowRef WindowRef { get; }
 
+    public ICommand EditTitleCommand { get; }
     public string ProcessName => WindowRef.Process.ProcessInstance.ProcessName;
 
     public string Title

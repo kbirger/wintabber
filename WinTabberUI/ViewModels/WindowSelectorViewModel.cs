@@ -1,28 +1,16 @@
 ﻿using DynamicData;
-using ReactiveUI;
-using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
-using System.Linq;
 using System.Reactive.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using WinTabber.API;
 using WinTabber.Events;
-using WinTabber.Interop;
 using WinTabberUI.Models;
 
 namespace WinTabberUI.ViewModels;
 
 public class WindowSelectorViewModel : DependencyObject
 {
-    private static bool EventOneOf(EventType type, params EventType[] types)
-    {
-        return types.Contains(type);
-    }
     public WindowSelectorViewModel(ApplicationStateMonitor applicationState, WinTabberEventManager eventManager, WindowManager windowManager)
     {
         _applicationState = applicationState ?? throw new ArgumentNullException(nameof(applicationState));
@@ -33,33 +21,58 @@ public class WindowSelectorViewModel : DependencyObject
             .ObserveOnDispatcher()
             .Subscribe(Clear);
 
-        _applicationState.ActiveApplicationChanges
-            .Where(app => app is not null)
-            .Select(GetWindows)
+        _applicationState.ActiveWindowChanges
+            .Where(window => window is not null)
+            .Select(window => window!.Process.Application.GetWindows())
             .ObserveOnDispatcher()
-            .Subscribe(Activate);
+            .Subscribe(Update);
 
         eventManager.CommandEvents
             .Where(evt => evt.Type == EventType.CmdNextWindow)
             .ObserveOnDispatcher()
-            .Subscribe(_ => SelectedIndex++);
+            .Subscribe(_ => SelectNext());
 
         eventManager.CommandEvents
             .Where(evt => evt.Type == EventType.CmdPreviousWindow)
             .ObserveOnDispatcher()
-            .Subscribe(_ => SelectedIndex--);
+            .Subscribe(_ => SelectPrevious());
 
         eventManager.CommandEvents
             .Where(evt => evt.Type == EventType.CmdAppHide)
+            .WithLatestFrom(applicationState.IsSwitcherActiveChanges)
+            .Where(state => state.Second)
             .ObserveOnDispatcher()
-            .Subscribe(SelectAndClose);
+            .Subscribe(_ => SelectAndClose());
     }
 
-    private void SelectAndClose(WinTabberEvent evt)
+    private void SelectPrevious()
     {
-        if(SelectedItem is not null && !SelectedItem.IsEditing)
+        var index = SelectedIndex - 1;
+        if (index < 0)
+        {
+            SelectedIndex = WindowItems.Length - 1;
+        }
+        else
+        {
+            SelectedIndex = index;
+        }
+    }
+
+    private void SelectNext()
+    {
+        if(WindowItems.Length == 0)
+        {
+            return;
+        }
+        SelectedIndex = (SelectedIndex + 1) % WindowItems.Length;
+    }
+
+    private void SelectAndClose()
+    {
+        if (SelectedItem is not null && !SelectedItem.IsEditing)
         {
             SelectedItem.Activate();
+            Deactivate();
             _eventManager.SendEvent(EventType.WindowSelected);
         }
     }
@@ -76,14 +89,14 @@ public class WindowSelectorViewModel : DependencyObject
 
     private void Clear(ApplicationRef? currentApplication)
     {
-        WindowItems = [];
+        Deactivate();
     }
 
     private List<WindowRef> GetWindows(ApplicationRef? application)
     {
         return application!.GetWindows().ToList();
     }
-    public void Activate(List<WindowRef> windows)
+    public void Update(IEnumerable<WindowRef> windows)
     {
         //var currentApplication = _applicationState.ActiveApplication;
 
@@ -92,25 +105,26 @@ public class WindowSelectorViewModel : DependencyObject
         //    WindowItems.Clear();
         //    return;
         //}
-
         //var windows = currentApplication.GetWindows2().ToList();
         SelectedIndex = -1;
+        // SelectedItem = null;
         //WindowItems.Clear();
         WindowItems = windows
             .Select(w => new WindowItem(w))
             .ToArray()
             ?? Array.Empty<WindowItem>();
 
-        if (windows.Count > 0)
-        {
-            SelectedIndex = 0;
-        }
+        // if (windows.Count > 0)
+        // {
+        //     SelectedIndex = 0;
+        // }
     }
 
     internal void Deactivate()
     {
         WindowItems = [];
-        SelectedItem = null;
+        // SelectedItem = null;
+        SelectedIndex = -1;
     }
 
     public WindowItem[] WindowItems
@@ -133,12 +147,29 @@ public class WindowSelectorViewModel : DependencyObject
         "SelectedItem",
         typeof(WindowItem),
         typeof(WindowSelectorViewModel),
-        new PropertyMetadata(null));
+        new PropertyMetadata(null, OnSelectedItemChanged));
+
+    private static void OnSelectedItemChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if(e.OldValue != e.NewValue && d is WindowSelectorViewModel vm)
+        {
+            vm.SelectedIndex = vm.WindowItems.IndexOf(vm.SelectedItem);
+        }
+    }
+
     private DependencyProperty _selectedIndex = DependencyProperty.Register(
         "SelectedIndex",
         typeof(int),
         typeof(WindowSelectorViewModel),
-        new PropertyMetadata(-1));
+        new PropertyMetadata(-1, OnSelectedIndexChanged));
+
+    private static void OnSelectedIndexChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if(e.OldValue != e.NewValue && d is WindowSelectorViewModel vm)
+        {
+            vm.SelectedItem = vm.WindowItems.ElementAtOrDefault(vm.SelectedIndex);
+        }
+    }
 
     private DependencyProperty _windowItems = DependencyProperty.Register(
         "WindowItems",
@@ -169,8 +200,6 @@ public class WindowSelectorViewModel : DependencyObject
             if (value != SelectedItem)
             {
                 SetValue(_selectedItem, value);
-                SetValue(_selectedIndex, WindowItems.IndexOf(value));
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(SelectedItem)));
             }
         }
     }
@@ -179,21 +208,10 @@ public class WindowSelectorViewModel : DependencyObject
         get { return (int)GetValue(_selectedIndex); }
         set
         {
-            if (value >= WindowItems.Length)
-            {
-                value = 0;
-            }
-            else if (value < 0)
-            {
-                value = WindowItems.Length - 1;
-            }
-
-            if(value != SelectedIndex)
+            if (value != SelectedIndex)
             {
                 SetValue(_selectedIndex, value);
-                SetValue(_selectedItem, WindowItems.ElementAtOrDefault(value));
             }
-
         }
     }
 }

@@ -34,7 +34,7 @@ namespace WinTabberUI.Models
 
             ActiveApplicationChanges = _eventManager.ApplicationChange
                 .Select(data => _windowManager.GetApplication(data.Arg))
-                .Where(applicationRef => applicationRef is null || applicationRef.IsValidProcess)
+                .Where(applicationRef => applicationRef is null || (applicationRef.IsValidProcess && applicationRef.CurrentWindow() is { }))
                 .Replay(1)
                 .RefCount()
                 .ObserveOnDispatcher();
@@ -85,7 +85,8 @@ namespace WinTabberUI.Models
 
             ActiveApplicationChanges.Subscribe(p =>
             {
-                Debug.WriteLine($"Application changed: {p.ProcessName}");
+                var x = p?.CurrentWindow();
+                Debug.WriteLine($"Application changed: {p.ProcessName}; {p.CurrentWindow()?.Class}");
             });
 
             IsSwitcherActiveChanges.Subscribe(t =>

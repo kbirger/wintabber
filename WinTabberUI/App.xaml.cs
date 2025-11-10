@@ -31,7 +31,6 @@ public partial class App : Application
 
     protected override void OnActivated(EventArgs e)
     {
-        var area = DesktopHelper.GetDesktopArea();
         base.OnActivated(e);
 
     }
