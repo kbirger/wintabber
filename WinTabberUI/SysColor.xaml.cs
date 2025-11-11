@@ -17,48 +17,47 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 
-namespace WinTabberUI
+namespace WinTabberUI;
+
+/// <summary>
+/// Interaction logic for SysColor.xaml
+/// </summary>
+public partial class SysColor : Window
 {
-    /// <summary>
-    /// Interaction logic for SysColor.xaml
-    /// </summary>
-    public partial class SysColor : Window
+    public SysColor()
     {
-        public SysColor()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
     }
+}
 
 
 public class SystemColorInfo
+{
+    public string Name { get; set; }
+    public Brush Color { get; set; }
+}
+
+public class SystemColorsViewModel
+{
+    public List<SystemColorInfo> SystemColorsList { get; set; }
+
+    public SystemColorsViewModel()
     {
-        public string Name { get; set; }
-        public Brush Color { get; set; }
+        SystemColorsList = new List<SystemColorInfo>();
+        LoadSystemColors();
     }
 
-    public class SystemColorsViewModel
+    private void LoadSystemColors()
     {
-        public List<SystemColorInfo> SystemColorsList { get; set; }
+        PropertyInfo[] properties = typeof(SystemColors).GetProperties(BindingFlags.Public | BindingFlags.Static);
 
-        public SystemColorsViewModel()
+        foreach (PropertyInfo property in properties)
         {
-            SystemColorsList = new List<SystemColorInfo>();
-            LoadSystemColors();
-        }
-
-        private void LoadSystemColors()
-        {
-            PropertyInfo[] properties = typeof(SystemColors).GetProperties(BindingFlags.Public | BindingFlags.Static);
-
-            foreach (PropertyInfo property in properties)
+            if (property.Name.EndsWith("Brush"))
             {
-                if (property.Name.EndsWith("Brush"))
-                {
-                    Brush systemColor = (Brush)property.GetValue(null, null);
-                    //Brush brush = new SolidColorBrush(systemColor);
-                    SystemColorsList.Add(new SystemColorInfo { Name = property.Name, Color = systemColor });
-                }
+                Brush systemColor = (Brush)property.GetValue(null, null);
+                //Brush brush = new SolidColorBrush(systemColor);
+                SystemColorsList.Add(new SystemColorInfo { Name = property.Name, Color = systemColor });
             }
         }
     }

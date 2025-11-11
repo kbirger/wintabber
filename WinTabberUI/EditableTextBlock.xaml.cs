@@ -42,7 +42,10 @@ public partial class EditableTextBlock : UserControl
 
 
     public static readonly DependencyProperty EditCommandProperty =
-        DependencyProperty.Register(nameof(EditCommand), typeof(ICommand), typeof(EditableTextBlock), new PropertyMetadata(null));
+        DependencyProperty.Register(nameof(AcceptCommand), typeof(ICommand), typeof(EditableTextBlock), new PropertyMetadata(null));
+
+    public static readonly DependencyProperty RejectCommandProperty =
+        DependencyProperty.Register(nameof(RejectCommand), typeof(ICommand), typeof(EditableTextBlock), new PropertyMetadata(null));
 
     private void BorderContainer_MouseEnter(object sender, MouseEventArgs e)
     {
@@ -123,16 +126,23 @@ public partial class EditableTextBlock : UserControl
 
     private void OnTextChanged(string newValue)
     {
-        if (EditCommand?.CanExecute(newValue) ?? false)
+        if (AcceptCommand?.CanExecute(newValue) ?? false)
         {
-            EditCommand.Execute(newValue);
+            AcceptCommand.Execute(newValue);
         }
         RaiseEvent(new TextUpdatedEventArgs(TextChangedEvent, newValue));
     }
-    public ICommand? EditCommand 
+    public ICommand? AcceptCommand 
     { 
         get => (ICommand?)GetValue(EditCommandProperty);
         set => SetValue(EditCommandProperty, value);
+    }
+
+
+    public ICommand? RejectCommand
+    {
+        get => (ICommand?)GetValue(RejectCommandProperty);
+        set => SetValue(RejectCommandProperty, value);
     }
 
     private void OnEditCanceled()

@@ -19,7 +19,6 @@ public partial class WindowProcessRef : WindowOwner
     {
         ProcessInstance = process;
         Application = application;
-        OnConstructed();
     }
     public Process ProcessInstance { get; }
 

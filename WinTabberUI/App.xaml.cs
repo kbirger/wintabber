@@ -11,6 +11,7 @@ using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabberUI.Coordinators;
 using WinTabberUI.Models;
+using WinTabberUI.Updaters;
 using WinTabberUI.ViewModels;
 using WinTabberUI.Windowing;
 
@@ -22,11 +23,7 @@ namespace WinTabberUI;
 public partial class App : Application
 {
 
-    internal DockWindow? _dock;
-    internal MediaControlsWindow? _mediaWindow;
-    private WinTabberWindowCoordinator? _windowCoordinator;
     private WindowCommandCoordinator? _commandCoordinator;
-    private ApplicationStateMonitor? _appState;
     private WinTabberEventManager? _eventManager;
 
     protected override void OnActivated(EventArgs e)
@@ -37,42 +34,29 @@ public partial class App : Application
 
     protected override void OnDeactivated(EventArgs e)
     {
+        _eventManager?.SendEvent(EventType.CmdAppHide);
         base.OnDeactivated(e);
-        //WinTabberEventManager.Instance.SendEvent(EventType.AppHide);
     }
 
     protected override void OnStartup(StartupEventArgs e)
     {
-        var serviceProvider = new ServiceCollection()
-            .AddSingleton<WinTabberEventManager>()
-            .AddSingleton<ApplicationStateMonitor>()
-            .AddSingleton<ApplicationState>()
-            .AddSingleton<IInteropProxy, InteropProxy>()
-            .AddSingleton<WindowManager>()
-            .AddSingleton<WinTabberWindowCoordinator>()
-            .AddSingleton<WindowCommandCoordinator>()
-            .AddTransient<DockWindow>()
-            .AddTransient<MediaControlsWindow>()
-            .AddSingleton<MainWindow>()
-            .AddSingleton<DockWindowViewModel>()
-            .AddSingleton<WindowSelectorViewModel>()
-            .AddSingleton<MediaControlsViewModel>()
-            .AddTransient<WindowRenameViewModel>()
-            .BuildServiceProvider();
+        ServiceProvider serviceProvider = ConfigureServices();
 
-        Ioc.Default.ConfigureServices(serviceProvider);
-        Ioc.Default.GetRequiredService<MainWindow>();
-        _windowCoordinator = Ioc.Default.GetRequiredService<WinTabberWindowCoordinator>();
-        _commandCoordinator = Ioc.Default.GetRequiredService<WindowCommandCoordinator>();
-        _appState = Ioc.Default.GetRequiredService<ApplicationStateMonitor>();
-        var wm = Ioc.Default.GetRequiredService<WindowManager>();
-        _eventManager = Ioc.Default.GetRequiredService<WinTabberEventManager>();
+        Ioc ioc = Ioc.Default;
+        ioc.ConfigureServices(serviceProvider);
+        ioc.GetRequiredService<MainWindow>();
+        //_windowCoordinator = Ioc.Default.GetRequiredService<WinTabberWindowCoordinator>();
+        ioc.GetRequiredService<WindowSelectorViewCoordinator>().Init();
+        ioc.GetRequiredService<MediaWindowViewCoordinator>().Init();
 
-        
-        var currentProcess = Process.GetCurrentProcess().ProcessName;
-        _appState.ActiveWindowChanges
-            .Where(window => window is not null)
-            .Subscribe(window => wm.RegisterForegroundWindowChanged(window!.Handle));
+        ioc.GetRequiredService<WindowHistoryUpdater>().Init();
+
+
+        _commandCoordinator = ioc.GetRequiredService<WindowCommandCoordinator>();
+        ioc.GetRequiredService<ApplicationStateMonitor>();
+        ioc.GetRequiredService<WindowManager>();
+        _eventManager = ioc.GetRequiredService<WinTabberEventManager>();
+
 
         // _eventManager.ApplicationChange
         //     .ObserveOnDispatcher()
@@ -97,6 +81,43 @@ public partial class App : Application
         base.OnStartup(e);
     }
 
+    private static ServiceProvider ConfigureServices()
+    {
+        var serviceProvider = new ServiceCollection()
+            .AddSingleton<WinTabberEventManager>()
+            .AddSingleton<ApplicationStateMonitor>()
+            .AddSingleton<ApplicationState>()
+            .AddSingleton<IInteropProxy, InteropProxy>()
+            .AddSingleton<WindowManager>()
+            .AddSingleton<WindowHistoryUpdater>()
+            //.AddSingleton<WinTabberWindowCoordinator>()
+            .AddSingleton<WindowSelectorViewCoordinator>()
+            .AddSingleton<MediaWindowViewCoordinator>()
+            .AddSingleton<ApplicationStateViewModel>((sp) =>
+            {
+                var state = sp.GetRequiredService<ApplicationStateMonitor>();
+                return new ApplicationStateViewModel
+                {
+                    IsSwitcherActiveChanges = state.IsSwitcherActiveChanges,
+                    ActiveApplicationChanges = state.ActiveApplicationChanges,
+                    ActiveWindowChanges = state.ActiveWindowChanges,
+                    IsDockActiveChanges = state.IsDockActiveChanges,
+                    IsEditingStateChanges = state.IsEditingStateChanges,
+                    IsMediaControlsActiveChanges = state.IsMediaControlsActiveChanges
+                };
+            })
+            .AddSingleton<WindowCommandCoordinator>()
+            .AddTransient<DockWindow>()
+            .AddTransient<MediaControlsWindow>()
+            .AddSingleton<MainWindow>()
+            .AddSingleton<DockWindowViewModel>()
+            .AddSingleton<WindowSelectorViewModel>()
+            .AddSingleton<MediaControlsViewModel>()
+            .AddTransient<WindowRenameViewModel>()
+            .BuildServiceProvider();
+        return serviceProvider;
+    }
+
     private void ToggleWindow<T>(ref T? window, Func<T> create, Action unset) where T : Window
     {
         if (window is null)
@@ -116,7 +137,6 @@ public partial class App : Application
     protected override void OnExit(ExitEventArgs e)
     {
         _commandCoordinator?.Dispose();
-        _windowCoordinator?.Dispose();
         _eventManager?.Dispose();
     }
 }

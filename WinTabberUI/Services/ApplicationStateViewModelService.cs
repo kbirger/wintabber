@@ -4,6 +4,10 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WinTabber.Interop;
+namespace WinTabberUI.Services
+{
+    public class ApplicationStateViewModelService()
+    {
 
-public record ActiveWindowChangeData(int Handle, int IdChild, uint ThreadId, uint Time);
+    }
+}

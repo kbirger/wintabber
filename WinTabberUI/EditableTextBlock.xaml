@@ -16,7 +16,7 @@
 
         <Style x:Key="InlineButton" TargetType="Button">
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="White"/>            
+            <Setter Property="Foreground" Value="White"/>
             <Setter Property="Margin" Value="2,0,0,0"/>
             <Setter Property="Padding" Value="6, 0"/>
             <Setter Property="VerticalAlignment" Value="Center"/>
@@ -32,6 +32,11 @@
                 </Setter.Value>
             </Setter>
             <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Trigger.Setters>
+                        <Setter Property="Foreground" Value="#dd333333"/>
+                    </Trigger.Setters>
+                </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Trigger.Setters>
                         <Setter Property="Background" Value="#dd666666"/>
@@ -65,12 +70,20 @@
                      GotFocus="TextBox_GotFocus"/>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button x:Name="AcceptButton" Style="{StaticResource InlineButton}" Click="Accept_Click" Visibility="{Binding RelativeSource={RelativeSource AncestorType=local:EditableTextBlock}, Path=IsEditing, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Button 
+                    x:Name="AcceptButton" 
+                    Style="{StaticResource InlineButton}" 
+                    Click="Accept_Click" 
+                    Visibility="{Binding RelativeSource={RelativeSource AncestorType=local:EditableTextBlock}, Path=IsEditing, Converter={StaticResource BoolToVisibilityConverter}}"
+                    >
                     <fa:IconBlock Icon="Check"/>
                 </Button>
-                <Button x:Name="CanceButton" Style="{StaticResource InlineButton}" Click="Cancel_Click" Visibility="{Binding RelativeSource={RelativeSource AncestorType=local:EditableTextBlock}, Path=IsEditing, Converter={StaticResource BoolToVisibilityConverter}}">
+                <Button 
+                    x:Name="CanceButton" 
+                    Style="{StaticResource InlineButton}" 
+                    Click="Cancel_Click" 
+                    Visibility="{Binding RelativeSource={RelativeSource AncestorType=local:EditableTextBlock}, Path=IsEditing, Converter={StaticResource BoolToVisibilityConverter}}">
                     <fa:IconBlock Icon="Ban"/>
-
                 </Button>
             </StackPanel>
         </Grid>

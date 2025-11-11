@@ -19,8 +19,6 @@ public partial class WindowRef : IEquatable<WindowRef>
     {
         Handle = handle;
         Process = process;
-        OnConstructed();
-        Debug.WriteLine(Title);
     }
     public int Handle { get; }
 

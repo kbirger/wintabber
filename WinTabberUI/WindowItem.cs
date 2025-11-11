@@ -1,7 +1,9 @@
-﻿using System;
+﻿using ReactiveUI;
+using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Reactive;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -18,12 +20,17 @@ public class WindowItem : INotifyPropertyChanged
     {
         WindowRef = windowRef ?? throw new ArgumentNullException(nameof(windowRef));
         //Icon = WindowRef.GetIcon().ToImageSource(); 
-        EditTitleCommand = new EditTitleCommand(this);
+        //EditTitleCommand = new EditTitleCommand(this);
+        var editingChanges = this.WhenAnyValue(item => item.IsEditing);
+        EditTitleCommand = ReactiveCommand.Create((string value) => Title = value, editingChanges);
+        CancelEditTitleCommand = ReactiveCommand.Create(() => IsEditing = false, editingChanges);
     }
 
     public WindowRef WindowRef { get; }
 
     public ICommand EditTitleCommand { get; }
+    public ReactiveCommand<Unit, bool> CancelEditTitleCommand { get; }
+
     public string ProcessName => WindowRef.Process.ProcessInstance.ProcessName;
 
     public string Title

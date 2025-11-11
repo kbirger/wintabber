@@ -151,8 +151,9 @@ public class LazyMethodGenerator : IIncrementalGenerator
         foreach (var m in methods)
         {
             var type = m.Method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            var name = m.Method.Name;
-            sb.AppendLine($"    private Lazy<{type}> _lazy{name} = null!;");
+            var methodName = m.Method.Name;
+            var (fieldName, _) = GetNames(methodName);
+            sb.AppendLine($"    private {type}? {fieldName} = null!;");
         }
 
         sb.AppendLine();
@@ -160,12 +161,24 @@ public class LazyMethodGenerator : IIncrementalGenerator
         foreach (var m in methods)
         {
             var type = m.Method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            
             //var containingType = returnType.ContainingType?.Name;
             //var extra = containingType is not null ? $"{containingType}."
             var methodName = m.Method.Name;
-            var propertyName = Regex.Replace(methodName, "^Get", string.Empty);
+            var (fieldName, propertyName) = GetNames(methodName);
+            var valueExpr = m.Method.ReturnType.IsValueType ? $".Value" : "";
 
-            sb.AppendLine($"    public {type} {propertyName} => _lazy{methodName}.Value;");
+            sb.AppendLine($"    public {type} {propertyName}");
+            sb.AppendLine($"     {{");
+            sb.AppendLine($"         get");
+            sb.AppendLine($"         {{");
+            sb.AppendLine($"             if ({fieldName} is null)");
+            sb.AppendLine($"             {{");
+            sb.AppendLine($"                 {fieldName} = {methodName}();");
+            sb.AppendLine($"             }}");
+            sb.AppendLine($"             return {fieldName}{valueExpr};");
+            sb.AppendLine($"         }}");
+            sb.AppendLine($"     }}");
         }
 
         if (!Debugger.IsAttached)
@@ -173,40 +186,28 @@ public class LazyMethodGenerator : IIncrementalGenerator
             //Debugger.Launch();
 
         }
-
-        //foreach (var ctor in classSymbol.Constructors)
+        //sb.AppendLine();
+        //sb.AppendLine("    public void OnConstructed()");
+        //sb.AppendLine("    {");
+        //foreach (var m in methods)
         //{
-        //    var display = new SymbolDisplayFormat(
-        //        globalNamespaceStyle: SymbolDisplayGlobalNamespaceStyle.Included,
-        //        typeQualificationStyle: SymbolDisplayTypeQualificationStyle.NameAndContainingTypesAndNamespaces,
-        //        memberOptions: SymbolDisplayMemberOptions.IncludeParameters,
-        //        parameterOptions:
-        //            SymbolDisplayParameterOptions.IncludeName |
-        //            SymbolDisplayParameterOptions.IncludeType |
-        //            SymbolDisplayParameterOptions.IncludeDefaultValue,
-        //        genericsOptions: SymbolDisplayGenericsOptions.IncludeTypeParameters,
-        //        miscellaneousOptions:
-        //            SymbolDisplayMiscellaneousOptions.EscapeKeywordIdentifiers |
-        //            SymbolDisplayMiscellaneousOptions.UseSpecialTypes
-        //    );
-        //    sb.AppendLine($"    {ctor.ToDisplayString(display)} : this() {{}}");
+        //    var type = m.Method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        //    var methodName = m.Method.Name;
+        //    sb.AppendLine($"        _lazy{methodName} = new Lazy<{type}>(() => {methodName}());");
         //}
-        sb.AppendLine();
-        //sb.AppendLine($"    public {classSymbol.Name}()");
-        sb.AppendLine("    public void OnConstructed()");
-        sb.AppendLine("    {");
-        foreach (var m in methods)
-        {
-            var type = m.Method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            var methodName = m.Method.Name;
-            sb.AppendLine($"        _lazy{methodName} = new Lazy<{type}>(() => {methodName}());");
-        }
-        sb.AppendLine("    }");
+        //sb.AppendLine("    }");
 
         sb.AppendLine("}");
         return sb.ToString();
     }
 
+
+    private static (string FieldName, string PropertyName) GetNames(string methodName)
+    {
+        var propertyName = Regex.Replace(methodName, "^Get", string.Empty);
+        var fieldName = $"_generated_lazy{propertyName}";
+        return (fieldName, propertyName);
+    }
 
     public record MethodInfo
     {

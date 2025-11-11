@@ -13,42 +13,41 @@ using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using WinTabberUI.ViewModels;
 
-namespace WinTabberUI
+namespace WinTabberUI;
+
+/// <summary>
+/// Interaction logic for RenameWindow.xaml
+/// </summary>
+public partial class RenameWindow : Window
 {
-    /// <summary>
-    /// Interaction logic for RenameWindow.xaml
-    /// </summary>
-    public partial class RenameWindow : Window
+    public RenameWindow()
     {
-        public RenameWindow()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
+    }
 
-        public static RenameWindow ShowFor(WindowItem item)
+    public static RenameWindow ShowFor(WindowItem item)
+    {
+        var window = new RenameWindow
         {
-            var window = new RenameWindow
+            DataContext = new WindowRenameViewModel
             {
-                DataContext = new WindowRenameViewModel
-                {
-                    WindowItem = item
-                }
-            };
+                WindowItem = item
+            }
+        };
 
-            window.Show();
+        window.Show();
 
-            return window;
-        }
+        return window;
+    }
 
-        private void Button_Click(object sender, RoutedEventArgs e)
-        {
-            ((WindowRenameViewModel)DataContext).Apply();
-            Close();
-        }
+    private void Button_Click(object sender, RoutedEventArgs e)
+    {
+        ((WindowRenameViewModel)DataContext).Apply();
+        Close();
+    }
 
-        private void Button_Click_1(object sender, RoutedEventArgs e)
-        {
-            Close();
-        }
+    private void Button_Click_1(object sender, RoutedEventArgs e)
+    {
+        Close();
     }
 }

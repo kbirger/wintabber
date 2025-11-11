@@ -10,57 +10,56 @@ using System.Text;
 using System.Threading.Tasks;
 using WinTabber.Interop;
 
-namespace WinTabberUI.ViewModels
+namespace WinTabberUI.ViewModels;
+
+public class MediaControlsViewModel
 {
-    public class MediaControlsViewModel
+
+    public ReactiveCommand<Unit, Unit> PlayPause { get; init; }
+    public ReactiveCommand<Unit, Unit> Next { get; init; }
+    public ReactiveCommand<Unit, Unit> Prev { get; init; }
+
+    public MediaControlsViewModel()
     {
+        var scheduler = RxApp.MainThreadScheduler;
+        PlayPause = ReactiveCommand.CreateFromObservable(
+            PlayPauseImpl, 
+            canExecute: null, 
+            outputScheduler: scheduler);
+        Next = ReactiveCommand.CreateFromObservable(
+            NextImpl,
+            canExecute: null,
+            outputScheduler: scheduler);
+        Prev = ReactiveCommand.CreateFromObservable(
+            PrevImpl,
+            canExecute: null,
+            outputScheduler: scheduler);
 
-        public ReactiveCommand<Unit, Unit> PlayPause { get; init; }
-        public ReactiveCommand<Unit, Unit> Next { get; init; }
-        public ReactiveCommand<Unit, Unit> Prev { get; init; }
-
-        public MediaControlsViewModel()
+        Observable.Merge(
+            PlayPause.ThrownExceptions,
+            Next.ThrownExceptions,
+            Prev.ThrownExceptions
+        ).Subscribe(ex =>
         {
-            var scheduler = RxApp.MainThreadScheduler;
-            PlayPause = ReactiveCommand.CreateFromObservable(
-                PlayPauseImpl, 
-                canExecute: null, 
-                outputScheduler: scheduler);
-            Next = ReactiveCommand.CreateFromObservable(
-                NextImpl,
-                canExecute: null,
-                outputScheduler: scheduler);
-            Prev = ReactiveCommand.CreateFromObservable(
-                PrevImpl,
-                canExecute: null,
-                outputScheduler: scheduler);
+            Debug.WriteLine("Error processing media keys");
+            Debug.WriteLine(ex);
+        });
+    }
 
-            Observable.Merge(
-                PlayPause.ThrownExceptions,
-                Next.ThrownExceptions,
-                Prev.ThrownExceptions
-            ).Subscribe(ex =>
-            {
-                Debug.WriteLine("Error processing media keys");
-                Debug.WriteLine(ex);
-            });
-        }
+    private IObservable<Unit> PlayPauseImpl()
+    {
+        return Observable.Start(MediaKeySender.PlayPause);
+    }
 
-        private IObservable<Unit> PlayPauseImpl()
-        {
-            return Observable.Start(MediaKeySender.PlayPause);
-        }
-
-        private IObservable<Unit> PrevImpl()
-        {
-            return Observable.Start(MediaKeySender.Prev);
-
-        }
-
-        private IObservable<Unit> NextImpl()
-        {
-            return Observable.Start(MediaKeySender.Next);
-        }
+    private IObservable<Unit> PrevImpl()
+    {
+        return Observable.Start(MediaKeySender.Prev);
 
     }
+
+    private IObservable<Unit> NextImpl()
+    {
+        return Observable.Start(MediaKeySender.Next);
+    }
+
 }

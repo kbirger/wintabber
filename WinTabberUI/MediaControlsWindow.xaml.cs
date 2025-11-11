@@ -17,36 +17,35 @@ using System.Windows.Shapes;
 using WinTabber.Interop;
 using WinTabberUI.ViewModels;
 
-namespace WinTabberUI
+namespace WinTabberUI;
+
+/// <summary>
+/// Interaction logic for MediaControlsWindow.xaml
+/// </summary>
+public partial class MediaControlsWindow
 {
-    /// <summary>
-    /// Interaction logic for MediaControlsWindow.xaml
-    /// </summary>
-    public partial class MediaControlsWindow
+    public MediaControlsWindow()
     {
-        public MediaControlsWindow()
-        {
-            DataContext = Ioc.Default.GetRequiredService<MediaControlsViewModel>();
-            InitializeComponent();
-        }
+        DataContext = Ioc.Default.GetRequiredService<MediaControlsViewModel>();
+        InitializeComponent();
+    }
 
 
 
-        protected override void OnActivated(EventArgs e)
-        {
-            Focus();
-            base.OnActivated(e);
-        }
+    protected override void OnActivated(EventArgs e)
+    {
+        Focus();
+        base.OnActivated(e);
+    }
 
-        protected override void OnDeactivated(EventArgs e)
-        {
-            base.OnDeactivated(e);
-        }
+    protected override void OnDeactivated(EventArgs e)
+    {
+        base.OnDeactivated(e);
+    }
 
-        protected override void OnLostFocus(RoutedEventArgs e)
-        {
-            Close();
-            base.OnLostFocus(e);
-        }
+    protected override void OnLostFocus(RoutedEventArgs e)
+    {
+        Close();
+        base.OnLostFocus(e);
     }
 }

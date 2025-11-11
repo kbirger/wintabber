@@ -11,120 +11,119 @@ using WinTabberUI.Coordinators;
 using WinTabberUI.ViewModels;
 using WinTabberUI.Windowing;
 
-namespace WinTabberUI
+namespace WinTabberUI;
+
+/// <summary>
+/// Interaction logic for DockWindow.xaml
+/// </summary>
+public partial class DockWindow : Window
 {
-    /// <summary>
-    /// Interaction logic for DockWindow.xaml
-    /// </summary>
-    public partial class DockWindow : Window
+    public readonly DockWindowViewModel _viewModel;
+    private WindowManager _windowManger;
+    private Rectangle? _rect;
+    public DockWindow()
     {
-        public readonly DockWindowViewModel _viewModel;
-        private WindowManager _windowManger;
-        private Rectangle? _rect;
-        public DockWindow()
-        {
-            InitializeComponent();
-            Resources.MergedDictionaries.Add(System.Windows.Application.Current.Resources);
-            _windowManger = Ioc.Default.GetRequiredService<WindowManager>();
-            _viewModel = Ioc.Default.GetRequiredService<DockWindowViewModel>();
-            DataContext = _viewModel;            
-            _viewModel.ApplicationName = ApplicationName;
-            Top = 0;
-            Left = 0;
-            //Top = Screen.PrimaryScreen.Bounds.Top / 2;
-            //Left = Screen.PrimaryScreen.Bounds.Width - ActualWidth;
-            IsVisibleChanged += DockWindow_IsVisibleChanged;
-            LayoutUpdated += DockWindow_LayoutUpdated;
-            Loaded += DockWindow_Loaded;
-        }
+        InitializeComponent();
+        Resources.MergedDictionaries.Add(System.Windows.Application.Current.Resources);
+        _windowManger = Ioc.Default.GetRequiredService<WindowManager>();
+        _viewModel = Ioc.Default.GetRequiredService<DockWindowViewModel>();
+        DataContext = _viewModel;            
+        _viewModel.ApplicationName = ApplicationName;
+        Top = 0;
+        Left = 0;
+        //Top = Screen.PrimaryScreen.Bounds.Top / 2;
+        //Left = Screen.PrimaryScreen.Bounds.Width - ActualWidth;
+        IsVisibleChanged += DockWindow_IsVisibleChanged;
+        LayoutUpdated += DockWindow_LayoutUpdated;
+        Loaded += DockWindow_Loaded;
+    }
 
-        private void DockWindow_Loaded(object sender, RoutedEventArgs e)
-        {
-            MakeSpace();
-        }
+    private void DockWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        MakeSpace();
+    }
 
-        private void DockWindow_LayoutUpdated(object? sender, EventArgs e)
+    private void DockWindow_LayoutUpdated(object? sender, EventArgs e)
+    {
+        //MakeSpace();
+    }
+
+    private void DockWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if (e.NewValue.Equals(true))
         {
             //MakeSpace();
         }
+    }
 
-        private void DockWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    private void MakeSpace()
+    {
+        if (_rect is null && ActualWidth > 0)
         {
-            if (e.NewValue.Equals(true))
-            {
-                //MakeSpace();
-            }
-        }
+            var dpiInfo = VisualTreeHelper.GetDpi(this);
+            var screen = Screen.FromHandle(new WindowInteropHelper(this).Handle);
+            //var oldWorkingArea = DesktopHelper.GetDesktopArea();
+            _rect = screen.WorkingArea;
+            //if (oldWorkingArea is null)
+            //{
+            //    return;
+            //}
+            //_rect = oldWorkingArea;
+            var newWorkingArea = new Rect(
+                screen.Bounds.Left + ActualWidth * dpiInfo.DpiScaleX, 
+                _rect.Value.Y , 
+                screen.Bounds.Width  - ActualWidth * dpiInfo.DpiScaleX,
+                _rect.Value.Height );
+            DesktopHelper.SetDesktopArea(newWorkingArea);
 
-        private void MakeSpace()
-        {
-            if (_rect is null && ActualWidth > 0)
-            {
-                var dpiInfo = VisualTreeHelper.GetDpi(this);
-                var screen = Screen.FromHandle(new WindowInteropHelper(this).Handle);
-                //var oldWorkingArea = DesktopHelper.GetDesktopArea();
-                _rect = screen.WorkingArea;
-                //if (oldWorkingArea is null)
-                //{
-                //    return;
-                //}
-                //_rect = oldWorkingArea;
-                var newWorkingArea = new Rect(
-                    screen.Bounds.Left + ActualWidth * dpiInfo.DpiScaleX, 
-                    _rect.Value.Y , 
-                    screen.Bounds.Width  - ActualWidth * dpiInfo.DpiScaleX,
-                    _rect.Value.Height );
-                DesktopHelper.SetDesktopArea(newWorkingArea);
+            //Task.Run(() =>
+            //{
+                var windows = _windowManger.GetWindows()
+                    .Where(window => window.State != WindowPlacement.WindowState.Minimized && window.State != WindowPlacement.WindowState.Hidden && window.Bounds.X < newWorkingArea.X && window.Bounds.Width > 0);
 
-                //Task.Run(() =>
-                //{
-                    var windows = _windowManger.GetWindows()
-                        .Where(window => window.State != WindowPlacement.WindowState.Minimized && window.State != WindowPlacement.WindowState.Hidden && window.Bounds.X < newWorkingArea.X && window.Bounds.Width > 0);
-
-                    foreach (var window in windows)
+                foreach (var window in windows)
+                {
+                    if (!window.Process.IsProcessElevated)
                     {
-                        if (!window.Process.IsProcessElevated)
-                        {
-                            window.MoveTo(new System.Drawing.Point((int)newWorkingArea.X, window.Bounds.Y));
+                        window.MoveTo(new System.Drawing.Point((int)newWorkingArea.X, window.Bounds.Y));
 
-                        }
                     }
-                //});
-            }
-
+                }
+            //});
         }
 
-        protected override void OnActivated(EventArgs e)
-        {            
-            base.OnActivated(e);
-        }
-        protected override void OnClosing(CancelEventArgs e)
+    }
+
+    protected override void OnActivated(EventArgs e)
+    {            
+        base.OnActivated(e);
+    }
+    protected override void OnClosing(CancelEventArgs e)
+    {
+        if(_rect is not null)
         {
-            if(_rect is not null)
-            {
-                var screen = Screen.FromHandle(new WindowInteropHelper(this).Handle).Bounds;
-                var rect = new Rect(screen.Left, screen.Top, screen.Width, _rect.Value.Height);
-                DesktopHelper.SetDesktopArea(rect);
-                _rect = null;
-            }
+            var screen = Screen.FromHandle(new WindowInteropHelper(this).Handle).Bounds;
+            var rect = new Rect(screen.Left, screen.Top, screen.Width, _rect.Value.Height);
+            DesktopHelper.SetDesktopArea(rect);
+            _rect = null;
         }
+    }
 
-        public static DependencyProperty ApplicationNameProperty = DependencyProperty.Register(
-        "ApplicationName",
-        typeof(string),
-        typeof(DockWindow),
-        new PropertyMetadata(null, OnApplicationNameChanged));
+    public static DependencyProperty ApplicationNameProperty = DependencyProperty.Register(
+    "ApplicationName",
+    typeof(string),
+    typeof(DockWindow),
+    new PropertyMetadata(null, OnApplicationNameChanged));
 
-        private static void OnApplicationNameChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-        {
-            if (d is DockWindow window && e.NewValue is string app)
-                window._viewModel.ApplicationName = app;
-        }
+    private static void OnApplicationNameChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    {
+        if (d is DockWindow window && e.NewValue is string app)
+            window._viewModel.ApplicationName = app;
+    }
 
-        public string ApplicationName
-        {
-            get => _viewModel.ApplicationName;
-            set => _viewModel.ApplicationName = value;
-        }
+    public string ApplicationName
+    {
+        get => _viewModel.ApplicationName;
+        set => _viewModel.ApplicationName = value;
     }
 }

@@ -9,80 +9,79 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 
-namespace WinTabberUI
+namespace WinTabberUI;
+
+public class SpatialNavigationListView : ListView
 {
-    public class SpatialNavigationListView : ListView
+
+    private static readonly Key[] _arrowKeys = [Key.Down, Key.Up, Key.Left, Key.Right];
+
+    private WindowTileGrid? _tileGrid;
+
+    protected override void OnSelectionChanged(SelectionChangedEventArgs e)
     {
-
-        private static readonly Key[] _arrowKeys = [Key.Down, Key.Up, Key.Left, Key.Right];
-
-        private WindowTileGrid? _tileGrid;
-
-        protected override void OnSelectionChanged(SelectionChangedEventArgs e)
+        if (e.AddedItems.Count > 0 && e.AddedItems[0] is WindowItem windowItem)
         {
-            if (e.AddedItems.Count > 0 && e.AddedItems[0] is WindowItem windowItem)
-            {
-                SelectedItem = windowItem;
-                ScrollIntoView(windowItem);
-            }
-            base.OnSelectionChanged(e);
+            SelectedItem = windowItem;
+            ScrollIntoView(windowItem);
         }
-        protected override void OnPreviewKeyDown(KeyEventArgs e)
+        base.OnSelectionChanged(e);
+    }
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        base.OnPreviewKeyDown(e);
+        var key = e.Key == Key.System ? e.SystemKey : e.Key;
+
+        if (!_arrowKeys.Contains(key))
         {
-            base.OnPreviewKeyDown(e);
-            var key = e.Key == Key.System ? e.SystemKey : e.Key;
-
-            if (!_arrowKeys.Contains(key))
-            {
-                return;
-            }
-            InitializeTileGrid();
-            var next = key switch
-            {
-                Key.Down => _tileGrid.MoveDown(),
-                Key.Up => _tileGrid.MoveUp(),
-                Key.Left => _tileGrid.MoveLeft(),
-                Key.Right => _tileGrid.MoveRight(),
-                _ => null
-            };
-
-            if (next is { })
-            {
-                SelectedItem = next;
-                e.Handled = true;
-            }
+            return;
         }
-
-        [MemberNotNull(nameof(_tileGrid))]
-        private void InitializeTileGrid()
+        InitializeTileGrid();
+        var next = key switch
         {
-            if (_tileGrid is not null)
-            {
-                return;
-            }
-            var infos = new List<WindowTileInfo>(Items.Count);
-            for (int i = 0; i < Items.Count; i++)
-            {
-                var tile = GetTile(i);
-                infos.Add(tile);
-            }
-            _tileGrid = WindowTileGrid.Create(infos);
-        }
+            Key.Down => _tileGrid.MoveDown(),
+            Key.Up => _tileGrid.MoveUp(),
+            Key.Left => _tileGrid.MoveLeft(),
+            Key.Right => _tileGrid.MoveRight(),
+            _ => null
+        };
 
-        private WindowTileInfo GetTile(int index)
+        if (next is { })
         {
-            var container = (Visual)ItemContainerGenerator.ContainerFromIndex(index);
-            var item = (WindowItem)Items[index];
-            var location = container.TransformToVisual(this).Transform(new Point(0, 0));
-
-            return new WindowTileInfo
-            {
-                Container = container,
-                WindowItem = item,
-                Location = location,
-                IsSelected = index == SelectedIndex,
-                Index = index
-            };
+            SelectedItem = next;
+            e.Handled = true;
         }
+    }
+
+    [MemberNotNull(nameof(_tileGrid))]
+    private void InitializeTileGrid()
+    {
+        if (_tileGrid is not null)
+        {
+            return;
+        }
+        var infos = new List<WindowTileInfo>(Items.Count);
+        for (int i = 0; i < Items.Count; i++)
+        {
+            var tile = GetTile(i);
+            infos.Add(tile);
+        }
+        _tileGrid = WindowTileGrid.Create(infos);
+    }
+
+    private WindowTileInfo GetTile(int index)
+    {
+        var container = (Visual)ItemContainerGenerator.ContainerFromIndex(index);
+        var item = (WindowItem)Items[index];
+        var location = container.TransformToVisual(this).Transform(new Point(0, 0));
+
+        return new WindowTileInfo
+        {
+            Container = container,
+            WindowItem = item,
+            Location = location,
+            IsSelected = index == SelectedIndex,
+            Index = index
+        };
     }
 }

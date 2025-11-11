@@ -1,5 +1,7 @@
 ﻿using DynamicData;
+using ReactiveUI;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Reactive.Linq;
 using System.Windows;
 using System.Windows.Forms;
@@ -43,6 +45,12 @@ public class WindowSelectorViewModel : DependencyObject
             .Where(state => state.Second)
             .ObserveOnDispatcher()
             .Subscribe(_ => SelectAndClose());
+
+        this.WhenAny(vm => vm.SelectedItem!.IsEditing, (x) => x.Value)
+            .Subscribe(isEditing =>
+            {
+                eventManager.SendEvent(new WinTabberEvent<bool>(EventType.EditingStateChanged, isEditing));
+            });            
     }
 
     private void SelectPrevious()
@@ -131,19 +139,18 @@ public class WindowSelectorViewModel : DependencyObject
     {
         get
         {
-            return (WindowItem[])GetValue(_windowItems);
+            return (WindowItem[])GetValue(WindowItemsProperty);
         }
 
         private set
         {
-            SetValue(_windowItems, value);
-            PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(WindowItems)));
+            SetValue(WindowItemsProperty, value);
         }
     }
 
 
 
-    private DependencyProperty _selectedItem = DependencyProperty.Register(
+    public static readonly DependencyProperty SelectedItemProperty = DependencyProperty.Register(
         "SelectedItem",
         typeof(WindowItem),
         typeof(WindowSelectorViewModel),
@@ -157,7 +164,7 @@ public class WindowSelectorViewModel : DependencyObject
         }
     }
 
-    private DependencyProperty _selectedIndex = DependencyProperty.Register(
+    public static readonly DependencyProperty SelectedIndexProperty = DependencyProperty.Register(
         "SelectedIndex",
         typeof(int),
         typeof(WindowSelectorViewModel),
@@ -171,15 +178,13 @@ public class WindowSelectorViewModel : DependencyObject
         }
     }
 
-    private DependencyProperty _windowItems = DependencyProperty.Register(
+    public static readonly DependencyProperty WindowItemsProperty = DependencyProperty.Register(
         "WindowItems",
         typeof(WindowItem[]),
         typeof(WindowSelectorViewModel),
         new PropertyMetadata(Array.Empty<WindowItem>()));
 
     private readonly ApplicationStateMonitor _applicationState;
-
-    public event PropertyChangedEventHandler? PropertyChanged;
 
 
     public void PreviewSelectedWindow()
@@ -194,23 +199,23 @@ public class WindowSelectorViewModel : DependencyObject
 
     public WindowItem? SelectedItem
     {
-        get { return (WindowItem)GetValue(_selectedItem); }
+        get { return (WindowItem)GetValue(SelectedItemProperty); }
         set
         {
             if (value != SelectedItem)
             {
-                SetValue(_selectedItem, value);
+                SetValue(SelectedItemProperty, value);
             }
         }
     }
     public int SelectedIndex
     {
-        get { return (int)GetValue(_selectedIndex); }
+        get { return (int)GetValue(SelectedIndexProperty); }
         set
         {
             if (value != SelectedIndex)
             {
-                SetValue(_selectedIndex, value);
+                SetValue(SelectedIndexProperty, value);
             }
         }
     }

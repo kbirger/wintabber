@@ -5,29 +5,28 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
 
-namespace WinTabberUI.Commands
+namespace WinTabberUI.Commands;
+
+internal class EditTitleCommand : ICommand
 {
-    internal class EditTitleCommand : ICommand
+    private WindowItem _windowItem;
+
+    public EditTitleCommand(WindowItem windowItem)
     {
-        private WindowItem _windowItem;
+        _windowItem = windowItem;
+    }
+    public event EventHandler? CanExecuteChanged;
 
-        public EditTitleCommand(WindowItem windowItem)
-        {
-            _windowItem = windowItem;
-        }
-        public event EventHandler? CanExecuteChanged;
+    public bool CanExecute(object? parameter)
+    {
+        return true;
+    }
 
-        public bool CanExecute(object? parameter)
+    public void Execute(object? parameter)
+    {
+        if(parameter is string newTitle)
         {
-            return true;
-        }
-
-        public void Execute(object? parameter)
-        {
-            if(parameter is string newTitle)
-            {
-                _windowItem.Title = newTitle;
-            }
+            _windowItem.Title = newTitle;
         }
     }
 }
