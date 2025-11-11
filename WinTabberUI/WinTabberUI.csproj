@@ -12,6 +12,10 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Include="AutomaticInterface" Version="5.2.5">
+		  <PrivateAssets>all</PrivateAssets>
+		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
 		<PackageReference Include="fontawesome.sharp" Version="6.6.0" />
 		<PackageReference Include="GlobalHotKeys.Windows" Version="0.1.0" />
