@@ -11,6 +11,7 @@ using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabberUI.Coordinators;
 using WinTabberUI.Models;
+using WinTabberUI.Services;
 using WinTabberUI.Updaters;
 using WinTabberUI.ViewModels;
 using WinTabberUI.Windowing;
@@ -53,7 +54,7 @@ public partial class App : Application
 
 
         _commandCoordinator = ioc.GetRequiredService<WindowCommandCoordinator>();
-        ioc.GetRequiredService<ApplicationStateMonitor>();
+        ioc.GetRequiredService<ApplicationStateViewModel>();
         ioc.GetRequiredService<WindowManager>();
         _eventManager = ioc.GetRequiredService<WinTabberEventManager>();
 
@@ -84,6 +85,15 @@ public partial class App : Application
     private static ServiceProvider ConfigureServices()
     {
         var serviceProvider = new ServiceCollection()
+            .AddSingleton<IActiveWindowStateService, ActiveWindowStateService>()
+            .AddSingleton<IWindowSelectorStateService, WindowSelectorStateService>()
+            .AddSingleton<IMediaControlsStateService, MediaControlsStateService>()
+            .AddSingleton<ApplicationStateViewModelFactory>()
+            .AddSingleton((sp) =>
+            {
+                var factory = sp.GetRequiredService<ApplicationStateViewModelFactory>();
+                return factory.CreateApplicationStateViewModel();
+            })
             .AddSingleton<WinTabberEventManager>()
             .AddSingleton<ApplicationStateMonitor>()
             .AddSingleton<ApplicationState>()
@@ -93,19 +103,19 @@ public partial class App : Application
             //.AddSingleton<WinTabberWindowCoordinator>()
             .AddSingleton<WindowSelectorViewCoordinator>()
             .AddSingleton<MediaWindowViewCoordinator>()
-            .AddSingleton<ApplicationStateViewModel>((sp) =>
-            {
-                var state = sp.GetRequiredService<ApplicationStateMonitor>();
-                return new ApplicationStateViewModel
-                {
-                    IsSwitcherActiveChanges = state.IsSwitcherActiveChanges,
-                    ActiveApplicationChanges = state.ActiveApplicationChanges,
-                    ActiveWindowChanges = state.ActiveWindowChanges,
-                    IsDockActiveChanges = state.IsDockActiveChanges,
-                    IsEditingStateChanges = state.IsEditingStateChanges,
-                    IsMediaControlsActiveChanges = state.IsMediaControlsActiveChanges
-                };
-            })
+            //.AddSingleton<ApplicationStateViewModel>((sp) =>
+            //{
+            //    var state = sp.GetRequiredService<ApplicationStateMonitor>();
+            //    return new ApplicationStateViewModel
+            //    {
+            //        IsSwitcherActiveChanges = state.IsSwitcherActiveChanges,
+            //        ActiveApplicationChanges = state.ActiveApplicationChanges,
+            //        ActiveWindowChanges = state.ActiveWindowChanges,
+            //        IsDockActiveChanges = state.IsDockActiveChanges,
+            //        IsEditingStateChanges = state.IsEditingStateChanges,
+            //        IsMediaControlsActiveChanges = state.IsMediaControlsActiveChanges
+            //    };
+            //})
             .AddSingleton<WindowCommandCoordinator>()
             .AddTransient<DockWindow>()
             .AddTransient<MediaControlsWindow>()

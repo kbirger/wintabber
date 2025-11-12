@@ -4,6 +4,7 @@ using System.Reactive.Linq;
 using System.Windows;
 using WinTabber.Events;
 using WinTabberUI.Models;
+using WinTabberUI.ViewModels;
 
 namespace WinTabberUI.Coordinators;
 
@@ -53,7 +54,7 @@ public class WinTabberWindowCoordinator : IDisposable
 
 
     public WinTabberWindowCoordinator(
-        ApplicationStateMonitor applicationState, 
+        ApplicationStateViewModel applicationState, 
         WinTabberEventManager eventManager, 
         IServiceProvider serviceProvider)
     {

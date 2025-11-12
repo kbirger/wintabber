@@ -28,6 +28,7 @@
 		<PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
 		<PackageReference Include="MouseKeyHook" Version="5.7.1" />
 		<PackageReference Include="ReactiveUI" Version="22.1.1" />
+		<ProjectReference Include="..\WinTabber.Generators\WinTabber.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
 		<PackageReference Include="reactiveui.wpf" Version="22.1.1" />
 	</ItemGroup>
 

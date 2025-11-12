@@ -1,4 +1,5 @@
 ﻿using AutomaticInterface;
+using ReactiveUI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -12,14 +13,15 @@ using WinTabberUI.Extensions;
 
 namespace WinTabberUI.Services
 {
-    [GenerateAutomaticInterface]
-    public class WindowSelectorStateService(WinTabberEventManager manager)  :  IWindowSelectorStateService
+    public partial class WindowSelectorStateService(WinTabberEventManager manager) : IWindowSelectorStateService
     {
         private readonly WinTabberEventManager _manager = manager;
 
+        [Lazy]
         public IObservable<bool> GetIsEditingChanges()
         {
             return _manager.CommandEvents
+            .SubscribeOn(RxApp.TaskpoolScheduler)
             .Where(evt => evt.Type == EventType.EditingStateChanged)
             .OfType<WinTabberEvent<bool>>()
             .Select(evt => evt.Arg)
@@ -29,9 +31,11 @@ namespace WinTabberUI.Services
             .ObserveOnDispatcher();
         }
 
-        public IObservable<bool> GetWindowChanges()
+        [Lazy]
+        private IObservable<bool> GetWindowSelectorChanges()
         {
             return _manager.CommandEvents
+            .SubscribeOn(RxApp.TaskpoolScheduler)
             .Where(evt => evt.Type.IsOneOf(EventType.CmdNextWindow, EventType.CmdPreviousWindow, EventType.CmdAppHide, EventType.WindowSelected))
             .WithLatestFrom<WinTabberEvent, bool, (WinTabberEvent CommandEvent, bool IsEditing)>(GetIsEditingChanges(), (command, isEditing) => (command, isEditing))
             .Select(evt =>

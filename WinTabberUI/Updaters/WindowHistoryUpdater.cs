@@ -1,16 +1,17 @@
 ﻿using System.Reactive.Linq;
 using WinTabber.API;
 using WinTabberUI.Models;
+using WinTabberUI.ViewModels;
 
 namespace WinTabberUI.Updaters
 {
     public sealed class WindowHistoryUpdater : IDisposable
     {
         private IDisposable? _subscription;
-        private readonly ApplicationStateMonitor _appState;
+        private readonly ApplicationStateViewModel _appState;
         private readonly WindowManager _windowManager;
 
-        public WindowHistoryUpdater(ApplicationStateMonitor appState, WindowManager windowManager)
+        public WindowHistoryUpdater(ApplicationStateViewModel appState, WindowManager windowManager)
         {
             _appState = appState;
             // todo: move state from windowManager to a viewmodel

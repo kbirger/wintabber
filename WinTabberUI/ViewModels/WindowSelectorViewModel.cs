@@ -13,7 +13,7 @@ namespace WinTabberUI.ViewModels;
 
 public class WindowSelectorViewModel : DependencyObject
 {
-    public WindowSelectorViewModel(ApplicationStateMonitor applicationState, WinTabberEventManager eventManager, WindowManager windowManager)
+    public WindowSelectorViewModel(ApplicationStateViewModel applicationState, WinTabberEventManager eventManager, WindowManager windowManager)
     {
         _applicationState = applicationState ?? throw new ArgumentNullException(nameof(applicationState));
         WindowManager = windowManager ?? throw new ArgumentNullException(nameof(windowManager));
@@ -184,7 +184,7 @@ public class WindowSelectorViewModel : DependencyObject
         typeof(WindowSelectorViewModel),
         new PropertyMetadata(Array.Empty<WindowItem>()));
 
-    private readonly ApplicationStateMonitor _applicationState;
+    private readonly ApplicationStateViewModel _applicationState;
 
 
     public void PreviewSelectedWindow()
