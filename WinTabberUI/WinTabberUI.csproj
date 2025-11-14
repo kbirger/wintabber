@@ -28,7 +28,7 @@
 		<PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
 		<PackageReference Include="MouseKeyHook" Version="5.7.1" />
 		<PackageReference Include="ReactiveUI" Version="22.1.1" />
-		<ProjectReference Include="..\WinTabber.Generators\WinTabber.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false"/>
+		<ProjectReference Include="..\WinTabber.Generators\WinTabber.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 		<PackageReference Include="reactiveui.wpf" Version="22.1.1" />
 	</ItemGroup>
 
@@ -41,24 +41,6 @@
 		<AdditionalFiles Update="NativeMethods.txt">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</AdditionalFiles>
-	</ItemGroup>
-
-	<ItemGroup>
-		<None Update="Fonts\fa-7-regular-400.otf">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Fonts\fa-7-solid-400.otf">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Icons\ban.svg">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Icons\check.svg">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-		<None Update="Icons\pen.svg">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
 	</ItemGroup>
 
 </Project>

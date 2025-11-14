@@ -2,57 +2,104 @@
 using ReactiveUI;
 using System.ComponentModel;
 using System.Diagnostics;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Windows;
 using System.Windows.Forms;
 using WinTabber.API;
 using WinTabber.Events;
+using WinTabberUI.Extensions;
 using WinTabberUI.Models;
 
 namespace WinTabberUI.ViewModels;
 
-public class WindowSelectorViewModel : DependencyObject
+public partial class WindowSelectorViewModel : DependencyObject, IDisposable
 {
     public WindowSelectorViewModel(ApplicationStateViewModel applicationState, WinTabberEventManager eventManager, WindowManager windowManager)
     {
         _applicationState = applicationState ?? throw new ArgumentNullException(nameof(applicationState));
         WindowManager = windowManager ?? throw new ArgumentNullException(nameof(windowManager));
         _eventManager = eventManager;
-        _applicationState.ActiveApplicationChanges
+
+        //IsEditing = this.WhenAny(vm => vm.SelectedItem!.IsEditing, (x) => x.Value);
+        IsEditing = this.WhenAnyValue(vm => vm.WindowItems)
+            .Select(items =>
+            {
+                if (items == null || items.Length == 0)
+                    return Observable.Return(false);
+
+                // Combine all item IsEditing streams into one that emits true if any are true
+                return items
+                    .Select(item => item.WhenAnyValue(x => x.IsEditing).StartWith(false))
+                    .CombineLatest()
+                    .Select(states => states.Any(x => x));
+            })
+            .Switch() // switch to the latest combined stream when items list changes
+            .DistinctUntilChanged();
+
+
+
+        var appChanges = _applicationState.ActiveApplicationChanges
             .Where(app => app is null)
             .ObserveOnDispatcher()
             .Subscribe(Clear);
 
-        _applicationState.ActiveWindowChanges
+        var winChanges = _applicationState.ActiveWindowChanges
             .Where(window => window is not null)
             .Select(window => window!.Process.Application.GetWindows())
             .ObserveOnDispatcher()
             .Subscribe(Update);
 
-        eventManager.CommandEvents
+        var nextEvents = eventManager.CommandEvents
             .Where(evt => evt.Type == EventType.CmdNextWindow)
             .ObserveOnDispatcher()
             .Subscribe(_ => SelectNext());
 
-        eventManager.CommandEvents
+        var prevEvents = eventManager.CommandEvents
             .Where(evt => evt.Type == EventType.CmdPreviousWindow)
             .ObserveOnDispatcher()
             .Subscribe(_ => SelectPrevious());
 
-        eventManager.CommandEvents
+        var selectEvents = eventManager.CommandEvents
             .Where(evt => evt.Type == EventType.CmdAppHide)
-            .WithLatestFrom(applicationState.IsSwitcherActiveChanges)
+            .WithLatestFrom(IsSwitcherActiveChanges)
             .Where(state => state.Second)
             .ObserveOnDispatcher()
             .Subscribe(_ => SelectAndClose());
 
-        this.WhenAny(vm => vm.SelectedItem!.IsEditing, (x) => x.Value)
-            .Subscribe(isEditing =>
-            {
-                eventManager.SendEvent(new WinTabberEvent<bool>(EventType.EditingStateChanged, isEditing));
-            });            
+        _cleanUp = new CompositeDisposable(
+            appChanges, winChanges, nextEvents, prevEvents, selectEvents
+        );
     }
 
+    [Lazy]
+    private IObservable<bool> GetIsSwitcherActiveChanges()
+    {
+        return _eventManager.CommandEvents
+            .SubscribeOn(RxApp.TaskpoolScheduler)
+            .Where(evt => evt.Type.IsOneOf(EventType.CmdNextWindow, EventType.CmdPreviousWindow, EventType.CmdAppHide, EventType.WindowSelected))
+            .WithLatestFrom<WinTabberEvent, bool, (WinTabberEvent CommandEvent, bool IsEditing)>(IsEditing, (command, isEditing) => (command, isEditing))
+            .Select(evt =>
+            {
+                var command = evt.CommandEvent;
+                var isEditing = evt.IsEditing;
+                return command.Type switch
+                {
+                    EventType.CmdNextWindow => true,
+                    EventType.CmdPreviousWindow => true,
+                    EventType.WindowSelected => false,
+                    EventType.CmdAppHide => isEditing,
+                    _ => throw new InvalidOperationException()
+                };
+            })
+            .StartWith(false)
+            .DistinctUntilChanged()
+            .Replay(1)
+            .RefCount()
+            .ObserveOnDispatcher();
+    }
+
+    public IObservable<bool> IsEditing { get; }
     private void SelectPrevious()
     {
         var index = SelectedIndex - 1;
@@ -118,7 +165,7 @@ public class WindowSelectorViewModel : DependencyObject
         // SelectedItem = null;
         //WindowItems.Clear();
         WindowItems = windows
-            .Select(w => new WindowItem(w))
+            .Select(w => new WindowItem(w, IsEditing.Select(x => !x)))
             .ToArray()
             ?? Array.Empty<WindowItem>();
 
@@ -144,6 +191,7 @@ public class WindowSelectorViewModel : DependencyObject
 
         private set
         {
+            new CompositeDisposable(WindowItems).Dispose();
             SetValue(WindowItemsProperty, value);
         }
     }
@@ -185,7 +233,7 @@ public class WindowSelectorViewModel : DependencyObject
         new PropertyMetadata(Array.Empty<WindowItem>()));
 
     private readonly ApplicationStateViewModel _applicationState;
-
+    private readonly CompositeDisposable _cleanUp;
 
     public void PreviewSelectedWindow()
     {
@@ -195,6 +243,11 @@ public class WindowSelectorViewModel : DependencyObject
     public void EndPreview()
     {
         WindowManager.EndPreview();
+    }
+
+    public void Dispose()
+    {
+        _cleanUp.Dispose();
     }
 
     public WindowItem? SelectedItem

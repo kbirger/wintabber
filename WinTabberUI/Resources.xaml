@@ -5,7 +5,7 @@
 
     <FontFamily x:Key="FontAwesomeRegular">/WinTabberUI;component/Fonts/fa-7-regular-400.otf</FontFamily>
     <FontFamily x:Key="FontAwesomeSolid">/WinTabberUI;component/Fonts/fa-7-solid-400.otf</FontFamily>
-    <Style TargetType="l:MainWindow">
+    <Style TargetType="l:WindowSelectorWindow">
         <Setter Property="WindowStyle" Value="None"/>
         <Setter Property="BorderThickness" Value="0"/>
         <Setter Property="Padding" Value="15"/>

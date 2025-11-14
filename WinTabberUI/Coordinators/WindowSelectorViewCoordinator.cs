@@ -8,17 +8,17 @@ using WinTabberUI.ViewModels;
 
 namespace WinTabberUI.Coordinators
 {
-    public class WindowSelectorViewCoordinator : ViewCoordinatorBase<MainWindow>
+    public class WindowSelectorViewCoordinator : ViewCoordinatorBase<WindowSelectorWindow>
     {
-        private ApplicationStateViewModel _vm;
+        private WindowSelectorViewModel _vm;
 
-        public WindowSelectorViewCoordinator(ApplicationStateViewModel vm, IServiceProvider provider)
+        public WindowSelectorViewCoordinator(WindowSelectorViewModel vm, IServiceProvider provider)
             : base(provider)
         {
             ReuseInstances = true;
             _vm = vm;
         }
-        protected override void Close(MainWindow instance)
+        protected override void Close(WindowSelectorWindow instance)
         {
             instance.Hide();
         }
@@ -28,7 +28,7 @@ namespace WinTabberUI.Coordinators
             return _vm.IsSwitcherActiveChanges;
         }
 
-        protected override void Show(MainWindow instance)
+        protected override void Show(WindowSelectorWindow instance)
         {
             instance.ShowWindowSelector();
         }

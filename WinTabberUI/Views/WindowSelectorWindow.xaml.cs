@@ -15,9 +15,9 @@ using static WinTabberUI.EditableTextBlock;
 namespace WinTabberUI;
 
 /// <summary>
-/// Interaction logic for MainWindow.xaml
+/// Interaction logic for WindowSelectorWindow.xaml
 /// </summary>
-public partial class MainWindow : Window
+public partial class WindowSelectorWindow : Window
 {
     private List<IDisposable> _resources = new();
     private WindowTileGrid? _tileGrid;
@@ -27,7 +27,7 @@ public partial class MainWindow : Window
     public static DependencyProperty MaxItemHeightProperty = DependencyProperty.Register(
         "MaxItemHeight",
         typeof(double),
-        typeof(MainWindow),
+        typeof(WindowSelectorWindow),
         new PropertyMetadata(400.0));
     public double MaxItemHeight
     {
@@ -41,7 +41,7 @@ public partial class MainWindow : Window
     public static DependencyProperty MaxItemWidthProperty = DependencyProperty.Register(
         "MaxItemWidth",
         typeof(double),
-        typeof(MainWindow),
+        typeof(WindowSelectorWindow),
         new PropertyMetadata(400.0));
     public double MaxItemWidth
     {
@@ -52,12 +52,10 @@ public partial class MainWindow : Window
         }
     }
 
-    public MainWindow()
+    public WindowSelectorWindow()
     {
         InitializeComponent();
         _dpiScale = VisualTreeHelper.GetDpi(this);
-        WindowData = Ioc.Default.GetRequiredService<WindowSelectorViewModel>();
-        DataContext = WindowData;
         SizeChanged += MainWindow_SizeChanged;
         LayoutUpdated += MainWindow_LayoutUpdated;
         IsVisibleChanged  += MainWindow_VisibilityChanged;
@@ -117,7 +115,7 @@ public partial class MainWindow : Window
         _tileGrid = null;
     }
 
-    public WindowSelectorViewModel WindowData { get; private set; }
+    public WindowSelectorViewModel WindowData => (WindowSelectorViewModel)DataContext;
 
     protected override void OnActivated(EventArgs e)
     {

@@ -1,19 +1,20 @@
-﻿<Window x:Class="WinTabberUI.MainWindow"
+﻿<Window x:Class="WinTabberUI.WindowSelectorWindow"
         xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WinTabberUI"
+        xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
         xmlns:chrome="clr-namespace:WinTabberUI.Chrome"
          xmlns:fa="http://schemas.awesome.incremented/wpf/xaml/fontawesome.sharp"
         mc:Ignorable="d"
-        Title="MainWindow"
+        Title="WindowSelectorWindow"
         Visibility="Hidden"
         FocusManager.FocusedElement="{Binding ElementName=TabListView}"
         Focusable="true"
         ShowActivated="True"
         Name="Foo"
-        >
+        d:DataContext="{d:DesignInstance vm:WindowSelectorViewModel,  IsDesignTimeCreatable=False}">
     <chrome:AcrylicChrome.AcrylicChrome>
         <chrome:AcrylicChrome AccentState="ACCENT_ENABLE_ACRYLICBLURBEHIND" CornerPreference="DWMWCP_ROUND" />
     </chrome:AcrylicChrome.AcrylicChrome>
@@ -44,12 +45,7 @@
                         <RowDefinition Height="auto"/>
                         <RowDefinition Height="*"/>
                     </Grid.RowDefinitions>
-                    <local:EditableTextBlock 
-                        OriginalText="{Binding Path=Title}" 
-                        IsEditing="{Binding Path=IsEditing, Mode=OneWayToSource}" 
-                        AcceptCommand="{Binding Path=EditTitleCommand}"
-                        RejectCommand="{Binding Path=CancelEditTitleCommand}"
-                        />
+                    <local:EditableTextBlock ViewModel="{Binding}"  />
                     <Viewbox Grid.Row="1"  HorizontalAlignment="Center" VerticalAlignment="Top" Stretch="Uniform" Margin="0 10 0 0">
                         <local:WindowThumbnail Source="{Binding Path=Handle}" />
                     </Viewbox>

@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel.Design;
 using System.Linq;
+using System.Reactive.Linq;
 using System.Text;
 using System.Timers;
 using System.Windows;
@@ -53,7 +54,7 @@ public class DockWindowViewModel : DependencyObject
         Windows.Clear();
         foreach (var window in windows)
         {
-            Windows.Add(new WindowItem(window));
+            Windows.Add(new WindowItem(window, Observable.Empty<bool>()));
         }
     }
 

@@ -7,9 +7,9 @@ using System.Threading.Tasks;
 using WinTabberUI.Services;
 
 namespace WinTabberUI.ViewModels;
-public class ApplicationStateViewModelFactory(IWindowSelectorStateService windowSelectorStateService, IMediaControlsStateService mediaControlsStateService, IActiveWindowStateService activeWindowStateService)
+public class ApplicationStateViewModelFactory(IMediaControlsStateService mediaControlsStateService, IActiveWindowStateService activeWindowStateService)
 {
-    private readonly IWindowSelectorStateService _windowSelectorStateService = windowSelectorStateService;
+    //private readonly IWindowSelectorStateService _windowSelectorStateService = windowSelectorStateService;
     private readonly IMediaControlsStateService _mediaControlsStateService = mediaControlsStateService;
     private readonly IActiveWindowStateService _activeWindowStateService = activeWindowStateService;
 
@@ -21,9 +21,7 @@ public class ApplicationStateViewModelFactory(IWindowSelectorStateService window
             ActiveApplicationChanges = _activeWindowStateService.ApplicationChanges,
             ActiveWindowChanges = _activeWindowStateService.WindowChanges,
             IsDockActiveChanges = Observable.Empty<bool>(),
-            IsEditingStateChanges = _windowSelectorStateService.IsEditingChanges,
             IsMediaControlsActiveChanges = _mediaControlsStateService.IsMediaControlsVisibleChanges,
-            IsSwitcherActiveChanges = _windowSelectorStateService.WindowSelectorChanges
         };
     }
 }

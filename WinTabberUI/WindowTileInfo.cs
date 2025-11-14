@@ -1,5 +1,6 @@
 ﻿using System.Windows;
 using System.Windows.Media;
+using WinTabberUI.ViewModels;
 
 namespace WinTabberUI;
 

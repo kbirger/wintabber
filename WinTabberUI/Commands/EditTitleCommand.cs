@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Input;
+using WinTabberUI.ViewModels;
 
 namespace WinTabberUI.Commands;
 

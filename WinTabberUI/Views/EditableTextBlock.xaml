@@ -1,14 +1,19 @@
-﻿<UserControl x:Class="WinTabberUI.EditableTextBlock"
+﻿<rxui:ReactiveUserControl x:Class="WinTabberUI.EditableTextBlock"
+                                   x:TypeArguments="vm:WindowItem"
              xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-              xmlns:fa="http://schemas.awesome.incremented/wpf/xaml/fontawesome.sharp"
+             xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
+             xmlns:rxui="http://reactiveui.net"
+             xmlns:fa="http://schemas.awesome.incremented/wpf/xaml/fontawesome.sharp"
              Name="root"
              Focusable="False"
              xmlns:local="clr-namespace:WinTabberUI"
              mc:Ignorable="d" 
-             d:DesignHeight="450" d:DesignWidth="800">
+             d:DesignHeight="24" d:DesignWidth="400"
+             d:DataContext="{d:DesignInstance vm:WindowItem,  IsDesignTimeCreatable=False}"
+>
     <UserControl.Resources>
         <!-- Button style (simple, small) -->
         <local:BoolToBrushConverter x:Key="BorderBrushConverter" local:BoolToBrushConverter.EditBrush="#ff666666" local:BoolToBrushConverter.ViewBrush="Transparent"/>
@@ -48,7 +53,7 @@
     <Border x:Name="BorderContainer"
             CornerRadius="4"
             Background="{Binding IsMouseOver, ElementName=root, Converter={StaticResource BorderBrushConverter}}"
-            BorderThickness="{Binding IsEditing, ElementName=root, Converter={StaticResource BoolToThicknessConverter}}"
+            BorderThickness="{Binding IsEditing, Converter={StaticResource BoolToThicknessConverter}}"
             BorderBrush="Gray"
             >
         <Grid Margin="2">
@@ -59,55 +64,39 @@
             </Grid.ColumnDefinitions>
 
             <TextBox x:Name="TextBox"
-                     Text="{Binding CurrentText, ElementName=root, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
+                     Text="{Binding Title, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}"
                      BorderThickness="0"
                      Foreground="White"
                      Background="Transparent"
-                     IsReadOnly="{Binding IsEditing, ElementName=root, Converter={StaticResource InverseBoolConverter}}"
+                     IsReadOnly="{Binding IsEditing, Converter={StaticResource InverseBoolConverter}}"
                      Cursor="Arrow"
                      VerticalAlignment="Center"
                      Padding="2"
-                     GotFocus="TextBox_GotFocus"/>
+                     GotFocus="TextBox_GotFocus">
+                <TextBox.InputBindings>
+                    <KeyBinding Key="Enter" Command="{Binding SaveTitleCommand}" CommandParameter="{Binding Title}"/>
+                    <KeyBinding Key="Escape" Command="{Binding CancelEditTitleCommand}"/>
+                </TextBox.InputBindings>
+            </TextBox>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button 
                     x:Name="AcceptButton" 
                     Style="{StaticResource InlineButton}" 
-                    Click="Accept_Click" 
-                    Visibility="{Binding RelativeSource={RelativeSource AncestorType=local:EditableTextBlock}, Path=IsEditing, Converter={StaticResource BoolToVisibilityConverter}}"
+                    Command="{Binding SaveTitleCommand}"
+                    CommandParameter="{Binding Title}"
+                    Visibility="{Binding Path=IsEditing, Converter={StaticResource BoolToVisibilityConverter}}"
                     >
                     <fa:IconBlock Icon="Check"/>
                 </Button>
                 <Button 
                     x:Name="CanceButton" 
                     Style="{StaticResource InlineButton}" 
-                    Click="Cancel_Click" 
-                    Visibility="{Binding RelativeSource={RelativeSource AncestorType=local:EditableTextBlock}, Path=IsEditing, Converter={StaticResource BoolToVisibilityConverter}}">
+                    Command="{Binding CancelEditTitleCommand}"
+                    Visibility="{Binding Path=IsEditing, Converter={StaticResource BoolToVisibilityConverter}}">
                     <fa:IconBlock Icon="Ban"/>
                 </Button>
             </StackPanel>
         </Grid>
     </Border>
-
-    <UserControl.Style>
-        <Style TargetType="local:EditableTextBlock">
-
-            <Style.Triggers>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Trigger.Setters>
-                        <!--<Setter Property="Background" Value="#ff666666"/>-->
-                    </Trigger.Setters>
-                </Trigger>
-                <!--<DataTrigger Binding="{Binding IsEditing, ElementName=root}" Value="True">
-                    <Setter TargetName="AcceptButton" Property="Visibility" Value="Visible"/>
-                    <Setter TargetName="CancelButton" Property="Visibility" Value="Visible"/>
-                </DataTrigger>-->
-                <!-- Show buttons and borders only in edit mode -->
-                <!--<DataTrigger Binding="{Binding IsEditing, ElementName=root}" Value="True">-->
-                <!--<Setter TargetName="AcceptButton" Property="Visibility" Value="Visible"/>-->
-                <!--<Setter TargetName="CancelButton" Property="Visibility" Value="Visible"/>-->
-                <!--</DataTrigger>-->
-            </Style.Triggers>
-        </Style>
-    </UserControl.Style>
-</UserControl>
+</rxui:ReactiveUserControl>

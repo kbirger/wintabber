@@ -1,8 +1,7 @@
-﻿namespace WinTabberUI.Services;
+﻿//namespace WinTabberUI.Services;
 
-public interface IWindowSelectorStateService
-{
-    IObservable<bool> IsEditingChanges { get; }
-    IObservable<bool> WindowSelectorChanges { get; }
+//public interface IWindowSelectorStateService
+//{
+//    IObservable<bool> WindowSelectorChanges { get; }
 
-}
+//}

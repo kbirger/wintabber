@@ -2,16 +2,16 @@
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup />
   <ItemGroup>
-    <Compile Update="DockWindow.xaml.cs">
+    <Compile Update="Views\DockWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Update="EditableTextBlock.xaml.cs">
+    <Compile Update="Views\EditableTextBlock.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Update="MediaControlsWindow.xaml.cs">
+    <Compile Update="Views\MediaControlsWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Update="RenameWindow.xaml.cs">
+    <Compile Update="Views\RenameWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Update="SysColor.xaml.cs">
