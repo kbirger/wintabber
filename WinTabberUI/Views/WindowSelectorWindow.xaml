@@ -6,7 +6,7 @@
         xmlns:local="clr-namespace:WinTabberUI"
         xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
         xmlns:chrome="clr-namespace:WinTabberUI.Chrome"
-         xmlns:fa="http://schemas.awesome.incremented/wpf/xaml/fontawesome.sharp"
+        xmlns:fa="http://schemas.awesome.incremented/wpf/xaml/fontawesome.sharp"
         mc:Ignorable="d"
         Title="WindowSelectorWindow"
         Visibility="Hidden"

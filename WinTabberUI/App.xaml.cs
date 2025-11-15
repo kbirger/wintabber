@@ -1,4 +1,6 @@
-﻿using CommunityToolkit.Mvvm.DependencyInjection;
+﻿
+using CommunityToolkit.Mvvm.DependencyInjection;
+using H.NotifyIcon;
 using Microsoft.Extensions.DependencyInjection;
 using System.Configuration;
 using System.Data;
@@ -27,7 +29,7 @@ public partial class App : Application
 
     private WindowCommandCoordinator? _commandCoordinator;
     private WinTabberEventManager? _eventManager;
-
+    private TaskbarIcon? notifyIcon;
     protected override void OnActivated(EventArgs e)
     {
         base.OnActivated(e);
@@ -42,6 +44,8 @@ public partial class App : Application
 
     protected override void OnStartup(StartupEventArgs e)
     {
+        notifyIcon = (TaskbarIcon)FindResource("NotifyIcon");
+        notifyIcon.ForceCreate();
         ServiceProvider serviceProvider = ConfigureServices();
 
         Ioc ioc = Ioc.Default;
@@ -100,5 +104,6 @@ public partial class App : Application
     {
         _commandCoordinator?.Dispose();
         _eventManager?.Dispose();
+        notifyIcon?.Dispose();
     }
 }
