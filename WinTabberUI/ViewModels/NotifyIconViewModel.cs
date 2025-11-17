@@ -1,14 +1,7 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 ﻿using System.Windows;
-using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
-using H.NotifyIcon;
+using ReactiveUI;
+using WinTabber.Events;
+using System.Reactive;
 
 namespace WinTabberUI;
 
@@ -20,43 +13,31 @@ namespace WinTabberUI;
 /// view model is assigned to the NotifyIcon in XAML. Alternatively, the startup routing
 /// in App.xaml.cs could have created this view model, and assigned it to the NotifyIcon.
 /// </summary>
-public partial class NotifyIconViewModel : ObservableObject
+public partial class NotifyIconViewModel : ReactiveObject
 {
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(ShowWindowCommand))]
-    public bool canExecuteShowWindow = true;
-
-    [ObservableProperty]
-    [NotifyCanExecuteChangedFor(nameof(HideWindowCommand))]
-    public bool canExecuteHideWindow;
-
-    /// <summary>
-    /// Shows a window, if none is already open.
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanExecuteShowWindow))]
-    public void ShowWindow()
+    public NotifyIconViewModel(WinTabberEventManager eventManager)
     {
-        //Application.Current.MainWindow ??= new MainWindow();
-        //Application.Current.MainWindow.Show(disableEfficiencyMode: true);
-        CanExecuteShowWindow = false;
-        CanExecuteHideWindow = true;
+        ExitApplicationCommand = ReactiveCommand.Create(ExitApplication);
+        ShowSettingsCommand = ReactiveCommand.Create(() => { });
+        ShowWindowCommand = ReactiveCommand.Create(ShowWindow(eventManager));
     }
 
-    /// <summary>
-    /// Hides the main window. This command is only enabled if a window is open.
-    /// </summary>
-    [RelayCommand(CanExecute = nameof(CanExecuteHideWindow))]
-    public void HideWindow()
+    public ReactiveCommand<Unit, Unit> ShowSettingsCommand { get; }
+    public ReactiveCommand<Unit, Unit> ExitApplicationCommand { get; }
+    public ReactiveCommand<Unit, Unit> ShowWindowCommand { get; }
+    
+
+
+    public Action ShowWindow(WinTabberEventManager eventManager)
     {
-        //Application.Current.MainWindow.Hide(enableEfficiencyMode: true);
-        CanExecuteShowWindow = true;
-        CanExecuteHideWindow = false;
+        return () => eventManager.SendEvent(EventType.CmdNextWindow);
     }
+
+
 
     /// <summary>
     /// Shuts down the application.
     /// </summary>
-    [RelayCommand]
     public void ExitApplication()
     {
         Application.Current.Shutdown();

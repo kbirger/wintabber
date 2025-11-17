@@ -9,6 +9,15 @@
         ScrollViewer.HorizontalScrollBarVisibility="Disabled" 
         ScrollViewer.VerticalScrollBarVisibility="Hidden" 
         Title="DockWindow" Width="200" Padding="10" Margin="10">
+    <Window.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+        <ResourceDictionary Source="/Resources/DockWindowResources.xaml"/>
+                
+            </ResourceDictionary.MergedDictionaries>
+            
+        </ResourceDictionary>
+    </Window.Resources>
     <chrome:AcrylicChrome.AcrylicChrome>
         <chrome:AcrylicChrome AccentState="ACCENT_ENABLE_BLURBEHIND" CornerPreference="DWMWCP_ROUNDSMALL" UnderStratumColor="#55ff0000" />
     </chrome:AcrylicChrome.AcrylicChrome>

@@ -1,6 +1,5 @@
 ﻿using System.Reactive.Linq;
 using WinTabber.API;
-using WinTabberUI.Models;
 using WinTabberUI.ViewModels;
 
 namespace WinTabberUI.Updaters
@@ -18,11 +17,13 @@ namespace WinTabberUI.Updaters
             _windowManager = windowManager;
         }
 
-        public void Init()
+        public IDisposable Init()
         {
             _subscription = _appState.ActiveWindowChanges
                 .Where(window => window is not null)
             .Subscribe(window => _windowManager.RegisterForegroundWindowChanged(window!.Handle));
+
+            return this;
         }
         public void Dispose()
         {

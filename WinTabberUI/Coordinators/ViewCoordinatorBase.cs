@@ -41,9 +41,10 @@ namespace WinTabberUI.Coordinators
 
         protected abstract void Show(T instance);
 
-        public void Init()
+        public IDisposable Init()
         {
             _listener = GetChangeEvents().ObserveOnDispatcher().Subscribe(OnEvent);
+            return this;
         }
 
         [MemberNotNullWhen(true, nameof(_instance))]

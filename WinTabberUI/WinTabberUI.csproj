@@ -18,6 +18,8 @@
 	  <None Remove="Images\logo.png" />
 	</ItemGroup>
 
+
+
 	<ItemGroup>
 	  <Resource Include="Images\icon.jpg">
 	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>

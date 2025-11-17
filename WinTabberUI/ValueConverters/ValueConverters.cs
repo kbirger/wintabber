@@ -1,14 +1,9 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Globalization;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using System.Globalization;
 using System.Windows;
 using System.Windows.Data;
 using System.Windows.Media;
 
-namespace WinTabberUI;
+namespace WinTabberUI.ValueConverters;
 
 public class BoolToThicknessConverter : IValueConverter
 {
@@ -40,7 +35,7 @@ public class InverseBoolConverter : IValueConverter
         => !(bool)value;
 }
 
-public class BoolToVisibilityConverter :IValueConverter
+public class BoolToVisibilityConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
         => (bool)value ? Visibility.Visible : Visibility.Collapsed;
