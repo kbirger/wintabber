@@ -9,18 +9,14 @@
         xmlns:local="clr-namespace:WinTabberUI.Views"
         xmlns:chrome="clr-namespace:WinTabberUI.Chrome"
         xmlns:controlzex="urn:controlzex"
+                     Style="{StaticResource {x:Type controlzex:WindowChromeWindow}}"
                                PreferDWMBorderColor="true"
-                               ResizeBorderThickness="10"
         mc:Ignorable="d"
         xmlns:views="clr-namespace:WinTabberUI.Views"
-                               WindowStyle="None"
-                               
-                               controlzex:WindowBackdropManager.BackdropType="Mica"
-                               GlowColor="{DynamicResource ControlzEx.Colors.AccentBaseColor}"
-                               CaptionColor="{DynamicResource ControlzEx.Colors.AccentBaseColor}"
-                               NCNonActiveBrush="{Binding Source={x:Static SystemColors.WindowFrameBrush}}"
-                               NonActiveGlowColor="LightGray"
-                               WindowStartupLocation="CenterScreen"
+        controlzex:NonClientControlProperties.HitTestResult="NOWHERE"
+                               controlzex:NCActiveBrush="Red"
+                               controlzex:NCNonActiveBrush="Green"
+        Background="#202020"
         Title="Settings" Height="450" Width="800">
     <Window.Resources>
         <ResourceDictionary>
@@ -35,7 +31,6 @@
         <!--<WindowChrome CaptionHeight="32"  ResizeBorderThickness="{x:Static SystemParameters.WindowResizeBorderThickness}" />-->
         <chrome:CustomChrome CaptionHeight="32" ResizeBorderThickness="{x:Static SystemParameters.WindowResizeBorderThickness}"/>
     </chrome:CustomChrome.CustomChrome>
-
     <!--<chrome:AcrylicChrome.AcrylicChrome>
         <chrome:AcrylicChrome AccentState="ACCENT_ENABLE_ACRYLICBLURBEHIND" CornerPreference="DWMWCP_ROUND" />
     </chrome:AcrylicChrome.AcrylicChrome>-->
@@ -55,7 +50,7 @@
                         <TextBlock Text="{Binding Name}" 
                        FontSize="16" 
                        FontWeight="Bold" 
-                       Margin="0,100,0,5"/>
+                       Margin="0,10,0,5"/>
                     </DataTemplate>
                 </ListView.ItemTemplate>
             </ListView>
