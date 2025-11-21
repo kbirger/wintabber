@@ -45,6 +45,7 @@
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+		<PackageReference Include="ControlzEx" Version="7.0.2" />
 		<PackageReference Include="fontawesome.sharp" Version="6.6.0" />
 		<PackageReference Include="GlobalHotKeys.Windows" Version="0.1.0" />
 		<PackageReference Include="H.NotifyIcon.Wpf" Version="2.3.2" />
@@ -70,6 +71,12 @@
 		<AdditionalFiles Update="NativeMethods.txt">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</AdditionalFiles>
+	</ItemGroup>
+
+	<ItemGroup>
+	  <Page Update="Resources\Theme.xaml">
+	    <Generator>MSBuild:Compile</Generator>
+	  </Page>
 	</ItemGroup>
 
 </Project>

@@ -10,6 +10,7 @@
             <local:InverseBoolConverter x:Key="InverseBoolConverter"/>
             <ResourceDictionary.MergedDictionaries>
                 <ResourceDictionary Source="/Resources/Resources.xaml"/>
+                <ResourceDictionary Source="/Resources/Theme.xaml"/>
                 <!-- Replace 'YourAssemblyName' with the actual name of your assembly -->
             </ResourceDictionary.MergedDictionaries>
         </ResourceDictionary>

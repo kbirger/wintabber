@@ -62,6 +62,14 @@ namespace WinTabberUI.Coordinators
             }
         }
 
+        protected void OnExternallyClosd()
+        {
+            if(_instance is not null && !ReuseInstances)
+            {
+                _instance = null;
+            }
+        }
+
         private void CloseCore()
         {
             if (IsShown)

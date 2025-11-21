@@ -18,17 +18,20 @@ public partial class NotifyIconViewModel : ReactiveObject
     public NotifyIconViewModel(WinTabberEventManager eventManager)
     {
         ExitApplicationCommand = ReactiveCommand.Create(ExitApplication);
-        ShowSettingsCommand = ReactiveCommand.Create(() => { });
-        ShowWindowCommand = ReactiveCommand.Create(ShowWindow(eventManager));
+        ShowSettingsCommand = ReactiveCommand.Create(ShowSettings(eventManager));
+        ShowWindowCommand = ReactiveCommand.Create(ShowSelector(eventManager));
     }
 
     public ReactiveCommand<Unit, Unit> ShowSettingsCommand { get; }
     public ReactiveCommand<Unit, Unit> ExitApplicationCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowWindowCommand { get; }
-    
 
+    public Action ShowSettings(WinTabberEventManager eventManager)
+    {
+        return () => eventManager.SendEvent(EventType.CmdShowSettings);
+    }
 
-    public Action ShowWindow(WinTabberEventManager eventManager)
+    public Action ShowSelector(WinTabberEventManager eventManager)
     {
         return () => eventManager.SendEvent(EventType.CmdNextWindow);
     }

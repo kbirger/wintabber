@@ -43,3 +43,17 @@ public class BoolToVisibilityConverter : IValueConverter
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
         => (Visibility)value == Visibility.Visible;
 }
+
+public class WindowStateToVisibilityConverter : IValueConverter
+{
+    public WindowState TargetState { get; set; } = WindowState.Normal;
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return (WindowState)value == TargetState ? Visibility.Visible : Visibility.Collapsed;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return (Visibility)value == Visibility.Visible ? TargetState : WindowState.Normal;
+    }
+}

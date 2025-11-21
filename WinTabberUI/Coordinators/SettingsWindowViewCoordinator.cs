@@ -1,0 +1,48 @@
+﻿using Microsoft.Extensions.DependencyInjection;
+using System;
+using System.Collections.Generic;
+using System.Linq;
+using System.Text;
+using System.Threading.Tasks;
+using WinTabberUI.ViewModels;
+using WinTabberUI.Views;
+
+namespace WinTabberUI.Coordinators
+{
+    public class SettingsWindowViewCoordinator : ViewCoordinatorBase<SettingsWindow>
+    {
+        private SettingsViewModel _vm;
+
+        public SettingsWindowViewCoordinator(SettingsViewModel vm, IServiceProvider provider)
+            : base(provider)
+        {
+            ReuseInstances = false;
+            _vm = vm;
+        }
+        protected override void Close(SettingsWindow instance)
+        {
+            instance.Close();
+        }
+
+        protected override IObservable<bool> GetChangeEvents()
+        {
+            return _vm.IsSettingsShown;
+        }
+
+        protected override void Show(SettingsWindow instance)
+        {
+            instance.Closed += Instance_Closed;
+            instance.Show();
+        }
+
+        private void Instance_Closed(object? sender, EventArgs e)
+        {
+            if(sender is SettingsWindow window)
+            {
+                window.Closed -= Instance_Closed;
+                OnExternallyClosd();
+                _vm.Hide();                
+            }
+        }
+    }
+}

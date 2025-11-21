@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.DependencyInjection;
+using ReactiveUI;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
 using System.Windows;
@@ -7,6 +8,7 @@ using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
+using System.Xml.Linq;
 using Windows.UI.Core;
 using WinTabber.Events;
 using WinTabberUI.ViewModels;
@@ -56,6 +58,7 @@ public partial class WindowSelectorWindow : Window
     {
         InitializeComponent();
         _dpiScale = VisualTreeHelper.GetDpi(this);
+        
         SizeChanged += MainWindow_SizeChanged;
         LayoutUpdated += MainWindow_LayoutUpdated;
         IsVisibleChanged  += MainWindow_VisibilityChanged;
@@ -63,8 +66,22 @@ public partial class WindowSelectorWindow : Window
 
 
         var mgr = Ioc.Default.GetRequiredService<WinTabberEventManager>();
+        _settings = Ioc.Default.GetRequiredService<SettingsViewModel>();
         _resources.Add(mgr);
 
+    }
+
+    protected override void OnSourceInitialized(EventArgs e)
+    {
+        var source = PresentationSource.FromVisual(this);
+        _transformToDevice = source.CompositionTarget.TransformToDevice;
+        _transformtoDip = source.CompositionTarget.TransformFromDevice;
+        _settings.Appearance.WhenAnyValue(vm => vm.ScaleFactor).Subscribe(_ =>
+        {
+            ScaleTiles();
+            CenterWindow();
+        });
+        base.OnSourceInitialized(e);
     }
 
     private void MainWindow_VisibilityChanged(object sender, DependencyPropertyChangedEventArgs e)
@@ -150,20 +167,24 @@ public partial class WindowSelectorWindow : Window
     private const int MAX_ROW_LENGTH = 5;
     private void ScaleTiles()
     {
-        var scaleX = _dpiScale.DpiScaleX;
-        var scaleY = _dpiScale.DpiScaleY;
-        var screenWidth = WindowData.CursorScreen.Bounds.Width / scaleX;
-        var screenHeight = WindowData.CursorScreen.Bounds.Height / scaleY;
-        var ratio = screenHeight / screenWidth;
-        var windowWidth = screenWidth * FILL_PERCENT;
-        var windowHeight = screenHeight * FILL_PERCENT;
-        MaxItemWidth = windowWidth / MAX_ROW_LENGTH;
-        MaxItemHeight = 24 + windowWidth * ratio / MAX_ROW_LENGTH;
+        //var scaleX = _dpiScale.DpiScaleX;
+        //var scaleY = _dpiScale.DpiScaleY;
+        //var screenWidth = WindowData.CursorScreen.Bounds.Width / scaleX;
+        //var screenHeight = WindowData.CursorScreen.Bounds.Height / scaleY;
+        var screenBounds = _transformToDevice.Transform(new Vector(WindowData.CursorScreen.Bounds.Width, WindowData.CursorScreen.Bounds.Height));
+        var ratio = screenBounds.Y / screenBounds.X;
+        var windowWidth = screenBounds.Y * FILL_PERCENT;
+        var windowHeight = screenBounds.X * FILL_PERCENT;
+        MaxItemWidth = windowWidth / MAX_ROW_LENGTH * _settings.Appearance.ScaleFactor;
+        MaxItemHeight = 24 + windowWidth * ratio / MAX_ROW_LENGTH * _settings.Appearance.ScaleFactor;
         // MaxItemWidth = ;
         // MaxItemHeight = 300;
     }
 
-    double W = 1200;
+    private SettingsViewModel _settings;
+    private Matrix _transformToDevice;
+    private Matrix _transformtoDip;
+
     private void CenterWindow()
     {
         // if (!IsVisible)

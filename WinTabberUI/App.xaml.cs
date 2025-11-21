@@ -1,6 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
+using System.Diagnostics;
 using System.Windows;
+using System.Windows.Input;
 using WinTabber.Events;
+using System.Windows.Input;
 
 namespace WinTabberUI;
 

@@ -17,6 +17,7 @@ public enum EventType
     ActiveApplicatonChanged,
     CmdMediaWindow,
     CmdDockWindow,
+    CmdShowSettings,
     WindowSelected,
     EditingStateChanged,
 }

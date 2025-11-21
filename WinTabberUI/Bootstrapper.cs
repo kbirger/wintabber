@@ -67,6 +67,7 @@ public static class Bootstrapper
     {
         return services
             .AddSingleton<WindowSelectorViewCoordinator>()
+            .AddSingleton<SettingsWindowViewCoordinator>()
             .AddSingleton<MediaWindowViewCoordinator>()
             .AddSingleton<WindowCommandCoordinator>()
             .AddSingleton<NotifyIconCoordinator>();
@@ -93,6 +94,7 @@ public static class Bootstrapper
             .AddSingleton<WindowSelectorViewModel>()
             .AddSingleton<MediaControlsViewModel>()
             .AddTransient<WindowRenameViewModel>()
+            .AddSingleton<SettingsViewModel>()
             .AddSingleton<NotifyIconViewModel>();
     }
     private static IServiceCollection AddViews(this IServiceCollection services)
@@ -105,6 +107,7 @@ public static class Bootstrapper
                 return factory.CreateApplicationStateViewModel();
             })
             .AddTransient<DockWindow>()
+            .AddTransient<SettingsWindow>()
             .AddTransient<MediaControlsWindow>()
             .AddSingleton<WindowSelectorWindowFactory>()
             .AddSingleton(sp => sp.GetRequiredService<WindowSelectorWindowFactory>().CreateWindowSelectorWindow());

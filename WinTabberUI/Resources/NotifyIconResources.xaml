@@ -12,6 +12,10 @@
             Command="{Binding ShowWindowCommand}"
             />
         <MenuItem
+            Header="Settings"
+            Command="{Binding ShowSettingsCommand}"
+            />
+        <MenuItem
             Header="Exit"
             Command="{Binding ExitApplicationCommand}"
             />
