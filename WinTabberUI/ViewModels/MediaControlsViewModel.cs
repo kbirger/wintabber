@@ -18,6 +18,7 @@ using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Xps.Serialization;
+using Windows.Devices.Display.Core;
 using Windows.Media.Control;
 using Windows.Media.MediaProperties;
 using Windows.Storage.Streams;
@@ -36,6 +37,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     private ObservableAsPropertyHelper<TimeSpan> _position;
     private ObservableAsPropertyHelper<bool> _isPlaying;
     private ObservableAsPropertyHelper<ImageSource?> _thumbnail;
+    private ObservableAsPropertyHelper<string[]> _sessions;
 
     public ViewModelActivator Activator { get; } = new ViewModelActivator();
     public ReactiveCommand<Unit, Unit> PlayPause { get; init; }
@@ -89,7 +91,27 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         {
             Debug.WriteLine("Activated");
 
-            Observable.FromAsync(async () => await GlobalSystemMediaTransportControlsSessionManager.RequestAsync())
+            var observableManager = Observable.FromAsync(async () => await GlobalSystemMediaTransportControlsSessionManager.RequestAsync())
+                .Replay(1)
+                .RefCount();
+
+            observableManager
+                .Subscribe(manager =>
+                {
+                    var sessionUpdates = Observable.FromEventPattern<SessionsChangedEventArgs>(manager, nameof(manager.SessionsChanged))
+                    .Select(_ => Unit.Default);
+
+
+                    sessionUpdates
+                       .StartWith(Unit.Default)
+                       .Select(_ => manager.GetSessions().Select(session => session.SourceAppUserModelId).ToArray())
+                       .Do(x => Debug.WriteLine(x))
+                       .ToProperty(this, vm => vm.Sessions, out _sessions, initialValue: new string[0])
+                       .DisposeWith(disposables);
+                })
+                .DisposeWith(disposables);
+
+            observableManager
                 .Take(1)
                 .Select(manager => manager.GetCurrentSession())
                 .Subscribe(session =>
@@ -188,7 +210,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     public string ArtistName => _artistName?.Value ?? string.Empty;
     public string AlbumTitle => _albumTitle?.Value ?? string.Empty;
     public string Title => _title?.Value ?? string.Empty;
-
+    public string[] Sessions => _sessions.Value;
     public TimeSpan Duration => _duration?.Value ?? TimeSpan.Zero;
 
     public TimeSpan Position => _position?.Value ?? TimeSpan.Zero;
