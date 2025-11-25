@@ -3,11 +3,12 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using WinTabberUI.Services;
 
 namespace WinTabberUI.Models.Settings
 {
     public class GeneralSettings
     {
-        public bool StartWithWindows { get; set; } = false;
+        public StartupMode StartupMode { get; set; } = StartupMode.Disabled;
     }
 }

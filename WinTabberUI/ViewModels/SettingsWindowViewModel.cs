@@ -39,23 +39,34 @@ public class SettingsViewModel : ReactiveObject, IDisposable
         CloseCommand = ReactiveCommand.Create(() => _isShown.OnNext(false));
         SaveCommand = ReactiveCommand.Create(() => Save());
         _settings = ApplicationSettings.Load();
-        
+
 
         Appearance = new AppearanceSettingsViewModel(_settings.Appearance);
         General = new GeneralSettingsViewModel(_settings.General);
-
+        SelectedView = General;
         Sections = [
             General,
             Appearance
         ];
 
         _cleanUp = new CompositeDisposable(
-            winTabberEventManager.CommandEvents
-                .Where(evt => evt.Type == EventType.CmdShowSettings)
-                .Subscribe(_ => _isShown.OnNext(true)),
+            SubscribeToSettingsChanges(),
+            SubscribetoShowEvents(winTabberEventManager),
             CloseCommand,
             SaveCommand
         );
+    }
+
+    private IDisposable SubscribetoShowEvents(WinTabberEventManager winTabberEventManager)
+    {
+        return winTabberEventManager.CommandEvents
+                        .Where(evt => evt.Type == EventType.CmdShowSettings)
+                        .Subscribe(_ => _isShown.OnNext(true));
+    }
+
+    private IDisposable SubscribeToSettingsChanges()
+    {
+        return Observable.Merge(Sections.Select(section => section.Changed)).Subscribe(_ => Save());
     }
 
     private void Save()

@@ -1,25 +1,33 @@
-﻿using ReactiveUI;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
+﻿using iNKORE.UI.WPF.Modern.Common.IconKeys;
+using ReactiveUI;
 using WinTabberUI.Models.Settings;
+using WinTabberUI.Services;
 
 namespace WinTabberUI.ViewModels.Settings
 {
+    public record StartupModeItem(string Name, StartupMode Mode);
     public class GeneralSettingsViewModel : SettingsViewModelBase
     {
-        public GeneralSettingsViewModel(GeneralSettings settings) : base("General")
+        public GeneralSettingsViewModel(GeneralSettings settings)
+            : base("General", FluentSystemIcons.Settings_32_Filled)
         {
-            StartWithWindows = settings.StartWithWindows;
+            _settings = settings;
+            StartupMode = settings.StartupMode;
         }
 
-        private bool _startWithWindows;
-        public bool StartWithWindows
+        private StartupMode _startupMode;
+        private GeneralSettings _settings;
+
+        public StartupMode StartupMode
         {
-            get => _startWithWindows;
-            set => this.RaiseAndSetIfChanged(ref _startWithWindows, value);
+            get => _startupMode;
+            set
+            {
+                _settings.StartupMode = value;
+                this.RaiseAndSetIfChanged(ref _startupMode, value);
+            }
         }
+
+        public StartupMode[] StartupModes => Enum.GetValues<StartupMode>();
     }
 }

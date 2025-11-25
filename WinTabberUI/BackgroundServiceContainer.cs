@@ -20,6 +20,7 @@ public class BackgroundServiceContainer : IDisposable
         ioc.GetRequiredService<WindowManager>();
 
         _cleanup = new CompositeDisposable(
+            ioc.GetRequiredService<StartupCoordinator>(),
             ioc.GetRequiredService<SettingsWindowViewCoordinator>().Init(),
             ioc.GetRequiredService<WindowSelectorViewCoordinator>().Init(),
             ioc.GetRequiredService<MediaWindowViewCoordinator>().Init(),

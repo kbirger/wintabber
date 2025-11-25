@@ -13,20 +13,35 @@
         AllowsTransparency="True"
         Background="Transparent"
         WindowStyle="None"
-        SizeToContent="WidthAndHeight"
+        SizeToContent="Manual"
         Topmost="true"
         ShowActivated="true"
         ShowInTaskbar="False"
         Focusable="True"
         WindowStartupLocation="CenterScreen"
+        Padding="20"
+        Width="400"
+                           Height="200"
+                           d:DataContext="{d:DesignInstance vm:MediaControlsViewModel}"
         Title="MediaControlsWindow">
     <chrome:AcrylicChrome.AcrylicChrome>
         <chrome:AcrylicChrome AccentState="ACCENT_ENABLE_BLURBEHIND" CornerPreference="DWMWCP_ROUND" UnderStratumColor="#55ff0000" />
     </chrome:AcrylicChrome.AcrylicChrome>
     <Window.Resources>
+        <DataTemplate x:Key="PlayButton">
+            <TextBlock>
+            <mdi:MaterialIconExt Kind="Play" Animation="Pulse"/>
+            </TextBlock>
+        </DataTemplate>
+        <DataTemplate x:Key="PauseButton">
+            <TextBlock>
+                <mdi:MaterialIconExt Kind="Pause" Animation="Pulse"/>
+            </TextBlock>
+
+        </DataTemplate>
         <Style TargetType="Button" x:Key="MediaButton">
             <Setter Property="Width" Value="48"/>
-            
+
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="White"/>
             <Setter Property="FontSize" Value="32"/>
@@ -39,7 +54,8 @@
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
-                            <ContentPresenter/>
+                            <ContentPresenter Content="{TemplateBinding Content}"
+                          ContentTemplate="{TemplateBinding ContentTemplate}" />
                         </Border>
 
                     </ControlTemplate>
@@ -54,16 +70,53 @@
                 </Trigger>
             </Style.Triggers>
         </Style>
+        <Style TargetType="Button" x:Key="PlayPauseMediaButton" BasedOn="{StaticResource MediaButton}">
+            <Style.Triggers>
+                <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                    <Setter Property="ContentTemplate" Value="{StaticResource PauseButton}"/>
+                </DataTrigger>
+                <DataTrigger Binding="{Binding IsPlaying}" Value="False">
+                    <Setter Property="ContentTemplate" Value="{StaticResource PlayButton}"/>
+                </DataTrigger>
+            </Style.Triggers>
+        </Style>
     </Window.Resources>
-    <UniformGrid Columns="3">
-        <Button Style="{StaticResource MediaButton}" Command="{Binding Prev}">
-            <mdi:MaterialIconExt Kind="SkipPrevious"/>
-        </Button>
-        <Button Style="{StaticResource MediaButton}" Command="{Binding PlayPause}">
-            <mdi:MaterialIconExt Kind="PlayPause" Animation="Pulse"/>
-        </Button>
-        <Button Style="{StaticResource MediaButton}" Command="{Binding Next}">
-            <mdi:MaterialIconExt Kind="SkipNext"/>
-        </Button>
-    </UniformGrid>
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="Auto"/>
+        </Grid.RowDefinitions>
+        <Grid Margin="20">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto"/>
+                <ColumnDefinition Width="Auto"/>
+            </Grid.ColumnDefinitions>
+            <Image Grid.Column="0" Width="64" Height="64" Margin="0" Source="{Binding Thumbnail}"/>
+            <StackPanel Margin="10, 0, 0, 0" Grid.Column="1">
+                <StackPanel.Resources>
+                    <Style TargetType="TextBlock">
+                        <Setter Property="Foreground" Value="White"/>
+                    </Style>
+                </StackPanel.Resources>
+                <TextBlock Text="{Binding Title}" FontWeight="UltraBold"/>
+                <TextBlock Text="{Binding ArtistName}"/>
+                <TextBlock Text="{Binding AlbumTitle}"/>
+                <!--<TextBlock Text="{Binding Position}"/>-->
+                <!--<TextBlock Text="{Binding Duration}"/>-->
+
+            </StackPanel>
+
+        </Grid>
+        <UniformGrid Margin="20" Columns="3" Grid.Row="1">
+            <Button Style="{StaticResource MediaButton}" Command="{Binding Prev}">
+                <mdi:MaterialIconExt Kind="SkipPrevious"/>
+            </Button>
+            <Button Style="{StaticResource PlayPauseMediaButton}" Command="{Binding PlayPause}">
+                <mdi:MaterialIconExt Kind="PlayPause"/>
+            </Button>
+            <Button Style="{StaticResource MediaButton}" Command="{Binding Next}">
+                <mdi:MaterialIconExt Kind="SkipNext"/>
+            </Button>
+        </UniformGrid>
+    </Grid>
 </reactiveui:ReactiveWindow>

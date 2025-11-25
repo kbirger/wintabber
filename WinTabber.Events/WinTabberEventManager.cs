@@ -84,11 +84,6 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
 
         return Observable.Merge(
             _subject,
-            Observable.Create<WinTabberEvent>((observer) =>
-            {
-                Debug.WriteLine($"subscibeTEST TEST from {Thread.CurrentThread.ManagedThreadId}");
-                return () => { };
-            }),
             ObserveHotkeys(hotKeyManager),
             ObserveKeyHook(keyHook),
             ObserveMouseHook(keyHook),

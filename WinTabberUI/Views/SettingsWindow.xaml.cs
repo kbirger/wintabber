@@ -1,5 +1,4 @@
 ﻿using CommunityToolkit.Mvvm.DependencyInjection;
-using ControlzEx;
 using Microsoft.Extensions.DependencyInjection;
 using ReactiveUI;
 using System;

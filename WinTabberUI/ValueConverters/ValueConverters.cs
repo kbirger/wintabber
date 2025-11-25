@@ -57,3 +57,32 @@ public class WindowStateToVisibilityConverter : IValueConverter
         return (Visibility)value == Visibility.Visible ? TargetState : WindowState.Normal;
     }
 }
+
+public class EnumToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => value?.ToString() ?? (object)0;
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => Enum.Parse(targetType, (string)value);
+}
+
+public class StringToEnumConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return Enum.Parse(targetType, (string)value);
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotImplementedException();
+    }
+}
+
+public class EnumValuesConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+        => Enum.GetNames(value.GetType());
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+        => throw new NotImplementedException();
+}

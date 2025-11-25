@@ -3,16 +3,39 @@
       xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
+      xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
       xmlns:local="clr-namespace:WinTabberUI.Views"
+      xmlns:c="clr-namespace:WinTabberUI.ValueConverters"                    
+                    
       xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
       xmlns:settingsvm="clr-namespace:WinTabberUI.ViewModels.Settings"
 
       xmlns:rxwpf="clr-namespace:ReactiveUI;assembly=ReactiveUI.Wpf"
       mc:Ignorable="d" 
+      d:DataContext="{d:DesignInstance settingsvm:GeneralSettingsViewModel}"
       d:DesignHeight="450" d:DesignWidth="800"
       Title="GeneralSettingsPage">
-
+    <Page.Resources>
+        <ResourceDictionary>
+            <c:EnumValuesConverter x:Key="EnumValuesConverter" />
+            <c:StringToEnumConverter x:Key="StringToEnumConverter" />
+        </ResourceDictionary>
+    </Page.Resources>
     <Grid>
-        
+        <HeaderedContentControl Margin="20" VerticalAlignment="Top" Foreground="White">
+            <HeaderedContentControl.Header>
+                <TextBlock FontSize="24">General</TextBlock>
+            </HeaderedContentControl.Header>
+            <ui:SettingsCard Header="Startup mode">
+                <ui:SettingsCard.HeaderIcon>
+                    <ui:FontIcon Glyph="&#xe7f4;" />
+                </ui:SettingsCard.HeaderIcon>
+                <ComboBox MinWidth="220" x:Name="StartupList"
+                        VerticalAlignment="Center"
+                        FontSize="14"
+                        ItemsSource="{Binding StartupModes}"
+                        SelectedValue="{Binding Path=StarupMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+            </ui:SettingsCard>
+        </HeaderedContentControl>
     </Grid>
 </rxwpf:ReactivePage>

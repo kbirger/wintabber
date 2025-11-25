@@ -3,6 +3,7 @@ using ReactiveUI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive.Disposables;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -22,12 +23,14 @@ namespace WinTabberUI;
 /// <summary>
 /// Interaction logic for MediaControlsWindow.xaml
 /// </summary>
-public partial class MediaControlsWindow
+public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
 {
     public MediaControlsWindow()
     {
-        DataContext = Ioc.Default.GetRequiredService<MediaControlsViewModel>();
         InitializeComponent();
+        ViewModel = Ioc.Default.GetRequiredService<MediaControlsViewModel>();
+        DataContext = ViewModel;
+        this.WhenActivated((CompositeDisposable disposables) => { });
     }
 
 

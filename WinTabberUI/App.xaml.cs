@@ -4,6 +4,8 @@ using System.Windows;
 using System.Windows.Input;
 using WinTabber.Events;
 using System.Windows.Input;
+using WinTabberUI.Services;
+using WinTabberUI.Models.Settings;
 
 namespace WinTabberUI;
 
@@ -14,6 +16,7 @@ public partial class App : Application
 {
     private WinTabberEventManager? _eventManager;
     private IDisposable? _cleanUp;
+
     protected override void OnActivated(EventArgs e)
     {
         base.OnActivated(e);
@@ -31,6 +34,10 @@ public partial class App : Application
 
         _cleanUp = serviceProvider.GetRequiredService<BackgroundServiceContainer>();
         _eventManager = serviceProvider.GetRequiredService<WinTabberEventManager>();
+        var startupService = serviceProvider.GetRequiredService<AutoStartupService>();
+
+        var settings = ApplicationSettings.Load();
+
         base.OnStartup(e);
     }
 

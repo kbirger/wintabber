@@ -15,3 +15,6 @@ DWM_WINDOW_CORNER_PREFERENCE
 SystemParametersInfoForDpi
 SystemParametersInfoA
 SystemParametersInfoW
+
+
+GetProcessDpiAwareness

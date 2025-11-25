@@ -7,7 +7,6 @@
              xmlns:PresentationOptions="http://schemas.microsoft.com/winfx/2006/xaml/presentation/options"
              xmlns:conv="clr-namespace:WinTabberUI.ValueConverters" 
             xmlns:chrome="clr-namespace:WinTabberUI.Chrome"
-             xmlns:controlzex="urn:controlzex"
 
              xmlns:local="clr-namespace:WinTabberUI.Chrome"
              mc:Ignorable="d" 
@@ -24,7 +23,7 @@
             <conv:WindowStateToVisibilityConverter TargetState="Maximized" x:Key="RestoreButtonVisibilityConverter" />
             <conv:WindowStateToVisibilityConverter TargetState="Normal" x:Key="MaximizeButtonVisibilityConverter" />
             <Style x:Key="WindowMainPanelStyle" TargetType="{x:Type Border}">
-                <Setter Property="BorderBrush" Value="{DynamicResource WindowBorderBrush}" />
+                <!--<Setter Property="BorderBrush" Value="{DynamicResource WindowBorderBrush}" />-->
                 <Setter Property="BorderThickness" Value="1" />
                 <Style.Triggers>
                     <DataTrigger Binding="{Binding RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Path=WindowState}" Value="Maximized">
@@ -38,7 +37,6 @@
                 <Setter Property="Foreground" Value="{DynamicResource Color05B}" />
                 <Setter Property="Padding" Value="0" />
                 <Setter Property="chrome:CustomChrome.IsHitTestVisibleInChrome" Value="True" />
-                <Setter Property="controlzex:NonClientControlProperties.ClickStrategy" Value="AutomationPeer" />
                 <Setter Property="IsTabStop" Value="False" />
                 <Setter Property="Template">
                     <Setter.Value>
@@ -57,7 +55,7 @@
                                     RecognizesAccessKey="True" />
                             </Border>
                             <ControlTemplate.Triggers>
-                                <Trigger Property="controlzex:NonClientControlProperties.IsNCMouseOver" Value="true">
+                                <Trigger Property="IsMouseOver" Value="true">
                                     <Setter TargetName="border" Property="Background" Value="{DynamicResource Color06B}" />
                                 </Trigger>
                                 <Trigger Property="IsPressed" Value="true">
@@ -88,7 +86,7 @@
                                     RecognizesAccessKey="True" />
                             </Border>
                             <ControlTemplate.Triggers>
-                                <Trigger Property="controlzex:NonClientControlProperties.IsNCMouseOver" Value="true">
+                                <Trigger Property="IsMouseOver" Value="true">
                                     <Setter TargetName="border" Property="Background" Value="{DynamicResource Color10B}" />
                                     <Setter Property="Foreground" Value="{DynamicResource MouseOverWindowCloseButtonForegroundBrush}" />
                                 </Trigger>
@@ -106,7 +104,7 @@
     <Grid>
         <Border>
 
-            <Grid controlzex:NonClientControlProperties.HitTestResult="CAPTION">
+            <Grid>
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
@@ -140,7 +138,6 @@
                     Grid.Row="0"
                     Grid.Column="2"
                     Command="{x:Static SystemCommands.MinimizeWindowCommand}"
-                    controlzex:NonClientControlProperties.HitTestResult="MINBUTTON"                    
                     RenderOptions.EdgeMode="Aliased"
                     Style="{DynamicResource TitleBarButtonStyle}">
                     <Path
@@ -166,7 +163,6 @@
                     Grid.Column="3"
                     Focusable="False"
                     Command="{x:Static SystemCommands.MaximizeWindowCommand}"
-                    controlzex:NonClientControlProperties.HitTestResult="MAXBUTTON"
                     Visibility="{Binding Path=WindowState, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Converter={StaticResource MaximizeButtonVisibilityConverter}}"                    
                     Style="{StaticResource TitleBarButtonStyle}">
                     <Path
@@ -192,7 +188,6 @@
                     Grid.Column="3"
                     Focusable="False"                    
                     Command="{x:Static SystemCommands.RestoreWindowCommand}"
-                    controlzex:NonClientControlProperties.HitTestResult="MAXBUTTON"
                     Visibility="{Binding Path=WindowState, RelativeSource={RelativeSource FindAncestor, AncestorType={x:Type Window}}, Converter={StaticResource RestoreButtonVisibilityConverter}}"
                     Style="{StaticResource TitleBarButtonStyle}">
                     <Path
@@ -216,8 +211,6 @@
                     Grid.Row="0"
                     Grid.Column="4"
                     Command="{x:Static SystemCommands.CloseWindowCommand}"
-                    controlzex:NonClientControlProperties.HitTestResult="CLOSE"
-                    controlzex:NonClientControlProperties.ClickStrategy="AutomationPeer"
                     Style="{StaticResource TitleBarCloseButtonStyle}">
                     <Path
                         Width="46"

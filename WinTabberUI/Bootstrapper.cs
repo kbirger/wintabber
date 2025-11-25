@@ -47,7 +47,9 @@ public static class Bootstrapper
 
     private static IServiceCollection AddCoreServices(this IServiceCollection services)
     {
-        return services.AddSingleton<BackgroundServiceContainer>();
+        return services
+            .AddSingleton<AutoStartupService>()
+            .AddSingleton<BackgroundServiceContainer>();
     }
     private static IServiceCollection AddDomainModels(this IServiceCollection services)
     {
@@ -66,6 +68,7 @@ public static class Bootstrapper
     private static IServiceCollection AddCoordinators(this IServiceCollection services)
     {
         return services
+            .AddSingleton<StartupCoordinator>()
             .AddSingleton<WindowSelectorViewCoordinator>()
             .AddSingleton<SettingsWindowViewCoordinator>()
             .AddSingleton<MediaWindowViewCoordinator>()

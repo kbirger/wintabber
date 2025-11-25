@@ -1,34 +1,71 @@
-﻿using ReactiveUI;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using WinTabberUI.Models;
+﻿using iNKORE.UI.WPF.Modern.Common.IconKeys;
+using ReactiveUI;
+using System.Reactive.Linq;
 using WinTabberUI.Models.Settings;
 
-namespace WinTabberUI.ViewModels.Settings
+namespace WinTabberUI.ViewModels.Settings;
+
+public class AppearanceSettingsViewModel : SettingsViewModelBase
 {
-    public class AppearanceSettingsViewModel : SettingsViewModelBase
+    private float _scaleFactor;
+    private bool _scaleTodpi;
+    private double _windowTileWidth;
+
+    public AppearanceSettingsViewModel(AppearanceSettings settings) 
+        : base("Appearance", FluentSystemIcons.PaintBucket_24_Regular)
     {
-        private float _scaleFactor;
-        private bool _scaleTodpi;
-        public AppearanceSettingsViewModel(AppearanceSettings settings) : base("Appearance")
-        {
-            ScaleFactor = settings.ScaleFactor;
-            ScaleToDpi = settings.ScaleToDpi;
-        }
+        _settings = settings;
+        ScaleFactor = settings.ScaleFactor;
+        ScaleToDpi = settings.ScaleToDpi;
+        WindowTileWidth = settings.WindowTileWidth;
 
-        public float ScaleFactor
-        {
-            get => _scaleFactor;
-            set => this.RaiseAndSetIfChanged(ref _scaleFactor, value);
-        }
+        _windowTileWidthScaledEvents = this
+            .WhenAnyValue(
+                vm => vm.ScaleFactor,
+                vm => vm.WindowTileWidth,
+                (scale, width) => scale * width)
+            .DistinctUntilChanged();
 
-        public bool ScaleToDpi
+        _windowTileWidthScaled = _windowTileWidthScaledEvents.ToProperty(this, vm => vm.WindowTileWidthScaled);
+    }
+
+    private readonly AppearanceSettings _settings;
+
+    public float ScaleFactor
+    {
+        get => _scaleFactor;
+        set
         {
-            get => _scaleTodpi;
-            set => this.RaiseAndSetIfChanged(ref _scaleTodpi, value);
+            _settings.ScaleFactor = value;
+            this.RaiseAndSetIfChanged(ref _scaleFactor, value);
         }
     }
+
+    public bool ScaleToDpi
+    {
+        get => _scaleTodpi;
+        set
+        {
+            _settings.ScaleToDpi = value;
+            this.RaiseAndSetIfChanged(ref _scaleTodpi, value);
+        }
+    }
+
+    public double WindowTileWidth
+    {
+        get => _windowTileWidth;
+        set
+        {
+            _settings.WindowTileWidth = value;
+            this.RaiseAndSetIfChanged(ref _windowTileWidth, value);
+        }
+    }
+
+    public double WindowTileWidthScaled
+    {
+        get => _windowTileWidthScaled.Value;
+    }
+
+    private readonly IObservable<double> _windowTileWidthScaledEvents;
+    private readonly ObservableAsPropertyHelper<double> _windowTileWidthScaled;
 }

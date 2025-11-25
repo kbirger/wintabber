@@ -1,7 +1,14 @@
 ﻿using CommunityToolkit.Mvvm.DependencyInjection;
+using DynamicData.Binding;
+using iNKORE.UI.WPF.DragDrop.Utilities;
+using Microsoft.Win32.SafeHandles;
 using ReactiveUI;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
+using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Forms;
@@ -10,6 +17,8 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Xml.Linq;
 using Windows.UI.Core;
+using Windows.Win32;
+using Windows.Win32.Foundation;
 using WinTabber.Events;
 using WinTabberUI.ViewModels;
 using static WinTabberUI.EditableTextBlock;
@@ -19,7 +28,7 @@ namespace WinTabberUI;
 /// <summary>
 /// Interaction logic for WindowSelectorWindow.xaml
 /// </summary>
-public partial class WindowSelectorWindow : Window
+public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewModel>
 {
     private List<IDisposable> _resources = new();
     private WindowTileGrid? _tileGrid;
@@ -45,6 +54,8 @@ public partial class WindowSelectorWindow : Window
         typeof(double),
         typeof(WindowSelectorWindow),
         new PropertyMetadata(400.0));
+
+
     public double MaxItemWidth
     {
         get { return (double)GetValue(MaxItemWidthProperty); }
@@ -69,6 +80,28 @@ public partial class WindowSelectorWindow : Window
         _settings = Ioc.Default.GetRequiredService<SettingsViewModel>();
         _resources.Add(mgr);
 
+        //this.WhenActivated((dispose) =>
+        //{
+        //    Debug.WriteLine("Activated");
+
+        //    Disposable.Create(() => { Debug.WriteLine("Deactivated"); }).DisposeWith(dispose);
+        //    this.OneWayBind(
+        //        _settings.Appearance, 
+        //        vm => vm.WindowTileWidthScaled, 
+        //        view => view.MaxItemWidth
+        //    ).DisposeWith(dispose);
+
+        //    this.OneWayBind(
+        //        _settings.Appearance,
+        //        vm => vm.WindowTileWidthScaled,
+        //        view => view.MaxItemHeight,
+        //        (double width) =>
+        //        {
+        //            var ratio = WindowData.CursorScreen.Bounds.Height / WindowData.CursorScreen.Bounds.Width;
+        //            return 55 + width * ratio;
+        //        }
+        //    ).DisposeWith(dispose);
+        //});
     }
 
     protected override void OnSourceInitialized(EventArgs e)
@@ -76,7 +109,7 @@ public partial class WindowSelectorWindow : Window
         var source = PresentationSource.FromVisual(this);
         _transformToDevice = source.CompositionTarget.TransformToDevice;
         _transformtoDip = source.CompositionTarget.TransformFromDevice;
-        _settings.Appearance.WhenAnyValue(vm => vm.ScaleFactor).Subscribe(_ =>
+        _settings.Appearance.WhenAnyPropertyChanged().Subscribe(_ =>
         {
             ScaleTiles();
             CenterWindow();
@@ -164,22 +197,29 @@ public partial class WindowSelectorWindow : Window
         base.OnDeactivated(e);
     }
     private const double FILL_PERCENT = 0.8;
-    private const int MAX_ROW_LENGTH = 5;
+    private const int MAX_ROW_LENGTH = 6;
     private void ScaleTiles()
     {
-        //var scaleX = _dpiScale.DpiScaleX;
-        //var scaleY = _dpiScale.DpiScaleY;
-        //var screenWidth = WindowData.CursorScreen.Bounds.Width / scaleX;
-        //var screenHeight = WindowData.CursorScreen.Bounds.Height / scaleY;
-        var screenBounds = _transformToDevice.Transform(new Vector(WindowData.CursorScreen.Bounds.Width, WindowData.CursorScreen.Bounds.Height));
-        var ratio = screenBounds.Y / screenBounds.X;
-        var windowWidth = screenBounds.Y * FILL_PERCENT;
-        var windowHeight = screenBounds.X * FILL_PERCENT;
-        MaxItemWidth = windowWidth / MAX_ROW_LENGTH * _settings.Appearance.ScaleFactor;
-        MaxItemHeight = 24 + windowWidth * ratio / MAX_ROW_LENGTH * _settings.Appearance.ScaleFactor;
-        // MaxItemWidth = ;
+        //var f = PInvoke.GetProcessDpiAwareness(new SafeAccessTokenHandle(Process.GetCurrentProcess().Handle), out var value);
+        //var source = PresentationSource.FromVisual(this);
+        //_transformToDevice = source.CompositionTarget.TransformToDevice;
+        //_transformtoDip = source.CompositionTarget.TransformFromDevice;
+        var origBounds = new Vector(WindowData.CursorScreen.Bounds.Width, WindowData.CursorScreen.Bounds.Height);
+        //var dipBounds = _transformtoDip.Transform(origBounds);
+        //var screenBounds2 = _transformToDevice.Transform(origBounds);
+        var ratio = origBounds.Y / origBounds.X;
+        var bounds = origBounds;
+        var windowWidth = bounds.X * FILL_PERCENT;
+        var windowHeight = bounds.Y * FILL_PERCENT;
+        //MaxItemWidth = windowWidth / MAX_ROW_LENGTH;
+        //MaxItemHeight = 55+  MaxItemWidth * ratio;
+
+        MaxItemWidth = _settings.Appearance.WindowTileWidth * _settings.Appearance.ScaleFactor;
         // MaxItemHeight = 300;
+        MaxItemHeight = 55+  MaxItemWidth * ratio;
+
     }
+
 
     private SettingsViewModel _settings;
     private Matrix _transformToDevice;
@@ -191,15 +231,19 @@ public partial class WindowSelectorWindow : Window
         // {
         //     return;
         // }
-        var screenCenter = WindowData.CenterScreen;
-        var scale = _dpiScale.DpiScaleX;
+        //var screenCenter = WindowData.CenterScreen;
+        var scale = 1;// _dpiScale.DpiScaleX;
+        var screen = WindowData.CursorScreen.Bounds;
+        var screen2 = new Rect(screen.Left, screen.Top, screen.Width, screen.Height);
+        //var bounds = VisualTreeHelper.GetTransform(this).TransformBounds();
+        var bounds = DpiHelper.DeviceRectToLogical(screen2, _dpiScale.DpiScaleX, _dpiScale.DpiScaleY);
         // SizeToContent = SizeToContent.Manual;
         // Width = W;
-        MaxHeight = WindowData.CursorScreen.Bounds.Height / scale * FILL_PERCENT;
-        MaxWidth = WindowData.CursorScreen.Bounds.Width / scale * FILL_PERCENT;
+        MaxHeight = bounds.Height / scale * FILL_PERCENT;
+        MaxWidth = bounds.Width / scale * FILL_PERCENT;
 
-        Left = WindowData.CursorScreen.Bounds.Left * scale + (WindowData.CursorScreen.Bounds.Width / scale - ActualWidth) / 2;
-        Top = WindowData.CursorScreen.Bounds.Top * scale + (WindowData.CursorScreen.Bounds.Height / scale - ActualHeight) / 2;
+        Left = bounds.Left * scale + (bounds.Width / scale - ActualWidth) / 2;
+        Top = bounds.Top * scale + (bounds.Height / scale - ActualHeight) / 2;
     }
 
     public void SelectWindow(int direction)

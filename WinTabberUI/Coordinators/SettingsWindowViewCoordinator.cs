@@ -40,7 +40,7 @@ namespace WinTabberUI.Coordinators
             if(sender is SettingsWindow window)
             {
                 window.Closed -= Instance_Closed;
-                OnExternallyClosd();
+                OnExternallyClosed();
                 _vm.Hide();                
             }
         }

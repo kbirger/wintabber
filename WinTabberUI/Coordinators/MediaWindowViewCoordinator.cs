@@ -13,7 +13,7 @@ namespace WinTabberUI.Coordinators
         }
         protected override void Close(MediaControlsWindow instance)
         {
-            instance.Hide();
+            instance.Close();
         }
 
         protected override IObservable<bool> GetChangeEvents()

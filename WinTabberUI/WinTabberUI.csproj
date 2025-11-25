@@ -45,10 +45,11 @@
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-		<PackageReference Include="ControlzEx" Version="7.0.2" />
 		<PackageReference Include="fontawesome.sharp" Version="6.6.0" />
+		<PackageReference Include="CoreAudio" Version="1.40.0" />
 		<PackageReference Include="GlobalHotKeys.Windows" Version="0.1.0" />
 		<PackageReference Include="H.NotifyIcon.Wpf" Version="2.3.2" />
+		<PackageReference Include="iNKORE.UI.WPF.Modern" Version="0.10.2.1" />
 		<PackageReference Include="Material.Icons.WPF" Version="2.4.1" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="9.0.10" />
 		<PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.205">
@@ -58,6 +59,7 @@
 		<PackageReference Include="Microsoft.Xaml.Behaviors.Wpf" Version="1.1.135" />
 		<PackageReference Include="MouseKeyHook" Version="5.7.1" />
 		<PackageReference Include="ReactiveUI" Version="22.1.1" />
+		<PackageReference Include="TaskScheduler" Version="2.12.2" />
 		<ProjectReference Include="..\WinTabber.Generators\WinTabber.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
 		<PackageReference Include="reactiveui.wpf" Version="22.1.1" />
 	</ItemGroup>
