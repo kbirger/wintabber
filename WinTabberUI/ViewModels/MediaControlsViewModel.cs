@@ -96,18 +96,19 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                 .Replay(1)
                 .RefCount();
             observableManager
-                .Subscribe(manager =>
+                .Select(manager =>
                 {
-                    Observable.FromEventPattern<CurrentSessionChangedEventArgs>(manager, nameof(manager.CurrentSessionChanged))
+                    return Observable.FromEventPattern<CurrentSessionChangedEventArgs>(manager, nameof(manager.CurrentSessionChanged))
                         .Select(_ => Unit.Default)
                         .StartWith(Unit.Default)
                         .Do(_ => Debug.WriteLine("Get session"))
-                        .Select(_ => manager.GetCurrentSession())
-                        .Subscribe()
-                        .DisposeWith(disposables);
+                        .Select(_ => manager.GetCurrentSession());
+                        
 
 
-                });
+                })
+                .Switch()
+                .StartWith
             observableManager
                 .Subscribe(manager =>
                 {
