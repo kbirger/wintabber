@@ -91,10 +91,23 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         {
             Debug.WriteLine("Activated");
 
+            
             var observableManager = Observable.FromAsync(async () => await GlobalSystemMediaTransportControlsSessionManager.RequestAsync())
                 .Replay(1)
                 .RefCount();
+            observableManager
+                .Subscribe(manager =>
+                {
+                    Observable.FromEventPattern<CurrentSessionChangedEventArgs>(manager, nameof(manager.CurrentSessionChanged))
+                        .Select(_ => Unit.Default)
+                        .StartWith(Unit.Default)
+                        .Do(_ => Debug.WriteLine("Get session"))
+                        .Select(_ => manager.GetCurrentSession())
+                        .Subscribe()
+                        .DisposeWith(disposables);
 
+
+                });
             observableManager
                 .Subscribe(manager =>
                 {
@@ -210,7 +223,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     public string ArtistName => _artistName?.Value ?? string.Empty;
     public string AlbumTitle => _albumTitle?.Value ?? string.Empty;
     public string Title => _title?.Value ?? string.Empty;
-    public string[] Sessions => _sessions.Value;
+    public string[] Sessions => _sessions?.Value ?? [];
     public TimeSpan Duration => _duration?.Value ?? TimeSpan.Zero;
 
     public TimeSpan Position => _position?.Value ?? TimeSpan.Zero;
