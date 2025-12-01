@@ -52,7 +52,7 @@ namespace WinTabberUI.Coordinators
 
         private void OnEvent(bool value)
         {
-            if(value)
+            if (value)
             {
                 ShowCore();
             }
@@ -64,7 +64,7 @@ namespace WinTabberUI.Coordinators
 
         protected void OnExternallyClosed()
         {
-            if(_instance is not null && !ReuseInstances)
+            if (_instance is not null && !ReuseInstances)
             {
                 _instance = null;
             }
@@ -76,16 +76,16 @@ namespace WinTabberUI.Coordinators
             {
                 Close(_instance);
 
-                if (!ReuseInstances)
-                {
-                    _instance = null;
-                }
+            }
+            if (!ReuseInstances)
+            {
+                _instance = null;
             }
         }
 
         private void ShowCore()
         {
-            if(!IsShown)
+            if (!IsShown)
             {
                 _instance = GetInstance();
                 Show(_instance);

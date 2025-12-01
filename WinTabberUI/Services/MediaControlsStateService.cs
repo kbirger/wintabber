@@ -2,7 +2,11 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive;
+using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Text;
 using System.Threading.Tasks;
 using WinTabber.Events;
@@ -11,16 +15,28 @@ namespace WinTabberUI.Services;
 public partial class MediaControlsStateService(WinTabberEventManager eventManager) : IMediaControlsStateService
 {
     private readonly WinTabberEventManager _eventManager = eventManager;
+    private readonly BehaviorSubject<bool> _visibilityEvents = new BehaviorSubject<bool>(false);
+    public void HideView()
+    {
+        _visibilityEvents.OnNext(false);
+    }
+
+    public void ToggleView()
+    {
+        _visibilityEvents.OnNext(!_visibilityEvents.Value);
+    }
+
 
     [Lazy]
     private IObservable<bool> GetIsMediaControlsVisibleChanges()
     {
-        return _eventManager.CommandEvents
+        var listener = _eventManager.CommandEvents
             .SubscribeOn(RxApp.TaskpoolScheduler)
             .Where(evt => evt.Type == EventType.CmdMediaWindow)
-            .Scan(false, (current, _) => !current)
-            .Replay(1)
-            .RefCount()
-            .ObserveOnDispatcher();
+
+            .Subscribe(_ => ToggleView());
+
+        listener.DisposeWith(new CompositeDisposable(_visibilityEvents));
+        return _visibilityEvents;
     }
 }

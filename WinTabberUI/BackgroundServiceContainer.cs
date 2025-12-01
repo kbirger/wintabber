@@ -3,6 +3,7 @@ using System.Reactive.Disposables;
 using WinTabber.API;
 using WinTabber.Events;
 using WinTabberUI.Coordinators;
+using WinTabberUI.Infrastructure;
 using WinTabberUI.Updaters;
 using WinTabberUI.ViewModels;
 
@@ -18,7 +19,7 @@ public class BackgroundServiceContainer : IDisposable
         ioc.GetRequiredService<ApplicationStateViewModel>();
         ioc.GetRequiredService<SettingsViewModel>();
         ioc.GetRequiredService<WindowManager>();
-
+        ioc.GetRequiredService<ImageCache>().Load();
         _cleanup = new CompositeDisposable(
             ioc.GetRequiredService<StartupCoordinator>(),
             ioc.GetRequiredService<SettingsWindowViewCoordinator>().Init(),

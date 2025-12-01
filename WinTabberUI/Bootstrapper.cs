@@ -11,6 +11,7 @@ using WinTabber.API;
 using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabberUI.Coordinators;
+using WinTabberUI.Infrastructure;
 using WinTabberUI.Models;
 using WinTabberUI.Services;
 using WinTabberUI.Updaters;
@@ -57,7 +58,8 @@ public static class Bootstrapper
             .AddSingleton<WinTabberEventManager>()
             .AddSingleton<ApplicationState>()
             .AddSingleton<IInteropProxy, InteropProxy>()
-            .AddSingleton<WindowManager>();
+            .AddSingleton<WindowManager>()
+            .AddSingleton<ImageCache>();
     }
     private static IServiceCollection AddUpdaters(this IServiceCollection services)
     {

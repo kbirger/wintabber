@@ -1,8 +1,15 @@
 ﻿using CoreAudio;
 using DynamicData;
+using iNKORE.UI.WPF.Modern.Common;
+using iNKORE.UI.WPF.Modern.Controls;
+using Microsoft.WindowsAPICodePack.Shell;
 using ReactiveUI;
 using System;
+using System.Collections;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.DirectoryServices;
 using System.Drawing;
@@ -13,21 +20,112 @@ using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Text;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 using System.Windows;
+using System.Windows.Data;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Xps.Serialization;
+using Windows.ApplicationModel;
+using Windows.ApplicationModel.Core;
 using Windows.Devices.Display.Core;
+using Windows.Management.Deployment;
 using Windows.Media.Control;
 using Windows.Media.MediaProperties;
 using Windows.Storage.Streams;
 using WinTabber.Interop;
+using WinTabberUI.Infrastructure;
+using WinTabberUI.Services;
 
 namespace WinTabberUI.ViewModels;
 
 public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 {
+    public class SessionItem : ReactiveObject, IComparable<SessionItem>
+    {
+        public string Id { get; }
+        public string Name { get; }
+
+        private readonly ObservableAsPropertyHelper<ImageSource> _icon;
+
+        public ImageSource Icon => _icon.Value;
+
+        public SessionItem(string id, string name, IObservable<ImageSource> icon)
+        {
+            Id = id;
+            Name = name;
+            _icon = icon.ToProperty(this, vm => vm.Icon);
+        }
+        public int CompareTo(SessionItem? other)
+        {
+            return string.Compare(Id, other?.Id);
+        }
+
+        //public static ImageCache _imageCache;
+        static SessionItem()
+        {
+            //_appCache = Test();
+        }
+        //private static Dictionary<string, SessionItem> Test()
+        //{
+        //    var FOLDERID_AppsFolder = new Guid("{1e87508d-89c2-42f0-8a7e-645a0f50ca58}");
+        //    IKnownFolder appsFolder = KnownFolderHelper.FromKnownFolderId(FOLDERID_AppsFolder);
+        //    Dictionary<string, SessionItem> lookup = new();
+        //    foreach (var app in (IKnownFolder)appsFolder)
+        //    {
+        //        string name = app.Name;
+        //        var props = app.Properties;
+        //        var icon = app.Thumbnail.SmallBitmapSource;
+        //        // The ParsingName property is the AppUserModelID
+        //        string appUserModelID = app.ParsingName; // or app.Properties.System.AppUserModel.ID
+        //        //ImageSource icon = app.Thumbnail.MediumBitmapSource;
+        //        lookup.Add(appUserModelID, new SessionItem(appUserModelID, name, _imageCache.GetOrAddAsync(appUserModelID, () => app.Thumbnail.SmallBitmapSource)));
+        //    }
+
+        //    return lookup;
+        //}
+        private static readonly Dictionary<string, SessionItem> _appCache = new Dictionary<string, SessionItem>();
+        public static SessionItem Create(GlobalSystemMediaTransportControlsSession session, ImageCache imageCache)
+        {
+            var aumid = session.SourceAppUserModelId;
+
+            //var app = _appCache.GetOrAdd(session.SourceAppUserModelId, static (id) => AppInfo.GetFromAppUserModelId(id));
+            if (_appCache.TryGetValue(aumid, out var item))
+            {
+                return item;
+            }
+            else
+            {
+                string displayName = aumid;
+                var image = imageCache.LoadingImage;
+                if (imageCache.AppFolder2.TryGetValue(aumid, out var appItem))
+                {
+                    displayName = appItem.Name;
+                    image = imageCache.GetOrAddAsync(aumid, () => appItem.Thumbnail.SmallBitmap);
+                }
+
+                var newItem = new SessionItem(aumid, displayName, image);
+                _appCache[aumid] = newItem;
+
+                return newItem;
+
+            }
+        }
+    }
+
+    private class GlobalSystemMediaTransportControlsSessionComparer : IComparer<GlobalSystemMediaTransportControlsSession>, IComparer
+    {
+        public int Compare(GlobalSystemMediaTransportControlsSession? x, GlobalSystemMediaTransportControlsSession? y)
+        {
+            return x?.SourceAppUserModelId.CompareTo(y?.SourceAppUserModelId) ?? 0;
+        }
+
+        int IComparer.Compare(object? x, object? y)
+        {
+            return this.Compare(x as GlobalSystemMediaTransportControlsSession, y as GlobalSystemMediaTransportControlsSession);
+        }
+    }
 
     private MMDeviceEnumerator _deviceEnum;
     private ObservableAsPropertyHelper<string> _artistName;
@@ -37,21 +135,54 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     private ObservableAsPropertyHelper<TimeSpan> _position;
     private ObservableAsPropertyHelper<bool> _isPlaying;
     private ObservableAsPropertyHelper<ImageSource?> _thumbnail;
-    private ObservableAsPropertyHelper<string[]> _sessions;
+    private IReadOnlyList<GlobalSystemMediaTransportControlsSession> _sessionModels;
+    private IReadOnlyList<SessionItem> _sessions;
+    private SessionItem _activeSession;
+    private readonly ImageCache _imageCache;
+    private readonly IMediaControlsStateService _mediaControlsStateService;
 
     public ViewModelActivator Activator { get; } = new ViewModelActivator();
     public ReactiveCommand<Unit, Unit> PlayPause { get; init; }
     public ReactiveCommand<Unit, Unit> Next { get; init; }
     public ReactiveCommand<Unit, Unit> Prev { get; init; }
 
-    public MediaControlsViewModel()
+    //public static async Task<IReadOnlyList<AppListEntry>> GetAppListEntries()
+    //{
+    //    var packageManager = new PackageManager();
+    //    // Iterate through all installed packages for the current user
+
+    //    List<AppListEntry> list = new();
+    //    foreach (var package in packages)
+    //    {
+    //        var appListEntries = await package.GetAppListEntriesAsync();
+    //        list.AddRange(appListEntries);
+    //        //foreach (var entry in appListEntries)
+    //        //{
+    //        //    // Check if the entry's AUMID matches the target
+    //        //    if (string.Equals(entry.AppUserModelId, targetAumid, StringComparison.OrdinalIgnoreCase))
+    //        //    {
+    //        //        // Return the display name
+    //        //        return entry.DisplayInfo.DisplayName;
+    //        //    }
+    //        //}
+    //    }
+
+    //    return list;
+    //}
+
+
+
+    public MediaControlsViewModel(ImageCache imageCache, IMediaControlsStateService mediaControlsStateService)
     {
+        _imageCache = imageCache;
+        _mediaControlsStateService = mediaControlsStateService;
+        Sessions = [];
         _deviceEnum = new MMDeviceEnumerator(Guid.NewGuid());
         var scheduler = RxApp.MainThreadScheduler;
         PlayPause = ReactiveCommand.CreateFromObservable(
             PlayPauseImpl,
             canExecute: null,
-            outputScheduler: scheduler);
+                outputScheduler: scheduler);
         Next = ReactiveCommand.CreateFromObservable(
             NextImpl,
             canExecute: null,
@@ -91,51 +222,71 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         {
             Debug.WriteLine("Activated");
 
-            
+            Disposable.Create(HandleDeactivation)
+                .DisposeWith(disposables);
+
+
             var observableManager = Observable.FromAsync(async () => await GlobalSystemMediaTransportControlsSessionManager.RequestAsync())
                 .Replay(1)
                 .RefCount();
-            observableManager
-                .Select(manager =>
+
+            var sessionsListUpdates = observableManager
+                .SelectMany(manager => Observable.FromEventPattern<SessionsChangedEventArgs>(manager, nameof(manager.SessionsChanged))
+                .Select(_ => Unit.Default)
+                .StartWith(Unit.Default)
+                .Select(_ => manager.GetSessions())
+                .Do(sessions => { Debug.WriteLine(sessions.Select(session => session.SourceAppUserModelId).ToArray()); })
+                .Replay(1)
+                .RefCount());
+
+            // bind sessions list
+            sessionsListUpdates
+                .ObserveOn(RxApp.TaskpoolScheduler)
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .Subscribe(sessions =>
                 {
-                    return Observable.FromEventPattern<CurrentSessionChangedEventArgs>(manager, nameof(manager.CurrentSessionChanged))
-                        .Select(_ => Unit.Default)
-                        .StartWith(Unit.Default)
-                        .Do(_ => Debug.WriteLine("Get session"))
-                        .Select(_ => manager.GetCurrentSession());
-                        
-
-
-                })
-                .Switch()
-                .StartWith
-            observableManager
-                .Subscribe(manager =>
-                {
-                    var sessionUpdates = Observable.FromEventPattern<SessionsChangedEventArgs>(manager, nameof(manager.SessionsChanged))
-                    .Select(_ => Unit.Default);
-
-
-                    sessionUpdates
-                       .StartWith(Unit.Default)
-                       .Select(_ => manager.GetSessions().Select(session => session.SourceAppUserModelId).ToArray())
-                       .Do(x => Debug.WriteLine(x))
-                       .ToProperty(this, vm => vm.Sessions, out _sessions, initialValue: new string[0])
-                       .DisposeWith(disposables);
+                    Sessions = sessions.Select(x => SessionItem.Create(x, _imageCache)).ToArray();
                 })
                 .DisposeWith(disposables);
 
+
             observableManager
-                .Take(1)
-                .Select(manager => manager.GetCurrentSession())
+                .Select(manager =>
+                {
+                    // Handle WinRT session change
+                    var currentSessionChanged = Observable.FromEventPattern<CurrentSessionChangedEventArgs>(manager, nameof(manager.CurrentSessionChanged))
+                        .Select(_ => Unit.Default)
+                        .StartWith(Unit.Default)
+                        .Select(_ => manager.GetCurrentSession())
+                        .Do(x =>
+                        {
+                            Debug.WriteLine($"WINRT: Current session changed. Got new session {x?.SourceAppUserModelId}");
+                        })
+                        .Replay(1)
+                        .RefCount();
+                    return currentSessionChanged;
+                })
+                .Switch()
+                .ObserveOn(RxApp.MainThreadScheduler)
                 .Subscribe(session =>
                 {
-                    session.TimelinePropertiesChanged += (_, _) => { Debug.WriteLine("!====> Timeline changed"); };
-                    Debug.WriteLine("Got manager");
+                    if (session is null)
+                    {
+                        return;
+                    }
+                    Debug.WriteLine($"WinRT new session: {session.SourceAppUserModelId}");
+                    foreach (var s in Sessions)
+                    {
+                        Debug.WriteLine($"sessoin: {s.Id}: {s.Name}");
+
+                    }
+                    ActiveSession = SessionItem.Create(session, _imageCache); //Sessions.FirstOrDefault(x => x.Id == session.SourceAppUserModelId)!;
                     var mediaPropertyChanges = Observable.FromEventPattern<MediaPropertiesChangedEventArgs>(session, nameof(session.MediaPropertiesChanged))
                         .Select(_ => Unit.Default)
                         .StartWith(Unit.Default)
                         .SelectMany(_ => session.TryGetMediaPropertiesAsync())
+                        .Do(p => { Debug.WriteLine($"MEDIA PROPERTIES CHANGED {p.AlbumArtist} {p.AlbumTitle} {p.Artist} {p.Title}"); })
+                        .ObserveOn(scheduler)
                         .Replay(1)
                         .RefCount();
                     var playbackPropertyChanges = Observable.FromEventPattern<PlaybackInfoChangedEventArgs>(session, nameof(session.PlaybackInfoChanged))
@@ -150,16 +301,17 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                         .StartWith(Unit.Default)
                         .Select(_ =>
                         {
-                            Debug.WriteLine("===> Get Timeline"); return session.GetTimelineProperties();
+                            //Debug.WriteLine("===> Get Timeline"); 
+                            return session.GetTimelineProperties();
                         })
                         .Replay(1)
                         .RefCount();
 
 
 
-                    mediaPropertyChanges = mediaPropertyChanges.Do(_ => Debug.WriteLine("Media properties change"));
-                    timelinePropertyChanges = timelinePropertyChanges.Do(_ => Debug.WriteLine("timeline properties change"));
-                    playbackPropertyChanges = playbackPropertyChanges.Do(_ => Debug.WriteLine("playback properties change"));
+                    //mediaPropertyChanges = mediaPropertyChanges.Do(_ => Debug.WriteLine("Media properties change"));
+                    //timelinePropertyChanges = timelinePropertyChanges.Do(_ => Debug.WriteLine("timeline properties change"));
+                    //playbackPropertyChanges = playbackPropertyChanges.Do(_ => Debug.WriteLine("playback properties change"));
 
                     mediaPropertyChanges
                         .Select(update => update.Artist)
@@ -184,29 +336,33 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                     mediaPropertyChanges
                         .ObserveOn(scheduler)
                         .SelectMany(update => GetCurrentMediaAlbumArt(update.Thumbnail))
-                        .ToProperty(this, vm => vm.Thumbnail, out _thumbnail, initialValue: new BitmapImage())
+                        .ToProperty(this, vm => vm.Thumbnail, out _thumbnail, initialValue: null)
                         .DisposeWith(disposables);
 
                     playbackPropertyChanges
                         .Select(info => info.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
-                        .Do(t => Debug.WriteLine($"playing: {t}"))
+                        //.Do(t => Debug.WriteLine($"playing: {t}"))
                         .ToProperty(this, vm => vm.IsPlaying, out _isPlaying)
                         .DisposeWith(disposables);
 
 
                     timelinePropertyChanges
                         .Select(update => update.Position)
-                        .Do(t => Debug.WriteLine($"Position {t}"))
+                        //.Do(t => Debug.WriteLine($"Position {t}"))
 
                         .ToProperty(this, vm => vm.Position, out _position, initialValue: TimeSpan.Zero)
                         .DisposeWith(disposables);
 
                     timelinePropertyChanges
                         .Select(update => update.EndTime)
-                        .Do(t => Debug.WriteLine($"End time {t}"))
+                        //.Do(t => Debug.WriteLine($"End time {t}"))
                         .ToProperty(this, vm => vm.Position, out _duration, initialValue: TimeSpan.Zero)
                         .DisposeWith(disposables);
                 });
+
+
+
+
         });
 
 
@@ -221,17 +377,32 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         });
     }
 
+    private void HandleDeactivation()
+    {
+        _mediaControlsStateService.HideView();
+    }
+
     public string ArtistName => _artistName?.Value ?? string.Empty;
     public string AlbumTitle => _albumTitle?.Value ?? string.Empty;
     public string Title => _title?.Value ?? string.Empty;
-    public string[] Sessions => _sessions?.Value ?? [];
+    public IReadOnlyList<SessionItem> Sessions
+    {
+        get => _sessions;
+        set => this.RaiseAndSetIfChanged(ref _sessions, value);
+    }
     public TimeSpan Duration => _duration?.Value ?? TimeSpan.Zero;
 
     public TimeSpan Position => _position?.Value ?? TimeSpan.Zero;
 
-    public ImageSource? Thumbnail => _thumbnail?.Value ?? new BitmapImage();
+    public ImageSource? Thumbnail => _thumbnail?.Value;
 
     public bool IsPlaying => _isPlaying?.Value ?? false;
+
+    public SessionItem ActiveSession
+    {
+        get => _activeSession;
+        set => this.RaiseAndSetIfChanged(ref _activeSession, value);
+    }
 
 
     private MMDevice? GetDefaultPlaybackDevice()

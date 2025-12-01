@@ -2,8 +2,10 @@
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -30,7 +32,18 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
         InitializeComponent();
         ViewModel = Ioc.Default.GetRequiredService<MediaControlsViewModel>();
         DataContext = ViewModel;
-        this.WhenActivated((CompositeDisposable disposables) => { });
+        this.WhenActivated((CompositeDisposable disposables) => 
+        {
+            Disposable.Create(() =>
+            {
+                Debug.WriteLine("deactivate media window");
+            }).DisposeWith(disposables);
+            //this.Bind(
+            //    ViewModel,
+            //    vm => vm.ActiveSession,
+            //    view => view.SessionSelector.SelectedItem
+            //);
+        });
     }
 
 
@@ -44,11 +57,11 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
     protected override void OnDeactivated(EventArgs e)
     {
         base.OnDeactivated(e);
+
     }
 
     protected override void OnLostFocus(RoutedEventArgs e)
     {
-        Close();
         base.OnLostFocus(e);
     }
 }
