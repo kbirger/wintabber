@@ -3,6 +3,7 @@ using DynamicData;
 using iNKORE.UI.WPF.Modern.Common;
 using iNKORE.UI.WPF.Modern.Controls;
 using Microsoft.WindowsAPICodePack.Shell;
+using MS.WindowsAPICodePack.Internal;
 using ReactiveUI;
 using System;
 using System.Collections;
@@ -171,6 +172,31 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     //}
 
 
+    private static IObservable<TResult> EventOrEmpty<TSource, TEventArgs, TResult>(
+        TSource? source,
+        Action<Windows.Foundation.TypedEventHandler<TSource, TEventArgs>> addHandler,
+        Action<Windows.Foundation.TypedEventHandler<TSource, TEventArgs>> removeHandler,
+        Func<IObservable<Unit>, IObservable<TResult>> eventObservable)
+    {
+        if (source is null)
+        {
+            return Observable.Empty<TResult>();
+        }
+
+
+        var obs = Observable.FromEvent<Windows.Foundation.TypedEventHandler<TSource, TEventArgs>, TEventArgs>(
+            handler =>
+            {
+                Windows.Foundation.TypedEventHandler<TSource, TEventArgs> typedHandler = (sender, e) => { handler(e); };
+
+                return typedHandler;
+            },
+            addHandler,
+            removeHandler)
+            .Select(_ => Unit.Default)
+            .StartWith(Unit.Default);
+        return eventObservable(obs);
+    }
 
     public MediaControlsViewModel(ImageCache imageCache, IMediaControlsStateService mediaControlsStateService)
     {
@@ -231,13 +257,15 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                 .RefCount();
 
             var sessionsListUpdates = observableManager
-                .SelectMany(manager => Observable.FromEventPattern<SessionsChangedEventArgs>(manager, nameof(manager.SessionsChanged))
-                .Select(_ => Unit.Default)
-                .StartWith(Unit.Default)
-                .Select(_ => manager.GetSessions())
-                .Do(sessions => { Debug.WriteLine(sessions.Select(session => session.SourceAppUserModelId).ToArray()); })
+                .Select(manager => Observable.FromEventPattern<SessionsChangedEventArgs>(manager, nameof(manager.SessionsChanged))
+                    .Select(_ => Unit.Default)
+                    .StartWith(Unit.Default)
+                    .Select(_ => manager.GetSessions())
+                    .Do(sessions => { Debug.WriteLine(sessions.Select(session => session.SourceAppUserModelId).ToArray()); })
+                )
                 .Replay(1)
-                .RefCount());
+                .RefCount()
+                .Switch();
 
             // bind sessions list
             sessionsListUpdates
@@ -250,25 +278,122 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                 .DisposeWith(disposables);
 
 
-            observableManager
+            // Handle WinRT session change
+            var currentSessionChanged = observableManager
                 .Select(manager =>
-                {
-                    // Handle WinRT session change
-                    var currentSessionChanged = Observable.FromEventPattern<CurrentSessionChangedEventArgs>(manager, nameof(manager.CurrentSessionChanged))
+                    EventOrEmpty<GlobalSystemMediaTransportControlsSessionManager, CurrentSessionChangedEventArgs, GlobalSystemMediaTransportControlsSession>(
+                        manager,
+                        h => manager.CurrentSessionChanged += h,
+                        h => manager.CurrentSessionChanged -= h,
+                        events => events.Select(_ => manager.GetCurrentSession())
+                        ))
+                    .Switch()
+                    .Do(x =>
+                    {
+                        Debug.WriteLine($"Session changed event");
+                    })
+                    .DistinctUntilChanged(x => x?.SourceAppUserModelId)
+                    .Do(x =>
+                    {
+                        Debug.WriteLine($"WINRT: Current session changed. Got new session {x?.SourceAppUserModelId ?? "no session"}");
+                    })
+                    .Replay(1)
+                    .RefCount()
+                    .ObserveOn(RxApp.MainThreadScheduler);
+
+
+            var mediaPropertiesChanged = currentSessionChanged
+                .Select(session => EventOrEmpty<GlobalSystemMediaTransportControlsSession, MediaPropertiesChangedEventArgs, GlobalSystemMediaTransportControlsSessionMediaProperties>(
+                    session,
+                    h => session.MediaPropertiesChanged += h,
+                    h => session.MediaPropertiesChanged -= h,
+                    events => events
+                        .Do(p => { Debug.WriteLine($"MEDIA PROPERTIES CHANGED"); })
+                        .SelectMany(_ => session.TryGetMediaPropertiesAsync())
+                ))
+                .Switch()
+                .ObserveOn(scheduler)
+                .Replay(1)
+                .RefCount();
+
+
+            var playbackPropertiesChanged = currentSessionChanged
+                .Select(session => EventOrEmpty<GlobalSystemMediaTransportControlsSession, PlaybackInfoChangedEventArgs, GlobalSystemMediaTransportControlsSessionPlaybackInfo>(
+                    session,
+                    h => session.PlaybackInfoChanged += h,
+                    h => session.PlaybackInfoChanged -= h,
+                    events => events
                         .Select(_ => Unit.Default)
                         .StartWith(Unit.Default)
-                        .Select(_ => manager.GetCurrentSession())
-                        .Do(x =>
-                        {
-                            Debug.WriteLine($"WINRT: Current session changed. Got new session {x?.SourceAppUserModelId}");
-                        })
-                        .Replay(1)
-                        .RefCount();
-                    return currentSessionChanged;
-                })
+                        .Select(_ => session.GetPlaybackInfo())
+                ))
                 .Switch()
-                .ObserveOn(RxApp.MainThreadScheduler)
-                .Subscribe(session =>
+                .Replay(1)
+                .RefCount();
+
+            var timelinePropertyChanged = currentSessionChanged
+                .Select(session => EventOrEmpty<GlobalSystemMediaTransportControlsSession, TimelinePropertiesChangedEventArgs, GlobalSystemMediaTransportControlsSessionTimelineProperties>(
+                    session,
+                    h => session.TimelinePropertiesChanged += h,
+                    h => session.TimelinePropertiesChanged -= h,
+                    events => events
+                        .Select(_ => Unit.Default)
+                        .StartWith(Unit.Default)
+                        .Select(_ => session.GetTimelineProperties())
+
+                ))
+                .Switch()
+                .Replay(1)
+                .RefCount();
+
+            mediaPropertiesChanged
+                       .Select(update => update.Artist)
+                       .Do(t => Debug.WriteLine($"artist {t}"))
+
+                       .ToProperty(this, vm => vm.ArtistName, out _artistName, initialValue: "")
+                       .DisposeWith(disposables);
+
+            mediaPropertiesChanged
+                .Select(update => update.AlbumTitle)
+                //.Do(t => Debug.WriteLine($"album {t}"))
+
+                .ToProperty(this, vm => vm.AlbumTitle, out _albumTitle, initialValue: "")
+                .DisposeWith(disposables);
+
+            mediaPropertiesChanged
+                .Select(update => update.Title)
+                .Do(t => Debug.WriteLine($"Title {t}"))
+                .ToProperty(this, vm => vm.Title, out _title, initialValue: "")
+                .DisposeWith(disposables);
+
+            mediaPropertiesChanged
+                .ObserveOn(scheduler)
+                .SelectMany(update => GetCurrentMediaAlbumArt(update.Thumbnail))
+                .ToProperty(this, vm => vm.Thumbnail, out _thumbnail, initialValue: null)
+                .DisposeWith(disposables);
+
+            playbackPropertiesChanged
+                .Select(info => info.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+                //.Do(t => Debug.WriteLine($"playing: {t}"))
+                .ToProperty(this, vm => vm.IsPlaying, out _isPlaying)
+                .DisposeWith(disposables);
+
+
+            timelinePropertyChanged
+                .Select(update => update.Position)
+                //.Do(t => Debug.WriteLine($"Position {t}"))
+
+                .ToProperty(this, vm => vm.Position, out _position, initialValue: TimeSpan.Zero)
+                .DisposeWith(disposables);
+
+            timelinePropertyChanged
+                .Select(update => update.EndTime)
+                //.Do(t => Debug.WriteLine($"End time {t}"))
+                .ToProperty(this, vm => vm.Position, out _duration, initialValue: TimeSpan.Zero)
+                .DisposeWith(disposables);
+
+
+            currentSessionChanged.Subscribe(session =>
                 {
                     if (session is null)
                     {
@@ -281,31 +406,32 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
                     }
                     ActiveSession = SessionItem.Create(session, _imageCache); //Sessions.FirstOrDefault(x => x.Id == session.SourceAppUserModelId)!;
-                    var mediaPropertyChanges = Observable.FromEventPattern<MediaPropertiesChangedEventArgs>(session, nameof(session.MediaPropertiesChanged))
-                        .Select(_ => Unit.Default)
-                        .StartWith(Unit.Default)
-                        .SelectMany(_ => session.TryGetMediaPropertiesAsync())
-                        .Do(p => { Debug.WriteLine($"MEDIA PROPERTIES CHANGED {p.AlbumArtist} {p.AlbumTitle} {p.Artist} {p.Title}"); })
-                        .ObserveOn(scheduler)
-                        .Replay(1)
-                        .RefCount();
-                    var playbackPropertyChanges = Observable.FromEventPattern<PlaybackInfoChangedEventArgs>(session, nameof(session.PlaybackInfoChanged))
-                        .Select(_ => Unit.Default)
-                        .StartWith(Unit.Default)
-                        .Select(_ => session.GetPlaybackInfo())
-                        .Replay(1)
-                        .RefCount();
+                    //var mediaPropertyChanges = Observable.FromEventPattern<MediaPropertiesChangedEventArgs>(session, nameof(session.MediaPropertiesChanged))
 
-                    var timelinePropertyChanges = Observable.FromEventPattern<TimelinePropertiesChangedEventArgs>(session, nameof(session.TimelinePropertiesChanged))
-                        .Select(_ => Unit.Default)
-                        .StartWith(Unit.Default)
-                        .Select(_ =>
-                        {
-                            //Debug.WriteLine("===> Get Timeline"); 
-                            return session.GetTimelineProperties();
-                        })
-                        .Replay(1)
-                        .RefCount();
+                    //    .Select(_ => Unit.Default)
+                    //    .StartWith(Unit.Default)
+                    //    .SelectMany(_ => session.TryGetMediaPropertiesAsync())
+                    //    .Do(p => { Debug.WriteLine($"MEDIA PROPERTIES CHANGED {p.AlbumArtist} {p.AlbumTitle} {p.Artist} {p.Title}"); })
+                    //    .ObserveOn(scheduler)
+                    //    .Replay(1)
+                    //    .RefCount();
+                    //var playbackPropertyChanges = Observable.FromEventPattern<PlaybackInfoChangedEventArgs>(session, nameof(session.PlaybackInfoChanged))
+                    //    .Select(_ => Unit.Default)
+                    //    .StartWith(Unit.Default)
+                    //    .Select(_ => session.GetPlaybackInfo())
+                    //    .Replay(1)
+                    //    .RefCount();
+
+                    //var timelinePropertyChanges = Observable.FromEventPattern<TimelinePropertiesChangedEventArgs>(session, nameof(session.TimelinePropertiesChanged))
+                    //    .Select(_ => Unit.Default)
+                    //    .StartWith(Unit.Default)
+                    //    .Select(_ =>
+                    //    {
+                    //        //Debug.WriteLine("===> Get Timeline"); 
+                    //        return session.GetTimelineProperties();
+                    //    })
+                    //    .Replay(1)
+                    //    .RefCount();
 
 
 
@@ -313,51 +439,51 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                     //timelinePropertyChanges = timelinePropertyChanges.Do(_ => Debug.WriteLine("timeline properties change"));
                     //playbackPropertyChanges = playbackPropertyChanges.Do(_ => Debug.WriteLine("playback properties change"));
 
-                    mediaPropertyChanges
-                        .Select(update => update.Artist)
-                        .Do(t => Debug.WriteLine($"artist {t}"))
+                    //mediaPropertyChanges
+                    //    .Select(update => update.Artist)
+                    //    .Do(t => Debug.WriteLine($"artist {t}"))
 
-                        .ToProperty(this, vm => vm.ArtistName, out _artistName, initialValue: "")
-                        .DisposeWith(disposables);
+                    //    .ToProperty(this, vm => vm.ArtistName, out _artistName, initialValue: "")
+                    //    .DisposeWith(disposables);
 
-                    mediaPropertyChanges
-                        .Select(update => update.AlbumTitle)
-                        .Do(t => Debug.WriteLine($"album {t}"))
+                    //mediaPropertyChanges
+                    //    .Select(update => update.AlbumTitle)
+                    //    .Do(t => Debug.WriteLine($"album {t}"))
 
-                        .ToProperty(this, vm => vm.AlbumTitle, out _albumTitle, initialValue: "")
-                        .DisposeWith(disposables);
+                    //    .ToProperty(this, vm => vm.AlbumTitle, out _albumTitle, initialValue: "")
+                    //    .DisposeWith(disposables);
 
-                    mediaPropertyChanges
-                        .Select(update => update.Title)
-                        .Do(t => Debug.WriteLine($"Title {t}"))
-                        .ToProperty(this, vm => vm.Title, out _title, initialValue: "")
-                        .DisposeWith(disposables);
+                    //mediaPropertyChanges
+                    //    .Select(update => update.Title)
+                    //    .Do(t => Debug.WriteLine($"Title {t}"))
+                    //    .ToProperty(this, vm => vm.Title, out _title, initialValue: "")
+                    //    .DisposeWith(disposables);
 
-                    mediaPropertyChanges
-                        .ObserveOn(scheduler)
-                        .SelectMany(update => GetCurrentMediaAlbumArt(update.Thumbnail))
-                        .ToProperty(this, vm => vm.Thumbnail, out _thumbnail, initialValue: null)
-                        .DisposeWith(disposables);
+                    //mediaPropertyChanges
+                    //    .ObserveOn(scheduler)
+                    //    .SelectMany(update => GetCurrentMediaAlbumArt(update.Thumbnail))
+                    //    .ToProperty(this, vm => vm.Thumbnail, out _thumbnail, initialValue: null)
+                    //    .DisposeWith(disposables);
 
-                    playbackPropertyChanges
-                        .Select(info => info.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
-                        //.Do(t => Debug.WriteLine($"playing: {t}"))
-                        .ToProperty(this, vm => vm.IsPlaying, out _isPlaying)
-                        .DisposeWith(disposables);
+                    //playbackPropertyChanges
+                    //    .Select(info => info.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+                    //    //.Do(t => Debug.WriteLine($"playing: {t}"))
+                    //    .ToProperty(this, vm => vm.IsPlaying, out _isPlaying)
+                    //    .DisposeWith(disposables);
 
 
-                    timelinePropertyChanges
-                        .Select(update => update.Position)
-                        //.Do(t => Debug.WriteLine($"Position {t}"))
+                    //timelinePropertyChanges
+                    //    .Select(update => update.Position)
+                    //    //.Do(t => Debug.WriteLine($"Position {t}"))
 
-                        .ToProperty(this, vm => vm.Position, out _position, initialValue: TimeSpan.Zero)
-                        .DisposeWith(disposables);
+                    //    .ToProperty(this, vm => vm.Position, out _position, initialValue: TimeSpan.Zero)
+                    //    .DisposeWith(disposables);
 
-                    timelinePropertyChanges
-                        .Select(update => update.EndTime)
-                        //.Do(t => Debug.WriteLine($"End time {t}"))
-                        .ToProperty(this, vm => vm.Position, out _duration, initialValue: TimeSpan.Zero)
-                        .DisposeWith(disposables);
+                    //timelinePropertyChanges
+                    //    .Select(update => update.EndTime)
+                    //    //.Do(t => Debug.WriteLine($"End time {t}"))
+                    //    .ToProperty(this, vm => vm.Position, out _duration, initialValue: TimeSpan.Zero)
+                    //    .DisposeWith(disposables);
                 });
 
 
