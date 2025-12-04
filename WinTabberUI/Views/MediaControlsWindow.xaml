@@ -8,10 +8,12 @@
         xmlns:chrome="clr-namespace:WinTabberUI.Chrome"
         xmlns:fa="http://schemas.awesome.incremented/wpf/xaml/fontawesome.sharp"
         xmlns:mdi="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF" 
-             xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
+        xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
 
-                           xmlns:local="clr-namespace:WinTabberUI"
+        xmlns:local="clr-namespace:WinTabberUI"
+        xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
         xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
+        xmlns:b="clr-namespace:WinTabberUI.Behaviors"
         xmlns:reactiveui="http://reactiveui.net"
         mc:Ignorable="d"
         AllowsTransparency="True"
@@ -165,7 +167,10 @@
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
         <ComboBox Grid.Row="0" ItemsSource="{Binding Sessions}" x:Name="SessionSelector" SelectedItem="{Binding ActiveSession}">
-            <ComboBox.ItemTemplate>
+                <i:Interaction.Behaviors>
+                    <b:HintBehavior HintText="A"/>
+                </i:Interaction.Behaviors>
+                <ComboBox.ItemTemplate>
                 <DataTemplate DataType="vm:MediaControlsViewModel.SessionItem">
                     <StackPanel Orientation="Horizontal">
                         <Image Source="{Binding Icon}" Height="16" Width="16" Margin="0,0,10,0" Visibility="{Binding Icon, Converter={StaticResource NullToVisibilityConverter}}"/>
@@ -196,26 +201,40 @@
 
         </Grid>
         <UniformGrid Margin="20" Columns="3" Grid.Row="2">
-            <Button Style="{StaticResource MediaButton}" Command="{Binding Prev}">
+                <Button Style="{StaticResource MediaButton}" Command="{Binding Prev}">
+                    <i:Interaction.Behaviors>
+                        <b:HintBehavior HintText="B"/>
+                    </i:Interaction.Behaviors>
                 <mdi:MaterialIconExt Kind="SkipPrevious"/>
             </Button>
             <Button Style="{StaticResource PlayPauseMediaButton}" Command="{Binding PlayPause}">
-                <mdi:MaterialIconExt Kind="PlayPause"/>
+                    <i:Interaction.Behaviors>
+                        <b:HintBehavior HintText="P"/>
+                    </i:Interaction.Behaviors>
+                    <mdi:MaterialIconExt Kind="PlayPause"/>
             </Button>
             <Button Style="{StaticResource MediaButton}" Command="{Binding Next}">
-                <mdi:MaterialIconExt Kind="SkipNext"/>
+                    <i:Interaction.Behaviors>
+                        <b:HintBehavior HintText="F"/>
+                    </i:Interaction.Behaviors>
+                    <mdi:MaterialIconExt Kind="SkipNext"/>
             </Button>
         </UniformGrid>
         <ListBox Margin="25, 5" Grid.Row="3" ItemsSource="{Binding Playback.Devices}" SelectedItem="{Binding Playback.SelectedDevice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectionMode="Single" Style="{StaticResource ToggleButtonList}"  SelectionChanged="ListBox_SelectionChanged">
-            <ListBox.ItemTemplate>
+                <i:Interaction.Behaviors>
+                    <b:HintBehavior HintText="S"/>
+                </i:Interaction.Behaviors>
+                <ListBox.ItemTemplate>
                 <DataTemplate DataType="vm:AudioDeviceSelectorViewModel.DeviceItem">
                     <TextBlock Text="{Binding Name}" Margin="4"/>
                 </DataTemplate>
             </ListBox.ItemTemplate>
         </ListBox>
         <ListBox Margin="25,5" Grid.Row="4" ItemsSource="{Binding Recording.Devices}" SelectedItem="{Binding Recording.SelectedDevice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectionMode="Single" Style="{StaticResource ToggleButtonList}" SelectionChanged="ListBox_SelectionChanged" >
-
-        </ListBox>
+                <i:Interaction.Behaviors>
+                    <b:HintBehavior HintText="R"/>
+                </i:Interaction.Behaviors>
+            </ListBox>
 
         </Grid>
     </AdornerDecorator>

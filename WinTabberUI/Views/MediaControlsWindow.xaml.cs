@@ -18,6 +18,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using WinTabber.Interop;
+using WinTabberUI.Services;
 using WinTabberUI.ViewModels;
 
 namespace WinTabberUI;
@@ -50,12 +51,7 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
 
     private void MediaControlsWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        var layer = AdornerLayer.GetAdornerLayer(this.SessionSelector);
-        if(layer != null)
-        {
-            var adorner = new HintAdorner(this.SessionSelector);
-            layer.Add(adorner);
-        }
+        HintService.ShowHints(this);
     }
 
     protected override void OnActivated(EventArgs e)

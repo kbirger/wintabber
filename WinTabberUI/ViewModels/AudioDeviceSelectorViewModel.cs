@@ -20,6 +20,8 @@ namespace WinTabberUI.ViewModels
 
             private readonly MMDevice _device;
 
+            public MMDevice Device => _device;
+
             public bool IsSelected
             {
                 get => _device.Selected;
@@ -69,11 +71,11 @@ namespace WinTabberUI.ViewModels
                 if (_selectedDevice is not null)
                 {
                     _selectedDevice.IsSelected = true;
-
-                    foreach (var device in Devices.Where(device => device != _selectedDevice))
-                    {
-                        device.IsSelected = false;
-                    }
+                    _deviceEnum.SetDefaultAudioEndpoint(_selectedDevice.Device);
+                    //foreach (var device in Devices.Where(device => device != _selectedDevice))
+                    //{
+                    //    device.IsSelected = false;
+                    //}
                 }
                 OnPropertyChanged();
             }
