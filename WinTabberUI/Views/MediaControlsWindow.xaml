@@ -17,15 +17,15 @@
         AllowsTransparency="True"
         Background="#01000000"
         WindowStyle="None"
-        SizeToContent="Manual"
+        SizeToContent="Height"
         Topmost="true"
         ShowActivated="true"
         ShowInTaskbar="False"
         Focusable="True"
         WindowStartupLocation="CenterScreen"
         Padding="20"
-        Width="400"
-        Height="230"
+        Width="700"
+        MinHeight="370"
         d:DataContext="{d:DesignInstance vm:MediaControlsViewModel}"
         IsHitTestVisible="True"
         Title="MediaControlsWindow">
@@ -33,6 +33,12 @@
         <chrome:AcrylicChrome AccentState="ACCENT_ENABLE_BLURBEHIND" CornerPreference="DWMWCP_ROUND" UnderStratumColor="#55ff0000" />
     </chrome:AcrylicChrome.AcrylicChrome>
     <Window.Resources>
+        <DataTemplate DataType="vm:MediaControlsViewModel.DeviceItem" x:Key="DeviceItemTemplate">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding Name}" Margin="4"/>
+                <TextBlock Text="{Binding IsSelected}" Margin="4"/>
+            </StackPanel>
+        </DataTemplate>
         <c:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
 
         <DataTemplate x:Key="PlayButton">
@@ -87,11 +93,74 @@
                 </DataTrigger>
             </Style.Triggers>
         </Style>
+
+        <Style TargetType="{x:Type ListBox}" x:Key="ToggleButtonList">
+            <!-- ControlTemplate taken from MSDN http://msdn.microsoft.com/en-us/library/ms754242.aspx -->
+            <Setter Property="SnapsToDevicePixels" Value="true"/>
+            <Setter Property="OverridesDefaultStyle" Value="true"/>
+            <Setter Property="ScrollViewer.HorizontalScrollBarVisibility" Value="Disabled"/>
+            <Setter Property="ScrollViewer.VerticalScrollBarVisibility" Value="Auto"/>
+            <Setter Property="ScrollViewer.CanContentScroll" Value="true"/>
+            <Setter Property="MinWidth" Value="120"/>
+            <Setter Property="MinHeight" Value="24"/>
+            <Setter Property="ItemTemplate">
+                <Setter.Value>
+                    <DataTemplate DataType="vm:AudioDeviceSelectorViewModel.DeviceItem" >
+                        <TextBlock Text="{Binding Name}" Margin="4"/>
+                    </DataTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ListBox">
+                        <Border Name="Border" Background="Transparent"
+                            BorderBrush="Transparent"
+                            BorderThickness="0"
+                            CornerRadius="2">
+                            <ItemsControl>
+                                <WrapPanel Margin="0" Focusable="false" IsItemsHost="True"/>
+                            </ItemsControl>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsEnabled" Value="false">
+                                <Setter TargetName="Border" Property="Background"
+            Value="Transparent" />
+                                <Setter TargetName="Border" Property="BorderBrush"
+            Value="Transparent" />
+                            </Trigger>
+                            <Trigger Property="IsGrouping" Value="true">
+                                <Setter Property="ScrollViewer.CanContentScroll" Value="false"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Setter Property="ItemContainerStyle">
+                <Setter.Value>
+                    <Style TargetType="{x:Type ListBoxItem}" >
+                        <Setter Property="Margin" Value="2" />
+                        <Setter Property="Template">
+                            <Setter.Value>
+                                <ControlTemplate TargetType="{x:Type ListBoxItem}">
+                                    <ToggleButton IsChecked="{Binding IsSelected, RelativeSource={RelativeSource TemplatedParent}, Mode=TwoWay}" Background="Transparent" Foreground="White" Padding="10,5" FontSize="10">
+                                        <ContentPresenter />
+                                    </ToggleButton>
+
+                                </ControlTemplate>
+                            </Setter.Value>
+                        </Setter>
+                    </Style>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </Window.Resources>
+    <AdornerDecorator>
     <Grid>
         <Grid.RowDefinitions>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="auto"/>
+            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
             <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
@@ -105,7 +174,7 @@
                 </DataTemplate>
             </ComboBox.ItemTemplate>
         </ComboBox>
-        <Grid Margin="20" Grid.Row="1">
+        <Grid Margin="25" Grid.Row="1">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="Auto"/>
                 <ColumnDefinition Width="Auto"/>
@@ -137,8 +206,17 @@
                 <mdi:MaterialIconExt Kind="SkipNext"/>
             </Button>
         </UniformGrid>
-        <StackPanel Grid.Row="3">
+        <ListBox Margin="25, 5" Grid.Row="3" ItemsSource="{Binding Playback.Devices}" SelectedItem="{Binding Playback.SelectedDevice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectionMode="Single" Style="{StaticResource ToggleButtonList}"  SelectionChanged="ListBox_SelectionChanged">
+            <ListBox.ItemTemplate>
+                <DataTemplate DataType="vm:AudioDeviceSelectorViewModel.DeviceItem">
+                    <TextBlock Text="{Binding Name}" Margin="4"/>
+                </DataTemplate>
+            </ListBox.ItemTemplate>
+        </ListBox>
+        <ListBox Margin="25,5" Grid.Row="4" ItemsSource="{Binding Recording.Devices}" SelectedItem="{Binding Recording.SelectedDevice, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" SelectionMode="Single" Style="{StaticResource ToggleButtonList}" SelectionChanged="ListBox_SelectionChanged" >
 
-        </StackPanel>
-    </Grid>
+        </ListBox>
+
+        </Grid>
+    </AdornerDecorator>
 </reactiveui:ReactiveWindow>

@@ -44,9 +44,19 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
             //    view => view.SessionSelector.SelectedItem
             //);
         });
+
+        Loaded += MediaControlsWindow_Loaded;
     }
 
-
+    private void MediaControlsWindow_Loaded(object sender, RoutedEventArgs e)
+    {
+        var layer = AdornerLayer.GetAdornerLayer(this.SessionSelector);
+        if(layer != null)
+        {
+            var adorner = new HintAdorner(this.SessionSelector);
+            layer.Add(adorner);
+        }
+    }
 
     protected override void OnActivated(EventArgs e)
     {
@@ -63,5 +73,10 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
     protected override void OnLostFocus(RoutedEventArgs e)
     {
         base.OnLostFocus(e);
+    }
+
+    private void ListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
+    {
+        Debug.WriteLine("selection changed");
     }
 }
