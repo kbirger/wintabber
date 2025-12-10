@@ -51,7 +51,7 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
 
     private void MediaControlsWindow_Loaded(object sender, RoutedEventArgs e)
     {
-        HintService.ShowHints(this);
+        //HintService.ShowHints(this);
     }
 
     protected override void OnActivated(EventArgs e)

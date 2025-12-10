@@ -166,7 +166,9 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     private ObservableAsPropertyHelper<string> _title;
     private ObservableAsPropertyHelper<TimeSpan> _duration;
     private ObservableAsPropertyHelper<TimeSpan> _position;
+    private ObservableAsPropertyHelper<float> _progress;
     private ObservableAsPropertyHelper<bool> _isPlaying;
+    private ObservableAsPropertyHelper<bool> _isMuted;
     private ObservableAsPropertyHelper<ImageSource?> _thumbnail;
     private IReadOnlyList<GlobalSystemMediaTransportControlsSession> _sessionModels;
     private IReadOnlyList<SessionItem> _sessions;
@@ -194,6 +196,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     public ReactiveCommand<Unit, Unit> PlayPause { get; init; }
     public ReactiveCommand<Unit, Unit> Next { get; init; }
     public ReactiveCommand<Unit, Unit> Prev { get; init; }
+    public ReactiveCommand<Unit, Unit> Mute { get; init; }
 
     //public static async Task<IReadOnlyList<AppListEntry>> GetAppListEntries()
     //{
@@ -266,6 +269,10 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
             canExecute: null,
             outputScheduler: scheduler);
 
+        Mute = ReactiveCommand.CreateFromObservable(
+            MuteImpl,
+            canExecute: null,
+            outputScheduler: scheduler);
         
         Debug.WriteLine("Created");
         this.WhenActivated((disposables) =>
@@ -285,8 +292,9 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
             //Observable.Return(playbackDevices).ToProperty(this, vm => vm.PlaybackDevices, out _playbackDevices ).ThrownExceptions.Subscribe(ex => { Debug.WriteLine(ex); }) ;
             //Observable.Return(recordingDevices).ToProperty(this, vm => vm.RecordingDevices, out _recordingDevices).ThrownExceptions.Subscribe(ex => { Debug.WriteLine(ex); });
 
-            Playback = new AudioDeviceSelectorViewModel(DataFlow.Render);
-            Recording = new AudioDeviceSelectorViewModel(DataFlow.Capture);
+            var (playback, recording) = AudioDeviceSelectorViewModel.Create();
+            Playback = playback;
+            Recording = recording;
 
             var observableManager = Observable.FromAsync(async () => await GlobalSystemMediaTransportControlsSessionManager.RequestAsync())
                 .Replay(1)
@@ -331,18 +339,32 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                 .ToProperty(this, vm => vm.IsPlaying, out _isPlaying)
                 .DisposeWith(disposables);
 
+            _isMuted = Observable.Return(false).ToProperty(this, vm => vm.IsMuted);
 
-            timelinePropertyChanged
-                .Select(update => update.Position)
+            var timestamps = Observable.Interval(TimeSpan.FromSeconds(1)).Select(_ => DateTimeOffset.Now).Do(_ => Debug.WriteLine("tick")).Publish().RefCount();
+            var positionObservable = timelinePropertyChanged.Do(_ => Debug.WriteLine("timeline"))
+                .CombineLatest(timestamps, playbackPropertiesChanged.Do(_ => Debug.WriteLine("playback")))
+                .Select((values) => values.Third.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing ? values.First.Position.Add(values.Second - values.First.LastUpdatedTime) : values.First.Position)
+                //.Do(x => Debug.WriteLine(x))
+                .Publish()
+                .RefCount();
+
+            positionObservable
                 //.Do(t => Debug.WriteLine($"Position {t}"))
 
                 .ToProperty(this, vm => vm.Position, out _position, initialValue: TimeSpan.Zero)
                 .DisposeWith(disposables);
 
+            positionObservable
+                .WithLatestFrom(timelinePropertyChanged)
+                .Select(values => (float)(values.First.Ticks / values.Second.EndTime.Ticks))
+                .ToProperty(this, vm => vm.Progress, out _progress, initialValue: 0)
+                .DisposeWith(disposables);
+
             timelinePropertyChanged
                 .Select(update => update.EndTime)
                 //.Do(t => Debug.WriteLine($"End time {t}"))
-                .ToProperty(this, vm => vm.Position, out _duration, initialValue: TimeSpan.Zero)
+                .ToProperty(this, vm => vm.Duration, out _duration, initialValue: TimeSpan.Zero)
                 .DisposeWith(disposables);
 
 
@@ -376,6 +398,12 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         });
     }
 
+    private IObservable<Unit> MuteImpl()
+    {
+        return Observable.Start(MediaKeySender.Mute);
+
+    }
+
     private static IObservable<GlobalSystemMediaTransportControlsSessionTimelineProperties> ObserveTimelineProperties(IObservable<GlobalSystemMediaTransportControlsSession> currentSessionChanged)
     {
         return currentSessionChanged
@@ -389,6 +417,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                     .Select(_ => session.GetTimelineProperties())
 
             ))
+            .Do(_ => Debug.WriteLine("timeline updated"))
             .Switch()
             .Replay(1)
             .RefCount();
@@ -500,8 +529,10 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
     public TimeSpan Position => _position?.Value ?? TimeSpan.Zero;
 
+    public float Progress => _progress?.Value ?? 0;
     public ImageSource? Thumbnail => _thumbnail?.Value;
 
+    public bool IsMuted => _isMuted?.Value ?? false;
     public bool IsPlaying => _isPlaying?.Value ?? false;
 
     public SessionItem ActiveSession

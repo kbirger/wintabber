@@ -30,4 +30,6 @@ public static class MediaKeySender
     public static void PlayPause() => SendKey(VIRTUAL_KEY.VK_MEDIA_PLAY_PAUSE);
     public static void Prev() => SendKey(VIRTUAL_KEY.VK_MEDIA_PREV_TRACK);
     public static void Next() => SendKey(VIRTUAL_KEY.VK_MEDIA_NEXT_TRACK);
+
+    public static void Mute() => SendKey(VIRTUAL_KEY.VK_VOLUME_MUTE);
 }

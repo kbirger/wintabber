@@ -6,4 +6,5 @@
     <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
     <c:InverseBoolConverter x:Key="InverseBoolConverter"/>
     <c:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+    <c:TimeSpanToFloatConverter x:Key="TimeSpanToFloatConverter" />
 </ResourceDictionary>
