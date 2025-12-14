@@ -41,7 +41,6 @@ using WinTabberUI.Infrastructure;
 using WinTabberUI.Services;
 
 namespace WinTabberUI.ViewModels;
-
 public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 {
     //public class DeviceItem : ReactiveObject
@@ -75,77 +74,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     //    //    }
     //    //}
     //}
-    public class SessionItem : ReactiveObject, IComparable<SessionItem>
-    {
-        public string Id { get; }
-        public string Name { get; }
-
-        private readonly ObservableAsPropertyHelper<ImageSource> _icon;
-
-        public ImageSource Icon => _icon.Value;
-
-        public SessionItem(string id, string name, IObservable<ImageSource> icon)
-        {
-            Id = id;
-            Name = name;
-            _icon = icon.ToProperty(this, vm => vm.Icon);
-        }
-        public int CompareTo(SessionItem? other)
-        {
-            return string.Compare(Id, other?.Id);
-        }
-
-        //public static ImageCache _imageCache;
-        static SessionItem()
-        {
-            //_appCache = Test();
-        }
-        //private static Dictionary<string, SessionItem> Test()
-        //{
-        //    var FOLDERID_AppsFolder = new Guid("{1e87508d-89c2-42f0-8a7e-645a0f50ca58}");
-        //    IKnownFolder appsFolder = KnownFolderHelper.FromKnownFolderId(FOLDERID_AppsFolder);
-        //    Dictionary<string, SessionItem> lookup = new();
-        //    foreach (var app in (IKnownFolder)appsFolder)
-        //    {
-        //        string name = app.Name;
-        //        var props = app.Properties;
-        //        var icon = app.Thumbnail.SmallBitmapSource;
-        //        // The ParsingName property is the AppUserModelID
-        //        string appUserModelID = app.ParsingName; // or app.Properties.System.AppUserModel.ID
-        //        //ImageSource icon = app.Thumbnail.MediumBitmapSource;
-        //        lookup.Add(appUserModelID, new SessionItem(appUserModelID, name, _imageCache.GetOrAddAsync(appUserModelID, () => app.Thumbnail.SmallBitmapSource)));
-        //    }
-
-        //    return lookup;
-        //}
-        private static readonly Dictionary<string, SessionItem> _appCache = new Dictionary<string, SessionItem>();
-        public static SessionItem Create(GlobalSystemMediaTransportControlsSession session, ImageCache imageCache)
-        {
-            var aumid = session.SourceAppUserModelId;
-
-            //var app = _appCache.GetOrAdd(session.SourceAppUserModelId, static (id) => AppInfo.GetFromAppUserModelId(id));
-            if (_appCache.TryGetValue(aumid, out var item))
-            {
-                return item;
-            }
-            else
-            {
-                string displayName = aumid;
-                var image = imageCache.LoadingImage;
-                if (imageCache.AppFolder2.TryGetValue(aumid, out var appItem))
-                {
-                    displayName = appItem.Name;
-                    image = imageCache.GetOrAddAsync(aumid, () => appItem.Thumbnail.SmallBitmap);
-                }
-
-                var newItem = new SessionItem(aumid, displayName, image);
-                _appCache[aumid] = newItem;
-
-                return newItem;
-
-            }
-        }
-    }
+    
 
     //private class GlobalSystemMediaTransportControlsSessionComparer : IComparer<GlobalSystemMediaTransportControlsSession>, IComparer
     //{
@@ -175,6 +104,8 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     private SessionItem _activeSession;
     private readonly ImageCache _imageCache;
     private readonly IMediaControlsStateService _mediaControlsStateService;
+    private readonly IAudioDeviceManager _audioDeviceManager;
+
     //private ObservableAsPropertyHelper<DeviceItem[]> _playbackDevices;
     //private ObservableAsPropertyHelper<DeviceItem[]> _recordingDevices;
 
@@ -249,10 +180,11 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         return eventObservable(obs);
     }
 
-    public MediaControlsViewModel(ImageCache imageCache, IMediaControlsStateService mediaControlsStateService)
+    public MediaControlsViewModel(ImageCache imageCache, IMediaControlsStateService mediaControlsStateService, IAudioDeviceManager audioDeviceManager)
     {
         _imageCache = imageCache;
         _mediaControlsStateService = mediaControlsStateService;
+        _audioDeviceManager = audioDeviceManager;
         Sessions = [];
         _deviceEnum = new MMDeviceEnumerator(Guid.NewGuid());
         var scheduler = RxApp.MainThreadScheduler;
@@ -292,9 +224,18 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
             //Observable.Return(playbackDevices).ToProperty(this, vm => vm.PlaybackDevices, out _playbackDevices ).ThrownExceptions.Subscribe(ex => { Debug.WriteLine(ex); }) ;
             //Observable.Return(recordingDevices).ToProperty(this, vm => vm.RecordingDevices, out _recordingDevices).ThrownExceptions.Subscribe(ex => { Debug.WriteLine(ex); });
 
-            var (playback, recording) = AudioDeviceSelectorViewModel.Create();
-            Playback = playback;
-            Recording = recording;
+            //var (playback, recording) = AudioDeviceSelectorViewModel.Create();
+            var ad = _audioDeviceManager.Connect();
+
+            _playback = new AudioDeviceSelectorViewModel(ad.Filter(x => x.Kind == DataFlow.Render));
+            _recording = new AudioDeviceSelectorViewModel(ad.Filter(x => x.Kind == DataFlow.Capture));
+                //.Select(devices => new AudioDeviceSelectorViewModel(
+                    //Observable.Return(devices),
+                    //DataFlow.Render,
+                    //_audioDeviceManager.SetDefaultAudioEndpoint))
+                //;
+            //Playback = playback;
+            //Recording = recording;
 
             var observableManager = Observable.FromAsync(async () => await GlobalSystemMediaTransportControlsSessionManager.RequestAsync())
                 .Replay(1)
@@ -312,7 +253,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
             mediaPropertiesChanged
                 .Select(update => update.Artist)
-                .Do(t => Debug.WriteLine($"artist {t}"))
+                //.Do(t => Debug.WriteLine($"artist {t}"))
                 .ToProperty(this, vm => vm.ArtistName, out _artistName, initialValue: "")
                 .DisposeWith(disposables);
 
@@ -323,7 +264,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
             mediaPropertiesChanged
                 .Select(update => update.Title)
-                .Do(t => Debug.WriteLine($"Title {t}"))
+                //.Do(t => Debug.WriteLine($"Title {t}"))
                 .ToProperty(this, vm => vm.Title, out _title, initialValue: "")
                 .DisposeWith(disposables);
 
@@ -341,9 +282,16 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
             _isMuted = Observable.Return(false).ToProperty(this, vm => vm.IsMuted);
 
-            var timestamps = Observable.Interval(TimeSpan.FromSeconds(1)).Select(_ => DateTimeOffset.Now).Do(_ => Debug.WriteLine("tick")).Publish().RefCount();
-            var positionObservable = timelinePropertyChanged.Do(_ => Debug.WriteLine("timeline"))
-                .CombineLatest(timestamps, playbackPropertiesChanged.Do(_ => Debug.WriteLine("playback")))
+            var timestamps = Observable.Interval(TimeSpan.FromSeconds(1))
+                .Select(_ => DateTimeOffset.Now)
+                //.Do(_ => Debug.WriteLine("tick"))
+                .Publish()
+                .RefCount();
+            var positionObservable = timelinePropertyChanged
+                //.Do(_ => Debug.WriteLine("timeline"))
+                .CombineLatest(timestamps, playbackPropertiesChanged
+                    //.Do(_ => Debug.WriteLine("playback"))
+                )
                 .Select((values) => values.Third.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing ? values.First.Position.Add(values.Second - values.First.LastUpdatedTime) : values.First.Position)
                 //.Do(x => Debug.WriteLine(x))
                 .Publish()
@@ -357,7 +305,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
             positionObservable
                 .WithLatestFrom(timelinePropertyChanged)
-                .Select(values => (float)(values.First.Ticks / values.Second.EndTime.Ticks))
+                .Select(values => values.Second.EndTime.Ticks > 0 ? (float)(values.First.Ticks / values.Second.EndTime.Ticks) : 0)
                 .ToProperty(this, vm => vm.Progress, out _progress, initialValue: 0)
                 .DisposeWith(disposables);
 
@@ -374,16 +322,17 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                 {
                     return;
                 }
-                Debug.WriteLine($"WinRT new session: {session.SourceAppUserModelId}");
-                foreach (var s in Sessions)
-                {
-                    Debug.WriteLine($"sessoin: {s.Id}: {s.Name}");
 
-                }
+                //Debug.WriteLine($"WinRT new session: {session.SourceAppUserModelId}");
+                //foreach (var s in Sessions)
+                //{
+                //Debug.WriteLine($"sessoin: {s.Id}: {s.Name}");
+
+                //}
                 ActiveSession = SessionItem.Create(session, _imageCache); //Sessions.FirstOrDefault(x => x.Id == session.SourceAppUserModelId)!;
                                                                           //var mediaPropertyChanges = Observable.FromEventPattern<MediaPropertiesChangedEventArgs>(session, nameof(session.MediaPropertiesChanged))
 
-            });
+            }).DisposeWith(disposables);
         });
 
 

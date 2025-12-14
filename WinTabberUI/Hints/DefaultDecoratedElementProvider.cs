@@ -16,7 +16,7 @@ public class DefaultDecoratedElementProvider : IDecoratedElementProvider
         return elements.Select(child => new DecoratedElementInfo
         {
             Element = child,
-            HintText = HintBehavior.GetHintBehavior(child)?.HintText
+            HintText = HintBehavior.GetHintText(child)!
         });
     }
 }

@@ -5,13 +5,11 @@
              xmlns:local="clr-namespace:WinTabberUI.ValueConverters">
     <Application.Resources>
         <ResourceDictionary>
-            <local:BoolToThicknessConverter x:Key="BoolToThicknessConverter"/>
-            <local:BoolToBrushConverter x:Key="BoolToBrushConverter"/>
-            <local:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter"/>
-            <local:InverseBoolConverter x:Key="InverseBoolConverter"/>
+            
             <ResourceDictionary.MergedDictionaries>
                 <ui:ThemeResources RequestedTheme="Dark"/>
                 <ui:XamlControlsResources/>
+                <ResourceDictionary Source="/Resources/ValueConvertersResources.xaml"/>
                 <ResourceDictionary Source="/Resources/Resources.xaml"/>
                 <ResourceDictionary Source="/Resources/Theme.xaml"/>
                 <!-- Replace 'YourAssemblyName' with the actual name of your assembly -->

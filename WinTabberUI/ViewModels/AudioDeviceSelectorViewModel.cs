@@ -1,6 +1,8 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CoreAudio;
+using DynamicData;
 using ReactiveUI;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -9,32 +11,32 @@ namespace WinTabberUI.ViewModels
 {
     public partial class AudioDeviceSelectorViewModel : ReactiveObject
     {
-        public static (AudioDeviceSelectorViewModel Playback, AudioDeviceSelectorViewModel Recording) Create()
-        {
-            var deviceEnum = new MMDeviceEnumerator(Guid.NewGuid());
+        //public static (AudioDeviceSelectorViewModel Playback, AudioDeviceSelectorViewModel Recording) Create()
+        //{
+        //    var deviceEnum = new MMDeviceEnumerator(Guid.NewGuid());
+        //    var notif = new MMNotificationClient(deviceEnum);
 
-            var groupsObservable = GetDevicesObservable(deviceEnum)
-                //.SubscribeOn(Scheduler.Default)
-                .Select(devices => devices.ToLookup(device => device.DataFlow))
-                .Replay(1)
-                .RefCount();
 
-            groupsObservable.Subscribe(_ => { Debug.WriteLine("deviceees"); });
+        //    var groupsObservable = GetDevicesObservable(deviceEnum)
+        //        //.SubscribeOn(Scheduler.Default)
+        //        .Select(devices => devices.ToLookup(device => device.DataFlow))
+        //        .Replay(1)
+        //        .RefCount();
 
-            return (
-                new AudioDeviceSelectorViewModel(
-                    groupsObservable.Select(groups => groups[DataFlow.Render]),
-                    DataFlow.Render,
-                    deviceEnum.SetDefaultAudioEndpoint
-                ),
-                new AudioDeviceSelectorViewModel(
-                    groupsObservable.Select(groups => groups[DataFlow.Capture]),
-                    DataFlow.Capture,
-                    deviceEnum.SetDefaultAudioEndpoint
-                )
-            );
+        //    groupsObservable.Subscribe(_ => { Debug.WriteLine("deviceees"); });
 
-        }
+        //    return (
+        //        new AudioDeviceSelectorViewModel(
+        //            groupsObservable.Select(groups => groups[DataFlow.Render])
+        //        ),
+        //        new AudioDeviceSelectorViewModel(
+        //            groupsObservable.Select(groups => groups[DataFlow.Capture]),
+        //            DataFlow.Capture,
+        //            deviceEnum.SetDefaultAudioEndpoint
+        //        )
+        //    );
+
+        //}
 
         private static IObservable<MMDeviceCollection> GetDevicesObservable(MMDeviceEnumerator deviceEnum)
         {
@@ -49,73 +51,53 @@ namespace WinTabberUI.ViewModels
             });
         }
 
-        public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>
+
+
+        //public AudioDeviceSelectorViewModel(IObservable<IEnumerable<MMDevice>> devicesObservable, DataFlow dataFlow, Action<MMDevice> activateFunction)
+        public AudioDeviceSelectorViewModel(IObservable<IChangeSet<DeviceItem, string>> devices)
         {
-            public DeviceItem(MMDevice device)
-            {
-                Name = device.DeviceFriendlyName;
-                Id = device.ID;
-                _isSelected = device.Selected;
-                _device = device;
-            }
-            public string Name { get; }
+            devices.Bind(out _devices)
+                .Subscribe();
 
-            public string Id { get; }
 
-            private readonly MMDevice _device;
-
-            public MMDevice Device => _device;
-
-            public bool IsSelected
-            {
-                get => _device.Selected;
-                set
+            devices.QueryWhenChanged(query => query.Items.FirstOrDefault(item => item.IsSelected))
+                .Subscribe(selectedItem =>
                 {
-                    _isSelected = value;
-                    //_device.Selected = value;
-                    
-                    OnPropertyChanged();
-                }
-            }
-            private bool _isSelected;
+                    SelectedDevice = selectedItem;
+                });
+            devices
+                .MergeMany(device => device
+                    .ObservableForProperty(d => d.IsSelected))
+                    .AsObservable()
+                    .Subscribe(change =>
+                    {
+                        if (change.Value)
+                        {
+                            SelectedDevice = change.Sender;
+                        }
+                    });
+            //_dataFlow = dataFlow;
+            //_activateFunction = activateFunction;
+            //var deviceItems = devicesObservable
+            //.Select(devices => devices.Select(device => new DeviceItem(device)).ToArray());
+            //_devices = deviceItems
+            //.ToProperty(this, vm => vm.Devices, initialValue: []);
 
-            public int CompareTo(DeviceItem? other)
-            {
-                return string.Compare(Name, other?.Name, StringComparison.Ordinal);
-            }
-
-            //public bool IsSelected
+            //deviceItems.Take(1).Subscribe(devices =>
             //{
-            //    get => _isSelected;
-            //    set
-            //    {
-            //        _device.Selected = value;
-            //        this.RaiseAndSetIfChanged(ref _isSelected, value);
-            //    }
-            //}
+            //    SelectedDevice = devices.SingleOrDefault(device => device.IsSelected);
+            //});
+
         }
 
-        public AudioDeviceSelectorViewModel(IObservable<IEnumerable<MMDevice>> devicesObservable, DataFlow dataFlow, Action<MMDevice> activateFunction)
-        {
-            _dataFlow = dataFlow;
-            _activateFunction = activateFunction;
-            var deviceItems = devicesObservable
-                .Select(devices => devices.Select(device => new DeviceItem(device)).ToArray());
-            _devices = deviceItems
-                .ToProperty(this, vm => vm.Devices, initialValue: []);
+        //private readonly ObservableAsPropertyHelper<DeviceItem[]> _devices;
+        private readonly ReadOnlyObservableCollection<DeviceItem> _devices;
 
-            deviceItems.Take(1).Subscribe(devices =>
-            {
-                SelectedDevice = devices.SingleOrDefault(device => device.IsSelected);
-            });
-        }
+        //private readonly DataFlow _dataFlow;
+        //private readonly Action<MMDevice> _activateFunction;
 
-        private readonly ObservableAsPropertyHelper<DeviceItem[]> _devices;
-
-        private readonly DataFlow _dataFlow;
-        private readonly Action<MMDevice> _activateFunction;
-
-        public DeviceItem[] Devices => _devices.Value;
+        //public DeviceItem[] Devices => _devices.Value;
+        public ReadOnlyObservableCollection<DeviceItem> Devices => _devices;
 
         public DeviceItem? SelectedDevice
         {
@@ -125,8 +107,8 @@ namespace WinTabberUI.ViewModels
                 _selectedDevice = value;
                 if (_selectedDevice is not null)
                 {
-                    _selectedDevice.IsSelected = true;
-                    _activateFunction(_selectedDevice.Device);
+                    //_selectedDevice.IsSelected = true;
+                    _selectedDevice.Activate();
                     //foreach (var device in Devices.Where(device => device != _selectedDevice))
                     //{
                     //    device.IsSelected = false;

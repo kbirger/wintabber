@@ -59,6 +59,7 @@ public static class Bootstrapper
             .AddSingleton<ApplicationState>()
             .AddSingleton<IInteropProxy, InteropProxy>()
             .AddSingleton<WindowManager>()
+            .AddSingleton<IAudioDeviceManager, AudioDeviceManager>()
             .AddSingleton<ImageCache>();
     }
     private static IServiceCollection AddUpdaters(this IServiceCollection services)

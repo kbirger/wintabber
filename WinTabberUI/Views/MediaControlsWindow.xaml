@@ -26,13 +26,16 @@
         WindowStartupLocation="CenterScreen"
         Padding="20"
         Width="700"
-        MinHeight="310"
+        MinHeight="180"
         d:DataContext="{d:DesignInstance vm:MediaControlsViewModel}"
         IsHitTestVisible="True"
         Title="MediaControlsWindow">
     <chrome:AcrylicChrome.AcrylicChrome>
         <chrome:AcrylicChrome AccentState="ACCENT_ENABLE_BLURBEHIND" CornerPreference="DWMWCP_ROUND" UnderStratumColor="#55ff0000" />
     </chrome:AcrylicChrome.AcrylicChrome>
+    <i:Interaction.Behaviors>
+        <b:HintBehavior />
+    </i:Interaction.Behaviors>
     <Window.Resources>
         <DataTemplate x:Key="DeviceItemTemplate">
             <StackPanel Orientation="Horizontal">
@@ -47,22 +50,22 @@
             </TextBlock>
         </DataTemplate>
         <DataTemplate x:Key="PauseButton">
-            <TextBlock>
+            <TextBlock HorizontalAlignment="Center">
                 <mdi:MaterialIconExt Kind="Pause" Animation="Pulse"/>
             </TextBlock>
         </DataTemplate>
         <DataTemplate x:Key="MuteButton">
-            <TextBlock>
-                <mdi:MaterialIconExt Kind="VolumeOff" Animation="Pulse"/>
+            <TextBlock HorizontalAlignment="Center">
+                <mdi:MaterialIconExt Kind="VolumeHigh" Animation="Pulse"/>
             </TextBlock>
         </DataTemplate>
         <DataTemplate x:Key="UnmuteButton">
-            <TextBlock>
-        <mdi:MaterialIconExt Kind="VolumeHigh" Animation="Pulse"/>
+            <TextBlock HorizontalAlignment="Center">
+                <mdi:MaterialIconExt Kind="VolumeOff" Animation="Pulse"/>
             </TextBlock>
         </DataTemplate>
         <Style TargetType="Button" x:Key="MediaButton">
-            <Setter Property="Width" Value="48"/>
+            <Setter Property="Width" Value="42"/>
 
             <Setter Property="Background" Value="Transparent"/>
             <Setter Property="Foreground" Value="White"/>
@@ -75,7 +78,7 @@
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
-                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}">
+                        <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="4">
                             <ContentPresenter Content="{TemplateBinding Content}"
                           ContentTemplate="{TemplateBinding ContentTemplate}" />
                         </Border>
@@ -104,125 +107,182 @@
         </Style>
         <Style TargetType="Button" x:Key="MuteMediaButton" BasedOn="{StaticResource MediaButton}">
             <Style.Triggers>
-                <DataTrigger Binding="{Binding IsMuted}" Value="False">
+                <DataTrigger Binding="{Binding Playback.SelectedDevice.IsMuted}" Value="False">
                     <Setter Property="ContentTemplate" Value="{StaticResource MuteButton}"/>
                 </DataTrigger>
-                <DataTrigger Binding="{Binding IsMuted}" Value="True">
+                <DataTrigger Binding="{Binding Playback.SelectedDevice.IsMuted}" Value="True">
                     <Setter Property="ContentTemplate" Value="{StaticResource UnmuteButton}"/>
                 </DataTrigger>
             </Style.Triggers>
         </Style>
     </Window.Resources>
     <AdornerDecorator>
-        <Grid>
+        <Grid Margin="25">
             <Grid.RowDefinitions>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="auto"/>
                 <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
-                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
             </Grid.RowDefinitions>
-            <ComboBox Grid.Row="0" 
-                      ItemsSource="{Binding Sessions}" 
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                    <ColumnDefinition/>
+                </Grid.ColumnDefinitions>
+                <Label Content="Session" VerticalContentAlignment="Center" Grid.Row="0" Margin="0 0 0 10"/>
+                <ComboBox Grid.Row="1" 
+                      ItemsSource="{Binding Sessions}"
+                      HorizontalAlignment="Stretch"
+                      VerticalAlignment="Stretch"
                       x:Name="SessionSelector" 
+                      b:HintBehavior.HintText="A"
                       SelectedItem="{Binding ActiveSession}">
-                <i:Interaction.Behaviors>
-                    <b:HintBehavior HintText="A"/>
-                </i:Interaction.Behaviors>
-                <ComboBox.ItemTemplate>
-                    <DataTemplate DataType="vm:MediaControlsViewModel.SessionItem">
-                        <StackPanel Orientation="Horizontal">
-                            <Image Source="{Binding Icon}" Height="16" Width="16" Margin="0,0,10,0" Visibility="{Binding Icon, Converter={StaticResource NullToVisibilityConverter}}"/>
-                            <TextBlock Text="{Binding Name}" Margin="10,0,0,0"/>
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate DataType="vm:MediaControlsViewModel.SessionItem">
+                            <StackPanel Orientation="Horizontal">
+                                <Image d:Source="/Images/loading.png" Source="{Binding Icon}" Height="16" Width="16" Margin="0,0,10,0" Visibility="{Binding Icon, Converter={StaticResource NullToVisibilityConverter}}"/>
+                                <TextBlock Text="{Binding Name}" Margin="10,0,0,0"/>
+                            </StackPanel>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                    <i:Interaction.Behaviors>
+                        <b:HintBehavior />
+                    </i:Interaction.Behaviors>
+                </ComboBox>
+                <Label Content="Playback" VerticalContentAlignment="Center" Grid.Column="1" Margin="0 0 0 10"/>
+                <ComboBox
+                Grid.Column="1" Grid.Row="1"
+                Margin="7 0 0 0"
+                HorizontalAlignment="Stretch"
+                HorizontalContentAlignment="Stretch"
+                ItemTemplate="{StaticResource DeviceItemTemplate}"
+                DockPanel.Dock="Left"
+                ItemsSource="{Binding Playback.Devices}" 
+                SelectedItem="{Binding Playback.SelectedDevice}"
+                SelectionChanged="ListBox_SelectionChanged"
+                b:HintBehavior.HintText="S">
+                    <i:Interaction.Behaviors>
+                        <b:HintBehavior />
+                    </i:Interaction.Behaviors>
+                </ComboBox>
+                <Label Content="Recording" VerticalContentAlignment="Center" Grid.Row="0" Grid.Column="2" Margin="0 0 0 10" />
+                <ComboBox 
+                Margin="7 0 0 0"
+
+              Grid.Column="2"
+              Grid.Row="1"
+              DockPanel.Dock="Right"
+              HorizontalAlignment="Stretch"
+              HorizontalContentAlignment="Stretch"
+            ItemTemplate="{StaticResource DeviceItemTemplate}"
+              b:HintBehavior.HintText="R"
+              ItemsSource="{Binding Recording.Devices}" 
+              SelectedItem="{Binding Recording.SelectedDevice}"  SelectionChanged="ListBox_SelectionChanged" >
+                    <i:Interaction.Behaviors>
+                        <b:HintBehavior />
+                    </i:Interaction.Behaviors>
+                </ComboBox>
+            </Grid>
+
+            <Grid Grid.Row="1" Grid.Column="1" Margin="0 10 0 0">
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="Auto"/>
+                    <RowDefinition Height="Auto"/>
+                </Grid.RowDefinitions>
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="auto"/>
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="auto"/>
+                </Grid.ColumnDefinitions>
+
+                <Grid Margin="0" Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2" VerticalAlignment="Top" HorizontalAlignment="Stretch">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+                    <Grid.RowDefinitions>
+                        <RowDefinition/>
+                        <RowDefinition/>
+                    </Grid.RowDefinitions>
+
+                    <Grid Margin="0" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
+                            <ColumnDefinition Width="*"/>
+                        </Grid.ColumnDefinitions>
+                        <Image 
+                            d:Source="/Images/loading.png" 
+                            Grid.Column="0" 
+                            Width="48" 
+                            Height="48" 
+                            Margin="0" 
+                            Source="{Binding Thumbnail}" 
+                            Grid.RowSpan="2" 
+                            VerticalAlignment="Top"
+                            Visibility="{Binding Thumbnail, Converter={StaticResource NullToVisibilityConverter}}"
+                            />
+                        <StackPanel Margin="15, 0, 0, 0" Grid.Column="1" VerticalAlignment="Top" Grid.RowSpan="2">
+                            <StackPanel.Resources>
+                                <Style TargetType="TextBlock">
+                                    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"/>
+                                </Style>
+                            </StackPanel.Resources>
+                            <TextBlock Text="{Binding Title}" Visibility="{Binding Title, Converter={StaticResource NullToVisibilityConverter}}" FontWeight="UltraBold"   MinWidth="60" d:Text="Title"/>
+                            <TextBlock Text="{Binding ArtistName}" Visibility="{Binding ArtistName, Converter={StaticResource NullToVisibilityConverter}}" d:Text="Artist"/>
+                            <TextBlock Text="{Binding AlbumTitle}" Visibility="{Binding AlbumTitle, Converter={StaticResource NullToVisibilityConverter}}" d:Text="Album"/>
+
                         </StackPanel>
-                    </DataTemplate>
-                </ComboBox.ItemTemplate>
-            </ComboBox>
-            <Grid Margin="25" Grid.Row="1">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="Auto"/>
-                </Grid.ColumnDefinitions>
-                <Image Grid.Column="0" Width="64" Height="64" Margin="0" Source="{Binding Thumbnail}" VerticalAlignment="top"/>
-                <StackPanel Margin="10, 0, 0, 0" Grid.Column="1" VerticalAlignment="Top">
-                    <StackPanel.Resources>
-                        <Style TargetType="TextBlock">
-                            <Setter Property="Foreground" Value="White"/>
-                        </Style>
-                    </StackPanel.Resources>
-                    <TextBlock Text="{Binding Title}" FontWeight="UltraBold"  Height="24" MinWidth="60"/>
-                    <TextBlock Text="{Binding ArtistName,Converter={StaticResource NullToVisibilityConverter}}"/>
-                    <TextBlock Text="{Binding AlbumTitle,Converter={StaticResource NullToVisibilityConverter}}"/>
-                    <TextBlock Text="{Binding Position}"/>
-                    <TextBlock Text="{Binding Duration}"/>
+                    </Grid>
 
-                </StackPanel>
+                    <StackPanel Orientation="Horizontal" Grid.Column="1">
+                        <Button HorizontalAlignment="Right" Style="{StaticResource MediaButton}" Command="{Binding Prev}" b:HintBehavior.HintText="B">
+                            <mdi:MaterialIconExt Kind="SkipPrevious"/>
+                        </Button>
+                        <Button Style="{StaticResource PlayPauseMediaButton}" Command="{Binding PlayPause}" b:HintBehavior.HintText="P">
+                            <mdi:MaterialIconExt Kind="PlayPause"/>
+                        </Button>
+                        <Button HorizontalAlignment="Left" Style="{StaticResource MediaButton}" Command="{Binding Next}" b:HintBehavior.HintText="F">
+                            <mdi:MaterialIconExt Kind="SkipNext"/>
+                        </Button>
+                    </StackPanel>
 
+                    <DockPanel HorizontalAlignment="Stretch" Grid.ColumnSpan="3" VerticalAlignment="Center" Grid.Row="1">
+                        <TextBlock Text="{Binding Position, Converter={StaticResource TimeSpanToStringConverter}}" Grid.Row="1" d:Text="00:00" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0 0 10 0"/>
+                        <TextBlock Text="{Binding Duration, Converter={StaticResource TimeSpanToStringConverter}}" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Right" d:Text="3:59" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="10 0 0 0"/>
+                        <Slider 
+                             Grid.ColumnSpan="5"
+                              Grid.Column="0"
+                             Maximum="{Binding Duration, Converter={StaticResource TimeSpanToFloatConverter}}" 
+                             Value="{Binding Position, Mode=OneWay, Converter={StaticResource TimeSpanToFloatConverter}}"/>
+                    </DockPanel>
+
+                    <Grid Grid.Column="2"  VerticalAlignment="Center" HorizontalAlignment="Right" Margin="20 0 0 0">
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition/>
+                            <ColumnDefinition Width="Auto"/>
+                        </Grid.ColumnDefinitions>
+                        <Slider 
+                            Width="100" 
+                            Minimum="0" 
+                            Maximum="100" 
+                            TickFrequency="1" 
+                            AutoToolTipPlacement="TopLeft" 
+                            AutoToolTipPrecision="0" 
+                            IsSnapToTickEnabled="True" 
+                            Value="{Binding Playback.SelectedDevice.Volume, Converter={StaticResource FloatToPercentageConverter}}" />
+                        <Button Margin="10 0 0 0" Height="24" Width="24" HorizontalAlignment="Right" Grid.Column="3" Style="{StaticResource MuteMediaButton}" Command="{Binding Mute}"
+                                b:HintBehavior.HintText="M">
+                            <mdi:MaterialIconExt Kind="VolumeOff"/>
+                        </Button>
+                    </Grid>
+                </Grid>
             </Grid>
-            <Slider Grid.Row="2" Padding="20, 0" Maximum="100" Value="{Binding Progress, Mode=OneWay}"/>
-            <UniformGrid Margin="20" Columns="4" Grid.Row="3">
-                <Button Style="{StaticResource MediaButton}" Command="{Binding Prev}">
-                    <i:Interaction.Behaviors>
-                        <b:HintBehavior HintText="B"/>
-                    </i:Interaction.Behaviors>
-                    <mdi:MaterialIconExt Kind="SkipPrevious"/>
-                </Button>
-                <Button Style="{StaticResource PlayPauseMediaButton}" Command="{Binding PlayPause}">
-                    <i:Interaction.Behaviors>
-                        <b:HintBehavior HintText="P"/>
-                    </i:Interaction.Behaviors>
-                    <mdi:MaterialIconExt Kind="PlayPause"/>
-                </Button>
-                <Button Style="{StaticResource MediaButton}" Command="{Binding Next}">
-                    <i:Interaction.Behaviors>
-                        <b:HintBehavior HintText="F"/>
-                    </i:Interaction.Behaviors>
-                    <mdi:MaterialIconExt Kind="SkipNext"/>
-                </Button>
-                <Button Style="{StaticResource MuteMediaButton}" Command="{Binding Mute}">
-                    <i:Interaction.Behaviors>
-                        <b:HintBehavior HintText="M"/>
-                    </i:Interaction.Behaviors>
-                    <mdi:MaterialIconExt Kind="VolumeOff" Size="42"/>
-                </Button>
-            </UniformGrid>
-            <Grid Grid.Row="4" HorizontalAlignment="Stretch">
-                <Grid.ColumnDefinitions>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                    <ColumnDefinition Width="Auto"/>
-                    <ColumnDefinition Width="*"/>
-                </Grid.ColumnDefinitions>
-                <Label Content="Playback" VerticalContentAlignment="Center" Grid.Column="0"/>
-                <ComboBox Margin="25, 5" Grid.Column="1" 
-                  HorizontalAlignment="Stretch"
-                  HorizontalContentAlignment="Stretch"
-                  ItemTemplate="{StaticResource DeviceItemTemplate}"
-                  DockPanel.Dock="Left"
-                  ItemsSource="{Binding Playback.Devices}" 
-                  SelectedItem="{Binding Playback.SelectedDevice}"
-                  SelectionChanged="ListBox_SelectionChanged">
-                    <i:Interaction.Behaviors>
-                        <b:HintBehavior HintText="S"/>
-                    </i:Interaction.Behaviors>
-                </ComboBox>
-                <Label Content="Recording" VerticalContentAlignment="Center" Grid.Column="2" />
-                <ComboBox Margin="25,5" 
-                          Grid.Column="3"
-                          DockPanel.Dock="Right"
-                          HorizontalAlignment="Stretch"
-                          HorizontalContentAlignment="Stretch"
-                        ItemTemplate="{StaticResource DeviceItemTemplate}"
-                          
-                          ItemsSource="{Binding Recording.Devices}" 
-                          SelectedItem="{Binding Recording.SelectedDevice}"  SelectionChanged="ListBox_SelectionChanged" >
-                    <i:Interaction.Behaviors>
-                        <b:HintBehavior HintText="R"/>
-                    </i:Interaction.Behaviors>
-                </ComboBox>
-            </Grid>
-
         </Grid>
     </AdornerDecorator>
 </reactiveui:ReactiveWindow>

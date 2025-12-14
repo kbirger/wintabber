@@ -6,21 +6,62 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 
 namespace WinTabberUI.Behaviors;
 public class ItemsControlHintBehaviorKernel : IHintBehaviorKernel
 {
+    public void Attach(FrameworkElement frameworkElement)
+    {
+        if(frameworkElement is ItemsControl itemsControl)
+        {
+            itemsControl.ItemContainerGenerator.StatusChanged += ItemContainerGenerator_StatusChanged;
+            itemsControl.ItemContainerGenerator.ItemsChanged += ItemContainerGenerator_ItemsChanged;
+        }
+    }
+
+    private void ItemContainerGenerator_StatusChanged(object? sender, EventArgs e)
+    {
+        if (sender is ItemContainerGenerator generator && generator.Status == GeneratorStatus.ContainersGenerated)
+        {
+            List<DependencyObject> items = new();
+            for (int i = 0; i < generator.Items.Count; i++)
+            {
+                items.Add(generator.ContainerFromIndex(i));
+            }
+            AttachChildren(items);
+        }
+    }
+
+    public void Detach(FrameworkElement frameworkElement)
+    {
+        if (frameworkElement is ItemsControl itemsControl)
+        {
+            itemsControl.ItemContainerGenerator.StatusChanged -= ItemContainerGenerator_StatusChanged;
+
+            itemsControl.ItemContainerGenerator.ItemsChanged -= ItemContainerGenerator_ItemsChanged;
+        }
+    }
+
+    private void ItemContainerGenerator_ItemsChanged(object sender, System.Windows.Controls.Primitives.ItemsChangedEventArgs e)
+    {
+        if(sender is ItemContainerGenerator generator)
+        {
+            List<DependencyObject> items = new();
+            for(int i = 0; i < generator.Items.Count; i++)
+            {
+                items.Add(generator.ContainerFromIndex(i));
+            }
+            //AttachChildren(items);
+        }
+    }
+
     public void AttachChildren(IReadOnlyList<DependencyObject> childElements)
     {
-        for(var i = 0; i < childElements.Count; i++)
+        for (var i = 0; i < childElements.Count; i++)
         {
             var child = childElements[i];
-            var behavior = new HintBehavior
-            {
-                HintText = i.ToString()
-            };
-            var behaviors = Interaction.GetBehaviors(child);
-            behaviors.Add(behavior);
+            HintBehavior.SetHintText(child, i.ToString());
         }
     }
 
@@ -29,7 +70,7 @@ public class ItemsControlHintBehaviorKernel : IHintBehaviorKernel
         if(rootElement is ItemsControl itemsControl)
         {
             List<FrameworkElement> items = new List<FrameworkElement>(itemsControl.Items.Count);
-            for(int i = 0; i<items.Count;i++)
+            for(int i = 0; i<itemsControl.Items.Count;i++)
             {
                 if(itemsControl.ItemContainerGenerator.ContainerFromIndex(i) is FrameworkElement elem)
                 {

@@ -5,6 +5,9 @@
 
 	xmlns:sys="clr-namespace:System;assembly=mscorlib">
 
+    <Style TargetType="TextBlock">
+        <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"/>
+    </Style>
 	<SolidColorBrush x:Key="SystemThemeBorder" Color="#3f3f3f" />
 	<SolidColorBrush x:Key="QuerySuggestionBoxForeground" Color="#33FFFFFF" />
 	<SolidColorBrush x:Key="QuerySelectionBrush" Color="#4a5459" />

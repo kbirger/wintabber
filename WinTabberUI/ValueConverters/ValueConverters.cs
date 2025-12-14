@@ -98,11 +98,46 @@ public class TimeSpanToFloatConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
     {
-        return ((TimeSpan)value).Ticks;
+        return ((TimeSpan)value).TotalSeconds;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return TimeSpan.FromSeconds((double)value);
+    }
+}
+
+public class TimeSpanToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        var ts = (TimeSpan)value;
+        if(ts.TotalHours > 1)
+        {
+            return ts.ToString(@"dd\:hh\:mm\:ss");
+        }
+        if(ts.TotalHours > 1)
+        {
+            return ts.ToString(@"hh\:mm\:ss");
+        }
+
+        return ts.ToString(@"mm\:ss");
     }
 
     public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
     {
         throw new NotImplementedException();
+    }
+}
+
+public class FloatToPercentageConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return (float)value * 100;
+    }
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        return (double)value / 100;
     }
 }

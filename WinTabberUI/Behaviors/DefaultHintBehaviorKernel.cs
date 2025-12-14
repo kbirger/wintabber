@@ -10,11 +10,20 @@ public class DefaultHintBehaviorKernel : IHintBehaviorKernel
 {
     public IReadOnlyList<FrameworkElement> GetAttachableElements(FrameworkElement rootElement)
     {
-        return HintBehavior.GetAttachedElements(rootElement);
+        //return [];
+        return HintBehavior.GetAttachedElements(rootElement).Where(elem => elem.IsLoaded).ToList();
     }
 
     public void AttachChildren(IReadOnlyList<DependencyObject> childElements)
     {
         
+    }
+
+    public void Attach(FrameworkElement frameworkElement)
+    {
+    }
+
+    public void Detach(FrameworkElement frameworkElement)
+    {
     }
 }

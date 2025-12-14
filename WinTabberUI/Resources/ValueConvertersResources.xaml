@@ -7,4 +7,6 @@
     <c:InverseBoolConverter x:Key="InverseBoolConverter"/>
     <c:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
     <c:TimeSpanToFloatConverter x:Key="TimeSpanToFloatConverter" />
+    <c:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter"/>
+    <c:FloatToPercentageConverter x:Key="FloatToPercentageConverter" />
 </ResourceDictionary>
