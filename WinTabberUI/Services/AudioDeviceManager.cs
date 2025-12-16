@@ -18,78 +18,8 @@ using WinTabberUI.ViewModels;
 
 namespace WinTabberUI.Services;
 
-public partial class AudioDeviceManager : IAudioDeviceManager
+public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable
 {
-    [ComImport]
-    [Guid("BCDE0395-E52F-467C-8E3D-C4579291692E")]
-    public class MMDeviceEnumeratorX { }
-
-    [Guid("0BD7A1BE-7A1A-44DB-8397-CC5392387B5E")]
-    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    public interface IMMDeviceCollection
-    {
-        uint GetCount();
-        [return: MarshalAs(UnmanagedType.Interface)]
-        IMMDevice Item(uint nDevice);
-    }
-    [Guid("D666063F-1587-4E43-81F1-B948E807363F")]
-    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    public interface IMMDevice
-    {
-        void Activate(ref Guid iid, uint dwClsCtx, IntPtr pActivationParams, [MarshalAs(UnmanagedType.Interface)] out object ppInterface);
-        [return: MarshalAs(UnmanagedType.Interface)]
-        IPropertyStore OpenPropertyStore(STGM stgmAccess);
-        [return: MarshalAs(UnmanagedType.LPWStr)]
-        string GetId();
-        DeviceState GetState();
-    }
-
-    public enum STGM
-    {
-        STGM_READ = 0,
-        STGM_WRITE = 1,
-        STGM_READWRITE = 2,
-        // ...
-    }
-
-    [ComImport]
-    [Guid("886D8EEB-8CF2-4446-8D02-CDBA1DBDCF99")]
-    [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
-    public interface IPropertyStore
-    {
-        [PreserveSig]
-        int GetCount([Out] out uint cProps);
-        [PreserveSig]
-        int GetAt([In] uint iProp, out PROPERTYKEY pkey);
-        PropVariant GetValue([In] ref PROPERTYKEY key);
-        [PreserveSig]
-        int SetValue([In] ref PROPERTYKEY key, [In] ref PropVariant pv);
-        [PreserveSig]
-        int Commit();
-    }
-
-    [StructLayout(LayoutKind.Sequential)]
-    public struct PROPERTYKEY
-    {
-        public Guid fmtid;
-        public UIntPtr pid;
-
-        public override bool Equals(object obj)
-        {
-            if (obj == null)
-            {
-                return false;
-            }
-
-            var pkey = ((PROPERTYKEY)obj);
-            return pkey.fmtid == fmtid && pkey.pid == pid;
-        }
-
-        public override int GetHashCode()
-        {
-            return fmtid.GetHashCode() + pid.GetHashCode();
-        }
-    }
 
     MMDeviceEnumerator _enumerator = new MMDeviceEnumerator(Guid.NewGuid());
     MMNotificationClient _notificationClient;
@@ -220,5 +150,10 @@ public partial class AudioDeviceManager : IAudioDeviceManager
     public void Dispose()
     {
         
+    }
+
+    public void Dispose()
+    {
+        throw new NotImplementedException();
     }
 }
