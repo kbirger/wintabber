@@ -30,6 +30,7 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Xps.Serialization;
 using Windows.ApplicationModel;
+using Windows.ApplicationModel.Background;
 using Windows.ApplicationModel.Core;
 using Windows.Devices.Display.Core;
 using Windows.Management.Deployment;
@@ -111,6 +112,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
     private AudioDeviceSelectorViewModel? _playback;
     private AudioDeviceSelectorViewModel? _recording;
+    private ObservableAsPropertyHelper<bool> _canSeek;
 
     public AudioDeviceSelectorViewModel? Playback
     {
@@ -124,10 +126,10 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     }
 
     public ViewModelActivator Activator { get; } = new ViewModelActivator();
-    public ReactiveCommand<Unit, Unit> PlayPause { get; init; }
-    public ReactiveCommand<Unit, Unit> Next { get; init; }
-    public ReactiveCommand<Unit, Unit> Prev { get; init; }
-    public ReactiveCommand<Unit, Unit> Mute { get; init; }
+    public ReactiveCommand<Unit, Unit> PlayPause { get; private set; }
+    public ReactiveCommand<Unit, Unit> Next { get; private set; }
+    public ReactiveCommand<Unit, Unit> Prev { get; private set; }
+    public ReactiveCommand<Unit, Unit> Mute { get; private set; }
 
     //public static async Task<IReadOnlyList<AppListEntry>> GetAppListEntries()
     //{
@@ -188,27 +190,13 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         Sessions = [];
         _deviceEnum = new MMDeviceEnumerator(Guid.NewGuid());
         var scheduler = RxApp.MainThreadScheduler;
-        PlayPause = ReactiveCommand.CreateFromObservable(
-            PlayPauseImpl,
-            canExecute: null,
-                outputScheduler: scheduler);
-        Next = ReactiveCommand.CreateFromObservable(
-            NextImpl,
-            canExecute: null,
-            outputScheduler: scheduler);
-        Prev = ReactiveCommand.CreateFromObservable(
-            PrevImpl,
-            canExecute: null,
-            outputScheduler: scheduler);
-
-        Mute = ReactiveCommand.CreateFromObservable(
-            MuteImpl,
-            canExecute: null,
-            outputScheduler: scheduler);
+       
         
         Debug.WriteLine("Created");
         this.WhenActivated((disposables) =>
         {
+
+
             Debug.WriteLine("Activated");
 
             Disposable.Create(HandleDeactivation)
@@ -281,6 +269,50 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                 .ToProperty(this, vm => vm.IsPlaying, out _isPlaying)
                 .DisposeWith(disposables);
 
+            var canPlayPause = playbackPropertiesChanged
+                .Select(info => info.Controls.IsPlayPauseToggleEnabled || info.Controls.IsPauseEnabled || info.Controls.IsPlayEnabled);
+
+            var canNext = playbackPropertiesChanged
+                .Select(info => info.Controls.IsNextEnabled);
+
+            var canPrev = playbackPropertiesChanged
+                .Select(info => info.Controls.IsPreviousEnabled);
+
+    
+
+            var canSeek = playbackPropertiesChanged
+                .Select(info => info.Controls.IsPlaybackPositionEnabled);
+
+            PlayPause = ReactiveCommand.CreateFromObservable(
+                PlayPauseImpl,
+                canExecute: canPlayPause,
+                outputScheduler: scheduler).DisposeWith(disposables);
+            Next = ReactiveCommand.CreateFromObservable(
+                NextImpl,
+                canExecute: canNext,
+                outputScheduler: scheduler).DisposeWith(disposables);
+            Prev = ReactiveCommand.CreateFromObservable(
+                PrevImpl,
+                canExecute: canPrev,
+                outputScheduler: scheduler).DisposeWith(disposables);
+
+            Mute = ReactiveCommand.CreateFromObservable(
+                MuteImpl,
+                canExecute: null,
+                outputScheduler: scheduler).DisposeWith(disposables);
+
+            canSeek.ToProperty(this, vm => vm.CanSeek, out _canSeek)
+                .DisposeWith(disposables);
+
+            Observable.Merge(
+                PlayPause.ThrownExceptions,
+                Next.ThrownExceptions,
+                Prev.ThrownExceptions
+            ).Subscribe(ex =>
+            {
+                Debug.WriteLine("Error processing media keys");
+                Debug.WriteLine(ex);
+            });
             _isMuted = Observable.Return(false).ToProperty(this, vm => vm.IsMuted);
 
             var timestamps = Observable.Interval(TimeSpan.FromSeconds(1))
@@ -337,15 +369,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         });
 
 
-        Observable.Merge(
-            PlayPause.ThrownExceptions,
-            Next.ThrownExceptions,
-            Prev.ThrownExceptions
-        ).Subscribe(ex =>
-        {
-            Debug.WriteLine("Error processing media keys");
-            Debug.WriteLine(ex);
-        });
+        
     }
 
     private IObservable<Unit> MuteImpl()
@@ -386,6 +410,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                     .Select(_ => session.GetPlaybackInfo())
             ))
             .Switch()
+            .ObserveOn(RxApp.MainThreadScheduler)
             .Replay(1)
             .RefCount();
     }
@@ -490,48 +515,48 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         get => _activeSession;
         set => this.RaiseAndSetIfChanged(ref _activeSession, value);
     }
+    public bool CanSeek => _canSeek?.Value ?? false;
 
+    //private MMDevice? GetDefaultPlaybackDevice()
+    //{
+    //    try
+    //    {
+    //        return _deviceEnum.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+    //    }
+    //    catch (Exception ex)
+    //    {
+    //        Debug.WriteLine("Error getting default playback device:");
+    //        Debug.WriteLine(ex);
+    //        return null;
+    //    }
+    //}
+    //private MMDeviceCollection GetDevices(DataFlow dataFlow)
+    //{
+    //    var devices = _deviceEnum.EnumerateAudioEndPoints(dataFlow, DeviceState.Active);
+    //    return devices;
+    //}
 
-    private MMDevice? GetDefaultPlaybackDevice()
-    {
-        try
-        {
-            return _deviceEnum.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine("Error getting default playback device:");
-            Debug.WriteLine(ex);
-            return null;
-        }
-    }
-    private MMDeviceCollection GetDevices(DataFlow dataFlow)
-    {
-        var devices = _deviceEnum.EnumerateAudioEndPoints(dataFlow, DeviceState.Active);
-        return devices;
-    }
+    //private float GetVolume()
+    //{
+    //    var device = GetDefaultPlaybackDevice();
 
-    private float GetVolume()
-    {
-        var device = GetDefaultPlaybackDevice();
+    //    if (device is not null)
+    //    {
+    //        return device.AudioEndpointVolume?.MasterVolumeLevelScalar ?? 0;
+    //    }
 
-        if (device is not null)
-        {
-            return device.AudioEndpointVolume?.MasterVolumeLevelScalar ?? 0;
-        }
+    //    return 0;
+    //}
 
-        return 0;
-    }
+    //private async Task SetVolume(float volume)
+    //{
+    //    var device = GetDefaultPlaybackDevice();
+    //    if (device?.AudioEndpointVolume is not null)
+    //    {
+    //        device.AudioEndpointVolume.MasterVolumeLevelScalar = volume;
+    //    }
 
-    private async Task SetVolume(float volume)
-    {
-        var device = GetDefaultPlaybackDevice();
-        if (device?.AudioEndpointVolume is not null)
-        {
-            device.AudioEndpointVolume.MasterVolumeLevelScalar = volume;
-        }
-
-    }
+    //}
 
 
 
@@ -540,7 +565,12 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
     private IObservable<Unit> PlayPauseImpl()
     {
-        return Observable.Start(MediaKeySender.PlayPause);
+        //if(ActiveSession is not null)
+        //{
+            return Observable.Start(MediaKeySender.PlayPause);
+        //}
+
+        //ActiveSession
     }
 
     private IObservable<Unit> PrevImpl()

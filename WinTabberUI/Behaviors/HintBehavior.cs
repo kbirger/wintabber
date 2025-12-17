@@ -292,6 +292,10 @@ namespace WinTabberUI.Behaviors
             var text = GetText(key);
             foreach (var elem in elements)
             {
+                if(!elem.IsEnabled)
+                {
+                    continue;
+                }
                 var adornerLayer = AdornerLayer.GetAdornerLayer(elem);
 
 

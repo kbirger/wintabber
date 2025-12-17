@@ -58,17 +58,24 @@ public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable
                         updater.AddOrUpdate(devices);
                     });
 
-                }).DisposeWith(disposables);
+                })
+                .DisposeWith(disposables);
 
-            DeviceAdditions.Subscribe(added =>
-            {
-                _devices.AddOrUpdate(new DeviceItem(_enumerator.GetDevice(added.DeviceId), _enumerator));
-            }).DisposeWith(disposables);
+            DeviceAdditions
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .Subscribe(added =>
+                {
+                    _devices.AddOrUpdate(new DeviceItem(_enumerator.GetDevice(added.DeviceId), _enumerator));
+                })
+                .DisposeWith(disposables);
 
-            DeviceRemovals.Subscribe(removed =>
-            {
-                _devices.Remove(removed.DeviceId);
-            }).DisposeWith(disposables);
+            DeviceRemovals
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .Subscribe(removed =>
+                {
+                    _devices.Remove(removed.DeviceId);
+                })
+                .DisposeWith(disposables);
 
             connection.Subscribe(devices => observer.OnNext(devices))
                 .DisposeWith(disposables);
@@ -152,8 +159,4 @@ public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable
         
     }
 
-    public void Dispose()
-    {
-        throw new NotImplementedException();
-    }
 }

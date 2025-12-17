@@ -45,22 +45,22 @@
         <c:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
 
         <DataTemplate x:Key="PlayButton">
-            <TextBlock>
-            <mdi:MaterialIconExt Kind="Play" Animation="Pulse"/>
+            <TextBlock Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+            <mdi:MaterialIconExt Kind="Play" Animation="Pulse" />
             </TextBlock>
         </DataTemplate>
         <DataTemplate x:Key="PauseButton">
-            <TextBlock HorizontalAlignment="Center">
+            <TextBlock HorizontalAlignment="Center" Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
                 <mdi:MaterialIconExt Kind="Pause" Animation="Pulse"/>
             </TextBlock>
         </DataTemplate>
         <DataTemplate x:Key="MuteButton">
-            <TextBlock HorizontalAlignment="Center">
+            <TextBlock HorizontalAlignment="Center" Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
                 <mdi:MaterialIconExt Kind="VolumeHigh" Animation="Pulse"/>
             </TextBlock>
         </DataTemplate>
         <DataTemplate x:Key="UnmuteButton">
-            <TextBlock HorizontalAlignment="Center">
+            <TextBlock HorizontalAlignment="Center" Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
                 <mdi:MaterialIconExt Kind="VolumeOff" Animation="Pulse"/>
             </TextBlock>
         </DataTemplate>
@@ -68,19 +68,21 @@
             <Setter Property="Width" Value="42"/>
 
             <Setter Property="Background" Value="Transparent"/>
-            <Setter Property="Foreground" Value="White"/>
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}"/>
             <Setter Property="FontSize" Value="32"/>
             <Setter Property="Margin" Value="0"/>
             <Setter Property="Padding" Value="0, 0"/>
             <Setter Property="FontFamily" Value="Webdings" />
             <Setter Property="VerticalAlignment" Value="Center"/>
             <Setter Property="HorizontalAlignment" Value="Center"/>
+
             <Setter Property="Template">
                 <Setter.Value>
                     <ControlTemplate TargetType="Button">
                         <Border Background="{TemplateBinding Background}" Padding="{TemplateBinding Padding}" CornerRadius="4">
-                            <ContentPresenter Content="{TemplateBinding Content}"
-                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+                            <ContentPresenter 
+                                Content="{TemplateBinding Content}"
+                                ContentTemplate="{TemplateBinding ContentTemplate}" />
                         </Border>
 
                     </ControlTemplate>
@@ -88,6 +90,9 @@
             </Setter>
 
             <Style.Triggers>
+                <Trigger Property="IsEnabled" Value="False">
+                    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"/>
+                </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Trigger.Setters>
                         <Setter Property="Background" Value="#dd666666"/>
@@ -211,7 +216,7 @@
                         <RowDefinition/>
                     </Grid.RowDefinitions>
 
-                    <Grid Margin="0" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Left">
+                    <Grid Margin="0" Grid.Row="0" Grid.Column="0" HorizontalAlignment="Stretch">
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition Width="*"/>
@@ -227,7 +232,15 @@
                             VerticalAlignment="Top"
                             Visibility="{Binding Thumbnail, Converter={StaticResource NullToVisibilityConverter}}"
                             />
-                        <StackPanel Margin="15, 0, 0, 0" Grid.Column="1" VerticalAlignment="Top" Grid.RowSpan="2">
+                        <StackPanel Margin="15, 0, 0, 0" Grid.Column="1" VerticalAlignment="Top" Grid.RowSpan="2" HorizontalAlignment="Stretch" Background="Transparent">
+                            <StackPanel.OpacityMask>
+                                <LinearGradientBrush StartPoint="0,0.5" EndPoint="1,0.5">
+                                    <LinearGradientBrush.GradientStops>
+                                        <GradientStop Offset=".9" Color="Black"/>
+                                        <GradientStop Offset="1" Color="Transparent"/>
+                                    </LinearGradientBrush.GradientStops>
+                                </LinearGradientBrush>
+                            </StackPanel.OpacityMask>
                             <StackPanel.Resources>
                                 <Style TargetType="TextBlock">
                                     <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"/>
@@ -256,10 +269,11 @@
                         <TextBlock Text="{Binding Position, Converter={StaticResource TimeSpanToStringConverter}}" Grid.Row="1" d:Text="00:00" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0 0 10 0"/>
                         <TextBlock Text="{Binding Duration, Converter={StaticResource TimeSpanToStringConverter}}" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Right" d:Text="3:59" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="10 0 0 0"/>
                         <Slider 
-                             Grid.ColumnSpan="5"
-                              Grid.Column="0"
-                             Maximum="{Binding Duration, Converter={StaticResource TimeSpanToFloatConverter}}" 
-                             Value="{Binding Position, Mode=OneWay, Converter={StaticResource TimeSpanToFloatConverter}}"/>
+                            Grid.ColumnSpan="5"
+                            Grid.Column="0"
+                            IsEnabled="{Binding CanSeek}"
+                            Maximum="{Binding Duration, Converter={StaticResource TimeSpanToFloatConverter}}" 
+                            Value="{Binding Position, Mode=OneWay, Converter={StaticResource TimeSpanToFloatConverter}}"/>
                     </DockPanel>
 
                     <Grid Grid.Column="2"  VerticalAlignment="Center" HorizontalAlignment="Right" Margin="20 0 0 0">
@@ -275,6 +289,7 @@
                             AutoToolTipPlacement="TopLeft" 
                             AutoToolTipPrecision="0" 
                             IsSnapToTickEnabled="True" 
+                            IsEnabled="{Binding Mute.CanExecute}"
                             Value="{Binding Playback.SelectedDevice.Volume, Converter={StaticResource FloatToPercentageConverter}}" />
                         <Button Margin="10 0 0 0" Height="24" Width="24" HorizontalAlignment="Right" Grid.Column="3" Style="{StaticResource MuteMediaButton}" Command="{Binding Mute}"
                                 b:HintBehavior.HintText="M">
