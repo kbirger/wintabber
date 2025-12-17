@@ -9,11 +9,12 @@ namespace WinTabberUI.Coordinators
         public MediaWindowViewCoordinator(ApplicationStateViewModel vm, IServiceProvider provider)
             : base(provider)
         {
+            ReuseInstances = true;
             _vm = vm;
         }
         protected override void Close(MediaControlsWindow instance)
         {
-            instance.Close();
+            instance.Hide();
         }
 
         protected override IObservable<bool> GetChangeEvents()

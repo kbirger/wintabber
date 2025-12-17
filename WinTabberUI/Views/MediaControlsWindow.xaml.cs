@@ -73,6 +73,6 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
 
     private void ListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
-        Debug.WriteLine("selection changed");
+        //Debug.WriteLine("selection changed");
     }
 }

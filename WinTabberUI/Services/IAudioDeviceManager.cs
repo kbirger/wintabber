@@ -9,8 +9,8 @@ using WinTabberUI.ViewModels;
 
 namespace WinTabberUI.Services;
 
-public interface IAudioDeviceManager
+public interface IAudioDeviceManager : IDisposable
 {
     public IObservable<IChangeSet<DeviceItem, string>> Connect();
-
+    IDisposable Init();
 }

@@ -1,9 +1,11 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using System.Reactive.Disposables;
+using Windows.Media.Devices;
 using WinTabber.API;
 using WinTabber.Events;
 using WinTabberUI.Coordinators;
 using WinTabberUI.Infrastructure;
+using WinTabberUI.Services;
 using WinTabberUI.Updaters;
 using WinTabberUI.ViewModels;
 
@@ -28,7 +30,8 @@ public class BackgroundServiceContainer : IDisposable
             ioc.GetRequiredService<WindowHistoryUpdater>().Init(),
             ioc.GetRequiredService<WindowCommandCoordinator>(),
             ioc.GetRequiredService<WinTabberEventManager>(),
-            ioc.GetRequiredService<NotifyIconCoordinator>()
+            ioc.GetRequiredService<NotifyIconCoordinator>(),
+            ioc.GetRequiredService<IAudioDeviceManager>().Init()
         );
 
 

@@ -4,6 +4,7 @@ using Microsoft.WindowsAPICodePack.Shell.PropertySystem;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Disposables;
@@ -104,6 +105,11 @@ public partial class AudioDeviceManager : IAudioDeviceManager
         return _enumerator.EnumerateAudioEndPoints(DataFlow.All, DeviceState.Active);
     }
 
+    public IDisposable Init()
+    {
+        DevicesObservable.Take(1).Subscribe();
+        return this;
+    }
     public IObservable<IChangeSet<DeviceItem, string>> Connect()
     {
         return Observable.Create<IChangeSet<DeviceItem, string>>(observer =>
@@ -113,18 +119,16 @@ public partial class AudioDeviceManager : IAudioDeviceManager
 
 
             DevicesObservable
-            .ObserveOn(RxApp.MainThreadScheduler)
-            .Subscribe(devices =>
-            {
-                var deviceItems = devices
-                     .Select(device => new DeviceItem(device, _enumerator));
-                _devices.Edit(updater =>
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .Subscribe(devices =>
                 {
-                    updater.Clear();
-                    updater.AddOrUpdate(deviceItems);
-                });
+                    _devices.Edit(updater =>
+                    {
+                        updater.Clear();
+                        updater.AddOrUpdate(devices);
+                    });
 
-            }).DisposeWith(disposables);
+                }).DisposeWith(disposables);
 
             DeviceAdditions.Subscribe(added =>
             {
@@ -143,7 +147,7 @@ public partial class AudioDeviceManager : IAudioDeviceManager
             {
                 disposables.Dispose();
             };
-        });
+        }).Replay(1).RefCount();
     }
 
     [Lazy]
@@ -189,14 +193,17 @@ public partial class AudioDeviceManager : IAudioDeviceManager
 
 
     [Lazy]
-    public IObservable<MMDeviceCollection> GetDevicesObservable()
+    public IObservable<DeviceItem[]> GetDevicesObservable()
     {
-        return System.Reactive.Linq.Observable.Create<MMDeviceCollection>(observer =>
+        var obs = Observable.Create<DeviceItem[]>(observer =>
         {
             Task.Factory.StartNew(() =>
             {
 
-                var devices = _enumerator.EnumerateAudioEndPoints(DataFlow.All, DeviceState.Active);
+                Debug.WriteLine("Fetching devices from thread");
+                var devices = _enumerator.EnumerateAudioEndPoints(DataFlow.All, DeviceState.Active)
+                    .Select(device => new DeviceItem(device, _enumerator))
+                    .ToArray();
                 observer.OnNext(devices);
 
                 observer.OnCompleted();
@@ -204,7 +211,14 @@ public partial class AudioDeviceManager : IAudioDeviceManager
 
             return () => { };
         })
-            .Replay(1)
-            .RefCount();
+        .Replay(1);
+        obs.Connect();
+        return obs;
+        
+    }
+
+    public void Dispose()
+    {
+        
     }
 }

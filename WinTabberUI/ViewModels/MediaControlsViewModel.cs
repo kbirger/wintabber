@@ -229,11 +229,12 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
             _playback = new AudioDeviceSelectorViewModel(ad.Filter(x => x.Kind == DataFlow.Render));
             _recording = new AudioDeviceSelectorViewModel(ad.Filter(x => x.Kind == DataFlow.Capture));
-                //.Select(devices => new AudioDeviceSelectorViewModel(
-                    //Observable.Return(devices),
-                    //DataFlow.Render,
-                    //_audioDeviceManager.SetDefaultAudioEndpoint))
-                //;
+
+            //.Select(devices => new AudioDeviceSelectorViewModel(
+            //Observable.Return(devices),
+            //DataFlow.Render,
+            //_audioDeviceManager.SetDefaultAudioEndpoint))
+            //;
             //Playback = playback;
             //Recording = recording;
 
