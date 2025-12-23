@@ -1,12 +1,17 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
 using CoreAudio;
+using CoreAudio.Interfaces;
+using DynamicData;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Reactive;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using static CoreAudio.AudioSessionManager2;
 
 namespace WinTabberUI.ViewModels;
 
@@ -21,13 +26,55 @@ public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEq
         _device = device;
         _enumerator = enumerator;
 
-        VolumeChanged.Subscribe(change => 
+
+        Mute = ReactiveCommand.CreateFromObservable(MuteImpl, canExecute: null, RxApp.MainThreadScheduler);
+        VolumeChanged.Subscribe(change =>
         {
             OnPropertyChanged(nameof(IsMuted));
             OnPropertyChanged(nameof(Volume));
 
         });
 
+        ////var sessions = new SourceCache<AudioSessionControl2, string>(session => session.SessionInstanceIdentifier);
+        //if (device.AudioSessionManager2 is { } sessionManager)
+        //{
+
+        //    var sm = ObservableChangeSet.Create<AudioSessionControl2, string>(cache =>
+        //    {
+        //        cache.AddOrUpdate(sessionManager.Sessions?.ToArray() ?? []);
+        //        sessionManager.Sessions[0].
+        //        var sessionsAdded = Observable.FromEvent<SessionCreatedDelegate, IAudioSessionControl2>(
+        //            handler =>
+        //            {
+        //                SessionCreatedDelegate rawHandler = (sender, newSession) =>
+        //                {
+        //                    newSession.ide
+        //                    handler(newSession);
+        //                };
+
+        //                return rawHandler;
+        //            },
+        //            handler => sessionManager.OnSessionCreated += handler,
+        //            handler => sessionManager.OnSessionCreated -= handler
+        //        );
+
+        //        var sessionsRemoved = Observable.FromEvent(
+                
+        //            handler => sessionManager.Sessions.s
+        //        )
+
+        //        return new CompositeDisposable();
+        //    });
+
+        //}
+
+
+    }
+
+    private IObservable<Unit> MuteImpl()
+    {
+        IsMuted = !IsMuted;
+        return Observable.Return(Unit.Default);
     }
 
     public void Activate()
@@ -42,7 +89,7 @@ public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEq
         return Observable.FromEvent<AudioEndpointVolumeNotificationDelegate, AudioVolumeNotificationData>(
             h =>
             {
-                if(_device.AudioEndpointVolume is not null)
+                if (_device.AudioEndpointVolume is not null)
                     _device.AudioEndpointVolume.OnVolumeNotification += h;
             },
             h =>
@@ -70,7 +117,7 @@ public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEq
     public bool IsMuted
     {
         get => _device.AudioEndpointVolume?.Mute ?? false;
-        set
+        private set
         {
             if (_device.AudioEndpointVolume is null)
             {
@@ -88,6 +135,8 @@ public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEq
 
     private readonly MMDevice _device;
     private readonly MMDeviceEnumerator _enumerator;
+
+    public ReactiveCommand<Unit, Unit> Mute { get; }
 
     public MMDevice Device => _device;
 

@@ -4,6 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
+using WinTabberUI.Hints;
 
 namespace WinTabberUI.Behaviors;
 public class DefaultHintBehaviorKernel : IHintBehaviorKernel
@@ -25,5 +26,11 @@ public class DefaultHintBehaviorKernel : IHintBehaviorKernel
 
     public void Detach(FrameworkElement frameworkElement)
     {
+    }
+    private IHintsProvider _hintsProvider = new PresetHintsProvider();
+
+    public IEnumerable<DecoratedElementInfo> GetHints(IEnumerable<FrameworkElement> frameworkElements)
+    {
+        return _hintsProvider.GetHints(frameworkElements);
     }
 }

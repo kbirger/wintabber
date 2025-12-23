@@ -102,10 +102,10 @@
         </Style>
         <Style TargetType="Button" x:Key="PlayPauseMediaButton" BasedOn="{StaticResource MediaButton}">
             <Style.Triggers>
-                <DataTrigger Binding="{Binding IsPlaying}" Value="True">
+                <DataTrigger Binding="{Binding SessionData.IsPlaying}" Value="True">
                     <Setter Property="ContentTemplate" Value="{StaticResource PauseButton}"/>
                 </DataTrigger>
-                <DataTrigger Binding="{Binding IsPlaying}" Value="False">
+                <DataTrigger Binding="{Binding SessionData.IsPlaying}" Value="False">
                     <Setter Property="ContentTemplate" Value="{StaticResource PlayButton}"/>
                 </DataTrigger>
             </Style.Triggers>
@@ -227,10 +227,10 @@
                             Width="48" 
                             Height="48" 
                             Margin="0" 
-                            Source="{Binding Thumbnail}" 
+                            Source="{Binding SessionData.Thumbnail}" 
                             Grid.RowSpan="2" 
                             VerticalAlignment="Top"
-                            Visibility="{Binding Thumbnail, Converter={StaticResource NullToVisibilityConverter}}"
+                            Visibility="{Binding SessionData.Thumbnail, Converter={StaticResource NullToVisibilityConverter}}"
                             />
                         <StackPanel Margin="15, 0, 0, 0" Grid.Column="1" VerticalAlignment="Top" Grid.RowSpan="2" HorizontalAlignment="Stretch" Background="Transparent">
                             <StackPanel.OpacityMask>
@@ -246,34 +246,39 @@
                                     <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.ControlBrushKey}}"/>
                                 </Style>
                             </StackPanel.Resources>
-                            <TextBlock Text="{Binding Title}" Visibility="{Binding Title, Converter={StaticResource NullToVisibilityConverter}}" FontWeight="UltraBold"   MinWidth="60" d:Text="Title"/>
-                            <TextBlock Text="{Binding ArtistName}" Visibility="{Binding ArtistName, Converter={StaticResource NullToVisibilityConverter}}" d:Text="Artist"/>
-                            <TextBlock Text="{Binding AlbumTitle}" Visibility="{Binding AlbumTitle, Converter={StaticResource NullToVisibilityConverter}}" d:Text="Album"/>
+                            <TextBlock Text="{Binding SessionData.Title}" Visibility="{Binding SessionData.Title, Converter={StaticResource NullToVisibilityConverter}}" FontWeight="UltraBold"   MinWidth="60" d:Text="Title"/>
+                            <TextBlock Text="{Binding SessionData.ArtistName}" Visibility="{Binding SessionData.ArtistName, Converter={StaticResource NullToVisibilityConverter}}" d:Text="Artist"/>
+                            <TextBlock Text="{Binding SessionData.AlbumTitle}" Visibility="{Binding SessionData.AlbumTitle, Converter={StaticResource NullToVisibilityConverter}}" d:Text="Album"/>
 
                         </StackPanel>
                     </Grid>
 
                     <StackPanel Orientation="Horizontal" Grid.Column="1">
-                        <Button HorizontalAlignment="Right" Style="{StaticResource MediaButton}" Command="{Binding Prev}" b:HintBehavior.HintText="B">
+                        <Button HorizontalAlignment="Right" Style="{StaticResource MediaButton}" Command="{Binding SessionData.Prev}" b:HintBehavior.HintText="B">
                             <mdi:MaterialIconExt Kind="SkipPrevious"/>
                         </Button>
-                        <Button Style="{StaticResource PlayPauseMediaButton}" Command="{Binding PlayPause}" b:HintBehavior.HintText="P">
+                        <Button Style="{StaticResource PlayPauseMediaButton}" Command="{Binding SessionData.PlayPause}" b:HintBehavior.HintText="P">
                             <mdi:MaterialIconExt Kind="PlayPause"/>
                         </Button>
-                        <Button HorizontalAlignment="Left" Style="{StaticResource MediaButton}" Command="{Binding Next}" b:HintBehavior.HintText="F">
+                        <Button HorizontalAlignment="Left" Style="{StaticResource MediaButton}" Command="{Binding SessionData.Next}" b:HintBehavior.HintText="F">
                             <mdi:MaterialIconExt Kind="SkipNext"/>
                         </Button>
                     </StackPanel>
 
                     <DockPanel HorizontalAlignment="Stretch" Grid.ColumnSpan="3" VerticalAlignment="Center" Grid.Row="1">
-                        <TextBlock Text="{Binding Position, Converter={StaticResource TimeSpanToStringConverter}}" Grid.Row="1" d:Text="00:00" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0 0 10 0"/>
-                        <TextBlock Text="{Binding Duration, Converter={StaticResource TimeSpanToStringConverter}}" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Right" d:Text="3:59" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="10 0 0 0"/>
+                        <TextBlock Text="{Binding SessionData.Position, Converter={StaticResource TimeSpanToStringConverter}}" Grid.Row="1" d:Text="00:00" DockPanel.Dock="Left" VerticalAlignment="Center" Margin="0 0 10 0"/>
+                        <TextBlock Text="{Binding SessionData.Duration, Converter={StaticResource TimeSpanToStringConverter}}" Grid.Row="1" Grid.Column="1" HorizontalAlignment="Right" d:Text="3:59" DockPanel.Dock="Right" VerticalAlignment="Center" Margin="10 0 0 0"/>
                         <Slider 
                             Grid.ColumnSpan="5"
                             Grid.Column="0"
-                            IsEnabled="{Binding CanSeek}"
-                            Maximum="{Binding Duration, Converter={StaticResource TimeSpanToFloatConverter}}" 
-                            Value="{Binding Position, Mode=OneWay, Converter={StaticResource TimeSpanToFloatConverter}}"/>
+                            ValueChanged="Slider_ValueChanged"
+                            IsEnabled="{Binding SessionData.CanSeek}"
+                            AutoToolTipPlacement="None"
+                            Thumb.DragStarted="Slider_DragStarted"
+                            Thumb.DragCompleted="Slider_DragCompleted"
+                            Maximum="{Binding SessionData.Duration, Converter={StaticResource TimeSpanToFloatConverter}}" 
+                            Value="{Binding SessionData.Position, Mode=OneWay, Converter={StaticResource TimeSpanToFloatConverter}}">
+                        </Slider>
                     </DockPanel>
 
                     <Grid Grid.Column="2"  VerticalAlignment="Center" HorizontalAlignment="Right" Margin="20 0 0 0">
@@ -285,13 +290,18 @@
                             Width="100" 
                             Minimum="0" 
                             Maximum="100" 
-                            TickFrequency="1" 
+                            TickFrequency="5"
                             AutoToolTipPlacement="TopLeft" 
                             AutoToolTipPrecision="0" 
-                            IsSnapToTickEnabled="True" 
-                            IsEnabled="{Binding Mute.CanExecute}"
+                            IsSnapToTickEnabled="True"
+                            b:HintBehavior.HintText="V"
                             Value="{Binding Playback.SelectedDevice.Volume, Converter={StaticResource FloatToPercentageConverter}}" />
-                        <Button Margin="10 0 0 0" Height="24" Width="24" HorizontalAlignment="Right" Grid.Column="3" Style="{StaticResource MuteMediaButton}" Command="{Binding Mute}"
+                        <Button Margin="10 0 0 0" 
+                                Height="24" 
+                                Width="24" 
+                                HorizontalAlignment="Right" Grid.Column="3" 
+                                Style="{StaticResource MuteMediaButton}" 
+                                Command="{Binding Playback.SelectedDevice.Mute}"
                                 b:HintBehavior.HintText="M">
                             <mdi:MaterialIconExt Kind="VolumeOff"/>
                         </Button>

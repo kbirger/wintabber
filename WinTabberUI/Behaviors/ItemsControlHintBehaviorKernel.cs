@@ -7,6 +7,7 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
+using WinTabberUI.Hints;
 
 namespace WinTabberUI.Behaviors;
 public class ItemsControlHintBehaviorKernel : IHintBehaviorKernel
@@ -58,10 +59,10 @@ public class ItemsControlHintBehaviorKernel : IHintBehaviorKernel
 
     public void AttachChildren(IReadOnlyList<DependencyObject> childElements)
     {
-        for (var i = 0; i < childElements.Count; i++)
+        foreach(var info in GetHints(childElements.OfType<FrameworkElement>()))
         {
-            var child = childElements[i];
-            HintBehavior.SetHintText(child, i.ToString());
+            HintBehavior.SetHintText(info.Element, info.HintText);
+            HintBehavior.SetHintPosition(info.Element, HintPosition.RightInset);
         }
     }
 
@@ -83,5 +84,11 @@ public class ItemsControlHintBehaviorKernel : IHintBehaviorKernel
         }
 
         return [];
+    }
+
+    private IHintsProvider _hintsProvider = new ItemsControlHintsProvider();
+    public IEnumerable<DecoratedElementInfo> GetHints(IEnumerable<FrameworkElement> frameworkElements)
+    {
+        return _hintsProvider.GetHints(frameworkElements);
     }
 }

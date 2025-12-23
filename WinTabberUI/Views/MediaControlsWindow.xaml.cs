@@ -17,6 +17,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
+using Windows.UI.Core;
 using WinTabber.Interop;
 using WinTabberUI.Services;
 using WinTabberUI.ViewModels;
@@ -47,6 +48,15 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
         });
 
         Loaded += MediaControlsWindow_Loaded;
+        IsVisibleChanged += MediaControlsWindow_IsVisibleChanged;
+    }
+
+    private void MediaControlsWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
+    {
+        if(IsVisible && IsLoaded)
+        {
+            Focus();
+        }
     }
 
     private void MediaControlsWindow_Loaded(object sender, RoutedEventArgs e)
@@ -56,7 +66,7 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
 
     protected override void OnActivated(EventArgs e)
     {
-        Focus();
+        //Focus();
         base.OnActivated(e);
     }
 
@@ -74,5 +84,30 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
     private void ListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
     {
         //Debug.WriteLine("selection changed");
+    }
+
+
+    private void Slider_ValueChanged(object sender, RoutedPropertyChangedEventArgs<double> e)
+    {
+
+    }
+
+    private void Slider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
+    {
+        if (ViewModel?.SessionData is not null)
+        {
+            ViewModel.SessionData.IsSeeking = true;
+        }
+    }
+
+    private void Slider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
+    {
+        if(sender is Slider slider && ViewModel?.SessionData is not null)
+        {
+            ViewModel.SessionData.IsSeeking = false;
+
+            ViewModel.SessionData.Seek.Execute(TimeSpan.FromSeconds(slider.Value));
+
+        }
     }
 }

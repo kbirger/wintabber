@@ -63,7 +63,26 @@ namespace WinTabberUI.Behaviors
                 typeof(bool),
                 typeof(HintBehavior),
                 new PropertyMetadata(false, OnHintsShownChanged));
-        
+
+
+        internal static DependencyProperty HintPositionProperty =
+            DependencyProperty.RegisterAttached(
+                "HintPosition",
+                typeof(HintPosition),
+                typeof(FrameworkElement),
+                new PropertyMetadata(HintPosition.TopLeft)
+                );
+
+        public static HintPosition GetHintPosition(FrameworkElement elem)
+        {
+            return (HintPosition) elem.GetValue(HintPositionProperty);
+        }
+
+        public static void SetHintPosition(FrameworkElement elem, HintPosition value)
+        {
+            elem.SetValue(HintPositionProperty, value);
+        }
+
         public bool AreHintsShown
         {
             get => (bool)GetValue(AreHintsShownProperty);
@@ -282,24 +301,25 @@ namespace WinTabberUI.Behaviors
         {
             bool handled = false;
             var behavior = HintBehavior.GetHintBehavior(rootElement);
-            if(behavior is null || !behavior.AreHintsShown)
+            if (behavior is null || !behavior.AreHintsShown)
             {
                 return false;
             }
             var elements = behavior._kernel.GetAttachableElements(rootElement);
+            var decorationInfo = behavior._kernel.GetHints(elements);
             //var elements =  HintBehavior.GetAttachedElements(rootElement).Where(element => element.IsLoaded);
             var key = e.SystemKey != Key.None ? e.SystemKey : e.Key;
             var text = GetText(key);
-            foreach (var elem in elements)
+            foreach (var info in decorationInfo)
             {
-                if(!elem.IsEnabled)
+                var elem = info.Element;
+                var hint = info.HintText;
+
+                if (!elem.IsEnabled)
                 {
                     continue;
                 }
                 var adornerLayer = AdornerLayer.GetAdornerLayer(elem);
-
-
-                var hint = GetHintText(elem);
 
                 if (hint == text)
                 {
@@ -331,14 +351,7 @@ namespace WinTabberUI.Behaviors
 
                         //ShowHints(comboBox);
                     }
-                    else if (elem is ListBox listBox)
-                    {
-                        //ListBoxAutomationPeer peer = new ListBoxAutomationPeer(listBox);
-                        peer.SetFocus();
-                        elem.Focus();
-                        HideHints(rootElement);
-                    }
-                    else if(elem is ComboBoxItem cbi)
+                    else if (elem is ComboBoxItem cbi)
                     {
                         cbi.IsSelected = true;
                         //var prov = peer.GetPattern(PatternInterface.SelectionItem);
@@ -348,9 +361,16 @@ namespace WinTabberUI.Behaviors
                         //var i = new ListBoxItemAutomationPeer(cbi, r);
                         //(i as ISelectionItemProvider).Select();
                         //var p = peer.GetPattern(PatternInterface.SelectionItem);
-                        HideHints(rootElement);    
+                        HideHints(rootElement);
                         //peer.par
                         //peer = new ListBoxItemAutomationPeer(elem, new )
+                    }
+                    else //if (elem is ListBox listBox)
+                    {
+                        //ListBoxAutomationPeer peer = new ListBoxAutomationPeer(listBox);
+                        peer.SetFocus();
+                        elem.Focus();
+                        HideHints(rootElement);
                     }
 
                     if (Interaction.GetBehaviors(elem).OfType<HintBehavior>().Any())
@@ -398,7 +418,7 @@ namespace WinTabberUI.Behaviors
                 if (layer is not null)
                 {
                     var adorner = GetHintAdorner(elem);
-                    if(adorner is not null)
+                    if (adorner is not null)
                     {
                         layer.Remove(adorner);
                         SetHintAdorner(elem, null);
@@ -413,21 +433,17 @@ namespace WinTabberUI.Behaviors
         private static void ShowHints(FrameworkElement sender)
         {
             var behavior = GetHintBehavior(sender);
-            if(behavior is null || behavior.AreHintsShown)
+            if (behavior is null || behavior.AreHintsShown)
             {
                 return;
             }
             //var elements = GetAttachedElements(scope).Where(element => element.IsLoaded);
 
             var elements = behavior._kernel.GetAttachableElements(sender);
-            //kernel.AttachChildren(elements);
+            
             foreach (var elem in elements)
             {
-                var hint = GetHintText(elem);
-                if (!string.IsNullOrWhiteSpace(hint))
-                {
-                    AttachAdornerToElement(elem);
-                }
+                AttachAdornerToElement(elem);                
             }
 
             behavior.AreHintsShown = true;
@@ -445,10 +461,11 @@ namespace WinTabberUI.Behaviors
 
         private static void AttachAdornerToElement(FrameworkElement elem)
         {
-            HintAdorner? adorner = GetHintAdorner(elem) ?? 
+            HintAdorner? adorner = GetHintAdorner(elem) ??
                 new HintAdorner(elem)
                 {
-                    HintText = GetHintText(elem)!
+                    HintText = GetHintText(elem)!,
+                    Position = GetHintPosition(elem)
                 };
             SetHintAdorner(elem, adorner);
             var adornerLayer = AdornerLayer.GetAdornerLayer(elem);
@@ -467,10 +484,55 @@ namespace WinTabberUI.Behaviors
         private static void AttachTriggerKeyListener(FrameworkElement window)
         {
             window.PreviewKeyDown += OnTriggerKeyDown;
+            window.IsVisibleChanged += OnVisibilitychange;
+            window.LostFocus += Window_LostFocus;
+            if (window is ComboBox cb)
+            {
+                cb.DropDownClosed += Cb_DropDownClosed;
+            }
         }
+
+        private static void Cb_DropDownClosed(object? sender, EventArgs e)
+        {
+            if (!(sender is FrameworkElement elem))
+            {
+                return;
+            }
+            HideHints(elem);
+        }
+
+        private static void Window_LostFocus(object sender, RoutedEventArgs e)
+        {
+            if (!(sender is FrameworkElement elem))
+            {
+                return;
+            }
+            //HideHints(elem);
+        }
+
+        private static void OnVisibilitychange(object sender, DependencyPropertyChangedEventArgs e)
+        {
+            if (!(sender is FrameworkElement elem))
+            {
+                return;
+            }
+            if (!elem.IsVisible)
+            {
+                HideHints(elem);
+            }
+        }
+
         private static void DetachTriggerKeyListener(FrameworkElement window)
         {
             window.PreviewKeyDown -= OnTriggerKeyDown;
+            window.IsVisibleChanged -= OnVisibilitychange;
+            window.LostFocus -= Window_LostFocus;
+            if (window is ComboBox cb)
+            {
+                cb.DropDownClosed -= Cb_DropDownClosed;
+            }
+
+
         }
         private void AssociatedObject_Loaded(object sender, RoutedEventArgs e)
         {
