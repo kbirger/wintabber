@@ -27,7 +27,7 @@ public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable
     private readonly SourceCache<DeviceItem, string> _devices;
     public AudioDeviceManager()
     {
-        _notificationClient = new MMNotificationClient(_enumerator);
+        //_notificationClient = new MMNotificationClient(_enumerator);
         _devices = new SourceCache<DeviceItem, string>(device => device.Id);
     }
 
