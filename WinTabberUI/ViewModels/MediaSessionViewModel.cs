@@ -211,7 +211,7 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
                     .Select(_ => session.GetTimelineProperties())
 
             )
-            .Do(_ => Debug.WriteLine("timeline updated"))
+            //.Do(_ => Debug.WriteLine("timeline updated"))
             .Replay(1)
             .RefCount();
     }

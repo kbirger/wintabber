@@ -52,7 +52,6 @@
 		</PackageReference>
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
 		<PackageReference Include="fontawesome.sharp" Version="6.6.0" />
-		<PackageReference Include="CoreAudio" Version="1.40.0" />
 		<PackageReference Include="GlobalHotKeys.Windows" Version="0.1.0" />
 		<PackageReference Include="H.NotifyIcon.Wpf" Version="2.3.2" />
 		<PackageReference Include="iNKORE.UI.WPF.Modern" Version="0.10.2.1" />
@@ -64,6 +63,7 @@
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
 		<PackageReference Include="MouseKeyHook" Version="5.7.1" />
+		<PackageReference Include="NAudio.WASAPI" Version="2.2.1" />
 		<PackageReference Include="ReactiveUI" Version="22.1.1" />
 		<PackageReference Include="TaskScheduler" Version="2.12.2" />
 		<ProjectReference Include="..\WinTabber.Generators\WinTabber.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />

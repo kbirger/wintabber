@@ -1,6 +1,7 @@
-﻿using CoreAudio;
-using DynamicData;
+﻿using DynamicData;
 using Microsoft.WindowsAPICodePack.Shell.PropertySystem;
+using NAudio.CoreAudioApi;
+using NAudio.CoreAudioApi.Interfaces;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
@@ -21,8 +22,8 @@ namespace WinTabberUI.Services;
 public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable
 {
 
-    MMDeviceEnumerator _enumerator = new MMDeviceEnumerator(Guid.NewGuid());
-    MMNotificationClient _notificationClient;
+    MMDeviceEnumerator _enumerator = new MMDeviceEnumerator();
+    IMMNotificationClient _notificationClient;
     private readonly SourceCache<DeviceItem, string> _devices;
     public AudioDeviceManager()
     {

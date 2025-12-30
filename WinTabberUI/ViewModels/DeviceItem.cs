@@ -35,6 +35,7 @@ public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEq
 
         });
 
+
         ////var sessions = new SourceCache<AudioSessionControl2, string>(session => session.SessionInstanceIdentifier);
         //if (device.AudioSessionManager2 is { } sessionManager)
         //{

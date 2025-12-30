@@ -1,4 +1,5 @@
-﻿using ReactiveUI;
+﻿using Microsoft.WindowsAPICodePack.Shell;
+using ReactiveUI;
 using System.Windows.Media;
 using Windows.Media.Control;
 using WinTabberUI.Infrastructure;
@@ -9,15 +10,17 @@ public class SessionItem : ReactiveObject, IComparable<SessionItem>, IEquatable<
 {
     public string Id { get; }
     public string Name { get; }
+    public string ExePath { get; }
 
     private readonly ObservableAsPropertyHelper<ImageSource> _icon;
 
     public ImageSource Icon => _icon.Value;
 
-    public SessionItem(string id, string name, IObservable<ImageSource> icon)
+    public SessionItem(string id, string name, IObservable<ImageSource> icon, string exePath)
     {
         Id = id;
         Name = name;
+        ExePath = exePath;
         _icon = icon.ToProperty(this, vm => vm.Icon);
     }
     public int CompareTo(SessionItem? other)
@@ -62,13 +65,14 @@ public class SessionItem : ReactiveObject, IComparable<SessionItem>, IEquatable<
         {
             string displayName = aumid;
             var image = imageCache.LoadingImage;
+            string exePath = string.Empty;
             if (imageCache.AppFolder2.TryGetValue(aumid, out var appItem))
             {
-                displayName = appItem.Name;
+                exePath = appItem.Properties.GetProperty<string>("System.Link.TargetParsingPath")?.Value ?? string.Empty;
                 image = imageCache.GetOrAddAsync(aumid, () => appItem.Thumbnail.SmallBitmap);
             }
 
-            var newItem = new SessionItem(aumid, displayName, image);
+            var newItem = new SessionItem(aumid, displayName, image, exePath);
             _appCache[aumid] = newItem;
 
             return newItem;
