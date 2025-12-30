@@ -35,6 +35,13 @@ public partial class AudioSession : IAudioSessionEventsHandler, IDisposable
     private ReplaySubject<AudioSessionState> _statSubjecte= new (1);
     private ReplaySubject<AudioSessionDisconnectReason> _disconnectsSubject = new (1);
 
+    private ObservableAsPropertyHelper<float> _volume;
+    private ObservableAsPropertyHelper<bool> _isMuted;
+    private ObservableAsPropertyHelper<string> _displayName;
+    private ObservableAsPropertyHelper<string> _iconPath;
+    //private ObservableAsPropertyHelper<(uint Chann;
+    private ObservableAsPropertyHelper<AudioSessionState> _statS;
+    private ObservableAsPropertyHelper<AudioSessionDisconnectReason> _disconnects;
 
     public AudioSession(string aumId, string name, int processId, AudioSessionControl innerSession, Action<AudioSession> onDispose)
     {
@@ -47,11 +54,9 @@ public partial class AudioSession : IAudioSessionEventsHandler, IDisposable
 
         _innerSession.RegisterEventClient(this);
 
-        _volume = VolumeChanges
-            .Merge(_volume)
+        _volume = _volumeSubject
             .DistinctUntilChanged()
-            .Select()
-            .ToProperty(this, x => x.Volume, )
+            .ToProperty(this, x => x.Volume)
             .DisposeWith(_cleanup);
 
 
