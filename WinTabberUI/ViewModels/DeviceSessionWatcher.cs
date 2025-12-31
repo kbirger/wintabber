@@ -1,8 +1,9 @@
-﻿using CoreAudio;
-using CoreAudio.Interfaces;
-using DynamicData;
+﻿using DynamicData;
+using NAudio.CoreAudioApi;
+using NAudio.CoreAudioApi.Interfaces;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Disposables;
@@ -12,59 +13,55 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using WinTabberUI.Infrastructure;
-using static CoreAudio.AudioSessionManager2;
 
 namespace WinTabberUI.ViewModels;
 
 public class DeviceSessionWatcher
 {
-    private readonly AudioSessionManager2 _manager;
-    private SourceCache<AudioSession, string> _sessions;
+    private readonly AudioSessionManager _manager;
+    private ReadOnlyObservableCollection<AudioSession> _sessions = new([]);
 
-    public DeviceSessionWatcher(AudioSessionManager2 manager)
+    public DeviceSessionWatcher(AudioSessionManager manager)
     {
         _manager = manager;
     }
 
-    public AudioSessionManager2 Manager => _manager;
+    public ReadOnlyObservableCollection<AudioSession> Sessions => _sessions;
+
+    public AudioSessionManager Manager => _manager;
 
     public IObservable<IChangeSet<AudioSession, string>> Connect()
     {
         return Observable.Create<IChangeSet<AudioSession, string>>(observer =>
         {
 
-            _sessions = new SourceCache<AudioSession, string>(
-                session => session.Aumid);
-            var connection = _sessions.Connect();
+            var sessions = new SourceCache<AudioSession, string>(session => session.AumId);
+            var connection = sessions.Connect();
             var disposables = new CompositeDisposable();
 
 
-            var sourceSessions = _manager.Sessions!.AsEnumerable().OfType<AudioSessionControl2>().ToArray();
-            _sessions.Edit(edits =>
+            var sourceSessions = GetSessions().ToArray();
+            sessions.Edit(edits =>
             {
 
                 foreach (var session in sourceSessions)
                 {
-                    var id = session.SessionIdentifier;
-                    var instId = session.SessionInstanceIdentifier;
-                    var name = session.DisplayName;
-                    var process = Process.GetProcessById(Convert.ToInt32(session.ProcessID));
-                    var aumid = process.TryGetAumid();
-                    session.OnSessionDisconnected += Ac_OnSessionDisconnected;
-
-                    Debug.WriteLine($"Session: {name}; {aumid};");
-                    if (aumid is not null)
+                    var id = session.GetSessionIdentifier;
+                    var instId = session.GetSessionInstanceIdentifier;
+                    var viewModel = new AudioSession(session, (_) => { });
+                    Debug.WriteLine($"Session: {viewModel.DisplayName}; {viewModel.AumId};");
+                    if (viewModel.AumId is not null)
                     {
-                        _sessions.AddOrUpdate(new AudioSession(aumid, name));
+                        sessions.AddOrUpdate(viewModel);
                     }
                 }
             });
 
-            var newSessions = Observable.FromEvent<SessionCreatedDelegate, IAudioSessionControl2>(handler =>
+            var newSessions = Observable.FromEvent<AudioSessionManager.SessionCreatedDelegate, IAudioSessionControl>(handler =>
                 {
-                    SessionCreatedDelegate rawHandler = (sender, session) =>
+                    AudioSessionManager.SessionCreatedDelegate rawHandler = (sender, session) =>
                     {
-                         handler(session);
+                        handler(session);
                     };
 
                     return rawHandler;
@@ -75,24 +72,20 @@ public class DeviceSessionWatcher
             newSessions.Subscribe(session =>
             {
 
-                session.GetSessionIdentifier(out var id);
-                session.GetSessionInstanceIdentifier(out var instId);
-                session.GetDisplayName(out var name);
-                session.GetProcessId(out var pid);
-                var p = Process.GetProcessById(Convert.ToInt32(pid));
-                Debug.WriteLine($"NEW Session: {name}; {id}; {instId}; {p.MainModule.FileName}");
-
-                if (session is AudioSessionControl2 ac)
+                var wrapper = new AudioSessionControl(session);
+                var viewModel = new AudioSession(wrapper, (_) => { });
+                Debug.WriteLine($"NEW Session: {viewModel.DisplayName}; {viewModel.AumId}; {viewModel.ProcessFilePath}");
+                if (viewModel.State != AudioSessionState.AudioSessionStateExpired)
                 {
-                    ac.OnSessionDisconnected += Ac_OnSessionDisconnected;
-                }
-
-                var aumid = session.TryGetAumid();
-                if(aumid is not null)
-                {
-                    _sessions.AddOrUpdate(new AudioSession(aumid, name));
+                    sessions.AddOrUpdate(viewModel);
                 }
             });
+
+            connection
+                .AutoRefresh(vm => vm.State)
+                .Filter(vm => vm.State == AudioSessionState.AudioSessionStateExpired)
+                .Bind(out _sessions)
+                .Subscribe();
 
 
 
@@ -108,12 +101,17 @@ public class DeviceSessionWatcher
 
     }
 
-    private void Ac_OnSessionDisconnected(object sender, AudioSessionDisconnectReason disconnectReason)
+    private IEnumerable<AudioSessionControl> GetSessions()
     {
-        if (sender is AudioSessionControl2 ac)
+        var count = _manager.Sessions.Count;
+        var sessions = _manager.Sessions;
+        for (int i = 0; i < count; i++)
         {
-            ac.OnSessionDisconnected -= Ac_OnSessionDisconnected;
-            Debug.WriteLine($"Session ended {ac.DisplayName}");
+            var session = sessions[i];
+            if (session is not null)
+            {
+                yield return sessions[i];
+            }
         }
     }
 }
