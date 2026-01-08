@@ -64,6 +64,7 @@
                 <mdi:MaterialIconExt Kind="VolumeOff" Animation="Pulse"/>
             </TextBlock>
         </DataTemplate>
+
         <Style TargetType="Button" x:Key="MediaButton">
             <Setter Property="Width" Value="42"/>
 
@@ -119,6 +120,73 @@
                     <Setter Property="ContentTemplate" Value="{StaticResource UnmuteButton}"/>
                 </DataTrigger>
             </Style.Triggers>
+        </Style>
+
+        <Style x:Key="MuteToggle" TargetType="ToggleButton">
+            <!--<Setter Property="ContentTemplate" Value="{StaticResource UnmuteButton}"/>-->
+            <Setter Property="Width" Value="42"/>
+
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}"/>
+            <!--<Setter Property="Foreground" Value="Red"/>-->
+            <Setter Property="FontSize" Value="32"/>
+            <Setter Property="Margin" Value="0"/>
+            <Setter Property="Padding" Value="0, 0"/>
+            <Setter Property="FontFamily" Value="Webdings" />
+            <Setter Property="VerticalAlignment" Value="Center"/>
+            <Setter Property="HorizontalAlignment" Value="Center"/>
+
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ToggleButton}}" 
+                                CornerRadius="4">
+                            <Label x:Name="Icon">
+                            <mdi:MaterialIconExt Kind="VolumeHigh"/>
+                            </Label>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Icon"
+                                Property="Content">
+                                    <Setter.Value>
+                                        <mdi:MaterialIconExt Kind="VolumeOff" Animation="Pulse"/>
+                                    </Setter.Value>
+
+                                </Setter>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+            <Style.Triggers>
+                <Trigger Property="IsMouseOver" Value="True">
+                    <Trigger.Setters>
+                        <Setter Property="Background" Value="#dd666666"/>
+                    </Trigger.Setters>
+                </Trigger>
+            </Style.Triggers>
+            <!--<Setter Property="ContentTemplate"></Setter>-->
+            <!--<Style.Triggers>
+                <Trigger Property="IsChecked" Value="False">
+                    <Setter Property="Content">
+                        <Setter.Value>
+                            <TextBlock HorizontalAlignment="Center" Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                                <mdi:MaterialIconExt Kind="VolumeHigh" Animation="Pulse"/>
+                            </TextBlock>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+                <Trigger Property="IsChecked" Value="True">
+                    <Setter Property="Content">
+                        <Setter.Value>
+                            <TextBlock HorizontalAlignment="Center" Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                <mdi:MaterialIconExt Kind="VolumeOff" Animation="Pulse"/>
+                            </TextBlock>
+                        </Setter.Value>
+                    </Setter>
+                </Trigger>
+            </Style.Triggers>-->
         </Style>
     </Window.Resources>
     <AdornerDecorator>
@@ -314,6 +382,18 @@
                             IsSnapToTickEnabled="True"
                             b:HintBehavior.HintText="S"
                             Value="{Binding Playback.SelectedDevice.Volume, Converter={StaticResource FloatToPercentageConverter}}" />
+                        <ToggleButton Style="{StaticResource MuteToggle}"
+                            Margin="10 0 0 0" 
+                                Grid.Column="2" 
+                                Height="24" 
+                                Width="24" 
+                                HorizontalAlignment="Right" 
+                                DataContext="{Binding Playback.SelectedDevice}"
+                                IsChecked="{Binding IsMuted, Mode=OneWay}"
+                                Command="{Binding Mute}"
+                                b:HintBehavior.HintText="M">
+                            <!--<mdi:MaterialIconExt Kind="VolumeOff"/>-->
+                        </ToggleButton>
                         <Slider 
                             Grid.Column="1"
                             Grid.Row="1"
@@ -327,26 +407,20 @@
                             b:HintBehavior.HintText="V"
                             IsEnabled="{Binding SessionData.CanChangeVolume}"
                             Value="{Binding Path=SessionData.Volume, Converter={StaticResource FloatToPercentageConverter}}" />
-                        <Button Margin="10 0 0 0" 
-                                Height="24" 
-                                Width="24" 
-                                HorizontalAlignment="Right" Grid.Column="2" 
-                                Style="{StaticResource MuteMediaButton}" 
-                                Command="{Binding Playback.SelectedDevice.Mute}"
-                                b:HintBehavior.HintText="M">
-                            <mdi:MaterialIconExt Kind="VolumeOff"/>
-                        </Button>
-                        <Button Margin="10 0 0 0" 
+
+                        <ToggleButton Style="{StaticResource MuteToggle}"
+                                Margin="10 0 0 0" 
                                 Height="24" 
                                 Width="24" 
                                 HorizontalAlignment="Right" 
                                 Grid.Row="2"
                                 Grid.Column="2" 
-                                Style="{StaticResource MuteMediaButton}" 
-                                Command="{Binding SessionData.Mute}"
+                                DataContext="{Binding SessionData}"                                      
+                                IsChecked="{Binding IsMuted, Mode=OneWay}"
+                                Command="{Binding Mute}"
                                 b:HintBehavior.HintText="X">
-                            <mdi:MaterialIconExt Kind="VolumeOff"/>
-                        </Button>
+                            <!--<mdi:MaterialIconExt Kind="VolumeOff"/>-->
+                        </ToggleButton>
                     </Grid>
                 </Grid>
             </Grid>
