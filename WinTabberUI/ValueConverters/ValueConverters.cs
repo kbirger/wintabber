@@ -141,3 +141,23 @@ public class FloatToPercentageConverter : IValueConverter
         return (double)value / 100;
     }
 }
+
+public class BoolToContentConverter : IValueConverter
+{
+    public required FrameworkElement TrueContent { get; set; }
+    public required FrameworkElement FalseContent { get; set; }
+
+    public object Convert(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        if((bool)value)
+        {
+            return TrueContent;
+        }
+        return FalseContent;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, CultureInfo culture)
+    {
+        throw new NotSupportedException();
+    }
+}
