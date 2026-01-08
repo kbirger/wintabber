@@ -24,7 +24,7 @@ namespace WinTabberUI.ViewModels;
 
 public class MediaSessionViewModel : ReactiveObject, IDisposable
 {
-    private readonly ImageCache _imageCache;
+    private readonly AppCache _imageCache;
     private ObservableAsPropertyHelper<string> _artistName;
     private ObservableAsPropertyHelper<string> _albumTitle;
     private ObservableAsPropertyHelper<string> _title;
@@ -37,12 +37,18 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     private ObservableAsPropertyHelper<bool> _canSeek;
     private GlobalSystemMediaTransportControlsSession _session;
     private readonly CompositeDisposable _disposable = new CompositeDisposable();
-    public MediaSessionViewModel(GlobalSystemMediaTransportControlsSession session, ImageCache imageCache)
+    public MediaSessionViewModel(GlobalSystemMediaTransportControlsSession session, AppCache imageCache, IObservable<DynamicData.Change<AudioSession, string>> matchedSessions)
     {
         _session = session;
         var scheduler = RxApp.MainThreadScheduler;
         _imageCache = imageCache;
 
+        matchedSessions
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .Subscribe(change =>
+            {
+                NativeSession = change.Current;
+            });
         var mediaPropertiesChanged = ObserveMediaProperties(session);
         var playbackPropertiesChanged = ObservePlaybackProperties(session);
         var timelinePropertyChanged = ObserveTimelineProperties(session);
@@ -190,7 +196,33 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
 
     public bool CanSeek => _canSeek?.Value ?? false;
 
+    private AudioSession? NativeSession
+    {
+        get => _nativeSession;
+        set
+        {
+            this.RaiseAndSetIfChanged(ref _nativeSession, value);
+            this.RaisePropertyChanged(nameof(CanChangeVolume));
+        }
+    }
+
+    public bool CanChangeVolume => _nativeSession is not null;
     private bool _isSeeking = false;
+    private AudioSession? _nativeSession;
+
+    public float Volume
+    {
+        get => _nativeSession?.Volume ?? 0;
+        set
+        {
+            if(_nativeSession is not null)
+            {
+                _nativeSession.Volume = value;
+                this.RaisePropertyChanged(nameof(Volume));
+            }
+        }
+
+    }
 
     public bool IsSeeking
     {

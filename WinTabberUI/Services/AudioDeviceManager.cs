@@ -11,19 +11,20 @@ using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using WinTabberUI.Extensions;
 using WinTabberUI.ViewModels;
 
 namespace WinTabberUI.Services;
 
-public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable
+public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable, IMMNotificationClient
 {
 
     MMDeviceEnumerator _enumerator = new MMDeviceEnumerator();
-    IMMNotificationClient _notificationClient;
     private readonly SourceCache<DeviceItem, string> _devices;
     public AudioDeviceManager()
     {
@@ -43,7 +44,7 @@ public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable
     }
     public IObservable<IChangeSet<DeviceItem, string>> Connect()
     {
-        return Observable.Create<IChangeSet<DeviceItem, string>>(observer =>
+        return ObservableChangeSet.Create<DeviceItem, string>(observableCache =>
         {
             var connection = _devices.Connect();
             var disposables = new CompositeDisposable();
@@ -53,7 +54,7 @@ public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .Subscribe(devices =>
                 {
-                    _devices.Edit(updater =>
+                    observableCache.Edit(updater =>
                     {
                         updater.Clear();
                         updater.AddOrUpdate(devices);
@@ -62,72 +63,37 @@ public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable
                 })
                 .DisposeWith(disposables);
 
-            DeviceAdditions
+
+
+            var deviceDisabledEvents = _deviceStateChanges
+                .Where(change => change.NewState.In(DeviceState.Unplugged, DeviceState.NotPresent, DeviceState.Disabled))
+                .Select(change => change.DeviceId); ;
+
+            var deviceEnabledEvents = _deviceStateChanges
+                .Where(change => change.NewState == DeviceState.Active)
+                .Select(change => change.DeviceId);
+
+            _deviceAdditions
+                .Merge(deviceEnabledEvents)
                 .ObserveOn(RxApp.MainThreadScheduler)
-                .Subscribe(added =>
-                {
-                    _devices.AddOrUpdate(new DeviceItem(_enumerator.GetDevice(added.DeviceId), _enumerator));
-                })
+                .Select(id => new DeviceItem(_enumerator.GetDevice(id), _enumerator))
+                .Subscribe(observableCache.AddOrUpdate)
                 .DisposeWith(disposables);
 
-            DeviceRemovals
+            _deviceRemovals
+                .Merge(deviceDisabledEvents)
                 .ObserveOn(RxApp.MainThreadScheduler)
-                .Subscribe(removed =>
-                {
-                    _devices.Remove(removed.DeviceId);
-                })
-                .DisposeWith(disposables);
-
-            connection.Subscribe(devices => observer.OnNext(devices))
+                .Subscribe(observableCache.Remove)
                 .DisposeWith(disposables);
 
             return () =>
             {
                 disposables.Dispose();
             };
-        }).Replay(1).RefCount();
+        }, device => device.Id).Replay(1).RefCount();
     }
 
-    [Lazy]
-    private IObservable<DefaultDeviceChangedEventArgs> GetDefaultDeviceChanges()
-    {
-        return Observable.FromEventPattern<DefaultDeviceChangedEventArgs>(
-            h => _notificationClient.DefaultDeviceChanged += h,
-            h => _notificationClient.DefaultDeviceChanged -= h)
-            .Select(x => x.EventArgs);
-    }
 
-    [Lazy]
-    private IObservable<DeviceNotificationEventArgs> GetDeviceAdditions()
-    {
-        return Observable.FromEventPattern<DeviceNotificationEventArgs>(
-            h => _notificationClient.DeviceAdded += h,
-            h => _notificationClient.DeviceAdded -= h)
-            .Select(x => x.EventArgs);
-    }
-
-    [Lazy]
-    private IObservable<DeviceNotificationEventArgs> GetDeviceRemovals()
-    {
-        return Observable.FromEventPattern<DeviceNotificationEventArgs>(
-            h => _notificationClient.DeviceRemoved += h,
-            h => _notificationClient.DeviceRemoved -= h)
-            .Select(x => x.EventArgs);
-    }
-
-    [Lazy]
-    private IObservable<DefaultDeviceChangedEventArgs> GetDefaultPlaybackDeviceChanges()
-    {
-        return DefaultDeviceChanges
-            .Where(e => e.DataFlow == DataFlow.Render);
-    }
-
-    [Lazy]
-    private IObservable<DefaultDeviceChangedEventArgs> GetDefaultRecordingDeviceChanges()
-    {
-        return DefaultDeviceChanges
-            .Where(e => e.DataFlow == DataFlow.Capture);
-    }
 
 
     [Lazy]
@@ -152,12 +118,42 @@ public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable
         .Replay(1);
         obs.Connect();
         return obs;
-        
+
     }
 
     public void Dispose()
     {
-        
+
     }
 
+    private Subject<(string DeviceId, DeviceState NewState)> _deviceStateChanges = new();
+    private Subject<string> _deviceAdditions = new();
+    private Subject<string> _deviceRemovals = new();
+    private Subject<(DataFlow Flow, Role Role, string DeviceId)> _defaultDeviceChanges = new();
+    private Subject<(string DeviceId, NAudio.CoreAudioApi.PropertyKey Key)> _devicePropertyChanges = new();
+
+    public void OnDeviceStateChanged(string deviceId, DeviceState newState)
+    {
+        _deviceStateChanges.OnNext((deviceId, newState));
+    }
+
+    public void OnDeviceAdded(string pwstrDeviceId)
+    {
+        _deviceAdditions.OnNext(pwstrDeviceId);
+    }
+
+    public void OnDeviceRemoved(string deviceId)
+    {
+        _deviceRemovals.OnNext(deviceId);
+    }
+
+    public void OnDefaultDeviceChanged(DataFlow flow, Role role, string defaultDeviceId)
+    {
+        _defaultDeviceChanges.OnNext((flow, role, defaultDeviceId));
+    }
+
+    public void OnPropertyValueChanged(string pwstrDeviceId, NAudio.CoreAudioApi.PropertyKey key)
+    {
+        _devicePropertyChanges.OnNext((pwstrDeviceId, key));
+    }
 }

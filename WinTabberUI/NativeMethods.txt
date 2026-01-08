@@ -18,3 +18,19 @@ SystemParametersInfoW
 GetApplicationUserModelId
 
 GetProcessDpiAwareness
+
+IPolicyConfig
+PolicyConfigClient
+
+OpenProcess
+PROCESS_ACCESS_RIGHTS
+
+SHGetKnownFolderItem
+IShellItem
+IPropertyStore
+PKEY_AppUserModel_ID
+PKEY_Link_TargetParsingPath
+BHID_PropertyStore
+PropVariantToString
+IEnumShellItems
+BHID_EnumItems
