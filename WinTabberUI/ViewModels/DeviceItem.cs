@@ -1,7 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using CoreAudio;
-using CoreAudio.Interfaces;
 using DynamicData;
+using NAudio.CoreAudioApi;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
@@ -11,18 +10,20 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
-using static CoreAudio.AudioSessionManager2;
+using Windows.Win32;
+using WinTabberUI.Interop;
 
 namespace WinTabberUI.ViewModels;
 
 public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEquatable<DeviceItem>
 {
+    private static PolicyConfigClient _policy = new PolicyConfigClient();
     public DeviceItem(MMDevice device, MMDeviceEnumerator enumerator)
     {
         Name = device.DeviceFriendlyName;
         Id = device.ID;
         Kind = device.DataFlow;
-        _isSelected = device.Selected;
+        _isSelected = enumerator.GetDefaultAudioEndpoint(device.DataFlow, Role.Multimedia)?.ID == device.ID;
         _device = device;
         _enumerator = enumerator;
 
@@ -80,7 +81,10 @@ public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEq
 
     public void Activate()
     {
-        _enumerator.SetDefaultAudioEndpoint(_device);
+        _policy.SetDefaultEndpoint(Id, Role.Multimedia);
+        _policy.SetDefaultEndpoint(Id, Role.Communications);
+        _policy.SetDefaultEndpoint(Id, Role.Console);
+        //_enumerator.EnumerateAudioEndPoints(Kind, _device)[0].AudioSessionManager;
     }
 
 
@@ -143,7 +147,7 @@ public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEq
 
     public bool IsSelected
     {
-        get => _device.Selected;
+        get => _enumerator.GetDefaultAudioEndpoint(Kind, Role.Multimedia).ID == Id;
         set
         {
             _isSelected = value;

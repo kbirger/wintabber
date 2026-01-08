@@ -1,47 +1,18 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using CoreAudio;
-using DynamicData;
-using iNKORE.UI.WPF.Modern.Common;
-using iNKORE.UI.WPF.Modern.Controls;
-using Microsoft.WindowsAPICodePack.Shell;
-using MS.WindowsAPICodePack.Internal;
+﻿using DynamicData;
+using NAudio.CoreAudioApi;
 using ReactiveUI;
-using System;
-using System.Collections;
-using System.Collections.Concurrent;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel;
 using System.Diagnostics;
-using System.DirectoryServices;
-using System.Drawing;
-using System.IO;
-using System.Linq;
 using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
-using System.Text;
-using System.Text.Json.Serialization;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Data;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Xps.Serialization;
-using Windows.ApplicationModel;
-using Windows.ApplicationModel.Background;
-using Windows.ApplicationModel.Core;
-using Windows.Devices.Display.Core;
-using Windows.Management.Deployment;
 using Windows.Media.Control;
-using Windows.Media.MediaProperties;
-using Windows.Storage.Streams;
 using WinTabber.Interop;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Services;
 
 namespace WinTabberUI.ViewModels;
+
 public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 {
     //public class DeviceItem : ReactiveObject
@@ -54,7 +25,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     //        _device = device;
     //    }
     //    public string Name { get; }
-    
+
     //    public string Id { get; }
 
     //    private readonly ObservableAsPropertyHelper<bool> _isActive;
@@ -75,7 +46,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     //    //    }
     //    //}
     //}
-    
+
 
     //private class GlobalSystemMediaTransportControlsSessionComparer : IComparer<GlobalSystemMediaTransportControlsSession>, IComparer
     //{
@@ -90,11 +61,11 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     //    }
     //}
 
-    
+
     private IReadOnlyList<GlobalSystemMediaTransportControlsSession> _sessionModels;
     private IReadOnlyList<SessionItem> _sessions;
     private SessionItem _activeSession;
-    private readonly ImageCache _imageCache;
+    private readonly AppCache _imageCache;
     private readonly IMediaControlsStateService _mediaControlsStateService;
     private readonly IAudioDeviceManager _audioDeviceManager;
 
@@ -102,7 +73,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
     private AudioDeviceSelectorViewModel? _playback;
     private AudioDeviceSelectorViewModel? _recording;
-    private ObservableAsPropertyHelper<MediaSessionViewModel> _sessionData;
+    private ObservableAsPropertyHelper<MediaSessionViewModel?> _sessionData;
 
     public AudioDeviceSelectorViewModel? Playback
     {
@@ -125,15 +96,15 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
 
 
-    public MediaControlsViewModel(ImageCache imageCache, IMediaControlsStateService mediaControlsStateService, IAudioDeviceManager audioDeviceManager)
+    public MediaControlsViewModel(AppCache appCache, IMediaControlsStateService mediaControlsStateService, IAudioDeviceManager audioDeviceManager)
     {
-        _imageCache = imageCache;
+        _imageCache = appCache;
         _mediaControlsStateService = mediaControlsStateService;
         _audioDeviceManager = audioDeviceManager;
         Sessions = [];
         var scheduler = RxApp.MainThreadScheduler;
-       
-        
+
+
         Debug.WriteLine("Created");
         this.WhenActivated((disposables) =>
         {
@@ -156,9 +127,13 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
             //var (playback, recording) = AudioDeviceSelectorViewModel.Create();
             var ad = _audioDeviceManager.Connect();
+            var renderDevices = ad.Filter(x => x.Kind == DataFlow.Render);
+            var recordingDevices = ad.Filter(x => x.Kind == DataFlow.Capture);
+            var sessions = ad.TransformMany(device => new DeviceSessionWatcher(device.Device.AudioSessionManager, appCache).Connect().AsObservableCache(), x => x.AumId).AsObservableCache();
 
-            _playback = new AudioDeviceSelectorViewModel(ad.Filter(x => x.Kind == DataFlow.Render));
-            _recording = new AudioDeviceSelectorViewModel(ad.Filter(x => x.Kind == DataFlow.Capture));
+            _playback = new AudioDeviceSelectorViewModel(renderDevices);
+            _recording = new AudioDeviceSelectorViewModel(recordingDevices);
+
             //.Select(devices => new AudioDeviceSelectorViewModel(
             //Observable.Return(devices),
             //DataFlow.Render,
@@ -202,10 +177,17 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                 .Where(session => session is not null)
                 .Select(session => Observable.Create<MediaSessionViewModel>((observer) =>
                 {
-                    var vm = new MediaSessionViewModel(session!, _imageCache);
+                    var aumid = session?.SourceAppUserModelId;
+                    if (aumid is not null)
+                    {
+                        var matchingSessions = sessions.Watch(aumid);
+                        var vm = new MediaSessionViewModel(session!, _imageCache, matchingSessions);
 
-                    observer.OnNext(vm);
-                    return vm;
+                        observer.OnNext(vm);
+                        return vm;
+                    }
+
+                    return Disposable.Empty;
                 }))
                 .Switch()
                 .ToProperty(this, vm => vm.SessionData, out _sessionData, initialValue: null);
@@ -231,12 +213,12 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         });
 
 
-        
+
     }
 
-    
 
-    
+
+
 
     private static IObservable<GlobalSystemMediaTransportControlsSession> ObserveCurrentSession(IObservable<GlobalSystemMediaTransportControlsSessionManager> observableManager)
     {
@@ -273,7 +255,8 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                         .ObserveOn(RxApp.MainThreadScheduler)
                         .Subscribe(sessions =>
                         {
-                            Sessions = sessions.Select(x => SessionItem.Create(x, _imageCache)).ToArray();
+                            var x = sessions.Select(x => SessionItem.Create(x, _imageCache)).ToArray();
+                            Sessions = x;
                         });
     }
 
@@ -365,7 +348,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     {
         //if(ActiveSession is not null)
         //{
-            return Observable.Start(MediaKeySender.PlayPause);
+        return Observable.Start(MediaKeySender.PlayPause);
         //}
 
         //ActiveSession
@@ -382,5 +365,5 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         return Observable.Start(MediaKeySender.Next);
     }
 
-    
+
 }

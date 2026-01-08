@@ -282,11 +282,41 @@
                     </DockPanel>
 
                     <Grid Grid.Column="2"  VerticalAlignment="Center" HorizontalAlignment="Right" Margin="20 0 0 0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition />
+                            <RowDefinition />
+                        </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="Auto"/>
                             <ColumnDefinition/>
                             <ColumnDefinition Width="Auto"/>
                         </Grid.ColumnDefinitions>
+                        <Label 
+                            Grid.Row="0"
+                            Grid.Column="0"
+                            Content="Device" 
+                            Margin="0 0 4 0"
+                            VerticalAlignment="Center"/>
+                        <Label 
+                            Grid.Row="1"
+                            Grid.Column="0"
+                            Content="Application"
+                            Margin="0 0 4 0"
+                            VerticalAlignment="Center"/>
                         <Slider 
+                            Grid.Column="1"
+                            Width="100" 
+                            Minimum="0" 
+                            Maximum="100" 
+                            TickFrequency="5"
+                            AutoToolTipPlacement="TopLeft" 
+                            AutoToolTipPrecision="0" 
+                            IsSnapToTickEnabled="True"
+                            b:HintBehavior.HintText="S"
+                            Value="{Binding Playback.SelectedDevice.Volume, Converter={StaticResource FloatToPercentageConverter}}" />
+                        <Slider 
+                            Grid.Column="1"
+                            Grid.Row="1"
                             Width="100" 
                             Minimum="0" 
                             Maximum="100" 
@@ -295,14 +325,26 @@
                             AutoToolTipPrecision="0" 
                             IsSnapToTickEnabled="True"
                             b:HintBehavior.HintText="V"
-                            Value="{Binding Playback.SelectedDevice.Volume, Converter={StaticResource FloatToPercentageConverter}}" />
+                            IsEnabled="{Binding SessionData.CanChangeVolume}"
+                            Value="{Binding Path=SessionData.Volume, Converter={StaticResource FloatToPercentageConverter}}" />
                         <Button Margin="10 0 0 0" 
                                 Height="24" 
                                 Width="24" 
-                                HorizontalAlignment="Right" Grid.Column="3" 
+                                HorizontalAlignment="Right" Grid.Column="2" 
                                 Style="{StaticResource MuteMediaButton}" 
                                 Command="{Binding Playback.SelectedDevice.Mute}"
                                 b:HintBehavior.HintText="M">
+                            <mdi:MaterialIconExt Kind="VolumeOff"/>
+                        </Button>
+                        <Button Margin="10 0 0 0" 
+                                Height="24" 
+                                Width="24" 
+                                HorizontalAlignment="Right" 
+                                Grid.Row="2"
+                                Grid.Column="2" 
+                                Style="{StaticResource MuteMediaButton}" 
+                                Command="{Binding SessionData.Mute}"
+                                b:HintBehavior.HintText="X">
                             <mdi:MaterialIconExt Kind="VolumeOff"/>
                         </Button>
                     </Grid>

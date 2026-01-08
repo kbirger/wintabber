@@ -19,11 +19,13 @@ namespace WinTabberUI.ViewModels;
 public class DeviceSessionWatcher
 {
     private readonly AudioSessionManager _manager;
+    private readonly AppCache _appCache;
     private ReadOnlyObservableCollection<AudioSession> _sessions = new([]);
 
-    public DeviceSessionWatcher(AudioSessionManager manager)
+    public DeviceSessionWatcher(AudioSessionManager manager, AppCache appCache)
     {
         _manager = manager;
+        _appCache = appCache;
     }
 
     public ReadOnlyObservableCollection<AudioSession> Sessions => _sessions;
@@ -43,15 +45,16 @@ public class DeviceSessionWatcher
             var sourceSessions = GetSessions().ToArray();
             sessions.Edit(edits =>
             {
-
                 foreach (var session in sourceSessions)
                 {
-                    var id = session.GetSessionIdentifier;
-                    var instId = session.GetSessionInstanceIdentifier;
-                    var viewModel = new AudioSession(session, (_) => { });
-                    Debug.WriteLine($"Session: {viewModel.DisplayName}; {viewModel.AumId};");
-                    if (viewModel.AumId is not null)
+                    if(session.IsSystemSoundsSession)
                     {
+                        continue;
+                    }
+                    var viewModel = AudioSession.Create(_appCache, session);
+                    if (viewModel is not null)
+                    {
+                        Debug.WriteLine($"Session: {viewModel.DisplayName}; {viewModel.AumId};");
                         sessions.AddOrUpdate(viewModel);
                     }
                 }
@@ -69,14 +72,19 @@ public class DeviceSessionWatcher
                 handler => _manager.OnSessionCreated += handler,
                 handler => _manager.OnSessionCreated -= handler);
 
-            newSessions.Subscribe(session =>
+            newSessions.Subscribe(nativeSession =>
             {
-
-                var wrapper = new AudioSessionControl(session);
-                var viewModel = new AudioSession(wrapper, (_) => { });
-                Debug.WriteLine($"NEW Session: {viewModel.DisplayName}; {viewModel.AumId}; {viewModel.ProcessFilePath}");
-                if (viewModel.State != AudioSessionState.AudioSessionStateExpired)
+                var session = new AudioSessionControl(nativeSession);
+                if(session.IsSystemSoundsSession)
                 {
+                    return;
+                }
+
+                var viewModel = AudioSession.Create(_appCache, session);
+                
+                if (viewModel is not null)
+                {
+                    Debug.WriteLine($"NEW Session: {viewModel.DisplayName}; {viewModel.AumId}; {viewModel.ProcessFilePath}");
                     sessions.AddOrUpdate(viewModel);
                 }
             });

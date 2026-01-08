@@ -1,6 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using CoreAudio;
 using DynamicData;
+using NAudio.CoreAudioApi;
 using ReactiveUI;
 using System.Collections.ObjectModel;
 using System.Diagnostics;

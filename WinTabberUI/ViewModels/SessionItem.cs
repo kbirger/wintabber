@@ -51,33 +51,15 @@ public class SessionItem : ReactiveObject, IComparable<SessionItem>, IEquatable<
 
     //    return lookup;
     //}
-    private static readonly Dictionary<string, SessionItem> _appCache = new Dictionary<string, SessionItem>();
-    public static SessionItem Create(GlobalSystemMediaTransportControlsSession session, ImageCache imageCache)
+    public static SessionItem Create(GlobalSystemMediaTransportControlsSession session, AppCache imageCache)
     {
         var aumid = session.SourceAppUserModelId;
 
         //var app = _appCache.GetOrAdd(session.SourceAppUserModelId, static (id) => AppInfo.GetFromAppUserModelId(id));
-        if (_appCache.TryGetValue(aumid, out var item))
-        {
-            return item;
-        }
-        else
-        {
-            string displayName = aumid;
-            var image = imageCache.LoadingImage;
-            string exePath = string.Empty;
-            if (imageCache.AppFolder2.TryGetValue(aumid, out var appItem))
-            {
-                exePath = appItem.Properties.GetProperty<string>("System.Link.TargetParsingPath")?.Value ?? string.Empty;
-                image = imageCache.GetOrAddAsync(aumid, () => appItem.Thumbnail.SmallBitmap);
-            }
+        var app = imageCache.GetByAumid(aumid);
+        var newItem = new SessionItem(aumid, app.Name, app.Icon, app.ExecutablePath);
 
-            var newItem = new SessionItem(aumid, displayName, image, exePath);
-            _appCache[aumid] = newItem;
-
-            return newItem;
-
-        }
+        return newItem;
     }
 
     public override bool Equals(object obj)
