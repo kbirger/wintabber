@@ -96,8 +96,32 @@
                 </Trigger>
                 <Trigger Property="IsMouseOver" Value="True">
                     <Trigger.Setters>
-                        <Setter Property="Background" Value="#dd666666"/>
+                        <Setter Property="Background" Value="#22666666"/>
                     </Trigger.Setters>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <ColorAnimation
+                Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                From="#dd666666"
+                To="#dd777777"
+                Duration="0:0:0.1"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+
+                    <Trigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <ColorAnimation
+                Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                To="Transparent"
+                Duration="0:0:0.1"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.ExitActions>
                 </Trigger>
             </Style.Triggers>
         </Style>
@@ -141,18 +165,12 @@
                     <ControlTemplate TargetType="ToggleButton">
                         <Border Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ToggleButton}}" 
                                 CornerRadius="4">
-                            <Label x:Name="Icon">
-                            <mdi:MaterialIconExt Kind="VolumeHigh"/>
-                            </Label>
+                            <mdi:MaterialIcon Kind="VolumeHigh" x:Name="Icon"/>
                         </Border>
                         <ControlTemplate.Triggers>
                             <Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="Icon"
-                                Property="Content">
-                                    <Setter.Value>
-                                        <mdi:MaterialIconExt Kind="VolumeOff" Animation="Pulse"/>
-                                    </Setter.Value>
-
+                                Property="Kind" Value="VolumeOff">
                                 </Setter>
                             </Trigger>
                         </ControlTemplate.Triggers>
@@ -164,6 +182,30 @@
                     <Trigger.Setters>
                         <Setter Property="Background" Value="#dd666666"/>
                     </Trigger.Setters>
+                </Trigger>
+                <Trigger Property="IsPressed" Value="True">
+                    <Trigger.EnterActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <ColorAnimation
+                                    Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                    From="#dd666666"
+                                    To="#dd777777"
+                                    Duration="0:0:0.1"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.EnterActions>
+
+                    <Trigger.ExitActions>
+                        <BeginStoryboard>
+                            <Storyboard>
+                                <ColorAnimation
+                                    Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                    To="Transparent"
+                                    Duration="0:0:0.1"/>
+                            </Storyboard>
+                        </BeginStoryboard>
+                    </Trigger.ExitActions>
                 </Trigger>
             </Style.Triggers>
             <!--<Setter Property="ContentTemplate"></Setter>-->
@@ -344,6 +386,7 @@
                             AutoToolTipPlacement="None"
                             Thumb.DragStarted="Slider_DragStarted"
                             Thumb.DragCompleted="Slider_DragCompleted"
+                            IsMoveToPointEnabled="true"
                             Maximum="{Binding SessionData.Duration, Converter={StaticResource TimeSpanToFloatConverter}}" 
                             Value="{Binding SessionData.Position, Mode=OneWay, Converter={StaticResource TimeSpanToFloatConverter}}">
                         </Slider>
@@ -379,7 +422,7 @@
                             TickFrequency="5"
                             AutoToolTipPlacement="TopLeft" 
                             AutoToolTipPrecision="0" 
-                            IsSnapToTickEnabled="True"
+                            IsMoveToPointEnabled="true"
                             b:HintBehavior.HintText="S"
                             Value="{Binding Playback.SelectedDevice.Volume, Converter={StaticResource FloatToPercentageConverter}}" />
                         <ToggleButton Style="{StaticResource MuteToggle}"
@@ -403,7 +446,7 @@
                             TickFrequency="5"
                             AutoToolTipPlacement="TopLeft" 
                             AutoToolTipPrecision="0" 
-                            IsSnapToTickEnabled="True"
+                            IsMoveToPointEnabled="true"
                             b:HintBehavior.HintText="V"
                             IsEnabled="{Binding SessionData.CanChangeVolume}"
                             Value="{Binding Path=SessionData.Volume, Converter={StaticResource FloatToPercentageConverter}}" />

@@ -75,7 +75,7 @@ public class AppCache
             Icon = iconObservable
         };
 
-        var exp = DateTimeOffset.UtcNow.AddHours(1);
+        var exp = DateTimeOffset.UtcNow.AddDays(1);
         foreach (var path in paths)
         {
             _processMapCache.Set(path, aumid, exp);
@@ -258,13 +258,15 @@ public class AppCache
         {
             var parsingPath = item.Properties.System.ParsingPath.Value;
             var parsingName = item.ParsingName;
+
+            var x = item.Properties.DefaultPropertyCollection;
             var name = item.Name;
             if (string.Equals(parsingName, aumid, StringComparison.OrdinalIgnoreCase))
             {
                 shellObject = item;
                 return true;
             }
-            if (Path.IsPathFullyQualified(parsingName) && string.Equals(Path.GetFullPath(aumid), Path.GetFullPath(parsingName), StringComparison.OrdinalIgnoreCase))
+            if (parsingPath.Contains(@"\") && string.Equals(Path.GetFileName(aumid), Path.GetFileName(parsingName), StringComparison.OrdinalIgnoreCase))
             {
                 shellObject = item;
                 return true;
