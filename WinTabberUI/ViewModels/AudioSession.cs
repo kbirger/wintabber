@@ -11,6 +11,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using WinTabberUI.Infrastructure;
@@ -22,7 +23,7 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
 
     public string AumId { get; }
 
-    public  string Name { get; }
+    public string Name { get; }
     private int ProcessId { get; }
 
     private readonly AudioSessionControl _innerSession;
@@ -52,10 +53,10 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
     public static AudioSession? Create(AppCache cache, AudioSessionControl nativeSession)
     {
         var process = Process.GetProcessById(Convert.ToInt32(nativeSession.GetProcessID));
-        
+
         string? aumid = null;
-        
-        while(process is not null && aumid is null)
+
+        while (process is not null && aumid is null)
         {
             try
             {
@@ -72,7 +73,7 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
         }
 
         if (aumid is null)
-        { 
+        {
             return null;
         }
 
@@ -111,19 +112,28 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
         return Create(cache, new AudioSessionControl(nativeSession));
     }
 
-    
+
     public AudioSession(string? aumid, AudioSessionControl innerSession, Action<AudioSession> onDispose)
     {
-        Name = innerSession.GetSessionInstanceIdentifier;
-        ProcessId = Convert.ToInt32(innerSession.GetProcessID);
-        _innerSession = innerSession;
-        Process = Process.GetProcessById(ProcessId);
-        ProcessFilePath = Process.MainModule?.FileName;
+        try
+        {
 
-        _onDispose = onDispose;
-        _state = _stateSubject
-            .DistinctUntilChanged()
-            .ToProperty(this, x => x.State);
+            Name = innerSession.GetSessionInstanceIdentifier;
+            ProcessId = Convert.ToInt32(innerSession.GetProcessID);
+            _innerSession = innerSession;
+            Process = Process.GetProcessById(ProcessId);
+            ProcessFilePath = Process.MainModule?.FileName;
+
+            _onDispose = onDispose;
+            _state = _stateSubject
+                .DistinctUntilChanged()
+                .ToProperty(this, x => x.State);
+        }
+        catch (COMException)
+        {
+            State = AudioSessionState.AudioSessionStateExpired;
+            return;
+        }
 
         if (aumid is null)
         {
@@ -138,7 +148,7 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
 
         _displayName = _displayNameSubject
             .DistinctUntilChanged()
-            .ToProperty(this, x => x.DisplayName);     
+            .ToProperty(this, x => x.DisplayName);
 
         this.WhenAnyValue(vm => vm.State)
             .Where(state => state != AudioSessionState.AudioSessionStateActive)
@@ -190,22 +200,22 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
 
     public void OnDisplayNameChanged(string displayName)
     {
-        DisplayName = displayName; 
+        DisplayName = displayName;
     }
 
     public void OnIconPathChanged(string iconPath)
     {
-        
+
     }
 
     public void OnChannelVolumeChanged(uint channelCount, nint newVolumes, uint channelIndex)
     {
-        
+
     }
 
     public void OnGroupingParamChanged(ref Guid groupingId)
     {
-        
+
     }
 
     public void OnStateChanged(AudioSessionState state)

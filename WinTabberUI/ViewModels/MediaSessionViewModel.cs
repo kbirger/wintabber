@@ -203,6 +203,8 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
         {
             this.RaiseAndSetIfChanged(ref _nativeSession, value);
             this.RaisePropertyChanged(nameof(CanChangeVolume));
+            this.RaisePropertyChanged(nameof(Volume));
+            this.RaisePropertyChanged(nameof(IsMuted));
         }
     }
 
@@ -345,7 +347,12 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     {
         if(position > TimeSpan.Zero && position < Duration)
         {
-            return OperationToObservable(_session.TryChangePlaybackPositionAsync(position.Ticks));
+            return Observable.StartAsync(async () =>
+            {
+                var result = await _session.TryChangePlaybackPositionAsync(position.Ticks).AsTask();
+                Debug.WriteLine($"Seek success: {result}");
+            });
+            //return OperationToObservable(_session.TryChangePlaybackPositionAsync(position.Ticks));
         }
 
         return Observable.Return(Unit.Default);
@@ -353,7 +360,7 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
 
     public void Dispose()
     {
-        Pause.Execute().Subscribe();
+        //Pause.Execute().Subscribe();
         _disposable.Dispose();
     }
 }

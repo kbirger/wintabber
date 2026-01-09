@@ -145,7 +145,8 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
             var observableManager = Observable.FromAsync(async () => await GlobalSystemMediaTransportControlsSessionManager.RequestAsync())
                 .Replay(1)
                 .RefCount();
-            IObservable<IReadOnlyList<GlobalSystemMediaTransportControlsSession>> sessionsListUpdates = ObserveSessionsList(observableManager);
+            IObservable<IReadOnlyList<GlobalSystemMediaTransportControlsSession>> sessionsListUpdates = ObserveSessionsList(observableManager)
+            .Do(_ => Debug.WriteLine("Session list updated"));
             // bind sessions list
 
             BindSessionsList(sessionsListUpdates)
@@ -156,7 +157,9 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
             var sessionSelections = this
                 .WhenAnyValue(vm => vm.ActiveSession, true)
+                .Do(x=> Debug.WriteLine($"Active Session changed {x?.Id}"))
                 .WithLatestFrom(sessionsListUpdates)
+                .DistinctUntilChanged(x => x.First?.Id)
                 .Select(s =>
                 {
                     var active = s.First;
@@ -173,8 +176,9 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                 })
                 .DistinctUntilChanged();
 
-            Observable.Merge(sessionSelections)
+            sessionSelections
                 .Where(session => session is not null)
+                .DistinctUntilChanged(x => x?.SourceAppUserModelId)
                 .Select(session => Observable.Create<MediaSessionViewModel>((observer) =>
                 {
                     var aumid = session?.SourceAppUserModelId;
@@ -189,7 +193,10 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
                     return Disposable.Empty;
                 }))
+                .Do(_ => Debug.WriteLine("New media session viewmodel observable"))
                 .Switch()
+                .Do(x => Debug.WriteLine($"Switching to session {x?.Title}"))
+
                 .ToProperty(this, vm => vm.SessionData, out _sessionData, initialValue: null);
 
 
@@ -236,7 +243,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                 .Switch()
                 .Do(x =>
                 {
-                    Debug.WriteLine($"Session changed event");
+                    Debug.WriteLine($"Session changed event: {x?.SourceAppUserModelId}");
                 })
                 .DistinctUntilChanged(x => x?.SourceAppUserModelId)
                 .Do(x =>
