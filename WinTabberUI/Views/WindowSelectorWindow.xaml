@@ -12,7 +12,6 @@
         mc:Ignorable="d"
         Title="WindowSelectorWindow"
         Visibility="Hidden"
-        FocusManager.FocusedElement="{Binding ElementName=TabListView}"
         Focusable="true"
         ShowActivated="True"
         Name="WindowSelector"

@@ -13,19 +13,20 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 using WinTabberUI.Infrastructure;
+using WinTabberUI.Services;
 
 namespace WinTabberUI.ViewModels;
 
 public class DeviceSessionWatcher
 {
     private readonly AudioSessionManager _manager;
-    private readonly AppCache _appCache;
+    private readonly IObservableCache<InstalledApplicationInfo, string> _installedApplicationsByPath;
     private ReadOnlyObservableCollection<AudioSession> _sessions = new([]);
 
-    public DeviceSessionWatcher(AudioSessionManager manager, AppCache appCache)
+    public DeviceSessionWatcher(AudioSessionManager manager, IObservableCache<InstalledApplicationInfo, string> installedApplicationsByPath)
     {
         _manager = manager;
-        _appCache = appCache;
+        _installedApplicationsByPath = installedApplicationsByPath;
     }
 
     public ReadOnlyObservableCollection<AudioSession> Sessions => _sessions;
@@ -37,56 +38,23 @@ public class DeviceSessionWatcher
         return Observable.Create<IChangeSet<AudioSession, string>>(observer =>
         {
 
-            var sessions = new SourceCache<AudioSession, string>(session => session.AumId);
-            var connection = sessions.Connect();
+            var resultSessions = new SourceCache<AudioSession, string>(session => session.AumId);
+            var connection = resultSessions.Connect();
             var disposables = new CompositeDisposable();
 
 
-            var sourceSessions = GetSessions().ToArray();
-            sessions.Edit(edits =>
+            var sourceSessions = GetNativeSessions().ToArray();
+            resultSessions.Edit(edits =>
             {
-                foreach (var session in sourceSessions)
-                {
-                    if(session.IsSystemSoundsSession)
-                    {
-                        continue;
-                    }
-                    var viewModel = AudioSession.Create(_appCache, session);
-                    if (viewModel is not null)
-                    {
-                        Debug.WriteLine($"Session: {viewModel.DisplayName}; {viewModel.AumId};");
-                        sessions.AddOrUpdate(viewModel);
-                    }
-                }
+                CreateSessions(resultSessions, sourceSessions);
             });
 
-            var newSessions = Observable.FromEvent<AudioSessionManager.SessionCreatedDelegate, IAudioSessionControl>(handler =>
-                {
-                    AudioSessionManager.SessionCreatedDelegate rawHandler = (sender, session) =>
-                    {
-                        handler(session);
-                    };
-
-                    return rawHandler;
-                },
-                handler => _manager.OnSessionCreated += handler,
-                handler => _manager.OnSessionCreated -= handler);
+            var newSessions = ObserveSessionCreation();
 
             newSessions.Subscribe(nativeSession =>
             {
                 var session = new AudioSessionControl(nativeSession);
-                if(session.IsSystemSoundsSession)
-                {
-                    return;
-                }
-
-                var viewModel = AudioSession.Create(_appCache, session);
-                
-                if (viewModel is not null)
-                {
-                    Debug.WriteLine($"NEW Session: {viewModel.DisplayName}; {viewModel.AumId}; {viewModel.ProcessFilePath}");
-                    sessions.AddOrUpdate(viewModel);
-                }
+                CreateSession(resultSessions, session);
             });
 
             connection
@@ -109,7 +77,44 @@ public class DeviceSessionWatcher
 
     }
 
-    private IEnumerable<AudioSessionControl> GetSessions()
+    private IObservable<IAudioSessionControl> ObserveSessionCreation()
+    {
+        return Observable.FromEvent<AudioSessionManager.SessionCreatedDelegate, IAudioSessionControl>(handler =>
+        {
+            AudioSessionManager.SessionCreatedDelegate rawHandler = (sender, session) =>
+            {
+                handler(session);
+            };
+
+            return rawHandler;
+        },
+                        handler => _manager.OnSessionCreated += handler,
+                        handler => _manager.OnSessionCreated -= handler);
+    }
+
+    private void CreateSessions(SourceCache<AudioSession, string> deviceSessions, AudioSessionControl[] sourceSessions)
+    {
+        foreach (var sourceSession in sourceSessions)
+        {
+            CreateSession(deviceSessions, sourceSession);
+        }
+    }
+
+    private void CreateSession(SourceCache<AudioSession, string> sessions, AudioSessionControl session)
+    {
+        if (!session.IsSystemSoundsSession)
+        {
+
+            var viewModel = AudioSession.Create(_installedApplicationsByPath, session);
+            if (viewModel is not null)
+            {
+                Debug.WriteLine($"Session: {viewModel.DisplayName}; {viewModel.AumId};");
+                sessions.AddOrUpdate(viewModel);
+            }
+        }
+    }
+
+    private IEnumerable<AudioSessionControl> GetNativeSessions()
     {
         var count = _manager.Sessions.Count;
         var sessions = _manager.Sessions;

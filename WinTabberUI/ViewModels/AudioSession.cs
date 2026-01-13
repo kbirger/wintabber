@@ -1,4 +1,5 @@
-﻿using NAudio.CoreAudioApi;
+﻿using DynamicData;
+using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
 using ReactiveUI;
 using System;
@@ -15,6 +16,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using WinTabberUI.Infrastructure;
+using WinTabberUI.Services;
 
 namespace WinTabberUI.ViewModels;
 
@@ -50,17 +52,28 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
     public IObservable<Unit> OnDisposed => _disposed;
 
 
-    public static AudioSession? Create(AppCache cache, AudioSessionControl nativeSession)
+    public static AudioSession? Create(IObservableCache<InstalledApplicationInfo, string> installedApplicationsByPath, AudioSessionControl nativeSession)
     {
         var process = Process.GetProcessById(Convert.ToInt32(nativeSession.GetProcessID));
 
         string? aumid = null;
 
+        // recursively try to get an aumid, starting with the process that owns the session, and travelling up the parent processes
         while (process is not null && aumid is null)
         {
             try
             {
-                aumid = cache.GetByPath(process.MainModule?.FileName)?.AppUserModelId;
+                var processPath = process.MainModule?.FileName;
+                if (processPath is not null)
+                {
+                    var appOption = installedApplicationsByPath.Lookup(processPath);
+                    if(appOption.HasValue)
+                    {
+                        aumid = appOption.Value.AppUserModelId;
+                    }
+                }
+
+                // If not found, keep going
                 if (aumid is null)
                 {
                     process = GetParentProcess(process);
@@ -107,9 +120,9 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
         return null;
     }
 
-    public static AudioSession? Create(AppCache cache, IAudioSessionControl nativeSession)
+    public static AudioSession? Create(IObservableCache<InstalledApplicationInfo, string> installedApplicationsByPath, IAudioSessionControl nativeSession)
     {
-        return Create(cache, new AudioSessionControl(nativeSession));
+        return Create(installedApplicationsByPath, new AudioSessionControl(nativeSession));
     }
 
 

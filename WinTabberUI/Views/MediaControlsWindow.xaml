@@ -16,7 +16,7 @@
         xmlns:reactiveui="http://reactiveui.net"
         mc:Ignorable="d"
         AllowsTransparency="True"
-        Background="#01000000"
+        Background="#60000000"
         WindowStyle="None"
         SizeToContent="Height"
         Topmost="true"
@@ -367,7 +367,7 @@
                         <Button HorizontalAlignment="Right" Style="{StaticResource MediaButton}" Command="{Binding SessionData.Prev}" b:HintBehavior.HintText="B">
                             <mdi:MaterialIconExt Kind="SkipPrevious"/>
                         </Button>
-                        <Button Style="{StaticResource PlayPauseMediaButton}" Command="{Binding SessionData.PlayPause}" b:HintBehavior.HintText="P">
+                        <Button Style="{StaticResource PlayPauseMediaButton}" Command="{Binding SessionData.PlayPause}" b:HintBehavior.HintText="P" x:Name="PlayPauseButton">
                             <mdi:MaterialIconExt Kind="PlayPause"/>
                         </Button>
                         <Button HorizontalAlignment="Left" Style="{StaticResource MediaButton}" Command="{Binding SessionData.Next}" b:HintBehavior.HintText="F">

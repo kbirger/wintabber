@@ -34,3 +34,5 @@ BHID_PropertyStore
 PropVariantToString
 IEnumShellItems
 BHID_EnumItems
+SHCreateItemFromParsingName
+IShellItemImageFactory

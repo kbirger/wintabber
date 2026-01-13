@@ -24,7 +24,6 @@ namespace WinTabberUI.ViewModels;
 
 public class MediaSessionViewModel : ReactiveObject, IDisposable
 {
-    private readonly AppCache _imageCache;
     private ObservableAsPropertyHelper<string> _artistName;
     private ObservableAsPropertyHelper<string> _albumTitle;
     private ObservableAsPropertyHelper<string> _title;
@@ -37,11 +36,10 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     private ObservableAsPropertyHelper<bool> _canSeek;
     private GlobalSystemMediaTransportControlsSession _session;
     private readonly CompositeDisposable _disposable = new CompositeDisposable();
-    public MediaSessionViewModel(GlobalSystemMediaTransportControlsSession session, AppCache imageCache, IObservable<DynamicData.Change<AudioSession, string>> matchedSessions)
+    public MediaSessionViewModel(GlobalSystemMediaTransportControlsSession session, IObservable<DynamicData.Change<AudioSession, string>> matchedSessions)
     {
         _session = session;
         var scheduler = RxApp.MainThreadScheduler;
-        _imageCache = imageCache;
 
         matchedSessions
             .ObserveOn(RxApp.MainThreadScheduler)
@@ -77,7 +75,7 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
             .DisposeWith(_disposable);
 
         playbackPropertiesChanged
-            .Select(info => info.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+            .Select(info => info?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
             //.Do(t => Debug.WriteLine($"playing: {t}"))
             .ToProperty(this, vm => vm.IsPlaying, out _isPlaying)
             .DisposeWith(_disposable);
@@ -273,8 +271,9 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
                 h => session.MediaPropertiesChanged += h,
                 h => session.MediaPropertiesChanged -= h,
                 events => events
-                    .Do(p => { Debug.WriteLine($"MEDIA PROPERTIES CHANGED"); })
+                    //.Do(p => { Debug.WriteLine($"MEDIA PROPERTIES CHANGED"); })
                     .SelectMany(_ => session.TryGetMediaPropertiesAsync())
+                    .Catch(Observable.Empty<GlobalSystemMediaTransportControlsSessionMediaProperties>())
             )
             .ObserveOn(RxApp.MainThreadScheduler)
             .Replay(1)
