@@ -27,12 +27,14 @@ namespace WinTabberUI;
 /// <summary>
 /// Interaction logic for MediaControlsWindow.xaml
 /// </summary>
-public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
+public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IActivatableView
 {
+    private IMediaControlsStateService _mediaControlsStateService;
     public MediaControlsWindow()
     {
         InitializeComponent();
         ViewModel = Ioc.Default.GetRequiredService<MediaControlsViewModel>();
+        _mediaControlsStateService = Ioc.Default.GetRequiredService<IMediaControlsStateService>();
         DataContext = ViewModel;
         this.WhenActivated((CompositeDisposable disposables) => 
         {
@@ -45,17 +47,19 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
             //    vm => vm.ActiveSession,
             //    view => view.SessionSelector.SelectedItem
             //);
+
+
         });
 
         Loaded += MediaControlsWindow_Loaded;
         IsVisibleChanged += MediaControlsWindow_IsVisibleChanged;
     }
-
+        
     private void MediaControlsWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if(IsVisible && IsLoaded)
         {
-            Focus();
+            //PlayPauseButton.Focus();
         }
     }
 
@@ -67,11 +71,15 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>
     protected override void OnActivated(EventArgs e)
     {
         //Focus();
+        //PlayPauseButton.Focus();
+
         base.OnActivated(e);
     }
 
     protected override void OnDeactivated(EventArgs e)
     {
+        //_mediaControlsStateService.HideView();
+        ViewModel?.Activator.Deactivate();
         base.OnDeactivated(e);
 
     }

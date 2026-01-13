@@ -6,7 +6,9 @@ using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
+using System.Windows;
 using Windows.Media.Control;
+using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Services;
@@ -65,7 +67,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     private IReadOnlyList<GlobalSystemMediaTransportControlsSession> _sessionModels;
     private IReadOnlyList<SessionItem> _sessions;
     private SessionItem _activeSession;
-    private readonly AppCache _imageCache;
+    private readonly InstalledApplicationService _applicationService;
     private readonly IMediaControlsStateService _mediaControlsStateService;
     private readonly IAudioDeviceManager _audioDeviceManager;
 
@@ -96,9 +98,9 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
 
 
-    public MediaControlsViewModel(AppCache appCache, IMediaControlsStateService mediaControlsStateService, IAudioDeviceManager audioDeviceManager)
+    public MediaControlsViewModel(InstalledApplicationService applicationService, IMediaControlsStateService mediaControlsStateService, IAudioDeviceManager audioDeviceManager, WinTabberEventManager eventManager)
     {
-        _imageCache = appCache;
+        _applicationService = applicationService;
         _mediaControlsStateService = mediaControlsStateService;
         _audioDeviceManager = audioDeviceManager;
         Sessions = [];
@@ -108,11 +110,9 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         Debug.WriteLine("Created");
         this.WhenActivated((disposables) =>
         {
-
-
             Debug.WriteLine("Activated");
 
-            Disposable.Create(HandleDeactivation)
+            Disposable.Create(() => HandleDeactivation())
                 .DisposeWith(disposables);
 
             //var playbackDevices = 
@@ -129,7 +129,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
             var ad = _audioDeviceManager.Connect();
             var renderDevices = ad.Filter(x => x.Kind == DataFlow.Render);
             var recordingDevices = ad.Filter(x => x.Kind == DataFlow.Capture);
-            var sessions = ad.TransformMany(device => new DeviceSessionWatcher(device.Device.AudioSessionManager, appCache).Connect().AsObservableCache(), x => x.AumId).AsObservableCache();
+            var sessions = ad.TransformMany(device => new DeviceSessionWatcher(device.Device.AudioSessionManager, applicationService.ApplicationsByPath).Connect().AsObservableCache(), x => x.AumId).AsObservableCache();
 
             _playback = new AudioDeviceSelectorViewModel(renderDevices);
             _recording = new AudioDeviceSelectorViewModel(recordingDevices);
@@ -157,7 +157,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
             var sessionSelections = this
                 .WhenAnyValue(vm => vm.ActiveSession, true)
-                .Do(x=> Debug.WriteLine($"Active Session changed {x?.Id}"))
+                .Do(x => Debug.WriteLine($"Active Session changed {x?.Id}"))
                 .WithLatestFrom(sessionsListUpdates)
                 .DistinctUntilChanged(x => x.First?.Id)
                 .Select(s =>
@@ -184,8 +184,14 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                     var aumid = session?.SourceAppUserModelId;
                     if (aumid is not null)
                     {
+                        var app = _applicationService.ApplicationsByAumid.Lookup(aumid);
+                        if (!app.HasValue)
+                        {
+                            return Disposable.Empty;
+                        }
+
                         var matchingSessions = sessions.Watch(aumid);
-                        var vm = new MediaSessionViewModel(session!, _imageCache, matchingSessions);
+                        var vm = new MediaSessionViewModel(session!, matchingSessions);
 
                         observer.OnNext(vm);
                         return vm;
@@ -200,23 +206,26 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                 .ToProperty(this, vm => vm.SessionData, out _sessionData, initialValue: null);
 
 
-            currentSessionChanged.Subscribe(session =>
-            {
-                if (session is null)
+            currentSessionChanged
+                .Where(session => session is not null)
+                .Select(session => (session, _applicationService.ApplicationsByAumid.Lookup(session.SourceAppUserModelId)))
+                .Where(values => values.Item2.HasValue)
+                .Subscribe(sessionOption =>
                 {
-                    return;
-                }
+                    //Debug.WriteLine($"WinRT new session: {session.SourceAppUserModelId}");
+                    //foreach (var s in Sessions)
+                    //{
+                    //Debug.WriteLine($"sessoin: {s.Id}: {s.Name}");
 
-                //Debug.WriteLine($"WinRT new session: {session.SourceAppUserModelId}");
-                //foreach (var s in Sessions)
-                //{
-                //Debug.WriteLine($"sessoin: {s.Id}: {s.Name}");
+                    //}
+                    ActiveSession = SessionItem.Create(sessionOption.session, sessionOption.Item2.Value); //Sessions.FirstOrDefault(x => x.Id == session.SourceAppUserModelId)!;
+                                                                                                          //var mediaPropertyChanges = Observable.FromEventPattern<MediaPropertiesChangedEventArgs>(session, nameof(session.MediaPropertiesChanged))
 
-                //}
-                ActiveSession = SessionItem.Create(session, _imageCache); //Sessions.FirstOrDefault(x => x.Id == session.SourceAppUserModelId)!;
-                                                                          //var mediaPropertyChanges = Observable.FromEventPattern<MediaPropertiesChangedEventArgs>(session, nameof(session.MediaPropertiesChanged))
-
-            }).DisposeWith(disposables);
+                },
+                ex =>
+                {
+                    Debug.WriteLine($"Failed to set active session {ex.Message}");
+                }).DisposeWith(disposables);
         });
 
 
@@ -260,10 +269,36 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         return sessionsListUpdates
                         .ObserveOn(RxApp.TaskpoolScheduler)
                         .ObserveOn(RxApp.MainThreadScheduler)
-                        .Subscribe(sessions =>
+                        .Subscribe(
+                        sessions =>
                         {
-                            var x = sessions.Select(x => SessionItem.Create(x, _imageCache)).ToArray();
+
+                            var x = sessions.Select(session =>
+                            {
+                                var appOption = _applicationService.ApplicationsByAumid.Lookup(session.SourceAppUserModelId);
+                                InstalledApplicationInfo app;
+                                if (!appOption.HasValue)
+                                {
+                                    app = new InstalledApplicationInfo
+                                    {
+                                        AppUserModelId = session.SourceAppUserModelId,
+                                        Name = session.SourceAppUserModelId,
+                                        PackageInstallPath = null,
+                                        TargetPath = null,
+                                        Icon = InstalledApplicationService.LoadingImage
+                                    };
+                                }
+                                else
+                                {
+                                    app = appOption.Value;
+                                }
+                                return SessionItem.Create(session, app);
+                            }).ToArray();
                             Sessions = x;
+                        },
+                        ex =>
+                        {
+                            Debug.WriteLine($"Failed to get icon due to {ex.Message}");
                         });
     }
 

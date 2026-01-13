@@ -3,6 +3,7 @@ using ReactiveUI;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Windows;
 using System.Windows.Forms;
@@ -13,7 +14,7 @@ using WinTabberUI.Models;
 
 namespace WinTabberUI.ViewModels;
 
-public partial class WindowSelectorViewModel : DependencyObject, IDisposable
+public partial class WindowSelectorViewModel : DependencyObject, IDisposable, IActivatableViewModel
 {
     public WindowSelectorViewModel(ApplicationStateViewModel applicationState, WinTabberEventManager eventManager, WindowManager windowManager)
     {
@@ -70,6 +71,14 @@ public partial class WindowSelectorViewModel : DependencyObject, IDisposable
         _cleanUp = new CompositeDisposable(
             appChanges, winChanges, nextEvents, prevEvents, selectEvents
         );
+
+        this.WhenActivated((x) =>
+        {
+            Disposable.Create(() =>
+            {
+                Debug.WriteLine("deactivated");
+            }).DisposeWith(x);
+        });
     }
 
     [Lazy]
@@ -272,4 +281,6 @@ public partial class WindowSelectorViewModel : DependencyObject, IDisposable
             }
         }
     }
+
+    public ViewModelActivator Activator { get; } = new ViewModelActivator();
 }

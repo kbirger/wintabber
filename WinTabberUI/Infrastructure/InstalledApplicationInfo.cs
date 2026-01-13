@@ -11,8 +11,8 @@ public class InstalledApplicationInfo : IEquatable<InstalledApplicationInfo>
 {
     public required string AppUserModelId { get; init; }
     public required string Name { get; init; }
-    public required string? ExecutablePath { get; init; }
-
+    public string? TargetPath { get; init; }
+    public string? PackageInstallPath { get; init; }
     public required IObservable<ImageSource> Icon { get; init; }
 
     public bool Equals(InstalledApplicationInfo? other)

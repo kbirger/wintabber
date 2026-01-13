@@ -51,13 +51,11 @@ public class SessionItem : ReactiveObject, IComparable<SessionItem>, IEquatable<
 
     //    return lookup;
     //}
-    public static SessionItem Create(GlobalSystemMediaTransportControlsSession session, AppCache imageCache)
+    public static SessionItem Create(GlobalSystemMediaTransportControlsSession session, InstalledApplicationInfo app)
     {
         var aumid = session.SourceAppUserModelId;
 
-        //var app = _appCache.GetOrAdd(session.SourceAppUserModelId, static (id) => AppInfo.GetFromAppUserModelId(id));
-        var app = imageCache.GetByAumid(aumid);
-        var newItem = new SessionItem(aumid, app.Name, app.Icon, app.ExecutablePath);
+        var newItem = new SessionItem(aumid, app.Name, app.Icon, app.TargetPath);
 
         return newItem;
     }

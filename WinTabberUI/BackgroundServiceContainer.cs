@@ -22,6 +22,8 @@ public class BackgroundServiceContainer : IDisposable
         ioc.GetRequiredService<SettingsViewModel>();
         ioc.GetRequiredService<WindowManager>();
         ioc.GetRequiredService<AppCache>().Load();
+        ioc.GetRequiredService<InstalledApplicationService>();
+
         _cleanup = new CompositeDisposable(
             ioc.GetRequiredService<StartupCoordinator>(),
             ioc.GetRequiredService<SettingsWindowViewCoordinator>().Init(),

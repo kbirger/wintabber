@@ -60,7 +60,7 @@ public class AppCache
 
         var paths = GetShellObjectPaths(shellObject);
 
-        var iconGetter = () => Task.Run(() => shellObject.Thumbnail.SmallBitmap);
+        var iconGetter = () => shellObject.Thumbnail.SmallBitmap;
         var iconObservable = Observable
             .Concat(LoadingImage, GetImageAsync(iconGetter))
             .ObserveOn(RxApp.MainThreadScheduler)
@@ -71,7 +71,7 @@ public class AppCache
         {
             AppUserModelId = aumid,
             Name = name,
-            ExecutablePath = paths.FirstOrDefault(),
+            TargetPath = paths.FirstOrDefault(),
             Icon = iconObservable
         };
 
@@ -121,14 +121,14 @@ public class AppCache
         return null;
     }
 
-    private IObservable<ImageSource> GetImageAsync(Func<Task<System.Drawing.Bitmap>> valueFactory)
+    private IObservable<ImageSource> GetImageAsync(Func<System.Drawing.Bitmap> valueFactory)
     {
-        return
-            Observable.FromAsync(valueFactory, RxApp.TaskpoolScheduler)
-            .ObserveOn(RxApp.TaskpoolScheduler)
+        return Observable.Defer(() => 
+            Observable.Start(valueFactory, RxApp.TaskpoolScheduler))
+            .ObserveOn(RxApp.MainThreadScheduler)
             .Select(Bitmap2BitmapImage)
             .Replay(1)
-            .RefCount();
+            .AutoConnect();
     }
 
     [System.Runtime.InteropServices.DllImport("gdi32.dll")]
@@ -161,14 +161,15 @@ public class AppCache
     {
         return Observable.Start(() =>
         {
-
             var uri = new Uri("pack://application:,,,/WinTabberUI;component/Images/loading.png");
             var src = new BitmapImage(uri);
             src.Freeze();
 
             return src;
 
-        }, RxApp.TaskpoolScheduler);
+        }, RxApp.TaskpoolScheduler)
+            .Replay(1)
+            .AutoConnect();
     }
 
     private static IKnownFolder GetAppImageFolder()
