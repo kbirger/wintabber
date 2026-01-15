@@ -146,7 +146,9 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                 .Replay(1)
                 .RefCount();
             IObservable<IReadOnlyList<GlobalSystemMediaTransportControlsSession>> sessionsListUpdates = ObserveSessionsList(observableManager)
-                .Do(_ => Debug.WriteLine("Session list updated"));
+                .Do(_ => Debug.WriteLine("Session list updated"))
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .SubscribeOn(RxApp.MainThreadScheduler);
             // bind sessions list
 
             BindSessionsList(sessionsListUpdates)
@@ -267,38 +269,37 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     private IDisposable BindSessionsList(IObservable<IReadOnlyList<GlobalSystemMediaTransportControlsSession>> sessionsListUpdates)
     {
         return sessionsListUpdates
-                        //.ObserveOn(RxApp.TaskpoolScheduler)
-                        .ObserveOn(RxApp.MainThreadScheduler)
-                        .Subscribe(sessions =>
-                            {
+            //.ObserveOn(RxApp.TaskpoolScheduler)
+            .Subscribe(sessions =>
+                {
 
-                                var x = sessions.Select(session =>
-                                {
-                                    var appOption = _applicationService.ApplicationsByAumid.Lookup(session.SourceAppUserModelId);
-                                    InstalledApplicationInfo app;
-                                    if (!appOption.HasValue)
-                                    {
-                                        app = new InstalledApplicationInfo
-                                        {
-                                            AppUserModelId = session.SourceAppUserModelId,
-                                            Name = session.SourceAppUserModelId,
-                                            PackageInstallPath = null,
-                                            TargetPath = null,
-                                            Icon = InstalledApplicationService.LoadingImage
-                                        };
-                                    }
-                                    else
-                                    {
-                                        app = appOption.Value;
-                                    }
-                                    return SessionItem.Create(session, app);
-                                }).ToArray();
-                                Sessions = x;
-                            },
-                            ex =>
+                    var x = sessions.Select(session =>
+                    {
+                        var appOption = _applicationService.ApplicationsByAumid.Lookup(session.SourceAppUserModelId);
+                        InstalledApplicationInfo app;
+                        if (!appOption.HasValue)
+                        {
+                            app = new InstalledApplicationInfo
                             {
-                                Debug.WriteLine($"Failed to get icon due to {ex.Message}");
-                            });
+                                AppUserModelId = session.SourceAppUserModelId,
+                                Name = session.SourceAppUserModelId,
+                                PackageInstallPath = null,
+                                TargetPath = null,
+                                Icon = InstalledApplicationService.LoadingImage
+                            };
+                        }
+                        else
+                        {
+                            app = appOption.Value;
+                        }
+                        return SessionItem.Create(session, app);
+                    }).ToArray();
+                    Sessions = x;
+                },
+                ex =>
+                {
+                    Debug.WriteLine($"Failed to get icon due to {ex.Message}");
+                });
     }
 
     private static IObservable<IReadOnlyList<GlobalSystemMediaTransportControlsSession>> ObserveSessionsList(IObservable<GlobalSystemMediaTransportControlsSessionManager> observableManager)

@@ -1,5 +1,8 @@
-﻿using System;
+﻿using SharpHook;
+using SharpHook.Data;
+using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Disposables;
@@ -11,11 +14,12 @@ using WinTabber.Interop;
 
 namespace WinTabber.Events;
 
-public class HyperKeyState(Keys hyperKey, IObservable<HyperKeyState.KeyEvent> keyEvents, IInteropProxy interop)
+public class HyperKeyState(KeyCode hyperKey, IObservable<KeyboardHookEventArgs> keyDownEvents, IObservable<KeyboardHookEventArgs> keyUpEvents, IInteropProxy interop)
 {
     public const int TapDelayMs = 200;
-    private readonly Keys _hyperKey = hyperKey;
-    private readonly IObservable<KeyEvent> _keyEvents = keyEvents;
+    private readonly KeyCode _hyperKey = hyperKey;
+    private readonly IObservable<KeyboardHookEventArgs> _keyDownEvents = keyDownEvents;
+    private readonly IObservable<KeyboardHookEventArgs> _keyUpEvents = keyUpEvents;
     private readonly IInteropProxy _interop = interop;
 
     public enum HyperKeyAction
@@ -58,7 +62,7 @@ public class HyperKeyState(Keys hyperKey, IObservable<HyperKeyState.KeyEvent> ke
         _interop.SendInput((ushort)Keys.LWin, down);     // Win
     }
 
-    private void SendTap(Keys key)
+    private void SendTap(KeyCode key)
     {
         _interop.SendInput((ushort)key, true);
         _interop.SendInput((ushort)key, false);
@@ -68,43 +72,62 @@ public class HyperKeyState(Keys hyperKey, IObservable<HyperKeyState.KeyEvent> ke
 
         return Observable.Create<HyperKeyAction>((obs) =>
         {
-            //bool pause = false;
-            Keys lastKey = 0;
-            long start = 0;
-            var sub = _keyEvents.Subscribe(e =>
-            {
-                //if(pause)
-                {
-                    //return;
-                }
-                var now = Environment.TickCount64;
-                if (e.IsDown)
-                {
-                    lastKey = e.Event.KeyCode;
 
-                    if (e.Event.KeyCode == _hyperKey)
+            //_keyDownEvents.Where(e => e.IsEventSimulated)
+            //    .Subscribe(e =>
+            //    {
+            //        Debug.WriteLine($"{e.Data.KeyCode} DOWN");
+            //    });
+
+            //_keyUpEvents.Where(e => e.IsEventSimulated)
+            //    .Subscribe(e =>
+            //    {
+            //        Debug.WriteLine($"{e.Data.KeyCode} UP");
+            //    });
+            //bool pause = false;
+            KeyCode lastKey = 0;
+            DateTimeOffset start = DateTimeOffset.MinValue;
+            var sub = _keyDownEvents
+                .Where(e => !e.IsEventSimulated)
+                .Subscribe(e =>
+            {
+                var now = e.EventTime;
+                if (e.Data.KeyCode == _hyperKey)
+                {
+
+                    e.SuppressEvent = true;
+                    SendModifiers(true);
+
+                    if (lastKey != _hyperKey)
                     {
                         start = now;
-                        e.Event.SuppressKeyPress = true;
-                        e.Event.Handled = true;
-                        SendModifiers(true);
                     }
                 }
-                else
+                lastKey = e.RawEvent.Keyboard.KeyCode;
+            });
+
+
+            var sub2 = _keyUpEvents
+                .Where(e => !e.IsEventSimulated)
+                .Subscribe(e =>
                 {
-                    if (e.Event.KeyCode == _hyperKey)
+                    if (e.Data.KeyCode == _hyperKey)
                     {
+                        var now = e.EventTime;
+
                         SendModifiers(false);
                         var holdDuration = now - start;
-                        if (holdDuration < TapDelayMs && holdDuration > 20)
+                        //Debug.WriteLine($"CAPS DURATION {holdDuration}");
+                        if (lastKey == _hyperKey && holdDuration.TotalMilliseconds < TapDelayMs)
                         {
                             //pause = true;
                             SendTap(_hyperKey);
                             //pause = false;
                         }
+
+                        lastKey = 0;
                     }
-                }
-            });
+                });
 
 
             return sub;

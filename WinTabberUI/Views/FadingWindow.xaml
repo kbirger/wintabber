@@ -10,6 +10,7 @@
         AllowsTransparency="True"
         WindowStyle="None"
         SizeToContent="Manual"
+        Topmost="True"
         Background="Transparent"
         Height="450" Width="800">
 
@@ -17,31 +18,8 @@
         <ScaleTransform x:Key="ScaleTransform" ScaleX="1" ScaleY="1" />
         <Storyboard x:Key="FadeOut" Completed="FadeOutStoryboard_Completed">
             <DoubleAnimation 
-                FillBehavior="Stop"
-                Storyboard.TargetProperty="Opacity" 
-                Storyboard.Target="{Binding Path=., ElementName=Root}"
-                From="1.0" 
-                To="0.0" 
-                Duration="{Binding Path=AnimationDuration, ElementName=Root}">
-                <DoubleAnimation.EasingFunction>
-                    <SineEase EasingMode="EaseInOut"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-            <DoubleAnimation 
-                Storyboard.TargetProperty="Width" 
-                FillBehavior="Stop"
-                
-                Storyboard.Target="{Binding Path=., ElementName=Root}" 
-                From="{Binding Path=AnimationStartWidth, ElementName=Root}"
-                To="{Binding Path=AnimationEndWidth, ElementName=Root}"
-                Duration="{Binding Path=AnimationDuration, ElementName=Root}">
-                <DoubleAnimation.EasingFunction>
-                    <SineEase EasingMode="EaseInOut"/>
-                </DoubleAnimation.EasingFunction>
-            </DoubleAnimation>
-
-            <DoubleAnimation 
                 Storyboard.TargetProperty="Height" 
+                FillBehavior="Stop"
                 
                 Storyboard.Target="{Binding Path=., ElementName=Root}" 
                 From="{Binding Path=AnimationStartHeight, ElementName=Root}"
@@ -51,13 +29,60 @@
                     <SineEase EasingMode="EaseInOut"/>
                 </DoubleAnimation.EasingFunction>
             </DoubleAnimation>
+            <DoubleAnimation 
+                FillBehavior="Stop"
+                Storyboard.TargetProperty="Opacity" 
+                Storyboard.Target="{Binding Path=., ElementName=Root}"
+                From="{Binding Path=OpacityStart, ElementName=Root}"
+                To="{Binding Path=OpacityEnd, ElementName=Root}"
+                Duration="{Binding Path=AnimationDuration, ElementName=Root}">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+            <!--<DoubleAnimation 
+                Storyboard.TargetProperty="Width" 
+                FillBehavior="Stop"
+                
+                Storyboard.Target="{Binding Path=., ElementName=Root}" 
+                From="{Binding Path=AnimationStartWidth, ElementName=Root}"
+                To="{Binding Path=AnimationEndWidth, ElementName=Root}"
+                Duration="{Binding Path=AnimationDuration, ElementName=Root}">
+              
+            </DoubleAnimation>-->
+
+
+
+            <DoubleAnimation 
+                Storyboard.TargetProperty="Left" 
+                FillBehavior="Stop"
+                Storyboard.Target="{Binding Path=., ElementName=Root}" 
+                From="{Binding Path=AnimationLeftStart, ElementName=Root}"
+                To="{Binding Path=AnimationLeftEnd, ElementName=Root}"
+                Duration="{Binding Path=AnimationDuration, ElementName=Root}">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
+
+            <DoubleAnimation 
+                Storyboard.TargetProperty="Top" 
+                FillBehavior="Stop"
+                Storyboard.Target="{Binding Path=., ElementName=Root}" 
+                From="{Binding Path=AnimationTopStart, ElementName=Root}"
+                To="{Binding Path=AnimationTopEnd, ElementName=Root}"
+                Duration="{Binding Path=AnimationDuration, ElementName=Root}">
+                <DoubleAnimation.EasingFunction>
+                    <SineEase EasingMode="EaseInOut"/>
+                </DoubleAnimation.EasingFunction>
+            </DoubleAnimation>
 
         </Storyboard>
     </Window.Resources>
-    <chrome:AcrylicChrome.AcrylicChrome>
+    <!--<chrome:AcrylicChrome.AcrylicChrome>
         <chrome:AcrylicChrome AccentState="ACCENT_ENABLE_BLURBEHIND" CornerPreference="DWMWCP_ROUND" UnderStratumColor="#55ff0000" />
-    </chrome:AcrylicChrome.AcrylicChrome>
-    <Viewbox x:Name="IMG">
+    </chrome:AcrylicChrome.AcrylicChrome>-->
+    <Viewbox x:Name="IMG" HorizontalAlignment="Stretch" Stretch="Fill" >
         <Image Source="{Binding}">
 
         </Image>
