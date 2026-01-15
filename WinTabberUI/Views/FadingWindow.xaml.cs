@@ -124,17 +124,73 @@ public partial class FadingWindow : Window
     {
         get => (double)GetValue(AnimationEndHeightProperty);
         set => SetValue(AnimationEndHeightProperty, value);
-    }   
+    }
+
+
+    public static DependencyProperty AnimationLeftStartProperty = DependencyProperty.Register(
+            nameof(AnimationLeftStart),
+            typeof(double),
+            typeof(FadingWindow),
+            new PropertyMetadata(0.0));
+
+    public double AnimationLeftStart
+    {
+        get => (double)GetValue(AnimationLeftStartProperty);
+        set => SetValue(AnimationLeftStartProperty, value);
+    }
+
+    public static DependencyProperty AnimationLeftEndProperty = DependencyProperty.Register(
+            nameof(AnimationLeftEnd),
+            typeof(double),
+            typeof(FadingWindow),
+            new PropertyMetadata(0.0));
+
+    public double AnimationLeftEnd
+    {
+        get => (double)GetValue(AnimationLeftEndProperty);
+        set => SetValue(AnimationLeftEndProperty, value);
+    }
+
+
+    public static DependencyProperty AnimationTopStartProperty = DependencyProperty.Register(
+        nameof(AnimationTopStart),
+        typeof(double),
+        typeof(FadingWindow),
+        new PropertyMetadata(0.0));
+
+    public double AnimationTopStart
+    {
+        get => (double)GetValue(AnimationTopStartProperty);
+        set => SetValue(AnimationTopStartProperty, value);
+    }
+
+    public static DependencyProperty AnimationTopEndProperty = DependencyProperty.Register(
+            nameof(AnimationTopEnd),
+            typeof(double),
+            typeof(FadingWindow),
+            new PropertyMetadata(0.0));
+
+    public double AnimationTopEnd
+    {
+        get => (double)GetValue(AnimationTopEndProperty);
+        set => SetValue(AnimationTopEndProperty, value);
+    }
 
     private Action? OnAnimationEnd { get; set; }
 
     public void FadeOut()
     {
+        double scaleFactor = .3;
         AnimationStartHeight = ActualHeight;
+        AnimationEndHeight = ActualHeight * scaleFactor;
+        AnimationTopStart = Top;
+        AnimationTopEnd = Top + AnimationStartHeight / 2 / 2;
+
         AnimationStartWidth = ActualWidth;
-        AnimationEndHeight = ActualHeight * .8;
-        AnimationEndWidth = ActualWidth *.8;
-        AnimationDuration = TimeSpan.FromMilliseconds(100);
+        AnimationEndWidth = ActualWidth * scaleFactor;
+        AnimationLeftStart = Left;
+        AnimationLeftEnd = Left;
+        AnimationDuration = TimeSpan.FromMilliseconds(150);
         OpacityStart = 1.0;
         OpacityEnd = 0.0;
         OnAnimationEnd = Close;
@@ -147,20 +203,28 @@ public partial class FadingWindow : Window
     public void FadeIn(Window target)
     {
         Show();
+        Topmost = true;
+        double scaleFactor = .3;
+        AnimationStartHeight = ActualHeight * scaleFactor;
+        AnimationEndHeight = ActualHeight;
+        AnimationTopStart = Top + AnimationStartHeight / 2 / 2;
+        AnimationTopEnd = Top;
+
+        AnimationStartWidth = ActualWidth * scaleFactor;
+        AnimationEndWidth = ActualWidth;
+        AnimationLeftStart = Left;
+        AnimationLeftEnd = Left;
 
         //var hwndSource = (HwndSource)PresentationSource.FromVisual(target);
         //CloakHelper.Cloak(hwndSource.Handle);
-        AnimationStartHeight = ActualHeight * .2;
-        AnimationStartWidth = ActualWidth * .8;
-        AnimationEndHeight = ActualHeight;
-        AnimationEndWidth = ActualWidth;
-        AnimationDuration = TimeSpan.FromMilliseconds(1000);
+        AnimationDuration = TimeSpan.FromMilliseconds(150);
         OpacityStart = 0.0;
-        OpacityEnd = 1.0;
+        OpacityEnd = 1;
         OnAnimationEnd = () =>
         {
             Close();
             target.Show();
+            //target.Left = xMid;
         };
 
         ;
@@ -168,6 +232,11 @@ public partial class FadingWindow : Window
         {
             sb.Begin();
         }
+    }
+
+    private static double Midpoint(double start, double stop)
+    {
+        return start + ((stop - start) / 2);
     }
 
     private void FadeOutStoryboard_Completed(object sender, EventArgs e)

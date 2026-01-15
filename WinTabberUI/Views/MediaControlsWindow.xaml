@@ -26,7 +26,7 @@
         WindowStartupLocation="CenterScreen"
         Padding="20"
         Width="700"
-        MinHeight="180"
+        MinHeight="221"
         d:DataContext="{d:DesignInstance vm:MediaControlsViewModel}"
         IsHitTestVisible="True"
         Title="MediaControlsWindow">

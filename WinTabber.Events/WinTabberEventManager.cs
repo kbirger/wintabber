@@ -1,6 +1,8 @@
 ﻿using GlobalHotKeys;
 using GlobalHotKeys.Native.Types;
 using Gma.System.MouseKeyHook;
+using SharpHook;
+using SharpHook.Data;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
@@ -64,10 +66,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
         WindowChange = CreateWindowChangeObservable(scheduler);
         ApplicationChange = CreateApplicaionChangeObservable(scheduler);
 
-        CommandEvents.Subscribe(X =>
-        {
-            Debug.WriteLine(X);
-        });
+        
         return this;
     }
 
@@ -106,7 +105,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
                 return Observable.Defer(() =>
                     _inputListener.GetEvents(new()
                     {
-                        KeyChords = []
+                        //KeyChords = []
                     })).Publish().RefCount() ;
             })
             .Switch()
@@ -166,43 +165,42 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
         //var keyHook = Hook.GlobalEvents();
 
         //_resources.Add(keyHook);
-        var hyperkey = new HyperKeyState(Keys.CapsLock, Observable.Merge(
-            events.KeyDownEvents.Select(e => HyperKeyState.FromEvent(e, true)),
-            events.KeyUpEvents.Select(e => HyperKeyState.FromEvent(e, false))
-        ), _interop);
+        var hyperkey = new HyperKeyState(KeyCode.VcCapsLock,
+            events.KeyDownEvents,
+            events.KeyUpEvents, _interop);
 
         var capsHook = hyperkey.Connect().Subscribe();
-            //.Select(action =>
-            //{
-            //    Debug.WriteLine(action);
-            //    if (action == HyperKeyState.HyperKeyAction.Tap)
-            //    {
-            //        ToggleCapsLock();
-            //    }
-            //    else if (action == HyperKeyState.HyperKeyAction.ChordStart)
-            //    {
-            //        //SendModifiers(true);
-            //    }
-            //    else if (action == HyperKeyState.HyperKeyAction.ChordEnd)
-            //    {
-            //        //SendModifiers(false);
-            //    }
+        //.Select(action =>
+        //{
+        //    Debug.WriteLine(action);
+        //    if (action == HyperKeyState.HyperKeyAction.Tap)
+        //    {
+        //        ToggleCapsLock();
+        //    }
+        //    else if (action == HyperKeyState.HyperKeyAction.ChordStart)
+        //    {
+        //        //SendModifiers(true);
+        //    }
+        //    else if (action == HyperKeyState.HyperKeyAction.ChordEnd)
+        //    {
+        //        //SendModifiers(false);
+        //    }
 
-            //    return WinTabberEvent.None;
-            //});
+        //    return WinTabberEvent.None;
+        //});
 
 
 
         var hooks = Observable.Merge(
             ObserveKeyCommands(events.KeyUpEvents),
             ObserveMouseHook(events.MouseChords),
-            ObserveKeyChords(events.KeyChordEvents)
+            ObserveKeyChords(events.KeyDownEvents)
         )
         .Where(evt => WinTabberEvent.None != evt)
         //.SubscribeOn(scheduler)
         .Publish()
-        .RefCount();
 
+        .RefCount();
         return hooks;
     }
 
@@ -220,12 +218,16 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
         //_interop.SendInput((ushort)Keys.CapsLock, false);
     }
 
-    private IObservable<WinTabberEvent> ObserveKeyChords(IObservable<Combination> chords)
+    private IObservable<WinTabberEvent> ObserveKeyChords(IObservable<KeyboardHookEventArgs> chords)
     {
-        var dockChord = Combination.TriggeredBy(Keys.Left).With(Keys.LWin).With(Keys.Control);
+        //var dockChord = Combination.TriggeredBy(Keys.Left).With(Keys.LWin).With(Keys.Control);
 
         return chords
-            .Where(dockChord.Equals)
+            .Where(e => 
+                !e.IsEventSimulated 
+                && e.RawEvent.Mask.HasFlag(EventMask.LeftMeta) 
+                && e.RawEvent.Mask.HasFlag(EventMask.LeftCtrl) 
+                && e.RawEvent.Keyboard.KeyCode == KeyCode.VcLeft)
             .Select(_ => new WinTabberEvent(EventType.CmdDockWindow));        
     }
 
@@ -259,11 +261,25 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
         _subject.OnNext(evt);
     }
 
-    private IObservable<WinTabberEvent> ObserveMouseHook(IObservable<MouseShortcut> shortcutEvents)
+    private static MouseButtons MouseButton(SharpHook.Data.MouseButton button)
     {
-        return shortcutEvents
-            .Select(pressed =>
+        return button switch
+        {
+            SharpHook.Data.MouseButton.Button1 => MouseButtons.Left,
+            SharpHook.Data.MouseButton.Button2 => MouseButtons.Right,
+            SharpHook.Data.MouseButton.Button4 => MouseButtons.XButton1,
+            SharpHook.Data.MouseButton.Button5 => MouseButtons.XButton2,
+            _ => MouseButtons.None  // temporary. should switch to the new interface
+        };
+    }
+    private IObservable<WinTabberEvent> ObserveMouseHook(IObservable<MouseHookEventArgs> mouseDownEvents)
+    {
+        return mouseDownEvents
+            .Select(e =>
             {
+                var (ctrl, alt, shift, win) = GetMods(e.RawEvent);
+                var pressed = new MouseShortcut(MouseButton(e.RawEvent.Mouse.Button), alt, ctrl, shift, win);
+
                 if (pressed.Equals(_hkMinPlain) || pressed.Equals(_hkMin))
                 {
                     return EventType.CmdMinimizeWindow;
@@ -277,9 +293,20 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
             });
     }
 
-    private static IObservable<WinTabberEvent> ObserveKeyCommands(IObservable<System.Windows.Forms.KeyEventArgs> keyDownEvents)
+    private (bool ctrl, bool alt, bool shift, bool win) GetMods(UioHookEvent e)
     {
-        return keyDownEvents.Where(e => e.KeyCode == Keys.LMenu)
+        var flags = e.Mask;
+        return (
+            e.Mask.HasFlag(EventMask.LeftCtrl),
+            e.Mask.HasFlag(EventMask.LeftAlt),
+            e.Mask.HasFlag(EventMask.LeftShift),
+            e.Mask.HasFlag(EventMask.LeftMeta)
+        );
+    }
+
+    private static IObservable<WinTabberEvent> ObserveKeyCommands(IObservable<KeyboardHookEventArgs> keyDownEvents)
+    {
+        return keyDownEvents.Where(e => !e.IsEventSimulated && e.RawEvent.Keyboard.KeyCode == KeyCode.VcLeftAlt)
             .Select(_ => new WinTabberEvent(EventType.CmdAppHide));
     }
 
