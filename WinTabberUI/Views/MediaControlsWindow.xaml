@@ -16,7 +16,7 @@
         xmlns:reactiveui="http://reactiveui.net"
         mc:Ignorable="d"
         AllowsTransparency="True"
-        Background="#60000000"
+        Background="#30000000"
         WindowStyle="None"
         SizeToContent="Height"
         Topmost="true"

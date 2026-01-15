@@ -14,6 +14,9 @@
     <Compile Update="Views\EditableTextBlock.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
+    <Compile Update="Views\FadingWindow.xaml.cs">
+      <SubType>Code</SubType>
+    </Compile>
     <Compile Update="Views\GeneralSettingsPage.xaml.cs">
       <SubType>Code</SubType>
     </Compile>

@@ -8,5 +8,7 @@ public interface IWinTabberEventManager : IDisposable
     IObservable<WinTabberEvent> CommandEvents { get; }
     IObservable<WinTabberEvent<int>> WindowChange { get; }
 
+    void Pause();
+    void Start();
     void SendEvent(WinTabberEvent evt);
 }

@@ -1,8 +1,4 @@
 ﻿using Microsoft.Win32.SafeHandles;
-
-using Windows.Win32.Security;
-
-using Windows.Win32.System.Threading;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -15,10 +11,14 @@ using System.Reactive.Subjects;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Forms;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Dwm;
+using Windows.Win32.Security;
+using Windows.Win32.System.Threading;
 using Windows.Win32.UI.Accessibility;
+using Windows.Win32.UI.Input.KeyboardAndMouse;
 using Windows.Win32.UI.WindowsAndMessaging;
 using static WinTabber.Interop.InteropProxy;
 using static WinTabber.Interop.WindowPlacement;
@@ -526,6 +526,36 @@ public class InteropProxy : IInteropProxy
                 IntPtr.Zero,
                 PInvoke.LivePreviewTrigger.AltTab,
                 IntPtr.Zero);
+    }
+
+
+    public void SendInput(ushort key, bool down)
+    {
+        PInvoke.keybd_event((byte)key, 0, down ? 0 : KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP, 0);
+    }
+
+    public void SendInput2(ushort key, bool down)
+    {
+        INPUT input = new INPUT
+        {
+            type = INPUT_TYPE.INPUT_KEYBOARD,
+            Anonymous =
+            {
+               ki = new KEYBDINPUT
+               {
+                   dwFlags = down switch
+                   {
+                       true => 0,
+                       false => KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP
+                   },
+                   wVk = (VIRTUAL_KEY)key,
+                   dwExtraInfo = (nuint)PInvoke.GetMessageExtraInfo().Value,
+
+               }
+            }
+        };
+        Span<INPUT> inputs = new(ref input);
+        var ret = PInvoke.SendInput(inputs, Marshal.SizeOf(typeof(INPUT)));
     }
 
 }

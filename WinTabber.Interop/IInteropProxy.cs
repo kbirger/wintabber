@@ -41,4 +41,5 @@ public interface IInteropProxy
     WindowStyles GetWindowStyles(int handle);
     bool IsWindowVisible(int handle);
     bool IsProcessElevated(Process process);
+    void SendInput(ushort key, bool down);
 }

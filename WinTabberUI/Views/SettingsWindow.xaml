@@ -6,7 +6,7 @@
         xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
         xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
         xmlns:settingsvm="clr-namespace:WinTabberUI.ViewModels.Settings"
-                ui:WindowHelper.UseModernWindowStyle="True"
+        ui:WindowHelper.UseModernWindowStyle="True"
         ui:WindowHelper.CornerStyle="Round"
         xmlns:rxui="http://reactiveui.net"                      
         xmlns:local="clr-namespace:WinTabberUI.Views"

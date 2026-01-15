@@ -20,11 +20,29 @@ public partial class NotifyIconViewModel : ReactiveObject
         ExitApplicationCommand = ReactiveCommand.Create(ExitApplication);
         ShowSettingsCommand = ReactiveCommand.Create(ShowSettings(eventManager));
         ShowWindowCommand = ReactiveCommand.Create(ShowSelector(eventManager));
+        PauseHooksCommand = ReactiveCommand.Create(() =>
+        {
+
+            if (eventManager.IsRunning)
+            {
+                eventManager.Pause();
+            }
+            else
+            {
+                eventManager.Start();
+            }
+        });
+
+        _areHooksActive = eventManager.WhenAnyValue(em => em.IsRunning)
+            .ToProperty(this, vm => vm.AreHooksPaused);
     }
 
+    private ObservableAsPropertyHelper<bool> _areHooksActive;
+    public bool AreHooksPaused => !_areHooksActive.Value;
     public ReactiveCommand<Unit, Unit> ShowSettingsCommand { get; }
     public ReactiveCommand<Unit, Unit> ExitApplicationCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowWindowCommand { get; }
+    public ReactiveCommand<Unit, Unit> PauseHooksCommand { get; }
 
     public Action ShowSettings(WinTabberEventManager eventManager)
     {
