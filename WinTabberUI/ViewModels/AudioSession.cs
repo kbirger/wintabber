@@ -63,6 +63,10 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
         {
             try
             {
+                if(process.ProcessName == "svchost")
+                {
+                    continue;
+                }
                 var processPath = process.MainModule?.FileName;
                 if (processPath is not null)
                 {

@@ -55,6 +55,7 @@ public static class Bootstrapper
     private static IServiceCollection AddDomainModels(this IServiceCollection services)
     {
         return services
+            .AddSingleton<InputListenerService>()
             .AddSingleton<WinTabberEventManager>()
             .AddSingleton<ApplicationState>()
             .AddSingleton<IInteropProxy, InteropProxy>()

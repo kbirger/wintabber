@@ -141,8 +141,15 @@ public sealed class AcrylicChrome : WindowChrome
         //if (ch.OwnerWindow == null) return;
         if (ch.HWndSource == null) return;
 
-        var colorValue = ColorFrom.Object(e.NewValue);
-        ch.gbrColor = colorValue.ToABGRhex();
+        if(e.NewValue is Color colorValue)
+        {
+        }
+        else
+        {
+            colorValue = ColorFrom.Object(e.NewValue);
+
+        }
+            ch.gbrColor = colorValue.ToABGRhex();
 
 
         if (ch.DependencyOpacity != colorValue.A)
@@ -202,7 +209,12 @@ public sealed class AcrylicChrome : WindowChrome
         if (!(d is AcrylicChrome ch)) throw new ArgumentException();
 
         var opacity = (byte)e.NewValue;
-        var color = ColorFrom.Object(ch.UnderStratumColor);
+        if(ch.UnderStratumColor is not Color color)
+        {
+            color = ColorFrom.Object(ch.UnderStratumColor);
+
+        }
+
 
         if (color.A == opacity) return;
 

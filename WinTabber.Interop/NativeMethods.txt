@@ -52,3 +52,7 @@ CreateToolhelp32Snapshot
 Process32First
 Process32Next
 TH32CS_SNAPPROCESS
+
+SendInput
+GetMessageExtraInfo
+keybd_event

@@ -1,28 +1,35 @@
 ﻿using GlobalHotKeys;
 using GlobalHotKeys.Native.Types;
 using Gma.System.MouseKeyHook;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
+using System.Reactive;
 using System.Reactive.Concurrency;
+using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Windows.Forms;
 using System.Windows.Input;
 using System.Windows.Threading;
 using WinTabber.Interop;
+using static WinTabber.Events.InputListenerService;
 
 namespace WinTabber.Events;
 
-public class WinTabberEventManager : IDisposable, IWinTabberEventManager
+public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotifyPropertyChanged
 {
     private IInteropProxy _interop;
-    public WinTabberEventManager(IInteropProxy interop)
+    private readonly InputListenerService _inputListener;
+
+    public WinTabberEventManager(IInteropProxy interop, InputListenerService inputListener)
     {
         _interop = interop;
+        _inputListener = inputListener;
         Init();
     }
 
-    public record MouseShortcut(MouseButtons mouseButton, bool alt, bool ctrl, bool shift, bool windows);
+    public record struct MouseShortcut(MouseButtons mouseButton, bool alt, bool ctrl, bool shift, bool windows);
     private List<IDisposable> _resources = new();
     private IRegistration? _hkNextWindow;
     private IRegistration? _hkPrevWindow;
@@ -35,16 +42,87 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
     private readonly Subject<WinTabberEvent> _subject = new Subject<WinTabberEvent>();
     private Dictionary<int, EventType> _mappings = new Dictionary<int, EventType>();
 
+    private BehaviorSubject<bool> _stopListening = new BehaviorSubject<bool>(true);
+
     [MemberNotNull(nameof(CommandEvents), nameof(ApplicationChange), nameof(WindowChange))]
     internal WinTabberEventManager Init()
     {
+
+        _interop.SendInput((ushort)Keys.CapsLock, true);
+
         var scheduler = GetScheduler();
-        CommandEvents = CreateCommandEventsObservable(scheduler);
+        var connection = GetConnection();
+        var hooks = connection.SelectMany(events =>
+        {
+            return CreateHookEvents(scheduler, events);
+        });
+        
+     
+        //var hooks = connection.SelectMany(events => CreateHookEvents(scheduler, events));
+        var hks = CreateHotKeyEventsObservable(scheduler);
+        CommandEvents = Observable.Merge(hks, _subject, hooks).Publish().RefCount();
         WindowChange = CreateWindowChangeObservable(scheduler);
         ApplicationChange = CreateApplicaionChangeObservable(scheduler);
+
+        CommandEvents.Subscribe(X =>
+        {
+            Debug.WriteLine(X);
+        });
         return this;
     }
 
+    public bool IsRunning
+    {
+        get => _hooksConnection != null;
+        private set
+        {
+            if (value != IsRunning)
+            {
+                if (value)
+                {
+                    Start();
+                }
+                else
+                {
+                    Pause();
+                }
+                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRunning)));
+            }
+        }
+    }
+
+    private IObservable<InputListenerEvents> GetConnection()
+    {
+        //var scheduler = GetScheduler();
+
+        return _stopListening
+            .Select(state =>
+            {
+                if (!state)
+                {
+                    return Observable.Empty<InputListenerEvents>();
+                }
+
+                return Observable.Defer(() =>
+                    _inputListener.GetEvents(new()
+                    {
+                        KeyChords = []
+                    })).Publish().RefCount() ;
+            })
+            .Switch()
+            .Replay(1)
+            .RefCount();       
+    }
+
+    public void Pause()
+    {
+        _stopListening.OnNext(false);        
+    }
+
+    public void Start()
+    {
+        _stopListening.OnNext(true);
+    }
     private IObservable<WinTabberEvent<string>> CreateApplicaionChangeObservable(EventLoopScheduler scheduler)
     {
         return ObserveActiveApplicationChange()
@@ -57,15 +135,13 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
             .SubscribeOn(scheduler);
     }
 
-    private IObservable<WinTabberEvent> CreateCommandEventsObservable(EventLoopScheduler scheduler)
-    {
-        var hotKeyManager = new HotKeyManager();
-        _hkNextWindow = hotKeyManager.Register(VirtualKeyCode.VK_OEM_3, Modifiers.Alt);
-        _hkPrevWindow = hotKeyManager.Register(VirtualKeyCode.VK_OEM_3, Modifiers.Alt | Modifiers.Shift);
-        _hkMediaWindow = hotKeyManager.Register(VirtualKeyCode.KEY_G, Modifiers.Alt | Modifiers.Control);
 
-        //var _hkDockWindow = hotKeyManager.Register(Modifiers.Alt | Modifiers.Control, VirtualKeyCode.VK_LEFT);
-        var keyHook = Hook.GlobalEvents();
+    private IObservable<WinTabberEvent> CreateHotKeyEventsObservable(EventLoopScheduler scheduler)
+    {
+        _hotKeyManager ??= new HotKeyManager();
+        _hkNextWindow ??= _hotKeyManager.Register(VirtualKeyCode.VK_OEM_3, Modifiers.Alt);
+        _hkPrevWindow ??= _hotKeyManager.Register(VirtualKeyCode.VK_OEM_3, Modifiers.Alt | Modifiers.Shift);
+        _hkMediaWindow ??= _hotKeyManager.Register(VirtualKeyCode.KEY_G, Modifiers.Alt | Modifiers.Control);
         //var otherKeys = new KeyChordEventSource(keyHook, new ChordClick(KeyCode.LWin, KeyCode.LControl, KeyCode.Left));
         _mappings = new()
         {
@@ -75,37 +151,82 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
             {_hkMediaWindow.Id, EventType.CmdMediaWindow },
         };
         // var mouseHook = WindowsInput.Capture.Global.MouseAsync();
-        _resources.Add(hotKeyManager);
+        _resources.Add(_hotKeyManager);
         _resources.Add(_hkNextWindow);
         _resources.Add(_hkPrevWindow);
         //_resources.Add(dockWindowReg);
         _resources.Add(_hkMediaWindow);
-        _resources.Add(keyHook);
 
-        return Observable.Merge(
-            _subject,
-            ObserveHotkeys(hotKeyManager),
-            ObserveKeyHook(keyHook),
-            ObserveMouseHook(keyHook),
-            ObserveKeyChords(keyHook)
+        return ObserveHotkeys(_hotKeyManager).SubscribeOn(scheduler);
+    }
+    private IObservable<WinTabberEvent> CreateHookEvents(EventLoopScheduler scheduler, InputListenerEvents events)
+    {
+
+        //var _hkDockWindow = _hotKeyManager.Register(Modifiers.Alt | Modifiers.Control, VirtualKeyCode.VK_LEFT);
+        //var keyHook = Hook.GlobalEvents();
+
+        //_resources.Add(keyHook);
+        var hyperkey = new HyperKeyState(Keys.CapsLock, Observable.Merge(
+            events.KeyDownEvents.Select(e => HyperKeyState.FromEvent(e, true)),
+            events.KeyUpEvents.Select(e => HyperKeyState.FromEvent(e, false))
+        ), _interop);
+
+        var capsHook = hyperkey.Connect().Subscribe();
+            //.Select(action =>
+            //{
+            //    Debug.WriteLine(action);
+            //    if (action == HyperKeyState.HyperKeyAction.Tap)
+            //    {
+            //        ToggleCapsLock();
+            //    }
+            //    else if (action == HyperKeyState.HyperKeyAction.ChordStart)
+            //    {
+            //        //SendModifiers(true);
+            //    }
+            //    else if (action == HyperKeyState.HyperKeyAction.ChordEnd)
+            //    {
+            //        //SendModifiers(false);
+            //    }
+
+            //    return WinTabberEvent.None;
+            //});
+
+
+
+        var hooks = Observable.Merge(
+            ObserveKeyCommands(events.KeyUpEvents),
+            ObserveMouseHook(events.MouseChords),
+            ObserveKeyChords(events.KeyChordEvents)
         )
+        .Where(evt => WinTabberEvent.None != evt)
+        //.SubscribeOn(scheduler)
         .Publish()
-        .RefCount()
-        .SubscribeOn(scheduler);
+        .RefCount();
+
+        return hooks;
     }
 
-    private IObservable<WinTabberEvent> ObserveKeyChords(IKeyboardMouseEvents keyHook)
+    private void SendModifiers(bool down)
     {
-        return Observable.Create<WinTabberEvent>((observer) =>
-        {
+        _interop.SendInput((ushort)Keys.ControlKey, down);
+        _interop.SendInput((ushort)Keys.ShiftKey, down);
+        _interop.SendInput((ushort)Keys.Menu, down);     // Alt
+        _interop.SendInput((ushort)Keys.LWin, down);     // Win
+    }
 
-            keyHook.OnCombination(
-            [
-             new (Combination.TriggeredBy(Keys.Left).With(Keys.LWin).With(Keys.Control), () => { observer.OnNext(new WinTabberEvent(EventType.CmdDockWindow)); })
-            ]);
+    private void ToggleCapsLock()
+    {
+        //_interop.SendInput((ushort)Keys.CapsLock, true);
+        //_interop.SendInput((ushort)Keys.CapsLock, false);
+    }
 
-            return () => observer.OnCompleted();
-        });
+    private IObservable<WinTabberEvent> ObserveKeyChords(IObservable<Combination> chords)
+    {
+        var dockChord = Combination.TriggeredBy(Keys.Left).With(Keys.LWin).With(Keys.Control);
+
+        return chords
+            .Where(dockChord.Equals)
+            .Select(_ => new WinTabberEvent(EventType.CmdDockWindow));        
     }
 
 
@@ -120,7 +241,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
 
     private IObservable<WinTabberEvent> ObserveHotkeys(HotKeyManager hotKeyManager)
     {
-        return hotKeyManager.HotKeyPressed.Select(MapHotKeyToEvent);
+        return _hotKeyManager.HotKeyPressed.Select(MapHotKeyToEvent);
     }
 
     private IObservable<WinTabberEvent<int>> ObserveActiveWindowChange()
@@ -138,52 +259,37 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager
         _subject.OnNext(evt);
     }
 
-    private IObservable<WinTabberEvent> ObserveMouseHook(IKeyboardMouseEvents keyHook)
+    private IObservable<WinTabberEvent> ObserveMouseHook(IObservable<MouseShortcut> shortcutEvents)
     {
-        return Observable.FromEvent<System.Windows.Forms.MouseEventHandler, WinTabberEvent>(handler =>
-        {
-            System.Windows.Forms.MouseEventHandler rawHandler = (sender, e) =>
+        return shortcutEvents
+            .Select(pressed =>
             {
-                var pressed = new MouseShortcut(e.Button,
-                    Keyboard.Modifiers.HasFlag(ModifierKeys.Alt),
-                    Keyboard.Modifiers.HasFlag(ModifierKeys.Control),
-                    Keyboard.Modifiers.HasFlag(ModifierKeys.Shift),
-                    Keyboard.Modifiers.HasFlag(ModifierKeys.Windows));
-
                 if (pressed.Equals(_hkMinPlain) || pressed.Equals(_hkMin))
                 {
-                    handler(EventType.CmdMinimizeWindow);
+                    return EventType.CmdMinimizeWindow;
                 }
                 else if (pressed.Equals(_hkMaxPlain) || pressed.Equals(_hkMax))
                 {
-                    handler(EventType.CmdMaximizeWindow);
-
+                    return EventType.CmdMaximizeWindow;
                 }
-            };
-            return rawHandler;
-        },
-        handler => keyHook.MouseDown += handler,
-        handler => keyHook.MouseDown -= handler);
+
+                return WinTabberEvent.None;
+            });
     }
 
-    private static IObservable<WinTabberEvent> ObserveKeyHook(IKeyboardMouseEvents keyHook)
+    private static IObservable<WinTabberEvent> ObserveKeyCommands(IObservable<System.Windows.Forms.KeyEventArgs> keyDownEvents)
     {
-        return Observable.FromEvent<System.Windows.Forms.KeyEventHandler, WinTabberEvent>(handler =>
-        {
-            System.Windows.Forms.KeyEventHandler rawHandler = (sender, e) =>
-            {
-                if (e.KeyCode == Keys.LMenu)
-                {
-                    handler(EventType.CmdAppHide);
-                }
-            };
-
-
-            return rawHandler;
-        },
-        handler => keyHook.KeyUp += handler,
-        handler => keyHook.KeyUp -= handler);
+        return keyDownEvents.Where(e => e.KeyCode == Keys.LMenu)
+            .Select(_ => new WinTabberEvent(EventType.CmdAppHide));
     }
+
+    
+
+    private IConnectableObservable<WinTabberEvent> _hooks;
+    private IDisposable? _hooksConnection;
+    private HotKeyManager _hotKeyManager;
+
+    public event PropertyChangedEventHandler? PropertyChanged;
 
     public IObservable<WinTabberEvent> CommandEvents { get; private set; }
     public IObservable<WinTabberEvent<int>> WindowChange { get; private set; }
