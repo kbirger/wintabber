@@ -1,6 +1,8 @@
 ﻿using DynamicData;
+using DynamicData.Binding;
 using NAudio.CoreAudioApi;
 using ReactiveUI;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Reactive;
 using System.Reactive.Disposables;
@@ -65,7 +67,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
 
     private IReadOnlyList<GlobalSystemMediaTransportControlsSession> _sessionModels;
-    private IReadOnlyList<SessionItem> _sessions;
+    private ReadOnlyObservableCollection<SessionItem> _sessions;
     private SessionItem _activeSession;
     private readonly InstalledApplicationService _applicationService;
     private readonly IMediaControlsStateService _mediaControlsStateService;
@@ -103,7 +105,6 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         _applicationService = applicationService;
         _mediaControlsStateService = mediaControlsStateService;
         _audioDeviceManager = audioDeviceManager;
-        Sessions = [];
         var scheduler = RxApp.MainThreadScheduler;
 
 
@@ -145,14 +146,18 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
             var observableManager = Observable.FromAsync(async () => await GlobalSystemMediaTransportControlsSessionManager.RequestAsync())
                 .Replay(1)
                 .RefCount();
+
             IObservable<IReadOnlyList<GlobalSystemMediaTransportControlsSession>> sessionsListUpdates = ObserveSessionsList(observableManager)
-                .Do(_ => Debug.WriteLine("Session list updated"))
+                .Do(_ => Debug.WriteLine($"Session list updated {_sessions.Count}"))
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .SubscribeOn(RxApp.MainThreadScheduler);
             // bind sessions list
 
-            BindSessionsList(sessionsListUpdates)
-                .DisposeWith(disposables);
+            var x = SessionChangesToCache(observableManager)
+            .Bind(out _sessions);
+
+            //BindSessionsList(sessionsListUpdates)
+            //    .DisposeWith(disposables);
 
             var currentSessionChanged = ObserveCurrentSession(observableManager);
 
@@ -294,12 +299,61 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                         }
                         return SessionItem.Create(session, app);
                     }).ToArray();
-                    Sessions = x;
+                    //Sessions = x;
                 },
                 ex =>
                 {
                     Debug.WriteLine($"Failed to get icon due to {ex.Message}");
                 });
+    }
+
+
+    private IObservable<IChangeSet<SessionItem, string>> SessionChangesToCache(IObservable<GlobalSystemMediaTransportControlsSessionManager> observableManager)
+    {
+        return ObservableChangeSet.Create<SessionItem, string>(
+            (cache) =>
+            {
+                return observableManager
+                    .Select(manager => Observable.FromEventPattern<SessionsChangedEventArgs>(manager, nameof(manager.SessionsChanged))
+                        .Select(_ => Unit.Default)
+                        .StartWith(Unit.Default)
+                        .Select(_ => manager.GetSessions()))
+                    .Replay(1)
+                    .RefCount()
+                    .Switch()
+                    .Subscribe(sessions =>
+                    {
+                        var x = sessions.Select(session =>
+                        {
+                            var appOption = _applicationService.ApplicationsByAumid.Lookup(session.SourceAppUserModelId);
+                            InstalledApplicationInfo app;
+                            if (!appOption.HasValue)
+                            {
+                                app = new InstalledApplicationInfo
+                                {
+                                    AppUserModelId = session.SourceAppUserModelId,
+                                    Name = session.SourceAppUserModelId,
+                                    PackageInstallPath = null,
+                                    TargetPath = null,
+                                    Icon = InstalledApplicationService.LoadingImage
+                                };
+                            }
+                            else
+                            {
+                                app = appOption.Value;
+                            }
+                            return SessionItem.Create(session, app);
+                        }).ToArray();
+
+                        cache.Edit((updater) =>
+                            {
+                                updater.Clear();
+                                updater.AddOrUpdate(x);
+                            });
+                    });
+            },
+            (session) => session.Id
+        );
     }
 
     private static IObservable<IReadOnlyList<GlobalSystemMediaTransportControlsSession>> ObserveSessionsList(IObservable<GlobalSystemMediaTransportControlsSessionManager> observableManager)
@@ -330,7 +384,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         set => this.RaiseAndSetIfChanged(ref _activeSession, value);
     }
 
-    public IReadOnlyList<SessionItem> Sessions
+    public ReadOnlyObservableCollection<SessionItem> Sessions
     {
         get => _sessions;
         set => this.RaiseAndSetIfChanged(ref _sessions, value);
