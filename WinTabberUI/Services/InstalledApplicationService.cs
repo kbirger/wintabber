@@ -5,6 +5,7 @@ using MS.WindowsAPICodePack.Internal;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.IO;
@@ -118,6 +119,7 @@ public class InstalledApplicationService : IDisposable
 
     private static IEnumerable<InstalledApplicationInfo> GetInstalledApplicationsBlocking()
     {
+        Stopwatch sw = Stopwatch.StartNew();
         using var folder = GetAppImageFolder();
         foreach (var item in folder)
         {
@@ -129,6 +131,8 @@ public class InstalledApplicationService : IDisposable
                 }
             }
         }
+        sw.Stop();
+        Debug.WriteLine($"Loaded installed applications in {sw.ElapsedMilliseconds} ms on thread {Thread.CurrentThread.ManagedThreadId}");
     }
 
     private static bool IsValid([NotNullWhen(true)] ShellObject? shellObject)
@@ -282,8 +286,8 @@ public class InstalledApplicationService : IDisposable
         return Observable.Start(() =>
         {
 
-            var uri = new Uri("pack://application:,,,/WinTabberUI;component/Images/loading.png");
-            var src = new BitmapImage(uri);
+            //var uri = new Uri("pack://application:,,,/WinTabberUI;component/Images/loading.png");
+            var src = new BitmapImage();
             src.Freeze();
 
             return src;

@@ -102,13 +102,13 @@ public class DeviceSessionWatcher
 
     private void CreateSession(SourceCache<AudioSession, string> sessions, AudioSessionControl session)
     {
-        if (!session.IsSystemSoundsSession)
+        if (!session.IsSystemSoundsSession && session.State != AudioSessionState.AudioSessionStateExpired)
         {
 
             var viewModel = AudioSession.Create(_installedApplicationsByPath, session);
             if (viewModel is not null)
             {
-                Debug.WriteLine($"Session: {viewModel.DisplayName}; {viewModel.AumId};");
+                //Debug.WriteLine($"DeviceSessionWatcher - Session: {viewModel.DisplayName}; {viewModel.AumId};");
                 sessions.AddOrUpdate(viewModel);
             }
         }

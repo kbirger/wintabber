@@ -32,8 +32,8 @@ public class BackgroundServiceContainer : IDisposable
             ioc.GetRequiredService<WindowHistoryUpdater>().Init(),
             ioc.GetRequiredService<WindowCommandCoordinator>(),
             ioc.GetRequiredService<WinTabberEventManager>(),
-            ioc.GetRequiredService<NotifyIconCoordinator>(),
-            ioc.GetRequiredService<IAudioDeviceManager>().Init()
+            ioc.GetRequiredService<NotifyIconCoordinator>()
+            //ioc.GetRequiredService<IAudioDeviceManager>().Init()
         );
 
 

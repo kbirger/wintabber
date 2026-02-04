@@ -3,8 +3,10 @@ using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
 using ReactiveUI;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Diagnostics.CodeAnalysis;
 using System.Linq;
 using System.Management;
 using System.Reactive;
@@ -15,6 +17,10 @@ using System.Reactive.Subjects;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using Windows.Wdk.System.Threading;
+using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.System.Threading;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Services;
 
@@ -51,10 +57,16 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
     private readonly Subject<Unit> _disposed = new Subject<Unit>();
     public IObservable<Unit> OnDisposed => _disposed;
 
+    private static ConcurrentDictionary<string, string> memoized = new();
 
     public static AudioSession? Create(IObservableCache<InstalledApplicationInfo, string> installedApplicationsByPath, AudioSessionControl nativeSession)
     {
-        var process = Process.GetProcessById(Convert.ToInt32(nativeSession.GetProcessID));
+        Stopwatch sw = Stopwatch.StartNew();
+
+        var sessionProcess = Process.GetProcessById(Convert.ToInt32(nativeSession.GetProcessID));
+        var process = sessionProcess;
+        var processName = process.ProcessName;
+
 
         string? aumid = null;
 
@@ -63,19 +75,24 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
         {
             try
             {
-                if(process.ProcessName == "svchost")
+                if (process.ProcessName == "svchost" || process.ProcessName == "explorer")
                 {
-                    continue;
+                    break;
                 }
-                var processPath = process.MainModule?.FileName;
-                if (processPath is not null)
+
+                Stopwatch sw2 = Stopwatch.StartNew();
+
+                if (TryGetProcessExecutablePath(process, out var processPath))
                 {
                     var appOption = installedApplicationsByPath.Lookup(processPath);
-                    if(appOption.HasValue)
+                    if (appOption.HasValue)
                     {
                         aumid = appOption.Value.AppUserModelId;
                     }
                 }
+
+                sw2.Stop();
+                //Debug.WriteLine($"Fetching process exe path took {sw.ElapsedMilliseconds}ms");
 
                 // If not found, keep going
                 if (aumid is null)
@@ -85,9 +102,12 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
             }
             catch
             {
+                break;
                 // process is not accessible
             }
         }
+        sw.Stop();
+        //Debug.WriteLine($"Got aumid '{aumid}' for session {nativeSession.DisplayName} - ({processName} - {sessionProcess.Id}) in {sw.ElapsedMilliseconds}ms");
 
         if (aumid is null)
         {
@@ -102,8 +122,40 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
 
         return null;
     }
-    private static Process? GetParentProcess(Process process)
+
+    private static bool TryGetProcessExecutablePath(Process process, [MaybeNullWhen(false)] out string executablePath)
     {
+        using var hProcess = PInvoke.OpenProcess_SafeHandle(PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)process.Id);
+
+        if (hProcess.IsInvalid)
+        {
+            executablePath = null;
+            return false;
+        }
+
+        uint size = 1024;
+        Span<char> psz = new char[size].AsSpan();
+
+        if (PInvoke.QueryFullProcessImageName(hProcess, 0, psz, ref size))
+        {
+
+            executablePath = psz.Slice(0, (int)size).ToString();
+            if (size > 0 && !string.IsNullOrWhiteSpace(executablePath))
+            {
+                return true;
+            }
+        }
+        executablePath = null;
+        return false;
+    }
+    private static Process? GetParentProcess2(Process process)
+    {
+        if (process.ProcessName == "explorer")
+        {
+            return null;
+        }
+
+        Stopwatch sw = Stopwatch.StartNew();
         try
         {
             using (ManagementObjectSearcher searcher = new ManagementObjectSearcher(
@@ -113,16 +165,49 @@ public partial class AudioSession : ReactiveObject, IAudioSessionEventsHandler, 
                 foreach (ManagementObject obj in processes)
                 {
                     uint parentProcessId = (uint)obj["ParentProcessId"];
+                    sw.Stop();
+                    //Debug.WriteLine($"GetParentProcess for {process.ProcessName} ({process.Id}) took {sw.ElapsedMilliseconds}ms");
                     return Process.GetProcessById((int)parentProcessId);
                 }
             }
         }
         catch
         {
+            //Debug.WriteLine($"Failed ot get parent of process {process.ProcessName} ({process.Id})");
             // Handle exceptions (e.g., parent process terminated, insufficient permissions)
+        }
+        sw.Stop();
+        //Debug.WriteLine($"GetParentProcess for {process.ProcessName} ({process.Id}) took {sw.ElapsedMilliseconds}ms");
+        return null;
+    }
+
+    private unsafe static Process? GetParentProcess(Process process)
+    {
+        Stopwatch sw = Stopwatch.StartNew();
+        PROCESS_BASIC_INFORMATION pbi;
+        uint length = 0;
+        var result = Windows.Wdk.PInvoke.NtQueryInformationProcess(
+            new HANDLE(process.Handle),
+            PROCESSINFOCLASS.ProcessBasicInformation,
+            &pbi,
+            (uint)Marshal.SizeOf<PROCESS_BASIC_INFORMATION>(),
+            ref length);
+
+        if (result.SeverityCode > NTSTATUS.Severity.Informational)
+        {
+            Marshal.ThrowExceptionForHR((int)result);
+        }
+
+        sw.Stop();
+        //Debug.WriteLine($"GetParentProcess => {pbi.InheritedFromUniqueProcessId} for {process.ProcessName} ({process.Id}) took {sw.ElapsedMilliseconds}ms");
+        if (pbi.InheritedFromUniqueProcessId != 0)
+        {
+            return Process.GetProcessById((int)pbi.InheritedFromUniqueProcessId);
+
         }
         return null;
     }
+
 
     public static AudioSession? Create(IObservableCache<InstalledApplicationInfo, string> installedApplicationsByPath, IAudioSessionControl nativeSession)
     {

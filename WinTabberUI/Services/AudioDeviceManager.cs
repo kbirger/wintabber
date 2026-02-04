@@ -54,11 +54,8 @@ public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable, IMMN
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .Subscribe(devices =>
                 {
-                    observableCache.Edit(updater =>
-                    {
-                        updater.Clear();
-                        updater.AddOrUpdate(devices);
-                    });
+                    observableCache.EditDiff(devices, (oldItem, newItem) => oldItem.Id == newItem.Id);
+                    
 
                 })
                 .DisposeWith(disposables);
@@ -97,7 +94,7 @@ public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable, IMMN
 
 
     [Lazy]
-    public IObservable<DeviceItem[]> GetDevicesObservable()
+    private IObservable<DeviceItem[]> GetDevicesObservable()
     {
         var obs = Observable.Create<DeviceItem[]>(observer =>
         {
@@ -111,7 +108,10 @@ public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable, IMMN
                 observer.OnNext(devices);
 
                 observer.OnCompleted();
-            }, CancellationToken.None, TaskCreationOptions.None, TaskScheduler.FromCurrentSynchronizationContext());
+            }, 
+            CancellationToken.None, 
+            TaskCreationOptions.None, 
+            TaskScheduler.FromCurrentSynchronizationContext());
 
             return () => { };
         })

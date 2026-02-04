@@ -88,8 +88,19 @@ namespace WinTabberUI.Coordinators
             if (!IsShown)
             {
                 _instance = GetInstance();
+                _instance.Closed += _instance_Closed;
                 Show(_instance);
             }
+        }
+
+        private void _instance_Closed(object? sender, EventArgs e)
+        {
+            if(_instance is null)
+            {
+                return;
+            }
+            _instance.Closed -= _instance_Closed;
+            OnExternallyClosed();
         }
 
         public void Dispose()
