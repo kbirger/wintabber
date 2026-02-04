@@ -4,6 +4,7 @@ using NAudio.CoreAudioApi;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reactive;
 using System.Reactive.Disposables;
@@ -20,7 +21,9 @@ public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEq
     private static PolicyConfigClient _policy = new PolicyConfigClient();
     public DeviceItem(MMDevice device, MMDeviceEnumerator enumerator)
     {
-        Name = device.DeviceFriendlyName;
+        Name = !string.IsNullOrWhiteSpace(device.DeviceFriendlyName) ? 
+            device.DeviceFriendlyName : 
+            device.FriendlyName;
         Id = device.ID;
         Kind = device.DataFlow;
         _isSelected = enumerator.GetDefaultAudioEndpoint(device.DataFlow, Role.Multimedia)?.ID == device.ID;
@@ -81,12 +84,19 @@ public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEq
 
     public void Activate()
     {
-        _policy.SetDefaultEndpoint(Id, Role.Multimedia);
-        _policy.SetDefaultEndpoint(Id, Role.Communications);
-        _policy.SetDefaultEndpoint(Id, Role.Console);
-        //_enumerator.EnumerateAudioEndPoints(Kind, _device)[0].AudioSessionManager;
-    }
+        try
+        {
 
+            _policy.SetDefaultEndpoint(Id, Role.Multimedia);
+            _policy.SetDefaultEndpoint(Id, Role.Communications);
+            _policy.SetDefaultEndpoint(Id, Role.Console);
+            //_enumerator.EnumerateAudioEndPoints(Kind, _device)[0].AudioSessionManager;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to set default endpoint: {ex}");
+        }
+    }
 
     [Lazy]
     private IObservable<AudioVolumeNotificationData> GetVolumeChanged()

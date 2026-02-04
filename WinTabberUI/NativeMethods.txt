@@ -36,3 +36,6 @@ IEnumShellItems
 BHID_EnumItems
 SHCreateItemFromParsingName
 IShellItemImageFactory
+QueryFullProcessImageName
+NtQueryInformationProcess
+PROCESS_BASIC_INFORMATION

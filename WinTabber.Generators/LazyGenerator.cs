@@ -44,14 +44,16 @@ public class LazyMethodGenerator : IIncrementalGenerator
                     if (symbol == null)
                         return null;
 
-                    var hasLazyAttr = symbol.GetAttributes()
-                        .Any(a => a.AttributeClass?.Name == "LazyAttribute" ||
+                    var lazyAttr = symbol.GetAttributes()
+                        .FirstOrDefault(a => a.AttributeClass?.Name == "LazyAttribute" ||
                                   a.AttributeClass?.ToDisplayString().EndsWith(".LazyAttribute") == true);
 
-                    if (!hasLazyAttr)
+                    if (lazyAttr is null)
                         return null;
 
                     var containingClass = symbol.ContainingType;
+
+                    var isPrivate = true.Equals(lazyAttr.NamedArguments.FirstOrDefault(kv => kv.Key == "IsPrivate").Value.Value);
                     if (!containingClass.DeclaringSyntaxReferences.Any(s =>
                             s.GetSyntax() is ClassDeclarationSyntax cls && cls.Modifiers.Any(m => m.IsKind(SyntaxKind.PartialKeyword))))
                     {
@@ -64,7 +66,7 @@ public class LazyMethodGenerator : IIncrementalGenerator
                             ]);
                     }
 
-                    return new ClassAnalysisResult(containingClass, symbol);
+                    return new ClassAnalysisResult(containingClass, symbol, isPrivate);
                 })
             .Where(static m => m is not null)!;
 
@@ -73,12 +75,15 @@ public class LazyMethodGenerator : IIncrementalGenerator
             ctx.AddSource("LazyAttribute.g.cs", @"
                 using System;
                 [AttributeUsage(AttributeTargets.Method)]
-                internal sealed class LazyAttribute : Attribute {}
+                internal sealed class LazyAttribute : Attribute 
+                {
+                    public bool IsPrivate { get; set; } = false;
+                }
             "));
         context.RegisterSourceOutput(grouped, (spc, list) =>
         {
             var methodLookup = list.ToLookup(m => m!.IsSuccess);
-            var successes = methodLookup[true].Select(r => r!.ToMethodInfo()).ToList();
+            var successes = methodLookup[true].ToList();
             var failures = methodLookup[false].SelectMany(f => f.ToDiagnostics());
             var byClass = successes.GroupBy(m => m!.ContainingClass, SymbolEqualityComparer.Default);
 
@@ -102,7 +107,7 @@ public class LazyMethodGenerator : IIncrementalGenerator
         });
     }
 
-    private static string GenerateClass(string? ns, INamedTypeSymbol classSymbol, List<MethodInfo> methods)
+    private static string GenerateClass(string? ns, INamedTypeSymbol classSymbol, List<ClassAnalysisResult> methods)
     {
         //if (!Debugger.IsAttached) Debugger.Launch();
 
@@ -113,7 +118,9 @@ public class LazyMethodGenerator : IIncrementalGenerator
 
         foreach (var method in methods)
         {
-            var returnType = method.Method.ReturnType;
+            var methodInfo = method.ToMethodInfo();
+            var returnType = methodInfo.Method.ReturnType;
+            
             var returnNs = returnType.ContainingNamespace?.ToDisplayString();
 
             if (!string.IsNullOrEmpty(returnNs)
@@ -150,8 +157,9 @@ public class LazyMethodGenerator : IIncrementalGenerator
 
         foreach (var m in methods)
         {
-            var type = m.Method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
-            var methodName = m.Method.Name;
+            var methodInfo = m.ToMethodInfo();
+            var type = methodInfo.Method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            var methodName = methodInfo.Method.Name;
             var (fieldName, _) = GetNames(methodName);
             sb.AppendLine($"    private {type}? {fieldName} = null!;");
         }
@@ -160,15 +168,17 @@ public class LazyMethodGenerator : IIncrementalGenerator
 
         foreach (var m in methods)
         {
-            var type = m.Method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            var methodInfo = m.ToMethodInfo();
+
+            var type = methodInfo.Method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
             
             //var containingType = returnType.ContainingType?.Name;
             //var extra = containingType is not null ? $"{containingType}."
-            var methodName = m.Method.Name;
+            var methodName = methodInfo.Method.Name;
             var (fieldName, propertyName) = GetNames(methodName);
-            var valueExpr = m.Method.ReturnType.IsValueType ? $".Value" : "";
-
-            sb.AppendLine($"    public {type} {propertyName}");
+            var valueExpr = methodInfo.Method.ReturnType.IsValueType ? $".Value" : "";
+            var access = m.IsPrivate ? "private" : "public";
+            sb.AppendLine($"    {access} {type} {propertyName}");
             sb.AppendLine($"     {{");
             sb.AppendLine($"         get");
             sb.AppendLine($"         {{");
@@ -224,11 +234,12 @@ public class LazyMethodGenerator : IIncrementalGenerator
     }
     private record ClassAnalysisResult
     {
-        public ClassAnalysisResult(INamedTypeSymbol containingClass, IMethodSymbol method)
+        public ClassAnalysisResult(INamedTypeSymbol containingClass, IMethodSymbol method, bool isPrivate)
         {
             ContainingClass = containingClass;
             Method = method;
             Diagnostics = [];
+            IsPrivate = isPrivate;
         }
 
         public ClassAnalysisResult(Diagnostic[] diagnostics)
@@ -260,6 +271,7 @@ public class LazyMethodGenerator : IIncrementalGenerator
         public INamedTypeSymbol? ContainingClass { get; }
         public IMethodSymbol? Method { get; }
         public TypeSyntax ReturnType { get; }
+        public bool IsPrivate { get; }
     }
 }
 
