@@ -118,7 +118,6 @@ public partial class AudioDeviceManager : IAudioDeviceManager, IDisposable, IMMN
         .Replay(1);
         obs.Connect();
         return obs;
-
     }
 
     public void Dispose()

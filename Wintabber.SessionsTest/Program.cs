@@ -10,9 +10,78 @@ using DynamicData;
 using DynamicData.Kernel;
 using NAudio.CoreAudioApi;
 using ReactiveUI;
+using WinTabberUI.Repositories;
 using WinTabberUI.Services;
 using WinTabberUI.ViewModels;
 
+CoreAudioDeviceRepository deviceRepo = new CoreAudioDeviceRepository();
+CoreAudioSessionRepository sessionRepo = new CoreAudioSessionRepository();
+var syncCtx = new SynchronizationContext();
+
+Debug.WriteLine($"Starting on thread {Environment.CurrentManagedThreadId}");
+
+SynchronizationContext.SetSynchronizationContext(syncCtx);
+Debug.WriteLine($"Continuing on thread {Environment.CurrentManagedThreadId}");
+
+//var devices = deviceRepo.DevicesObservable.ToObservableChangeSet(d => d.ID).AsObservableCache();
+var devices = deviceRepo.Devices;
+
+//Console.WriteLine($"{devices.Count} devices");
+devices.Subscribe(changes =>
+{
+    foreach (var item in changes)
+    {
+        Debug.WriteLine($"{item.Reason} {item.Current.FriendlyName}");
+    }
+});
+devices.QueryWhenChanged(x =>
+{
+    Debug.WriteLine($"?? {Environment.CurrentManagedThreadId}");
+    return x;
+}).Subscribe(cache =>
+{
+    Console.Clear();
+    Console.WriteLine("Devices:");
+    foreach (var item in cache.Items)
+    {
+        Console.WriteLine($"- {item.FriendlyName}");
+    }
+});
+
+//devices.WhereReasonsAre(ChangeReason.Add).Subscribe(deviceAdds =>
+//{
+//    deviceAdds.Select(deviceAdd =>
+//    {
+//        var device = deviceAdd.Current;
+//        var sessions = sessionRepo.Connect(device.Device);
+//        Debug.WriteLine($"Device added: {device.DeviceFriendlyName}");
+//        return sessions.Subscribe(sessionChanges =>
+//        {
+//            sessionChanges.Select(change =>
+//            {
+//                Debug.WriteLine($"Session {change.Reason}: {change.Current.SessionIdentifier}");
+//                return 0;
+//            }).ToArray();
+//        });
+//    }).ToArray();
+//});
+
+//devices.WhereReasonsAreNot(ChangeReason.Add)
+//    .Subscribe(changes =>
+//    {
+//        changes.Select(change =>
+//        {
+//            Debug.WriteLine($"Device {change.Current.FriendlyName} {change.Reason}");
+//            return 0;
+//        }).ToArray();
+//    });
+while(true)
+{
+    await Task.Delay(100);
+
+}
+
+/*
 var manager = new MediaSessionManager();
 var ias = new InstalledApplicationService();
 var adm = new AudioDeviceManager();
@@ -343,3 +412,4 @@ await Task.Delay(-1);
 ////}
 ////DeviceSessionWatcher watcher = );
 
+*/

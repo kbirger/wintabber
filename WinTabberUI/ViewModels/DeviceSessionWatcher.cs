@@ -39,7 +39,7 @@ public class DeviceSessionWatcher
         {
 
             var resultSessions = new SourceCache<AudioSession, string>(session => session.AumId);
-            var connection = resultSessions.Connect();
+            IObservable<IChangeSet<AudioSession, string>> connection = resultSessions.Connect();
             var disposables = new CompositeDisposable();
 
 
@@ -88,8 +88,8 @@ public class DeviceSessionWatcher
 
             return rawHandler;
         },
-                        handler => _manager.OnSessionCreated += handler,
-                        handler => _manager.OnSessionCreated -= handler);
+        handler => _manager.OnSessionCreated += handler,
+        handler => _manager.OnSessionCreated -= handler);
     }
 
     private void CreateSessions(SourceCache<AudioSession, string> deviceSessions, AudioSessionControl[] sourceSessions)

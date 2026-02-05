@@ -71,7 +71,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     //private IObservableList<SessionItem> _sessions ;
     private ReadOnlyObservableCollection<MediaSession> _sessions = new ReadOnlyObservableCollection<MediaSession>([]);
     private MediaSession _activeSession;
-    private readonly InstalledApplicationService _applicationService;
+    private readonly InstalledApplicationRepository _applicationService;
     private readonly IMediaControlsStateService _mediaControlsStateService;
     private readonly IAudioDeviceManager _audioDeviceManager;
     private readonly CompositeDisposable _cleanUp;
@@ -100,7 +100,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
 
 
-    public MediaControlsViewModel(InstalledApplicationService applicationService, IMediaControlsStateService mediaControlsStateService, IAudioDeviceManager audioDeviceManager, WinTabberEventManager eventManager)
+    public MediaControlsViewModel(InstalledApplicationRepository applicationService, IMediaControlsStateService mediaControlsStateService, IAudioDeviceManager audioDeviceManager, WinTabberEventManager eventManager)
     {
         _applicationService = applicationService;
         _mediaControlsStateService = mediaControlsStateService;
@@ -281,7 +281,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                                 Name = session.SourceAppUserModelId,
                                 PackageInstallPath = null,
                                 TargetPath = null,
-                                Icon = InstalledApplicationService.LoadingImage
+                                Icon = InstalledApplicationRepository.LoadingImage
                             };
                         }
                         else
@@ -318,7 +318,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                                 Name = session.SourceAppUserModelId,
                                 PackageInstallPath = null,
                                 TargetPath = null,
-                                Icon = InstalledApplicationService.LoadingImage
+                                Icon = InstalledApplicationRepository.LoadingImage
                             };
                         }
                         else

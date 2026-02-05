@@ -62,7 +62,7 @@ public static class Bootstrapper
             .AddSingleton<WindowManager>()
             .AddSingleton<IAudioDeviceManager, AudioDeviceManager>()
             .AddSingleton<AppCache>()
-            .AddSingleton<InstalledApplicationService>();
+            .AddSingleton<InstalledApplicationRepository>();
     }
     private static IServiceCollection AddUpdaters(this IServiceCollection services)
     {
