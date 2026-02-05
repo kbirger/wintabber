@@ -10,8 +10,10 @@ using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.IO;
 using System.Linq;
+using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -24,13 +26,14 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Gdi;
 using Windows.Win32.UI.Shell;
+using WinTabberUI.Extensions;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.ViewModels;
 using static System.Windows.Forms.Design.AxImporter;
 
 namespace WinTabberUI.Services;
 
-public class InstalledApplicationService : IDisposable
+public class InstalledApplicationRepository : IDisposable
 {
     [Flags]
     public enum ThumbnailOptions
@@ -50,22 +53,27 @@ public class InstalledApplicationService : IDisposable
     private static readonly HRESULT S_PATHNOTFOUND = (HRESULT)0x8004B205;
     private readonly SourceCache<InstalledApplicationInfo, string> _apps = new(app => app.AppUserModelId);
     private CompositeDisposable? _cleanup;
-
-    public InstalledApplicationService()
+    private readonly Subject<Unit> _refreshSubject = new Subject<Unit>();
+    public void Refresh()
     {
-        var primaryAumidCache = GetInstalledApplicationsObservable()
+        _refreshSubject.OnNext(Unit.Default);
+    }
+
+    public InstalledApplicationRepository()
+    {
+        var primaryAumidCache = GetRefreshEvents()
+            .StartWith(Unit.Default)
+            .ExhaustMap(_ => GetInstalledApplicationsObservable())
             .ToObservableChangeSet(
                 keySelector: app => app.AppUserModelId,
-                expireAfter: item => TimeSpan.FromDays(1))
-            .AsObservableCache();
+                expireAfter: item => TimeSpan.FromDays(1));
+            
 
         var partialAumidCache = primaryAumidCache
-            .Connect()
             .Filter(app => app.AppUserModelId.Contains(@"\"))
             .ChangeKey(app => Path.GetFileName(app.AppUserModelId));
 
         var packagePathCache = primaryAumidCache
-            .Connect()
             .Filter(app => app.PackageInstallPath is not null)
             .ChangeKey(app => app.PackageInstallPath!);
 
@@ -74,7 +82,6 @@ public class InstalledApplicationService : IDisposable
             .ChangeKey(app => Path.GetFileName(app.PackageInstallPath!));
 
         var targetPathCache = primaryAumidCache
-            .Connect()
             .Filter(app => app.TargetPath is not null)
             .ChangeKey(app => app.TargetPath!);
 
@@ -83,7 +90,7 @@ public class InstalledApplicationService : IDisposable
             .ChangeKey(app => Path.GetFileName(app.TargetPath!));
 
 
-        ApplicationsByAumid = primaryAumidCache.Connect()
+        ApplicationsByAumid = primaryAumidCache
             .Or(partialAumidCache)
             .AsObservableCache();
 
@@ -92,10 +99,15 @@ public class InstalledApplicationService : IDisposable
             .Or(targetPathCache)
             .Or(partialTargetPathCache)
             .AsObservableCache();
-
-        _cleanup = new CompositeDisposable(primaryAumidCache, ApplicationsByAumid, ApplicationsByPath);
     }
 
+    private IObservable<Unit> GetRefreshEvents()
+    {
+        return Observable.Merge(
+            Observable.Interval(TimeSpan.FromMinutes(30)).Select(_ => Unit.Default),
+            _refreshSubject
+        );
+    }
 
     public void Dispose()
     {
@@ -106,6 +118,7 @@ public class InstalledApplicationService : IDisposable
     {
         return Observable.Start<IReadOnlyList<InstalledApplicationInfo>>(() =>
         {
+            Debug.WriteLine($"Fetching installed applications on thread {Environment.CurrentManagedThreadId}");
             return GetInstalledApplicationsBlocking().ToArray();
         }, RxApp.TaskpoolScheduler);
     }
