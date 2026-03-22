@@ -36,6 +36,14 @@ IEnumShellItems
 BHID_EnumItems
 SHCreateItemFromParsingName
 IShellItemImageFactory
-QueryFullProcessImageName
-NtQueryInformationProcess
-PROCESS_BASIC_INFORMATION
+
+GetLayeredWindowAttributes
+SetLayeredWindowAttributes
+SetWindowLong
+GetWindowLong
+WS_EX_LAYERED
+RedrawWindow
+UpdateLayeredWindow
+PrintWindow
+PRINT_WINDOW_FLAGS
+PW_RENDERFULLCONTENT 

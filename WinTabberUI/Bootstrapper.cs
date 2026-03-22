@@ -13,6 +13,7 @@ using WinTabber.Interop;
 using WinTabberUI.Coordinators;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Models;
+using WinTabberUI.Repositories;
 using WinTabberUI.Services;
 using WinTabberUI.Updaters;
 using WinTabberUI.ViewModels;
@@ -60,8 +61,12 @@ public static class Bootstrapper
             .AddSingleton<ApplicationState>()
             .AddSingleton<IInteropProxy, InteropProxy>()
             .AddSingleton<WindowManager>()
-            .AddSingleton<IAudioDeviceManager, AudioDeviceManager>()
+            //.AddSingleton<IAudioDeviceManager, AudioDeviceManager>()
             .AddSingleton<AppCache>()
+            .AddSingleton<CoreAudioDeviceRepository>()
+            .AddSingleton<CoreAudioSessionRepository>()
+            .AddSingleton<MediaSessionRepository>()
+            .AddSingleton<MediaSessionService>()
             .AddSingleton<InstalledApplicationRepository>();
     }
     private static IServiceCollection AddUpdaters(this IServiceCollection services)

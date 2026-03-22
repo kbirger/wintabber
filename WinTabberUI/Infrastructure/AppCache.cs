@@ -63,7 +63,7 @@ public class AppCache
         var iconGetter = () => shellObject.Thumbnail.SmallBitmap;
         var iconObservable = Observable
             .Concat(LoadingImage, GetImageAsync(iconGetter))
-            .ObserveOn(RxApp.MainThreadScheduler)
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Replay(1)
             .RefCount();
 
@@ -124,8 +124,8 @@ public class AppCache
     private IObservable<ImageSource> GetImageAsync(Func<System.Drawing.Bitmap> valueFactory)
     {
         return Observable.Defer(() => 
-            Observable.Start(valueFactory, RxApp.TaskpoolScheduler))
-            .ObserveOn(RxApp.MainThreadScheduler)
+            Observable.Start(valueFactory, RxSchedulers.TaskpoolScheduler))
+            .ObserveOn(RxSchedulers.MainThreadScheduler)
             .Select(Bitmap2BitmapImage)
             .Replay(1)
             .AutoConnect();
@@ -167,7 +167,7 @@ public class AppCache
 
             return src;
 
-        }, RxApp.TaskpoolScheduler)
+        }, RxSchedulers.TaskpoolScheduler)
             .Replay(1)
             .AutoConnect();
     }

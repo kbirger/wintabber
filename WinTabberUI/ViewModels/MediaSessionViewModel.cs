@@ -19,93 +19,111 @@ using Windows.Media.Control;
 using Windows.Storage.Streams;
 using WinTabber.Interop;
 using WinTabberUI.Infrastructure;
+using WinTabberUI.Models;
+using WinTabberUI.Repositories;
+using static WinTabberUI.Services.MediaSessionService;
 
 namespace WinTabberUI.ViewModels;
 
 public class MediaSessionViewModel : ReactiveObject, IDisposable
 {
-    private ObservableAsPropertyHelper<string> _artistName;
-    private ObservableAsPropertyHelper<string> _albumTitle;
-    private ObservableAsPropertyHelper<string> _title;
-    private ObservableAsPropertyHelper<TimeSpan> _duration;
-    private ObservableAsPropertyHelper<TimeSpan> _position;
-    private ObservableAsPropertyHelper<float> _progress;
-    private ObservableAsPropertyHelper<bool> _isPlaying;
-    private ObservableAsPropertyHelper<bool> _isMuted;
-    private ObservableAsPropertyHelper<ImageSource?> _thumbnail;
-    private ObservableAsPropertyHelper<bool> _canSeek;
-    private GlobalSystemMediaTransportControlsSession _session;
+    private readonly ObservableAsPropertyHelper<string> _artistName;
+    private readonly ObservableAsPropertyHelper<string> _albumTitle;
+    private readonly ObservableAsPropertyHelper<string> _title;
+    private readonly ObservableAsPropertyHelper<TimeSpan> _duration;
+    private readonly ObservableAsPropertyHelper<TimeSpan> _position;
+    private readonly ObservableAsPropertyHelper<float> _progress;
+    private readonly ObservableAsPropertyHelper<bool> _isPlaying;
+    private readonly ObservableAsPropertyHelper<bool> _isDeviceMuted;
+    private readonly ObservableAsPropertyHelper<bool> _isSessionMuted;
+    private readonly ObservableAsPropertyHelper<ImageSource?> _thumbnail;
+    private readonly ObservableAsPropertyHelper<bool> _canSeek;
+    private readonly ObservableAsPropertyHelper<float> _sessionVolume;
+    private readonly ObservableAsPropertyHelper<float> _deviceVolume;
+
+    private readonly ObservableAsPropertyHelper<bool> _canSetDeviceVolume;
+    private readonly ObservableAsPropertyHelper<bool> _canSetSessionvolume;
+
+    private AggregateSession _session;
     private readonly CompositeDisposable _disposable = new CompositeDisposable();
-    public MediaSessionViewModel(GlobalSystemMediaTransportControlsSession session, IObservable<DynamicData.Change<AudioSession, string>> matchedSessions)
+    public MediaSessionViewModel(AggregateSession session)
     {
         _session = session;
-        var scheduler = RxApp.MainThreadScheduler;
+        var scheduler = RxSchedulers.MainThreadScheduler;
 
-        matchedSessions
-            .ObserveOn(RxApp.MainThreadScheduler)
-            .Subscribe(change =>
-            {
-                NativeSession = change.Current;
-            });
-        var mediaPropertiesChanged = ObserveMediaProperties(session);
-        var playbackPropertiesChanged = ObservePlaybackProperties(session);
-        var timelinePropertyChanged = ObserveTimelineProperties(session);
+        var smtcSession = session.MediaSession;
 
-        mediaPropertiesChanged
-            .Select(update => update.Artist)
+        //var mediaPropertiesChanged = ObserveMediaProperties(smtcSession);
+        //var playbackPropertiesChanged = ObservePlaybackProperties(smtcSession);
+        //var timelinePropertyChanged = ObserveTimelineProperties(smtcSession);
+
+        var monitor = new SMTCSessionMonitor(smtcSession);
+        _artistName = monitor.ArtistNameChanges
             //.Do(t => Debug.WriteLine($"artist {t}"))
-            .ToProperty(this, vm => vm.ArtistName, out _artistName, initialValue: "")
+            .ToProperty(this, vm => vm.ArtistName, initialValue: "")
             .DisposeWith(_disposable);
 
-        mediaPropertiesChanged
-            .Select(update => update.AlbumTitle)
-            .ToProperty(this, vm => vm.AlbumTitle, out _albumTitle, initialValue: "")
+        _albumTitle = monitor.AlbumTitleChanges
+            .ToProperty(this, vm => vm.AlbumTitle, initialValue: "")
             .DisposeWith(_disposable);
 
-        mediaPropertiesChanged
-            .Select(update => update.Title)
-            //.Do(t => Debug.WriteLine($"Title {t}"))
-            .ToProperty(this, vm => vm.Title, out _title, initialValue: "")
+        _title = monitor.TitleChanges
+            .ToProperty(this, vm => vm.Title, initialValue: "")
             .DisposeWith(_disposable);
 
-        mediaPropertiesChanged
-            .ObserveOn(scheduler)
-            .SelectMany(update => GetCurrentMediaAlbumArt(update.Thumbnail))
-            .ToProperty(this, vm => vm.Thumbnail, out _thumbnail, initialValue: null)
+        _thumbnail = monitor.ThumbnailChanges
+            .ObserveOn(scheduler)            
+            .ToProperty(this, vm => vm.Thumbnail, initialValue: null)
             .DisposeWith(_disposable);
 
-        playbackPropertiesChanged
-            .Select(info => info?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+        _isPlaying = monitor.IsPlayingChanges
             //.Do(t => Debug.WriteLine($"playing: {t}"))
-            .ToProperty(this, vm => vm.IsPlaying, out _isPlaying)
+            .ToProperty(this, vm => vm.IsPlaying)
             .DisposeWith(_disposable);
 
-        var canPlayPause = playbackPropertiesChanged
-            .Select(info => info.Controls.IsPlayPauseToggleEnabled || info.Controls.IsPauseEnabled || info.Controls.IsPlayEnabled);
+        _canSeek = monitor.CanSeekChanges
+            .ToProperty(this, vm => vm.CanSeek)
+            .DisposeWith(_disposable);
 
-        var canNext = playbackPropertiesChanged
-            .Select(info => info.Controls.IsNextEnabled);
+        _duration = monitor.DurationChanges
+            .ToProperty(this, vm => vm.Duration)
+            .DisposeWith(_disposable);
 
-        var canPrev = playbackPropertiesChanged
-            .Select(info => info.Controls.IsPreviousEnabled);
-        var canPause = playbackPropertiesChanged
-            .Select(info =>  info.Controls.IsPauseEnabled);
+        _canSetDeviceVolume = Observable.Return(session.NativeSession is not null)
+            .ToProperty(this, vm => vm.CanChangeSessionVolume)
+            .DisposeWith(_disposable);
+
+        _canSetDeviceVolume = Observable.Return(session.NativeSession?.Device is not null)
+            .ToProperty(this, vm => vm.CanChangeDeviceVolume)
+            .DisposeWith(_disposable);
+
+        _isSessionMuted = Observable.Return(session.NativeSession?.IsMuted ?? true)
+            .ToProperty(this, vm => vm.IsSessionMuted);
+
+        _isDeviceMuted = Observable.Return(session.NativeSession?.Device?.IsMuted ?? true)
+            .ToProperty(this, vm => vm.IsDeviceMuted);
+
+        _sessionVolume = Observable.Return(session.NativeSession?.Volume ?? 0)
+            .ToProperty(this, vm => vm.SessionVolume)
+            .DisposeWith(_disposable);
+
+        _deviceVolume = Observable.Return(session.NativeSession?.Device?.Volume ?? 0)
+            .ToProperty(this, vm => vm.DeviceVolume)
+            .DisposeWith(_disposable);
 
 
-        var canSeek = playbackPropertiesChanged
-            .Select(info => info.Controls.IsPlaybackPositionEnabled);
 
         PlayPause = ReactiveCommand.CreateFromObservable(
             PlayPauseImpl,
-            canExecute: canPlayPause,
+            canExecute: monitor.CanPlayPauseChanges,
             outputScheduler: scheduler).DisposeWith(_disposable);
         Next = ReactiveCommand.CreateFromObservable(
             NextImpl,
-            canExecute: canNext,
+            canExecute: monitor.CanNextChanges,
             outputScheduler: scheduler).DisposeWith(_disposable);
         Prev = ReactiveCommand.CreateFromObservable(
             PrevImpl,
-            canExecute: canPrev,
+            canExecute: monitor.CanPrevChanges,
             outputScheduler: scheduler).DisposeWith(_disposable);
 
         Mute = ReactiveCommand.CreateFromObservable(
@@ -115,27 +133,51 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
 
         Pause = ReactiveCommand.CreateFromObservable(
             PauseImpl,
-            canExecute: canPause,
+            canExecute: monitor.CanPauseChanges,
             outputScheduler: scheduler).DisposeWith(_disposable);
 
         Seek = ReactiveCommand.CreateFromObservable<TimeSpan, Unit>(
             SeekImpl,
-            canExecute: canSeek,
+            canExecute: monitor.CanSeekChanges,
             outputScheduler: scheduler).DisposeWith(_disposable);
 
-        canSeek.ToProperty(this, vm => vm.CanSeek, out _canSeek)
-            .DisposeWith(_disposable);
+        SetDeviceVolume = ReactiveCommand.CreateFromObservable<float, Unit>(
+            SetDeviceVolumeImpl,
+            canExecute: Observable.Return(CanChangeDeviceVolume),
+            outputScheduler: scheduler).DisposeWith(_disposable);
+
+        SetSessionVolume = ReactiveCommand.CreateFromObservable<float, Unit>(
+            SetSessionVolumeImpl,
+            canExecute: Observable.Return(CanChangeSessionVolume),
+            outputScheduler: scheduler).DisposeWith(_disposable);
+
+        SetSessionMuted = ReactiveCommand.CreateFromObservable<bool, Unit>(
+            SetSessionMutedImpl,
+            canExecute: Observable.Return(CanChangeDeviceVolume),
+            outputScheduler: scheduler).DisposeWith(_disposable);
+
+        SetDeviceMuted = ReactiveCommand.CreateFromObservable<bool, Unit>(
+            SetDeviceMutedImpl,
+            canExecute: Observable.Return(CanChangeDeviceVolume),
+            outputScheduler: scheduler).DisposeWith(_disposable);
 
         Observable.Merge(
             PlayPause.ThrownExceptions,
             Next.ThrownExceptions,
-            Prev.ThrownExceptions
+            Prev.ThrownExceptions,
+            Mute.ThrownExceptions,
+            Pause.ThrownExceptions,
+            Seek.ThrownExceptions,
+            SetDeviceVolume.ThrownExceptions,
+            SetSessionVolume.ThrownExceptions,
+            SetDeviceMuted.ThrownExceptions,
+            SetSessionMuted.ThrownExceptions
         ).Subscribe(ex =>
         {
             Debug.WriteLine("Error processing media keys");
             Debug.WriteLine(ex);
         });
-        _isMuted = Observable.Return(false).ToProperty(this, vm => vm.IsMuted);
+        _isDeviceMuted = Observable.Return(false).ToProperty(this, vm => vm.IsDeviceMuted);
         var isSeekingChanges = this.WhenAnyValue(vm => vm.IsSeeking, true)
             .SelectMany(value => value ? Observable.Return(value) : Observable.Timer(TimeSpan.FromMilliseconds(250)).Select(_ => value));
         var timestamps = Observable.Interval(TimeSpan.FromSeconds(1))
@@ -143,33 +185,28 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
             //.Do(_ => Debug.WriteLine("tick"))
             .Publish()
             .RefCount();
-        var positionObservable = timelinePropertyChanged
+        var positionObservable = monitor.PositionChanges
             //.Do(_ => Debug.WriteLine("timeline"))
-            .CombineLatest(timestamps, playbackPropertiesChanged, isSeekingChanges)
-            .Where(values => !values.Fourth)
+            .CombineLatest(isSeekingChanges)
+            .Where(values => !values.Second)
             //.Do(_ => Debug.WriteLine("playback"))
-            .Select((values) => values.Third.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing ? values.First.Position.Add(values.Second - values.First.LastUpdatedTime) : values.First.Position)
+            .Select((values) => values.First)
             //.Do(x => Debug.WriteLine(x))
             .Publish()
             .RefCount();
 
-        positionObservable
+        _position = positionObservable
             //.Do(t => Debug.WriteLine($"Position {t}"))
 
-            .ToProperty(this, vm => vm.Position, out _position, initialValue: TimeSpan.Zero)
+            .ToProperty(this, vm => vm.Position, initialValue: TimeSpan.Zero)
             .DisposeWith(_disposable);
 
-        positionObservable
-            .WithLatestFrom(timelinePropertyChanged)
-            .Select(values => values.Second.EndTime.Ticks > 0 ? (float)(values.First.Ticks / values.Second.EndTime.Ticks) : 0)
-            .ToProperty(this, vm => vm.Progress, out _progress, initialValue: 0)
+        _progress = positionObservable
+            .WithLatestFrom(monitor.DurationChanges)
+            .Select(values => values.Second.Ticks > 0 ? (float)(values.First.Ticks / values.Second.Ticks) : 0)
+            .ToProperty(this, vm => vm.Progress, initialValue: 0)
             .DisposeWith(_disposable);
 
-        timelinePropertyChanged
-            .Select(update => update.EndTime)
-            //.Do(t => Debug.WriteLine($"End time {t}"))
-            .ToProperty(this, vm => vm.Duration, out _duration, initialValue: TimeSpan.Zero)
-            .DisposeWith(_disposable);
     }
 
     public ReactiveCommand<Unit, Unit> PlayPause { get; private set; }
@@ -179,50 +216,60 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     public ReactiveCommand<Unit, Unit> Pause { get; private set; }
     public ReactiveCommand<TimeSpan, Unit> Seek { get; }
 
-    public string ArtistName => _artistName?.Value ?? string.Empty;
-    public string AlbumTitle => _albumTitle?.Value ?? string.Empty;
-    public string Title => _title?.Value ?? string.Empty;
-    public TimeSpan Duration => _duration?.Value ?? TimeSpan.Zero;
+    public ReactiveCommand<float, Unit> SetDeviceVolume { get; init; }
+    public ReactiveCommand<float, Unit> SetSessionVolume { get; init; }
 
-    public TimeSpan Position => _position?.Value ?? TimeSpan.Zero;
+    public ReactiveCommand<bool, Unit> SetSessionMuted { get; init; }
+    public ReactiveCommand<bool, Unit> SetDeviceMuted { get; init; }
 
-    public float Progress => _progress?.Value ?? 0;
+    public string ArtistName => _artistName.Value;
+    public string AlbumTitle => _albumTitle.Value ;
+    public string Title => _title.Value;
+    public TimeSpan Duration => _duration.Value;
+
+    public TimeSpan Position => _position.Value;
+
+    public float Progress => _progress.Value;
     public ImageSource? Thumbnail => _thumbnail?.Value;
 
-    public bool IsMuted => _isMuted?.Value ?? false;
-    public bool IsPlaying => _isPlaying?.Value ?? false;
+    public bool IsDeviceMuted => _isDeviceMuted.Value;
+    public bool IsSessionMuted => _isSessionMuted.Value;
+    public bool IsPlaying => _isPlaying.Value;
 
-    public bool CanSeek => _canSeek?.Value ?? false;
+    public float DeviceVolume => _deviceVolume.Value;
+    public float SessionVolume => _sessionVolume.Value;
 
-    private AudioSession? NativeSession
-    {
-        get => _nativeSession;
-        set
-        {
-            this.RaiseAndSetIfChanged(ref _nativeSession, value);
-            this.RaisePropertyChanged(nameof(CanChangeVolume));
-            this.RaisePropertyChanged(nameof(Volume));
-            this.RaisePropertyChanged(nameof(IsMuted));
-        }
-    }
+    public bool CanSeek => _canSeek.Value;
 
-    public bool CanChangeVolume => _nativeSession is not null;
+    //private AudioSession? NativeSession
+    //{
+    //    get => _nativeSession;
+    //    set
+    //    {
+    //        this.RaiseAndSetIfChanged(ref _nativeSession, value);
+    //        this.RaisePropertyChanged(nameof(CanChangeSessionVolume));
+    //        this.RaisePropertyChanged(nameof(Volume));
+    //        this.RaisePropertyChanged(nameof(IsDeviceMuted));
+    //    }
+    //}
+
+    public bool CanChangeSessionVolume => _session.NativeSession is not null;
+    public bool CanChangeDeviceVolume => _session.NativeSession?.Device is not null;
     private bool _isSeeking = false;
-    private AudioSession? _nativeSession;
 
-    public float Volume
-    {
-        get => _nativeSession?.Volume ?? 0;
-        set
-        {
-            if(_nativeSession is not null)
-            {
-                _nativeSession.Volume = value;
-                this.RaisePropertyChanged(nameof(Volume));
-            }
-        }
+    //public float Volume
+    //{
+    //    get => _nativeSession?.Volume ?? 0;
+    //    set
+    //    {
+    //        if(_nativeSession is not null)
+    //        {
+    //            _nativeSession.Volume = value;
+    //            this.RaisePropertyChanged(nameof(Volume));
+    //        }
+    //    }
 
-    }
+    //}
 
     public bool IsSeeking
     {
@@ -231,54 +278,7 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     }
 
 
-    private static IObservable<GlobalSystemMediaTransportControlsSessionTimelineProperties> ObserveTimelineProperties(GlobalSystemMediaTransportControlsSession session)
-    {
-        return EventHelper.EventOrEmpty<GlobalSystemMediaTransportControlsSession, TimelinePropertiesChangedEventArgs, GlobalSystemMediaTransportControlsSessionTimelineProperties>(
-                session,
-                h => session.TimelinePropertiesChanged += h,
-                h => session.TimelinePropertiesChanged -= h,
-                events => events
-                    .Select(_ => Unit.Default)
-                    .StartWith(Unit.Default)
-                    .Select(_ => session.GetTimelineProperties())
 
-            )
-            //.Do(_ => Debug.WriteLine("timeline updated"))
-            .Replay(1)
-            .RefCount();
-    }
-
-    private static IObservable<GlobalSystemMediaTransportControlsSessionPlaybackInfo> ObservePlaybackProperties(GlobalSystemMediaTransportControlsSession session)
-    {
-        return EventHelper.EventOrEmpty<GlobalSystemMediaTransportControlsSession, PlaybackInfoChangedEventArgs, GlobalSystemMediaTransportControlsSessionPlaybackInfo>(
-                session,
-                h => session.PlaybackInfoChanged += h,
-                h => session.PlaybackInfoChanged -= h,
-                events => events
-                    .Select(_ => Unit.Default)
-                    .StartWith(Unit.Default)
-                    .Select(_ => session.GetPlaybackInfo())
-            )
-            .ObserveOn(RxApp.MainThreadScheduler)
-            .Replay(1)
-            .RefCount();
-    }
-
-    private static IObservable<GlobalSystemMediaTransportControlsSessionMediaProperties> ObserveMediaProperties(GlobalSystemMediaTransportControlsSession session)
-    {
-        return EventHelper.EventOrEmpty<GlobalSystemMediaTransportControlsSession, MediaPropertiesChangedEventArgs, GlobalSystemMediaTransportControlsSessionMediaProperties>(
-                session,
-                h => session.MediaPropertiesChanged += h,
-                h => session.MediaPropertiesChanged -= h,
-                events => events
-                    //.Do(p => { Debug.WriteLine($"MEDIA PROPERTIES CHANGED"); })
-                    .SelectMany(_ => session.TryGetMediaPropertiesAsync())
-                    .Catch(Observable.Empty<GlobalSystemMediaTransportControlsSessionMediaProperties>())
-            )
-            .ObserveOn(RxApp.MainThreadScheduler)
-            .Replay(1)
-            .RefCount();
-    }
 
     public static async Task<ImageSource?> GetCurrentMediaAlbumArt(IRandomAccessStreamReference? imageStream)
     {
@@ -319,22 +319,66 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
 
     private IObservable<Unit> PlayPauseImpl()
     {
-        return OperationToObservable(_session.TryTogglePlayPauseAsync());
+        return OperationToObservable(_session.MediaSession.TryTogglePlayPauseAsync());
     }
 
     private IObservable<Unit> PrevImpl()
     {
-        return OperationToObservable(_session.TrySkipPreviousAsync());
+        return OperationToObservable(_session.MediaSession.TrySkipPreviousAsync());
     }
 
     private IObservable<Unit> NextImpl()
     {
-        return OperationToObservable(_session.TrySkipNextAsync());
+        return OperationToObservable(_session.MediaSession.TrySkipNextAsync());
     }
 
     private IObservable<Unit> PauseImpl()
     {
-        return OperationToObservable(_session.TryPauseAsync());
+        return OperationToObservable(_session.MediaSession.TryPauseAsync());
+    }
+
+    private IObservable<Unit> SetDeviceVolumeImpl(float volume)
+    {
+        return Observable.Start(() =>
+        {
+            if (_session.NativeSession?.Device is not null)
+            {
+                _session.NativeSession?.Device.SetVolume(volume);
+            }
+        });
+    }
+
+    private IObservable<Unit> SetSessionVolumeImpl(float volume)
+    {
+        return Observable.Start(() =>
+        {
+            if (_session.NativeSession is not null)
+            {
+                _session.NativeSession.SetVolume(volume);
+            }
+        });
+    }
+
+    private IObservable<Unit> SetSessionMutedImpl(bool isMuted)
+    {
+        return Observable.Start(() =>
+        {
+            if (_session.NativeSession is not null)
+            {
+                _session.NativeSession.SetMute(isMuted);
+            }
+        });
+    }
+
+    private IObservable<Unit> SetDeviceMutedImpl(bool isMuted)
+    {
+        return Observable.Start(() =>
+        {
+            if (_session.NativeSession?.Device is not null)
+            {
+                _session.NativeSession.Device.SetMute(isMuted);
+            }
+        });
     }
 
     private static IObservable<Unit> OperationToObservable(IAsyncOperation<bool> operation)
@@ -348,7 +392,7 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
         {
             return Observable.StartAsync(async () =>
             {
-                var result = await _session.TryChangePlaybackPositionAsync(position.Ticks).AsTask();
+                var result = await _session.MediaSession.TryChangePlaybackPositionAsync(position.Ticks).AsTask();
                 Debug.WriteLine($"Seek success: {result}");
             });
             //return OperationToObservable(_session.TryChangePlaybackPositionAsync(position.Ticks));

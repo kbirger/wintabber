@@ -13,31 +13,32 @@ using System.Text;
 using System.Threading.Tasks;
 using Windows.Win32;
 using WinTabberUI.Interop;
+using WinTabberUI.Models;
 
 namespace WinTabberUI.ViewModels;
 
 public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEquatable<DeviceItem>
 {
     private static PolicyConfigClient _policy = new PolicyConfigClient();
-    public DeviceItem(MMDevice device, MMDeviceEnumerator enumerator)
+
+    public DeviceItem(CoreAudioDeviceWrapper device)
     {
         Name = !string.IsNullOrWhiteSpace(device.DeviceFriendlyName) ? 
             device.DeviceFriendlyName : 
             device.FriendlyName;
         Id = device.ID;
         Kind = device.DataFlow;
-        _isSelected = enumerator.GetDefaultAudioEndpoint(device.DataFlow, Role.Multimedia)?.ID == device.ID;
+        _isSelected = device.IsDefault;
         _device = device;
-        _enumerator = enumerator;
 
 
-        Mute = ReactiveCommand.CreateFromObservable(MuteImpl, canExecute: null, RxApp.MainThreadScheduler);
-        VolumeChanged.Subscribe(change =>
-        {
-            OnPropertyChanged(nameof(IsMuted));
-            OnPropertyChanged(nameof(Volume));
+        Mute = ReactiveCommand.CreateFromObservable(MuteImpl, canExecute: null, RxSchedulers.MainThreadScheduler);
+        //VolumeChanged.Subscribe(change =>
+        //{
+        //    OnPropertyChanged(nameof(IsMuted));
+        //    OnPropertyChanged(nameof(Volume));
 
-        });
+        //});
 
 
         ////var sessions = new SourceCache<AudioSessionControl2, string>(session => session.SessionInstanceIdentifier);
@@ -98,47 +99,31 @@ public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEq
         }
     }
 
-    [Lazy]
-    private IObservable<AudioVolumeNotificationData> GetVolumeChanged()
-    {
-        return Observable.FromEvent<AudioEndpointVolumeNotificationDelegate, AudioVolumeNotificationData>(
-            h =>
-            {
-                if (_device.AudioEndpointVolume is not null)
-                    _device.AudioEndpointVolume.OnVolumeNotification += h;
-            },
-            h =>
-            {
-                if (_device.AudioEndpointVolume is not null)
-                    _device.AudioEndpointVolume.OnVolumeNotification -= h;
-            })
-            .Publish()
-            .RefCount();
-    }
+    
     public float Volume
     {
-        get => _device.AudioEndpointVolume?.MasterVolumeLevelScalar ?? 0;
+        get => _device.Volume;
         set
         {
-            if (_device.AudioEndpointVolume is null)
+            if (_device.Device.AudioEndpointVolume is null)
             {
                 return;
             }
-            _device.AudioEndpointVolume.MasterVolumeLevelScalar = (float)value;
+            _device.Device.AudioEndpointVolume.MasterVolumeLevelScalar = (float)value;
             OnPropertyChanged();
         }
     }
 
     public bool IsMuted
     {
-        get => _device.AudioEndpointVolume?.Mute ?? false;
+        get => _device.IsMuted;
         private set
         {
-            if (_device.AudioEndpointVolume is null)
+            if (_device.Device.AudioEndpointVolume is null)
             {
                 return;
             }
-            _device.AudioEndpointVolume.Mute = value;
+            _device.Device.AudioEndpointVolume.Mute = value;
             OnPropertyChanged();
         }
     }
@@ -148,18 +133,19 @@ public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEq
     public string Id { get; }
     public DataFlow Kind { get; }
 
-    private readonly MMDevice _device;
-    private readonly MMDeviceEnumerator _enumerator;
+    private readonly CoreAudioDeviceWrapper _device;
 
     public ReactiveCommand<Unit, Unit> Mute { get; }
 
-    public MMDevice Device => _device;
+    public MMDevice Device => _device.Device;
 
     public bool IsSelected
     {
-        get => _enumerator.GetDefaultAudioEndpoint(Kind, Role.Multimedia).ID == Id;
-        set
+        get => _device.IsDefault;
+        private set
         {
+            // todo: this doesn't make sense, we should be setting the default device here
+            // and then updating the property based on that, not setting the property and then trying to set the default device based on that
             _isSelected = value;
             //_device.Selected = value;
 
@@ -175,7 +161,7 @@ public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEq
 
     public bool Equals(DeviceItem? other)
     {
-        return other?.Device.ID == Device.ID;
+        return other?.Id == Id;
     }
 
     public override bool Equals(object obj)
@@ -185,7 +171,7 @@ public partial class DeviceItem : ObservableObject, IComparable<DeviceItem>, IEq
 
     public override int GetHashCode()
     {
-        return Device.ID.GetHashCode();
+        return Id.GetHashCode();
     }
 
     public static bool operator ==(DeviceItem left, DeviceItem right)

@@ -36,16 +36,16 @@ public partial class MediaSessionManager : ReactiveObject, IDisposable
         _cleanup?.Dispose();
     }
 
-    IObservableList<MediaSession> _currentSessions;
+    IObservableList<MediaSessionVm> _currentSessions;
 
-    public IObservableList<MediaSession> CurrentMediaSessions => _currentSessions;
-    private ObservableAsPropertyHelper<MediaSession?> _activeSession;
+    public IObservableList<MediaSessionVm> CurrentMediaSessions => _currentSessions;
+    private ObservableAsPropertyHelper<MediaSessionVm?> _activeSession;
 
-    public MediaSession? ActiveSession => _activeSession.Value;
+    public MediaSessionVm? ActiveSession => _activeSession.Value;
 
 
     [Lazy(IsPrivate = true)]
-    private IObservable<MediaSession?> GetActiveSessionChanges()
+    private IObservable<MediaSessionVm?> GetActiveSessionChanges()
     {
         return GetNativeActiveSessionChanges()
             .Switch()
@@ -64,9 +64,9 @@ public partial class MediaSessionManager : ReactiveObject, IDisposable
     }
 
     [Lazy(IsPrivate = false)]
-    private IObservable<IChangeSet<MediaSession, string>> GetMediaSessionsChangeSet()
+    private IObservable<IChangeSet<MediaSessionVm, string>> GetMediaSessionsChangeSet()
     {
-        return ObservableChangeSet.Create<MediaSession, string>(cache =>
+        return ObservableChangeSet.Create<MediaSessionVm, string>(cache =>
         {
             var subscription = MediaSessionsChanges
                 .Subscribe(sessions =>
@@ -83,14 +83,14 @@ public partial class MediaSessionManager : ReactiveObject, IDisposable
 
     
     [return: NotNullIfNotNull(nameof(session))]
-    private static MediaSession? CreateMediaSession(GlobalSystemMediaTransportControlsSession? session)
+    private static MediaSessionVm? CreateMediaSession(GlobalSystemMediaTransportControlsSession? session)
     {
         if (session is null)
         {
             return null;
         }
 
-        return MediaSession.Create(session, new Infrastructure.InstalledApplicationInfo() { AppUserModelId = "", Icon = Observable.Empty<ImageSource>(), Name = "" });
+        return MediaSessionVm.Create(session, new Infrastructure.InstalledApplicationInfo() { AppUserModelId = "", Icon = Observable.Empty<ImageSource>(), Name = "" });
     }
 
     [Lazy(IsPrivate = true)]
@@ -99,7 +99,7 @@ public partial class MediaSessionManager : ReactiveObject, IDisposable
         return Observable.FromAsync(async () => await GlobalSystemMediaTransportControlsSessionManager.RequestAsync())
             .Replay(1)
             .RefCount()
-            .ObserveOn(RxApp.MainThreadScheduler);
+            .ObserveOn(RxSchedulers.MainThreadScheduler);
     }
     [Lazy(IsPrivate = true)]
     private IObservable<IReadOnlyList<GlobalSystemMediaTransportControlsSession>> GetMediaSessionsChanges()

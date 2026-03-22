@@ -49,9 +49,6 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
     [MemberNotNull(nameof(CommandEvents), nameof(ApplicationChange), nameof(WindowChange))]
     internal WinTabberEventManager Init()
     {
-
-        _interop.SendInput((ushort)Keys.CapsLock, true);
-
         var scheduler = GetScheduler();
         var connection = GetConnection();
         var hooks = connection.SelectMany(events =>
@@ -170,6 +167,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
             events.KeyUpEvents, _interop);
 
         var capsHook = hyperkey.Connect().Subscribe();
+
         //.Select(action =>
         //{
         //    Debug.WriteLine(action);

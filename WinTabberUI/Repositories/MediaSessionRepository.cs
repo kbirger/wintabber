@@ -1,4 +1,5 @@
-﻿using System;
+﻿using DynamicData;
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -15,13 +16,13 @@ public partial class MediaSessionRepository
     [Lazy(IsPrivate = true)]
     private IObservable<GlobalSystemMediaTransportControlsSessionManager> GetSessionManagerObservable()
     {
-        return Observable.FromAsync(async () => 
-            await GlobalSystemMediaTransportControlsSessionManager.RequestAsync())
-                .Replay(1)
-                .RefCount();
+        return Observable
+            .StartAsync(async () => await GlobalSystemMediaTransportControlsSessionManager.RequestAsync())
+            .Replay(1)
+            .RefCount();
     }
 
-    [Lazy]
+    [Lazy(IsPrivate = true)]
     private IObservable<IReadOnlyList<GlobalSystemMediaTransportControlsSession>> GetMediaSessionsChanges()
     {
         return GetSessionManagerObservable()
@@ -30,7 +31,7 @@ public partial class MediaSessionRepository
             .Replay(1)
             .RefCount();
     }
-
+        
     [Lazy]
     private IObservable<GlobalSystemMediaTransportControlsSession?> GetActiveMediaSessionChanges()
     {
@@ -41,20 +42,36 @@ public partial class MediaSessionRepository
             .RefCount();
     }
 
-    private static IObservable<GlobalSystemMediaTransportControlsSession> GetSMTCActiveSesionChanges(GlobalSystemMediaTransportControlsSessionManager manager)
+    [Lazy]
+    private IObservable<IChangeSet<GlobalSystemMediaTransportControlsSession, string>> GetMediaSessions()
     {
-        return Observable.FromEventPattern<CurrentSessionChangedEventArgs>(manager, nameof(manager.CurrentSessionChanged))
+        return MediaSessionsChanges
+            .ToObservableChangeSet(s => s.SourceAppUserModelId);
+    }
+
+    private static IObservable<GlobalSystemMediaTransportControlsSession> GetSMTCActiveSesionChanges(
+        GlobalSystemMediaTransportControlsSessionManager manager
+    )
+    {
+        return Observable
+            .FromEventPattern<CurrentSessionChangedEventArgs>(manager, nameof(manager.CurrentSessionChanged))
             .Select(_ => Unit.Default)
             .StartWith(Unit.Default)
             .Select(_ => manager.GetCurrentSession());
     }
-    private static IObservable<IReadOnlyList<GlobalSystemMediaTransportControlsSession>> GetSMTCSessionChanges(GlobalSystemMediaTransportControlsSessionManager manager)
+
+    private static IObservable<IReadOnlyList<GlobalSystemMediaTransportControlsSession>> GetSMTCSessionChanges(
+        GlobalSystemMediaTransportControlsSessionManager manager
+    )
     {
-        return Observable.FromEventPattern<SessionsChangedEventArgs>(manager, nameof(manager.SessionsChanged))
+        return Observable
+            .FromEventPattern<SessionsChangedEventArgs>(manager, nameof(manager.SessionsChanged))
             .Select(_ => Unit.Default)
             .StartWith(Unit.Default)
             .Select(_ => manager.GetSessions())
-            .Do(sessions => { Debug.WriteLine(string.Join(", ", sessions.Select(session => session.SourceAppUserModelId).ToArray())); });
+            .Do(sessions =>
+            {
+                Debug.WriteLine(string.Join(", ", sessions.Select(session => session.SourceAppUserModelId).ToArray()));
+            });
     }
-
 }

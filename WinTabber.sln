@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
 # Visual Studio Version 18
-VisualStudioVersion = 18.0.11217.181 d18.0
+VisualStudioVersion = 18.0.11217.181
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinTabber", "WinTabber\WinTabber.csproj", "{51D4AE38-CE52-4BE5-8732-AF05C3954E5C}"
 EndProject
@@ -17,6 +17,7 @@ Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinTabber.Generators", "Win
 EndProject
 Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution Items", "{8EC462FD-D22E-90A8-E5CE-7E832BA40C5D}"
 	ProjectSection(SolutionItems) = preProject
+		.csharpierrc.yaml = .csharpierrc.yaml
 		.editorconfig = .editorconfig
 		global.json = global.json
 	EndProjectSection
@@ -24,6 +25,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinTabber.Infrastructure.Tests", "WinTabber.Infrastructure.Tests\WinTabber.Infrastructure.Tests.csproj", "{21943D1F-D917-4642-BAC0-DB0FCFCB8C27}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wintabber.SessionsTest", "Wintabber.SessionsTest\Wintabber.SessionsTest.csproj", "{9370B5CF-0141-45F2-ADBB-5BC8455C2200}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinTabber.Api.Media", "WinTabber.Api.Media\WinTabber.Api.Media.csproj", "{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -131,6 +134,18 @@ Global
 		{9370B5CF-0141-45F2-ADBB-5BC8455C2200}.Release|x64.Build.0 = Release|Any CPU
 		{9370B5CF-0141-45F2-ADBB-5BC8455C2200}.Release|x86.ActiveCfg = Release|Any CPU
 		{9370B5CF-0141-45F2-ADBB-5BC8455C2200}.Release|x86.Build.0 = Release|Any CPU
+		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Debug|x64.Build.0 = Debug|Any CPU
+		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Debug|x86.Build.0 = Debug|Any CPU
+		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Release|Any CPU.Build.0 = Release|Any CPU
+		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Release|x64.ActiveCfg = Release|Any CPU
+		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Release|x64.Build.0 = Release|Any CPU
+		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Release|x86.ActiveCfg = Release|Any CPU
+		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
