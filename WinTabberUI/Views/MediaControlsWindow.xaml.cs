@@ -1,4 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.DependencyInjection;
+using iNKORE.UI.WPF.Helpers;
 using ReactiveUI;
 using System;
 using System.Collections.Generic;
@@ -6,6 +7,7 @@ using System.Diagnostics;
 using System.Linq;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
@@ -18,9 +20,13 @@ using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using System.Windows.Shapes;
 using Windows.UI.Core;
+using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.Graphics.Gdi;
 using WinTabber.Interop;
 using WinTabberUI.Services;
 using WinTabberUI.ViewModels;
+using static System.Windows.Forms.VisualStyles.VisualStyleElement;
 
 namespace WinTabberUI;
 
@@ -35,6 +41,7 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
         InitializeComponent();
         ViewModel = Ioc.Default.GetRequiredService<MediaControlsViewModel>();
         _mediaControlsStateService = Ioc.Default.GetRequiredService<IMediaControlsStateService>();
+        Loaded += OnLoaded;
         DataContext = ViewModel;
         this.WhenActivated((CompositeDisposable disposables) => 
         {
@@ -54,7 +61,33 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
         Loaded += MediaControlsWindow_Loaded;
         IsVisibleChanged += MediaControlsWindow_IsVisibleChanged;
     }
-        
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        //ApplyOpacity(30);
+
+        return base.MeasureOverride(availableSize);
+    }
+
+    protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
+    {
+        base.OnPreviewMouseDown(e);
+        Debug.WriteLine("X");
+        //ApplyOpacity(30);
+    }
+    
+
+    protected override void OnContentRendered(EventArgs e)
+    {
+        base.OnContentRendered(e);
+        //ApplyOpacity(30);
+    }
+
+    protected override void OnRender(DrawingContext drawingContext)
+    {
+        base.OnRender(drawingContext);
+        //ApplyOpacity(40);
+    }
     private void MediaControlsWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if(IsVisible && IsLoaded)
@@ -79,6 +112,7 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
     protected override void OnDeactivated(EventArgs e)
     {
         //_mediaControlsStateService.HideView();
+        //WindowHelper.Reset(this);
         ViewModel?.Activator.Deactivate();
         base.OnDeactivated(e);
 
@@ -118,4 +152,16 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
 
         }
     }
+
+    void OnLoaded(object sender, RoutedEventArgs e)
+    {
+        //ApplyOpacity(100); // fully opaque initially
+    }
+
+    void OnSetOpacity(object sender, RoutedEventArgs e)
+    {
+        //ApplyOpacity(128); // 50%
+    }
+
+   
 }

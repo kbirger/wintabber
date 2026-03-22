@@ -1,9 +1,13 @@
 # Remove the line below if you want to inherit .editorconfig settings from higher directories
 root = true
 
+[*] 
+guidelines = 80, 120
+guidelines_style = 1px solid 20ffffff
 # C# files
 [*.cs]
-
+guidelines = 80, 120
+guidelines_style = 1px solid 20ffffff
 #### Core EditorConfig Options ####
 
 # Indentation and spacing

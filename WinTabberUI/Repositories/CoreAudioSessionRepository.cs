@@ -15,19 +15,19 @@ namespace WinTabberUI.Repositories;
 
 public class CoreAudioSessionRepository : IDisposable
 {
-    public IObservable<IChangeSet<CoreAudioSessionWrapper, string>> Connect(MMDevice device)
+    public IObservable<IChangeSet<CoreAudioSessionWrapper, string>> Connect(CoreAudioDeviceWrapper device)
     {
-        var manager = device.AudioSessionManager;
+        var manager = device.Device.AudioSessionManager;
         var changes = ObservableChangeSet.Create<CoreAudioSessionWrapper, string>((cache) =>
         {
-            cache.AddOrUpdate(GetNativeSessions(manager).Select(session => new CoreAudioSessionWrapper(session)));
+            cache.AddOrUpdate(GetNativeSessions(manager).Select(session => new CoreAudioSessionWrapper(session, device)));
 
             var newSessions = ObserveSessionCreation(manager);
 
             var subscription = newSessions.Subscribe(nativeSession =>
             {
                 var session = new AudioSessionControl(nativeSession);
-                var wrapper = new CoreAudioSessionWrapper(session);
+                var wrapper = new CoreAudioSessionWrapper(session, device);
                 cache.AddOrUpdate(wrapper);
             });
 

@@ -64,7 +64,7 @@ namespace WinTabberUI.Coordinators
 
         protected void OnExternallyClosed()
         {
-            if (_instance is not null && !ReuseInstances)
+            if (_instance is not null)
             {
                 _instance = null;
             }

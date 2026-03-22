@@ -5,7 +5,7 @@ using WinTabber.API;
 using WinTabber.Events;
 using WinTabberUI.Coordinators;
 using WinTabberUI.Infrastructure;
-using WinTabberUI.Services;
+using WinTabberUI.Repositories;
 using WinTabberUI.Updaters;
 using WinTabberUI.ViewModels;
 

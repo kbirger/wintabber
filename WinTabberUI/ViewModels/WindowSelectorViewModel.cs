@@ -85,7 +85,7 @@ public partial class WindowSelectorViewModel : DependencyObject, IDisposable, IA
     private IObservable<bool> GetIsSwitcherActiveChanges()
     {
         return _eventManager.CommandEvents
-            .SubscribeOn(RxApp.TaskpoolScheduler)
+            .SubscribeOn(RxSchedulers.TaskpoolScheduler)
             .Where(evt => evt.Type.IsOneOf(EventType.CmdNextWindow, EventType.CmdPreviousWindow, EventType.CmdAppHide, EventType.WindowSelected))
             .WithLatestFrom<WinTabberEvent, bool, (WinTabberEvent CommandEvent, bool IsEditing)>(IsEditing, (command, isEditing) => (command, isEditing))
             .Select(evt =>

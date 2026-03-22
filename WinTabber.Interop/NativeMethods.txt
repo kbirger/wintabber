@@ -56,3 +56,7 @@ TH32CS_SNAPPROCESS
 SendInput
 GetMessageExtraInfo
 keybd_event
+
+NtQueryInformationProcess
+PROCESS_BASIC_INFORMATION
+QueryFullProcessImageName

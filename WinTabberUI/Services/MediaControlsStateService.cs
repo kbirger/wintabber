@@ -31,7 +31,7 @@ public partial class MediaControlsStateService(WinTabberEventManager eventManage
     private IObservable<bool> GetIsMediaControlsVisibleChanges()
     {
         var listener = _eventManager.CommandEvents
-            .SubscribeOn(RxApp.TaskpoolScheduler)
+            .SubscribeOn(RxSchedulers.TaskpoolScheduler)
             .Where(evt => evt.Type == EventType.CmdMediaWindow)
 
             .Subscribe(_ => ToggleView());

@@ -7,17 +7,22 @@ using System.Diagnostics;
 using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Threading;
 
 namespace WinTabberUI.Models;
 
 public class CoreAudioSessionWrapper : ObservableObject, IAudioSessionEventsHandler, IDisposable
 {
     private readonly AudioSessionControl _nativeSession;
+    private readonly CoreAudioDeviceWrapper _device;
     private bool _disposed = false;
+    private Dispatcher Dispatcher { get; }
 
-    public CoreAudioSessionWrapper(AudioSessionControl nativeSession)
+    public CoreAudioSessionWrapper(AudioSessionControl nativeSession, CoreAudioDeviceWrapper device)
     {
+        Dispatcher = Dispatcher.CurrentDispatcher;
         _nativeSession = nativeSession;
+        _device = device;
         _nativeSession.RegisterEventClient(this);
     }
 
@@ -43,6 +48,8 @@ public class CoreAudioSessionWrapper : ObservableObject, IAudioSessionEventsHand
         }
     }
 
+    public CoreAudioDeviceWrapper Device => _device;
+
     public AudioSessionState State => _nativeSession.State;
 
     public string DisplayName => _nativeSession.DisplayName;
@@ -60,13 +67,31 @@ public class CoreAudioSessionWrapper : ObservableObject, IAudioSessionEventsHand
     public float Volume
     {
         get => _nativeSession.SimpleAudioVolume.Volume;
-        set => _nativeSession.SimpleAudioVolume.Volume = value;
+        private set => _nativeSession.SimpleAudioVolume.Volume = value;
     }
 
     public bool IsMuted
     {
         get => _nativeSession.SimpleAudioVolume.Mute;
-        set => _nativeSession.SimpleAudioVolume.Mute = value;
+        private set => _nativeSession.SimpleAudioVolume.Mute = value;
+    }
+
+    public void SetVolume(float volume)
+    {
+        Volume = volume;
+        Dispatcher.BeginInvoke(() =>
+        {
+            _nativeSession.SimpleAudioVolume.Volume = volume;
+        });
+    }
+
+    public void SetMute(bool isMuted)
+    {
+        IsMuted = IsMuted;
+        Dispatcher.BeginInvoke(() =>
+        {
+            _nativeSession.SimpleAudioVolume.Mute = isMuted;
+        });
     }
 
     public void OnChannelVolumeChanged(uint channelCount, nint newVolumes, uint channelIndex)

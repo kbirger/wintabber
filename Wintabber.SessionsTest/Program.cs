@@ -10,12 +10,19 @@ using DynamicData;
 using DynamicData.Kernel;
 using NAudio.CoreAudioApi;
 using ReactiveUI;
+using Windows.Media.Control;
+using WinTabberUI.Infrastructure;
+using WinTabberUI.Models;
 using WinTabberUI.Repositories;
 using WinTabberUI.Services;
 using WinTabberUI.ViewModels;
 
 CoreAudioDeviceRepository deviceRepo = new CoreAudioDeviceRepository();
 CoreAudioSessionRepository sessionRepo = new CoreAudioSessionRepository();
+MediaSessionRepository mediaSessionRepo = new MediaSessionRepository();
+
+var ias = new InstalledApplicationRepository();
+
 var syncCtx = new SynchronizationContext();
 
 Debug.WriteLine($"Starting on thread {Environment.CurrentManagedThreadId}");
@@ -40,13 +47,99 @@ devices.QueryWhenChanged(x =>
     return x;
 }).Subscribe(cache =>
 {
-    Console.Clear();
-    Console.WriteLine("Devices:");
-    foreach (var item in cache.Items)
+    //Console.Clear();
+    //Console.WriteLine("Devices:");
+    //foreach (var item in cache.Items)
+    //{
+    //    Console.WriteLine($"- {item.FriendlyName}");
+    //}
+});
+
+var nativeSessions = devices.MergeManyChangeSets(device =>
+{
+    var sessions = sessionRepo.Connect(device);
+
+    return sessions!;
+}).DisposeMany();
+
+
+var mediaSessions = mediaSessionRepo.MediaSessions;
+
+var mediaByAumid = mediaSessions
+    .AutoRefreshOnObservable(_ => ias.ApplicationsByAumid.Connect())
+    .InnerJoin(
+        ias.ApplicationsByAumid.Connect(),
+        app => app.AppUserModelId,
+        (session, app) =>
+        {
+            return new MediaSessionWithApp(session, app);
+        })
+    .ChangeKey(x => x.Session.SourceAppUserModelId)
+    .AsObservableCache();
+
+// installed apps get fetched multiple times!
+var nativeWithApp = nativeSessions.AutoRefreshOnObservable(_ => ias.ApplicationsByPath.Connect())
+    .Transform(nativeSession =>
     {
-        Console.WriteLine($"- {item.FriendlyName}");
+        var processes = ProcessHelper.GetAncestors(nativeSession.ProcessId);
+        var lookup = ias.ApplicationsByPath;
+        foreach (var process in processes)
+        {
+            if (process.TryGetExecutablePath(out var path))
+            {
+                var appOption = lookup.Lookup(path);
+                if (appOption.HasValue)
+                {
+                    return new NativeSessionWithApp(nativeSession, appOption.Value);
+                }
+            }
+        }
+
+        return new NativeSessionWithApp(nativeSession, null);
+    })
+    .Filter(item => item.App != null)
+    .AsObservableCache();
+
+
+var joined = mediaByAumid.Connect()
+    .LeftJoin(
+        nativeWithApp.Connect(),
+        session => session.App!.AppUserModelId,
+        (mediaSession, nativeSession) => new MasterSession(
+            mediaSession.Session,
+            mediaSession.App,
+            nativeSession.ValueOrDefault()?.Session
+        ))
+    .AutoRefreshOnObservable(_ => nativeWithApp.Connect());
+
+joined.Subscribe(x =>
+{
+    foreach (var item in x)
+    {
+        Debug.WriteLine($"{item.Reason} {item.Current.App.AppUserModelId}");
     }
 });
+joined.QueryWhenChanged(x =>
+{
+    return x;
+}).Subscribe(z =>
+{
+    foreach (var item in z.Items)
+    {
+        Console.WriteLine($"Session {item.MediaSession.SourceAppUserModelId} - {item.App.Name} - {item.NativeSession?.State}");
+    }
+});
+
+//allSessions.QueryWhenChanged().Subscribe(cache =>
+//{
+
+//    Console.WriteLine();
+//    Console.WriteLine("Sessions:");
+//    foreach (var item in cache.Items)
+//    {
+//        Console.WriteLine($"- {item.SessionIdentifier} ({item.DisplayName})");
+//    }
+//});
 
 //devices.WhereReasonsAre(ChangeReason.Add).Subscribe(deviceAdds =>
 //{
@@ -75,7 +168,7 @@ devices.QueryWhenChanged(x =>
 //            return 0;
 //        }).ToArray();
 //    });
-while(true)
+while (true)
 {
     await Task.Delay(100);
 
@@ -413,3 +506,8 @@ await Task.Delay(-1);
 ////DeviceSessionWatcher watcher = );
 
 */
+
+
+record MasterSession(GlobalSystemMediaTransportControlsSession MediaSession, InstalledApplicationInfo App, CoreAudioSessionWrapper? NativeSession);
+record NativeSessionWithApp(CoreAudioSessionWrapper Session, InstalledApplicationInfo? App);
+record MediaSessionWithApp(GlobalSystemMediaTransportControlsSession Session, InstalledApplicationInfo App);

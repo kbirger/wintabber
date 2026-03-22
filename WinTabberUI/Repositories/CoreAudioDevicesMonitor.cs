@@ -1,6 +1,7 @@
 ﻿using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
 using System.Reactive;
+using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 
@@ -14,18 +15,20 @@ public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
     private Subject<(DataFlow Flow, Role Role, string DeviceId)> _defaultDeviceChanges = new();
     private Subject<(string DeviceId, NAudio.CoreAudioApi.PropertyKey Key)> _devicePropertyChanges = new();
     private readonly MMDeviceEnumerator _enumerator;
+    private readonly EventLoopScheduler _scheduler;
 
-    public IObservable<(string DeviceId, DeviceState NewState)> DeviceStateChanges => _deviceStateChanges;
+    public IObservable<(string DeviceId, DeviceState NewState)> DeviceStateChanges => _deviceStateChanges.ObserveOn(_scheduler);
 
-    public IObservable<string> DeviceAdditions => _deviceAdditions;
-    public IObservable<string> DeviceRemovals => _deviceRemovals;
-    public IObservable<(DataFlow Flow, Role Role, string DeviceId)> DefaultDeviceChanges => _defaultDeviceChanges;
-    public IObservable<(string DeviceId, NAudio.CoreAudioApi.PropertyKey Key)> DevicePropertyChanges => _devicePropertyChanges;
+    public IObservable<string> DeviceAdditions => _deviceAdditions.ObserveOn(_scheduler);
+    public IObservable<string> DeviceRemovals => _deviceRemovals.ObserveOn(_scheduler);
+    public IObservable<(DataFlow Flow, Role Role, string DeviceId)> DefaultDeviceChanges => _defaultDeviceChanges.ObserveOn(_scheduler);
+    public IObservable<(string DeviceId, NAudio.CoreAudioApi.PropertyKey Key)> DevicePropertyChanges => _devicePropertyChanges.ObserveOn(_scheduler);
 
-    public CoreAudioDevicesMonitor(MMDeviceEnumerator enumerator)
+    public CoreAudioDevicesMonitor(MMDeviceEnumerator enumerator, EventLoopScheduler scheduler)
     {
         enumerator.RegisterEndpointNotificationCallback(this);
         _enumerator = enumerator;
+        _scheduler = scheduler;
     }
 
     void IMMNotificationClient.OnDeviceStateChanged(string deviceId, DeviceState newState)
@@ -70,8 +73,27 @@ public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
                 .Select(_ => Unit.Default),
             StateChanges = DeviceStateChanges
                 .Where(change => change.DeviceId == deviceId)
-                .Select(change => change.NewState)
+                .Select(change => change.NewState),
+            IsDefaultChanges = DefaultDeviceChanges
+                .Select(change => change.DeviceId == deviceId)
         };
+    }
+
+    private static IObservable<AudioVolumeNotificationData> GetVolumeChanged(AudioEndpointVolume audioEndpointVolume)
+    {
+        return Observable.FromEvent<AudioEndpointVolumeNotificationDelegate, AudioVolumeNotificationData>(
+            h =>
+            {
+                if (audioEndpointVolume is not null)
+                    audioEndpointVolume.OnVolumeNotification += h;
+            },
+            h =>
+            {
+                if (audioEndpointVolume is not null)
+                    audioEndpointVolume.OnVolumeNotification -= h;
+            })
+            .Publish()
+            .RefCount();
     }
 
     public void Dispose()
