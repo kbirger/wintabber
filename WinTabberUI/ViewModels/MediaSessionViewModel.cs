@@ -17,10 +17,11 @@ using System.Windows.Media.Imaging;
 using Windows.Foundation;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
+using WinTabber.Api.Media.CoreAudio.Services;
+using WinTabber.Api.Media.SMTC.Services;
 using WinTabber.Interop;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Models;
-using WinTabberUI.Repositories;
 using static WinTabberUI.Services.MediaSessionService;
 
 namespace WinTabberUI.ViewModels;
@@ -46,13 +47,15 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
 
     private AggregateSession _session;
     private readonly CompositeDisposable _disposable = new CompositeDisposable();
-    public MediaSessionViewModel(AggregateSession session)
+    public MediaSessionViewModel(AggregateSession session, AudioSessionService audioSessionService, AudioDeviceService audioDeviceService)
     {
         _session = session;
         var scheduler = RxSchedulers.MainThreadScheduler;
 
         var smtcSession = session.MediaSession;
-
+        var deviceSession = audioSessionService.WatchSession(session.NativeSession!.Id);
+        // todo: this is incorrect. need device
+        var device = audioDeviceService.WatchDevice(session.NativeSession.Id);
         //var mediaPropertiesChanged = ObserveMediaProperties(smtcSession);
         //var playbackPropertiesChanged = ObservePlaybackProperties(smtcSession);
         //var timelinePropertyChanged = ObserveTimelineProperties(smtcSession);
@@ -89,25 +92,24 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
             .ToProperty(this, vm => vm.Duration)
             .DisposeWith(_disposable);
 
-        _canSetDeviceVolume = Observable.Return(session.NativeSession is not null)
-            .ToProperty(this, vm => vm.CanChangeSessionVolume)
-            .DisposeWith(_disposable);
-
-        _canSetDeviceVolume = Observable.Return(session.NativeSession?.Device is not null)
+        _canSetDeviceVolume = Observable.Return(true)
             .ToProperty(this, vm => vm.CanChangeDeviceVolume)
             .DisposeWith(_disposable);
 
-        _isSessionMuted = Observable.Return(session.NativeSession?.IsMuted ?? true)
+        _canSetSessionvolume = Observable.Return(session.NativeSession is not null)
+            .ToProperty(this, vm => vm.CanChangeSessionVolume);
+
+        _isSessionMuted = deviceSession.IsMutedChanges
             .ToProperty(this, vm => vm.IsSessionMuted);
 
-        _isDeviceMuted = Observable.Return(session.NativeSession?.Device?.IsMuted ?? true)
+        _isDeviceMuted = device.MuteChanges
             .ToProperty(this, vm => vm.IsDeviceMuted);
 
-        _sessionVolume = Observable.Return(session.NativeSession?.Volume ?? 0)
+        _sessionVolume = deviceSession.VolumeChanges
             .ToProperty(this, vm => vm.SessionVolume)
             .DisposeWith(_disposable);
 
-        _deviceVolume = Observable.Return(session.NativeSession?.Device?.Volume ?? 0)
+        _deviceVolume = device.VolumeChanges
             .ToProperty(this, vm => vm.DeviceVolume)
             .DisposeWith(_disposable);
 
@@ -254,7 +256,7 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     //}
 
     public bool CanChangeSessionVolume => _session.NativeSession is not null;
-    public bool CanChangeDeviceVolume => _session.NativeSession?.Device is not null;
+    public bool CanChangeDeviceVolume => _session.NativeSession is not null;
     private bool _isSeeking = false;
 
     //public float Volume
@@ -341,9 +343,10 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     {
         return Observable.Start(() =>
         {
-            if (_session.NativeSession?.Device is not null)
+            if (_session.NativeSession is not null)
             {
-                _session.NativeSession?.Device.SetVolume(volume);
+                // todo: marshall
+                //_session.NativeSession.SetVolume(volume);
             }
         });
     }
@@ -354,7 +357,8 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
         {
             if (_session.NativeSession is not null)
             {
-                _session.NativeSession.SetVolume(volume);
+                // todo: marshall
+                //_session.NativeSession.SetVolume(volume);
             }
         });
     }
@@ -365,7 +369,8 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
         {
             if (_session.NativeSession is not null)
             {
-                _session.NativeSession.SetMute(isMuted);
+                // todo: marshall
+                //_session.NativeSession.SetMute(isMuted);
             }
         });
     }
@@ -374,9 +379,10 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     {
         return Observable.Start(() =>
         {
-            if (_session.NativeSession?.Device is not null)
+            if (_session.NativeSession is not null)
             {
-                _session.NativeSession.Device.SetMute(isMuted);
+                // todo: marshall
+                //_session.NativeSession.SetMute(isMuted);
             }
         });
     }

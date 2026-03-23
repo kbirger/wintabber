@@ -1,18 +1,20 @@
 ﻿using NAudio.CoreAudioApi;
 using System;
 using System.Collections.Generic;
-using System.Linq;
 using System.Reactive;
 using System.Text;
-using System.Threading.Tasks;
 
-namespace WinTabber.Api.Media.CoreAudio.Repositories;
+namespace WinTabber.Api.Media.CoreAudio.Dtos;
 
-public class CoreAudioDeviceMonitor
+public class ObservableDeviceDto
 {
+    public required string DisplayName { get; init; }
+    public required string Id { get; init; }
     public required IObservable<DeviceState> StateChanges { get; init; }
     public required IObservable<Unit> Removed { get; init; }
     public required IObservable<PropertyKey> PropertyChanges { get; init; }
 
     public required IObservable<bool> IsDefaultChanges { get; init; }
+    public required IObservable<float> VolumeChanges { get; init; }
+    public required IObservable<bool> MuteChanges { get; init; }
 }

@@ -1,17 +1,16 @@
 ﻿using System;
 using System.Collections.Generic;
 using System.Reactive;
+using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Text;
-using ReactiveUI;
 using Windows.Media.Control;
-using WinTabberUI.ViewModels;
 using SMTCMediaProps = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties;
 using SMTCPlaybackInfo = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionPlaybackInfo;
 using SMTCSessionTimelineProps = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionTimelineProperties;
 using SMTCSSession = Windows.Media.Control.GlobalSystemMediaTransportControlsSession;
 
-namespace WinTabberUI.Repositories;
+namespace WinTabber.Api.Media.SMTC.Services;
 
 public static class SMTCMediaChangeExtensions
 {
@@ -44,7 +43,7 @@ public static class SMTCMediaChangeExtensions
                     events =>
                         events.Select(_ => Unit.Default).StartWith(Unit.Default).Select(_ => session.GetPlaybackInfo())
                 )
-                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .ObserveOn(Scheduler.Default)
                 .Replay(1)
                 .RefCount();
         }
@@ -62,7 +61,7 @@ public static class SMTCMediaChangeExtensions
                             .SelectMany(_ => session.TryGetMediaPropertiesAsync())
                             .Catch(Observable.Empty<SMTCMediaProps>())
                 )
-                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .ObserveOn(Scheduler.Default)
                 .Replay(1)
                 .RefCount();
         }

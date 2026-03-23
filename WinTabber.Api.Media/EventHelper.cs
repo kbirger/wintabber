@@ -1,9 +1,9 @@
 ﻿using System.Reactive;
 using System.Reactive.Linq;
 
-namespace WinTabberUI.ViewModels;
+namespace WinTabber.Api.Media;
 
-internal static class EventHelper
+public static class EventHelper
 {
 
     public static IObservable<TResult> EventOrEmpty<TSource, TEventArgs, TResult>(

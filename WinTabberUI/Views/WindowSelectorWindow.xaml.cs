@@ -69,10 +69,10 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
     {
         InitializeComponent();
         _dpiScale = VisualTreeHelper.GetDpi(this);
-        
+
         SizeChanged += MainWindow_SizeChanged;
         LayoutUpdated += MainWindow_LayoutUpdated;
-        IsVisibleChanged  += MainWindow_VisibilityChanged;
+        IsVisibleChanged += MainWindow_VisibilityChanged;
         DpiChanged += OnDpiChanged;
 
 
@@ -80,28 +80,29 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
         _settings = Ioc.Default.GetRequiredService<SettingsViewModel>();
         _resources.Add(mgr);
 
-        //this.WhenActivated((dispose) =>
-        //{
-        //    Debug.WriteLine("Activated");
+        this.WhenActivated((dispose) =>
+        {
+            //    Debug.WriteLine("Activated");
 
-        //    Disposable.Create(() => { Debug.WriteLine("Deactivated"); }).DisposeWith(dispose);
-        //    this.OneWayBind(
-        //        _settings.Appearance, 
-        //        vm => vm.WindowTileWidthScaled, 
-        //        view => view.MaxItemWidth
-        //    ).DisposeWith(dispose);
+            //    Disposable.Create(() => { Debug.WriteLine("Deactivated"); }).DisposeWith(dispose);
+            //    this.OneWayBind(
+            //        _settings.Appearance, 
+            //        vm => vm.WindowTileWidthScaled, 
+            //        view => view.MaxItemWidth
+            //    ).DisposeWith(dispose);
 
-        //    this.OneWayBind(
-        //        _settings.Appearance,
-        //        vm => vm.WindowTileWidthScaled,
-        //        view => view.MaxItemHeight,
-        //        (double width) =>
-        //        {
-        //            var ratio = WindowData.CursorScreen.Bounds.Height / WindowData.CursorScreen.Bounds.Width;
-        //            return 55 + width * ratio;
-        //        }
-        //    ).DisposeWith(dispose);
-        //});
+            //    this.OneWayBind(
+            //        _settings.Appearance,
+            //        vm => vm.WindowTileWidthScaled,
+            //        view => view.MaxItemHeight,
+            //        (double width) =>
+            //        {
+            //            var ratio = WindowData.CursorScreen.Bounds.Height / WindowData.CursorScreen.Bounds.Width;
+            //            return 55 + width * ratio;
+            //        }
+            //    ).DisposeWith(dispose);
+            //});
+        });
     }
 
     protected override void OnSourceInitialized(EventArgs e)

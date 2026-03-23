@@ -26,5 +26,6 @@
     <ItemGroup>
       <Folder Include="ShellApplications\Dtos\" />
       <Folder Include="ShellApplications\Services\" />
+      <Folder Include="SMTC\Models\" />
     </ItemGroup>
 </Project>

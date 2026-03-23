@@ -6,7 +6,7 @@ using WinTabber.Api.Media.Repositories;
 
 namespace WinTabber.Api.Media.CoreAudio.Services;
 
-public class AudioSessionService(
+public partial class AudioSessionService(
     CoreAudioDeviceRepository deviceRepository,
     CoreAudioSessionRepository sessionRepository
 )
@@ -14,7 +14,8 @@ public class AudioSessionService(
     private readonly CoreAudioSessionRepository _sessionRepository = sessionRepository;
     private readonly CoreAudioDeviceRepository _deviceRepository = deviceRepository;
 
-    public IObservable<IChangeSet<SessionDto, string>> GetSessions()
+    [Lazy]
+    private IObservable<IChangeSet<SessionDto, string>> GetSessions()
     {
         return _deviceRepository
             .Devices.MergeManyChangeSets(_sessionRepository.Connect)
@@ -27,5 +28,19 @@ public class AudioSessionService(
             })
             .Publish()
             .RefCount();
+    }
+
+    public ObservableSessionDto WatchSession(string sessionId)
+    {
+        var value = _deviceRepository
+            .Devices
+                .MergeManyChangeSets(_sessionRepository.Connect)
+                .AsObservableCache().Lookup(sessionId);
+        if(value.HasValue)
+        {
+            return new ObservableSessionDto(value.Value);
+        }
+
+        throw new InvalidOperationException("No such session");
     }
 }

@@ -4,15 +4,18 @@ using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using WinTabber.Api.Media.CoreAudio.Models;
 
 namespace WinTabber.Api.Media.CoreAudio.Repositories;
 
+public record DefaultDeviceChange(DataFlow Flow, Role Role, string DeviceId);
+public record DefaultDeviceKey(DataFlow Flow, Role Role);
 public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
 {
     private Subject<(string DeviceId, DeviceState NewState)> _deviceStateChanges = new();
     private Subject<string> _deviceAdditions = new();
     private Subject<string> _deviceRemovals = new();
-    private Subject<(DataFlow Flow, Role Role, string DeviceId)> _defaultDeviceChanges = new();
+    private Subject<DefaultDeviceChange> _defaultDeviceChanges = new();
     private Subject<(string DeviceId, NAudio.CoreAudioApi.PropertyKey Key)> _devicePropertyChanges = new();
     private readonly MMDeviceEnumerator _enumerator;
     private readonly EventLoopScheduler _scheduler;
@@ -21,7 +24,7 @@ public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
 
     public IObservable<string> DeviceAdditions => _deviceAdditions.ObserveOn(_scheduler);
     public IObservable<string> DeviceRemovals => _deviceRemovals.ObserveOn(_scheduler);
-    public IObservable<(DataFlow Flow, Role Role, string DeviceId)> DefaultDeviceChanges => _defaultDeviceChanges.ObserveOn(_scheduler);
+    public IObservable<DefaultDeviceChange> DefaultDeviceChanges => _defaultDeviceChanges.ObserveOn(_scheduler);
     public IObservable<(string DeviceId, NAudio.CoreAudioApi.PropertyKey Key)> DevicePropertyChanges => _devicePropertyChanges.ObserveOn(_scheduler);
 
     public CoreAudioDevicesMonitor(MMDeviceEnumerator enumerator, EventLoopScheduler scheduler)
@@ -48,7 +51,7 @@ public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
 
     void IMMNotificationClient.OnDefaultDeviceChanged(DataFlow flow, Role role, string defaultDeviceId)
     {
-        _defaultDeviceChanges.OnNext((flow, role, defaultDeviceId));
+        _defaultDeviceChanges.OnNext(new (flow, role, defaultDeviceId));
     }
 
     void IMMNotificationClient.OnPropertyValueChanged(string pwstrDeviceId, PropertyKey key)
@@ -61,10 +64,12 @@ public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
         return this;
     }
 
-    public CoreAudioDeviceMonitor Watch(string deviceId)
+    public DeviceEvents Watch(MMDevice device)
     {
-        return new CoreAudioDeviceMonitor
+        string deviceId = device.ID;
+        return new DeviceEvents
         {
+            VolumeChanges = GetVolumeChanged(device.AudioEndpointVolume),
             PropertyChanges = DevicePropertyChanges
                 .Where(change => change.DeviceId == deviceId)
                 .Select(change => change.Key),

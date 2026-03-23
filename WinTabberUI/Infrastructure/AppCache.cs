@@ -15,6 +15,7 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using WinTabber.Api.Media.ShellApplications.Models;
 
 namespace WinTabberUI.Infrastructure;
 

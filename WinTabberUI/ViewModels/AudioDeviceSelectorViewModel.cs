@@ -6,6 +6,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
+using WinTabber.Api.Media.CoreAudio.Dtos;
 
 namespace WinTabberUI.ViewModels
 {
@@ -54,7 +55,7 @@ namespace WinTabberUI.ViewModels
 
 
         //public AudioDeviceSelectorViewModel(IObservable<IEnumerable<MMDevice>> devicesObservable, DataFlow dataFlow, Action<MMDevice> activateFunction)
-        public AudioDeviceSelectorViewModel(IObservable<IChangeSet<DeviceItem, string>> devices)
+        public AudioDeviceSelectorViewModel(IObservable<IChangeSet<DeviceDto, string>> devices)
         {
             devices.Bind(out _devices)
                 .Subscribe();
@@ -79,7 +80,7 @@ namespace WinTabberUI.ViewModels
             //_dataFlow = dataFlow;
             //_activateFunction = activateFunction;
             //var deviceItems = devicesObservable
-            //.Select(devices => devices.Select(device => new DeviceItem(device)).ToArray());
+            //.Select(devices => devices.Select(device => new DeviceDto(device)).ToArray());
             //_devices = deviceItems
             //.ToProperty(this, vm => vm.Devices, initialValue: []);
 
@@ -90,16 +91,16 @@ namespace WinTabberUI.ViewModels
 
         }
 
-        //private readonly ObservableAsPropertyHelper<DeviceItem[]> _devices;
-        private readonly ReadOnlyObservableCollection<DeviceItem> _devices;
+        //private readonly ObservableAsPropertyHelper<DeviceDto[]> _devices;
+        private readonly ReadOnlyObservableCollection<DeviceDto> _devices;
 
         //private readonly DataFlow _dataFlow;
         //private readonly Action<MMDevice> _activateFunction;
 
-        //public DeviceItem[] Devices => _devices.Value;
-        public ReadOnlyObservableCollection<DeviceItem> Devices => _devices;
+        //public DeviceDto[] Devices => _devices.Value;
+        public ReadOnlyObservableCollection<DeviceDto> Devices => _devices;
 
-        public DeviceItem? SelectedDevice
+        public DeviceDto? SelectedDevice
         {
             get => _selectedDevice;
             set
@@ -108,7 +109,9 @@ namespace WinTabberUI.ViewModels
                 if (_selectedDevice is not null)
                 {
                     //_selectedDevice.IsSelected = true;
-                    _selectedDevice.Activate();
+                    // todo: invoke device activate on dispatcher
+                    //_selectedDevice.Activate();
+                    // END
                     //foreach (var device in Devices.Where(device => device != _selectedDevice))
                     //{
                     //    device.IsSelected = false;
@@ -117,6 +120,6 @@ namespace WinTabberUI.ViewModels
                 this.RaisePropertyChanged();
             }
         }
-        private DeviceItem? _selectedDevice;
+        private DeviceDto? _selectedDevice;
     }
 }

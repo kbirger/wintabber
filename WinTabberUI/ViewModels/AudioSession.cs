@@ -24,6 +24,7 @@ using Windows.Win32.System.Threading;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Services;
 using WinTabberUI.Interop;
+using WinTabber.Api.Media.ShellApplications.Models;
 
 namespace WinTabberUI.ViewModels;
 
