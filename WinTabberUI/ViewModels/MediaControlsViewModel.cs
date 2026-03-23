@@ -11,11 +11,15 @@ using DynamicData.Binding;
 using NAudio.CoreAudioApi;
 using ReactiveUI;
 using Windows.Media.Control;
+using WinTabber.Api.Media;
+using WinTabber.Api.Media.CoreAudio.Services;
+using WinTabber.Api.Media.Repositories;
+using WinTabber.Api.Media.ShellApplications.Models;
+using WinTabber.Api.Media.ShellApplications.Repositories;
 using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Models;
-using WinTabberUI.Repositories;
 using WinTabberUI.Services;
 
 namespace WinTabberUI.ViewModels;
@@ -76,7 +80,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     private readonly InstalledApplicationRepository _applicationService;
     private readonly MediaSessionService _mediaSessionService;
     private readonly IMediaControlsStateService _mediaControlsStateService;
-    private readonly IAudioDeviceManager _audioDeviceManager;
+    //private readonly IAudioDeviceManager _audioDeviceManager;
     private readonly CompositeDisposable _cleanUp;
     private AudioDeviceSelectorViewModel? _playback;
     private AudioDeviceSelectorViewModel? _recording;
@@ -104,6 +108,8 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         MediaSessionService mediaSessionService,
         IMediaControlsStateService mediaControlsStateService,
         CoreAudioDeviceRepository coreAudioDeviceRepository,
+        AudioSessionService audioSessionService,
+        AudioDeviceService audioDeviceService,
         WinTabberEventManager eventManager
     )
     {
@@ -130,7 +136,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                     .Select(change => change.Current))
                 .Switch()
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
-                .Subscribe(changedSession => ActiveSession = new MediaSessionViewModel(changedSession.Session))
+                .Subscribe(changedSession => ActiveSession = new MediaSessionViewModel(changedSession.Session, audioSessionService, audioDeviceService))
                 .DisposeWith(_cleanUp);
 
             var ad = coreAudioDeviceRepository.Devices
@@ -141,11 +147,16 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
             var c = ad.AsObservableCache();
             var d = c.Connect();
             //var ad = _audioDeviceManager.Connect();
-            var renderDevices = d.Filter(x => x.DataFlow== DataFlow.Render).Transform(d => new DeviceItem(d));
-            var recordingDevices = d.Filter(x => x.DataFlow == DataFlow.Capture).Transform(d => new DeviceItem(d));
-            //var sessions = ad.TransformMany(device => new DeviceSessionWatcher(device.Device.AudioSessionManager, applicationService.ApplicationsByPath).Connect().AsObservableCache(), x => x.AumId).AsObservableCache();
-            _playback = new AudioDeviceSelectorViewModel(renderDevices);
-            _recording = new AudioDeviceSelectorViewModel(recordingDevices);
+
+            // todo: port to new code
+            //var renderDevices = d.Filter(x => x.DataFlow== DataFlow.Render).Transform(d => new DeviceItem(d));
+            //var recordingDevices = d.Filter(x => x.DataFlow == DataFlow.Capture).Transform(d => new DeviceItem(d));
+
+
+            ////var sessions = ad.TransformMany(device => new DeviceSessionWatcher(device.Device.AudioSessionManager, applicationService.ApplicationsByPath).Connect().AsObservableCache(), x => x.AumId).AsObservableCache();
+            //_playback = new AudioDeviceSelectorViewModel(renderDevices);
+            //_recording = new AudioDeviceSelectorViewModel(recordingDevices);
+            // END
 
 
 

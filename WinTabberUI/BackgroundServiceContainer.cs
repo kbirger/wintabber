@@ -1,11 +1,10 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using System.Reactive.Disposables;
-using Windows.Media.Devices;
+using WinTabber.Api.Media.ShellApplications.Repositories;
 using WinTabber.API;
 using WinTabber.Events;
 using WinTabberUI.Coordinators;
 using WinTabberUI.Infrastructure;
-using WinTabberUI.Repositories;
 using WinTabberUI.Updaters;
 using WinTabberUI.ViewModels;
 

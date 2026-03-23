@@ -6,15 +6,20 @@ using System.Text;
 using DynamicData;
 using DynamicData.Kernel;
 using Windows.Media.Control;
+using WinTabber.Api.Media.CoreAudio.Models;
+using WinTabber.Api.Media.CoreAudio.Repositories;
+using WinTabber.Api.Media.Repositories;
+using WinTabber.Api.Media.ShellApplications.Models;
+using WinTabber.Api.Media.ShellApplications.Repositories;
+using WinTabber.Api.Media.SMTC.Repositories;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Models;
-using WinTabberUI.Repositories;
 
 namespace WinTabberUI.Services;
 public partial class MediaSessionService(
     CoreAudioDeviceRepository coreAudioDeviceRepository,
     CoreAudioSessionRepository coreAudioSessionRepository,
-    MediaSessionRepository mediaSessionRepository,
+    SMTCSessionRepository mediaSessionRepository,
     InstalledApplicationRepository installedApplicationRepository
 )
 {
@@ -39,7 +44,7 @@ public partial class MediaSessionService(
 
     private readonly CoreAudioDeviceRepository _coreAudioDeviceRepository = coreAudioDeviceRepository;
     private readonly CoreAudioSessionRepository _coreAudioSessionRepository = coreAudioSessionRepository;
-    private readonly MediaSessionRepository _mediaSessionRepository = mediaSessionRepository;
+    private readonly SMTCSessionRepository _mediaSessionRepository = mediaSessionRepository;
     private readonly InstalledApplicationRepository _installedApplicationRepository = installedApplicationRepository;
 
     private IObservable<IChangeSet<MediaSessionWithApp, string>> GetSMTCSessionsByAumid()

@@ -1,5 +1,4 @@
-﻿using ReactiveUI;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Reactive.Concurrency;
@@ -12,24 +11,24 @@ using System.Windows.Media.Imaging;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
 
-namespace WinTabberUI.Repositories;
+namespace WinTabber.Api.Media.SMTC.Services;
 
-public partial class SMTCSessionMonitor : ReactiveObject
+public partial class SMTCSessionMonitor 
 {
     private readonly GlobalSystemMediaTransportControlsSession _smtcSession;
     private readonly CompositeDisposable _disposable = new CompositeDisposable();
-    public IObservable<string> ArtistNameChanges {get;}
-    public IObservable<string> AlbumTitleChanges {get;}
-    public IObservable<string> TitleChanges {get;}
-    public IObservable<TimeSpan> DurationChanges {get;}
-    public IObservable<TimeSpan> PositionChanges {get;}
-    public IObservable<float> ProgressChanges {get;}
-    public IObservable<bool> IsPlayingChanges {get;}
-    public IObservable<bool> CanPlayPauseChanges {get;}
-    public IObservable<bool> CanNextChanges {get;}
-    public IObservable<bool> CanPrevChanges {get;}
-    public IObservable<bool> CanPauseChanges {get;}
-    public IObservable<ImageSource?> ThumbnailChanges {get;}
+    public IObservable<string> ArtistNameChanges { get; }
+    public IObservable<string> AlbumTitleChanges { get; }
+    public IObservable<string> TitleChanges { get; }
+    public IObservable<TimeSpan> DurationChanges { get; }
+    public IObservable<TimeSpan> PositionChanges { get; }
+    public IObservable<float> ProgressChanges { get; }
+    public IObservable<bool> IsPlayingChanges { get; }
+    public IObservable<bool> CanPlayPauseChanges { get; }
+    public IObservable<bool> CanNextChanges { get; }
+    public IObservable<bool> CanPrevChanges { get; }
+    public IObservable<bool> CanPauseChanges { get; }
+    public IObservable<ImageSource?> ThumbnailChanges { get; }
     public IObservable<bool> CanSeekChanges { get; }
     public SMTCSessionMonitor(GlobalSystemMediaTransportControlsSession smtcSession)
     {
@@ -55,9 +54,9 @@ public partial class SMTCSessionMonitor : ReactiveObject
 
         IsPlayingChanges = playbackPropertiesChanged
             .Select(info => info?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing);
-            //.Do(t => Debug.WriteLine($"playing: {t}"))
+        //.Do(t => Debug.WriteLine($"playing: {t}"))
 
-        
+
         CanPlayPauseChanges = playbackPropertiesChanged
             .Select(info => info.Controls.IsPlayPauseToggleEnabled || info.Controls.IsPauseEnabled || info.Controls.IsPlayEnabled);
 

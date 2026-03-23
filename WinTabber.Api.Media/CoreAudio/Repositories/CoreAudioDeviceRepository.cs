@@ -11,9 +11,11 @@ using System.Threading.Tasks;
 using DynamicData;
 using NAudio.CoreAudioApi;
 using NAudio.MediaFoundation;
+using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 
 namespace WinTabber.Api.Media.Repositories;
+
 
 public partial class CoreAudioDeviceRepository : IDisposable
 {
@@ -54,8 +56,37 @@ public partial class CoreAudioDeviceRepository : IDisposable
         });
     }
 
+    public IObservable<IChangeSet<DefaultDeviceChange, DefaultDeviceKey>> GetDefaultDevices()
+    {
+        return _monitor.DefaultDeviceChanges.ToObservableChangeSet((change) => new DefaultDeviceKey(change.Flow, change.Role));
+    }
 
     
+
+
+    public MMDevice? GetDefaultPlaybackDevice()
+    {
+        if(_enumerator.HasDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
+        {
+            return _enumerator.GetDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia);
+        }
+        return null;
+    }
+
+    public MMDevice? GetDefaultRecordingDevice()
+    {
+        if (_enumerator.HasDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia))
+        {
+            return _enumerator.GetDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia);
+        }
+        return null;
+    }
+
+    public DeviceEvents Watch(MMDevice device)
+    {
+        return _monitor.Watch(device);
+    }
+
     [Lazy]
     private IObservable<IChangeSet<MMDevice, string>> GetDevices()
     {
@@ -90,6 +121,11 @@ public partial class CoreAudioDeviceRepository : IDisposable
                                     cache.Refresh(device);
                                 }
                             });
+                            var defaultSubscription = _monitor.DefaultDeviceChanges.Subscribe(change =>
+                            {
+                                Debug.WriteLine($"Device {change.DeviceId} is now default {change.Flow} device");
+                                cache.Refresh();
+                            });
 
                             var stateChangeSubscription = _monitor.DeviceStateChanges.Subscribe(change =>
                             {
@@ -106,6 +142,7 @@ public partial class CoreAudioDeviceRepository : IDisposable
                                 else if (change.NewState == DeviceState.Active)
                                 {
                                     var device = _enumerator.GetDevice(change.DeviceId);
+
                                     cache.AddOrUpdate(device);
                                     cache.Refresh(device);
 

@@ -7,13 +7,17 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms.VisualStyles;
+using WinTabber.Api.Media.CoreAudio.Repositories;
+using WinTabber.Api.Media.CoreAudio.Services;
+using WinTabber.Api.Media.Repositories;
+using WinTabber.Api.Media.ShellApplications.Repositories;
+using WinTabber.Api.Media.SMTC.Repositories;
 using WinTabber.API;
 using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabberUI.Coordinators;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Models;
-using WinTabberUI.Repositories;
 using WinTabberUI.Services;
 using WinTabberUI.Updaters;
 using WinTabberUI.ViewModels;
@@ -35,6 +39,7 @@ public static class Bootstrapper
     private static ServiceProvider ConfigureServices(Application application)
     {
         var serviceProvider = new ServiceCollection()
+
             .RegisterApplication(application)
             .AddCoordinators()
             .AddCoreServices()
@@ -65,8 +70,10 @@ public static class Bootstrapper
             .AddSingleton<AppCache>()
             .AddSingleton<CoreAudioDeviceRepository>()
             .AddSingleton<CoreAudioSessionRepository>()
-            .AddSingleton<MediaSessionRepository>()
+            .AddSingleton<SMTCSessionRepository>()
             .AddSingleton<MediaSessionService>()
+            .AddSingleton<AudioSessionService>()
+            .AddSingleton<AudioDeviceService>()
             .AddSingleton<InstalledApplicationRepository>();
     }
     private static IServiceCollection AddUpdaters(this IServiceCollection services)

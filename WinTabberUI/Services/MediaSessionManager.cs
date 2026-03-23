@@ -13,6 +13,8 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Media;
 using Windows.Media.Control;
+using WinTabber.Api.Media;
+using WinTabber.Api.Media.ShellApplications.Models;
 using WinTabberUI.ViewModels;
 
 namespace WinTabberUI.Services;
@@ -90,7 +92,7 @@ public partial class MediaSessionManager : ReactiveObject, IDisposable
             return null;
         }
 
-        return MediaSessionVm.Create(session, new Infrastructure.InstalledApplicationInfo() { AppUserModelId = "", Icon = Observable.Empty<ImageSource>(), Name = "" });
+        return MediaSessionVm.Create(session, new InstalledApplicationInfo() { AppUserModelId = "", Icon = Observable.Empty<ImageSource>(), Name = "" });
     }
 
     [Lazy(IsPrivate = true)]

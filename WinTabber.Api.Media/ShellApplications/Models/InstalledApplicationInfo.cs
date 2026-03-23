@@ -5,7 +5,7 @@ using System.Text;
 using System.Threading.Tasks;
 using System.Windows.Media;
 
-namespace WinTabber.Api.Media.SMTC.Models;
+namespace WinTabber.Api.Media.ShellApplications.Models;
 
 public class InstalledApplicationInfo : IEquatable<InstalledApplicationInfo>
 {

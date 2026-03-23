@@ -5,6 +5,7 @@ using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Windows.Media;
 using Windows.Media.Control;
+using WinTabber.Api.Media.ShellApplications.Models;
 using WinTabberUI.Infrastructure;
 
 namespace WinTabberUI.ViewModels;
