@@ -1,17 +1,11 @@
 ﻿using Microsoft.WindowsAPICodePack.Shell;
 using ReactiveUI;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
 using System.IO;
-using System.Linq;
 using System.Reactive.Linq;
 using System.Runtime.Caching;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;

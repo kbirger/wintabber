@@ -1,11 +1,8 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
-using System.Diagnostics;
 using System.Windows;
-using System.Windows.Input;
 using WinTabber.Events;
-using System.Windows.Input;
-using WinTabberUI.Services;
 using WinTabberUI.Models.Settings;
+using WinTabberUI.Services;
 
 namespace WinTabberUI;
 

@@ -1,29 +1,19 @@
-﻿using System;
-using System.Collections.Generic;
+﻿using ReactiveUI;
 using System.Diagnostics;
 using System.IO;
-using System.Linq;
 using System.Reactive;
-using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using ReactiveUI;
 using Windows.Foundation;
-using Windows.Media.Control;
 using Windows.Storage.Streams;
 using WinTabber.Api.Media.CoreAudio.Dtos;
 using WinTabber.Api.Media.CoreAudio.Services;
 using WinTabber.Api.Media.SMTC.Services;
 using WinTabber.Interop;
-using WinTabberUI.Infrastructure;
 using WinTabberUI.Models;
-using static WinTabberUI.Services.MediaSessionService;
 
 namespace WinTabberUI.ViewModels;
 

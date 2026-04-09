@@ -1,11 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using Windows.Win32.Graphics.Dwm;
+﻿using Windows.Win32;
 using Windows.Win32.Foundation;
-using Windows.Win32;
+using Windows.Win32.Graphics.Dwm;
 
 namespace WinTabberUI.Chrome;
 

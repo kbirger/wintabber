@@ -1,18 +1,9 @@
-﻿using iNKORE.UI.WPF.Modern.Controls.Helpers;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
+﻿using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using System.Windows.Threading;
-using Windows.UI.Composition;
-using Windows.UI.Core.AnimationMetrics;
-using WinTabberUI.Chrome;
-using WinTabberUI.Helpers;
 using WinTabberUI.ViewModels;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement;
-using static System.Windows.Forms.VisualStyles.VisualStyleElement.TaskbarClock;
 
 namespace WinTabberUI.Coordinators
 {

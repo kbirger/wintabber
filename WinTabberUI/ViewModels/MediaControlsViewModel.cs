@@ -1,28 +1,15 @@
 ﻿using DynamicData;
-using DynamicData.Binding;
 using NAudio.CoreAudioApi;
 using ReactiveUI;
-using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
-using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
-using System.Windows;
-using Windows.Media.Control;
-using WinTabber.Api.Media;
-using WinTabber.Api.Media.CoreAudio.Services;
-using WinTabber.Api.Media.Repositories;
-using WinTabber.Api.Media.ShellApplications.Models;
-using WinTabber.Api.Media.ShellApplications.Repositories;
+using WinTabber.Common.Util;
 using WinTabber.Events;
-using WinTabber.Interop;
-using WinTabberUI.Infrastructure;
-using WinTabberUI.Models;
 using WinTabberUI.Services;
 using WinTabberUI.ViewModels.Factories;
-using WinTabber.Common.Util;
 
 namespace WinTabberUI.ViewModels;
 

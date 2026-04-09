@@ -1,8 +1,5 @@
 ﻿using NAudio.CoreAudioApi.Interfaces;
-using System;
-using System.Collections.Generic;
 using System.Reactive.Linq;
-using System.Text;
 using WinTabber.Api.Media.CoreAudio.Models;
 
 namespace WinTabber.Api.Media.CoreAudio.Dtos;

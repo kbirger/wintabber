@@ -1,10 +1,6 @@
 ﻿using ReactiveUI;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
-using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
-using System.Text;
 using System.Windows.Media;
 using WinTabberUI.Models;
 

@@ -1,6 +1,4 @@
-using WinTabber.Events;
-
-namespace WinTabberUI.Extensions;
+namespace WinTabber.Events;
 
 public static class EventTypeExtensions
 {

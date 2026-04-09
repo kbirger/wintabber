@@ -1,6 +1,4 @@
-﻿using WinTabber.Interop;
-
-namespace WinTabber.Events;
+﻿namespace WinTabber.Events;
 
 public interface IWinTabberEventManager : IDisposable
 {

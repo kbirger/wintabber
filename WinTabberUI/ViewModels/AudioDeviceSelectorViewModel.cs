@@ -1,10 +1,7 @@
-﻿using CommunityToolkit.Mvvm.ComponentModel;
-using DynamicData;
+﻿using DynamicData;
 using NAudio.CoreAudioApi;
 using ReactiveUI;
 using System.Collections.ObjectModel;
-using System.Diagnostics;
-using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using WinTabber.Api.Media.CoreAudio.Dtos;
 using WinTabber.Api.Media.CoreAudio.Services;

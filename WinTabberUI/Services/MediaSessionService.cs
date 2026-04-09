@@ -1,11 +1,7 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using DynamicData;
+using DynamicData.Kernel;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
-using System.Text;
-using DynamicData;
-using DynamicData.Kernel;
 using Windows.Media.Control;
 using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.CoreAudio.Repositories;
@@ -15,7 +11,6 @@ using WinTabber.Api.Media.ShellApplications.Repositories;
 using WinTabber.Api.Media.SMTC.Repositories;
 using WinTabber.Common.Util;
 using WinTabber.Interop;
-using WinTabberUI.Infrastructure;
 using WinTabberUI.Models;
 
 namespace WinTabberUI.Services;

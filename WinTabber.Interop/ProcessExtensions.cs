@@ -1,6 +1,5 @@
 ﻿using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using WinTabber.Common.Util;
 
 namespace WinTabber.Interop;
 

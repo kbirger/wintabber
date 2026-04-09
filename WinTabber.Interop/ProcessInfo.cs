@@ -1,2 +1,2 @@
-namespace WinTabber.Common.Util;
+namespace WinTabber.Interop;
 public record struct ProcessInfo(int Id, string ProcessName, int ParentId);

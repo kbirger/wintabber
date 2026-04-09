@@ -1,8 +1,4 @@
-﻿using System.Diagnostics;
-using System.Reactive.Linq;
-using System.Threading.Channels;
-
-namespace WinTabber.API;
+﻿namespace WinTabber.API;
 
 public abstract class WindowOwner
 {

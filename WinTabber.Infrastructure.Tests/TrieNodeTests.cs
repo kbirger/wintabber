@@ -1,9 +1,6 @@
-﻿using System.Runtime.CompilerServices;
-using WinTabber.Infrastructure.Tests.Data;
-using WinTabberUI.Infrastructure;
-using System.Threading.Tasks;
+﻿using System.Windows;
 using WinTabberUI.Hints;
-using System.Windows;
+using WinTabberUI.Infrastructure;
 
 namespace WinTabber.Infrastructure.Tests;
 

@@ -1,6 +1,5 @@
 ﻿using DynamicData;
 using ReactiveUI;
-using System.ComponentModel;
 using System.Diagnostics;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
@@ -9,8 +8,6 @@ using System.Windows;
 using System.Windows.Forms;
 using WinTabber.API;
 using WinTabber.Events;
-using WinTabberUI.Extensions;
-using WinTabberUI.Models;
 
 namespace WinTabberUI.ViewModels;
 

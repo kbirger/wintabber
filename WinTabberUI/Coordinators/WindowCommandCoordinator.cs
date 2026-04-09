@@ -1,7 +1,6 @@
 using System.Reactive.Linq;
 using WinTabber.API;
 using WinTabber.Events;
-using WinTabberUI.Extensions;
 
 namespace WinTabberUI.Coordinators;
 public class WindowCommandCoordinator : IDisposable

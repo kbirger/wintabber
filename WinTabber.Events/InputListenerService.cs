@@ -1,13 +1,11 @@
-﻿using System.Reactive.Concurrency;
+﻿using SharpHook;
+using SharpHook.Providers;
+using SharpHook.Reactive;
+using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Windows.Forms;
-using System.Windows.Input;
 using System.Windows.Threading;
-using static WinTabber.Events.WinTabberEventManager;
-using SharpHook;
-using SharpHook.Providers;
-using SharpHook.Reactive;
 
 namespace WinTabber.Events;
 

@@ -1,18 +1,14 @@
 ﻿using GlobalHotKeys;
 using GlobalHotKeys.Native.Types;
-using Gma.System.MouseKeyHook;
 using SharpHook;
 using SharpHook.Data;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
-using System.Reactive;
 using System.Reactive.Concurrency;
-using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Windows.Forms;
-using System.Windows.Input;
 using System.Windows.Threading;
 using WinTabber.Interop;
 using static WinTabber.Events.InputListenerService;

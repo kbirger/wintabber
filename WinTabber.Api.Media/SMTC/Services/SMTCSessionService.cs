@@ -1,9 +1,5 @@
 ﻿using DynamicData;
-using System;
-using System.Collections.Generic;
 using System.Reactive.Linq;
-using System.Text;
-using DynamicData;
 using WinTabber.Api.Media.SMTC.Dtos;
 using WinTabber.Api.Media.SMTC.Repositories;
 

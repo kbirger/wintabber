@@ -1,11 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
-using System.ComponentModel.Design;
-using System.Linq;
+﻿using System.Collections.ObjectModel;
 using System.Reactive.Linq;
-using System.Text;
-using System.Timers;
 using System.Windows;
 using WinTabber.API;
 using WinTabber.Interop;

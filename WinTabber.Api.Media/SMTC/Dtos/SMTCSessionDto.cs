@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace WinTabber.Api.Media.SMTC.Dtos;
+﻿namespace WinTabber.Api.Media.SMTC.Dtos;
 
 public class SMTCSessionDto
 {
