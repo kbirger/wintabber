@@ -1,8 +1,7 @@
-﻿using System.Windows;
-using ReactiveUI;
-using WinTabber.Events;
+﻿using ReactiveUI;
 using System.Reactive;
-using System.Reactive.Linq;
+using System.Windows;
+using WinTabber.Events;
 
 namespace WinTabberUI.ViewModels;
 

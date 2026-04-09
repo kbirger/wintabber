@@ -1,8 +1,5 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Reactive.Linq;
-using System.Text;
 
 namespace WinTabber.Common.Util;
 

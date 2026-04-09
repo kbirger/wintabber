@@ -1,11 +1,11 @@
-﻿using System.Diagnostics;
+﻿using DynamicData;
+using NAudio.CoreAudioApi;
+using System.Diagnostics;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Runtime.InteropServices;
-using DynamicData;
-using NAudio.CoreAudioApi;
 using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Common.Util;

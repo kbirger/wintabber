@@ -1,4 +1,6 @@
-﻿namespace WinTabber.Infrastructure.Tests;
+﻿using WinTabber.Infrastructure.Tests.Data;
+
+namespace WinTabber.Infrastructure.Tests;
 
 [Arguments("Hello")]
 [Arguments("World")]

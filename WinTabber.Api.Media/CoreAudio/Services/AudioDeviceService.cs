@@ -1,13 +1,8 @@
-﻿using Accessibility;
-using DynamicData;
+﻿using DynamicData;
 using NAudio.CoreAudioApi;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reactive.Linq;
-using System.Text;
 using WinTabber.Api.Media.CoreAudio.Dtos;
-using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Api.Media.Repositories;
 

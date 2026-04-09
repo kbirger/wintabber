@@ -1,12 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
-using System.Windows.Forms.VisualStyles;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Api.Media.CoreAudio.Services;
 using WinTabber.Api.Media.Repositories;

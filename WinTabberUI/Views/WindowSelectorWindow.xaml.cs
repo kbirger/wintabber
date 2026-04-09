@@ -1,27 +1,13 @@
 ﻿using CommunityToolkit.Mvvm.DependencyInjection;
 using DynamicData.Binding;
 using iNKORE.UI.WPF.DragDrop.Utilities;
-using Microsoft.Win32.SafeHandles;
 using ReactiveUI;
-using System.Diagnostics;
-using System.Diagnostics.CodeAnalysis;
-using System.Reactive.Disposables;
-using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
-using System.Runtime.InteropServices;
 using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Forms;
 using System.Windows.Input;
-using System.Windows.Interop;
 using System.Windows.Media;
-using System.Xml.Linq;
-using Windows.UI.Core;
-using Windows.Win32;
-using Windows.Win32.Foundation;
 using WinTabber.Events;
 using WinTabberUI.ViewModels;
-using static WinTabberUI.EditableTextBlock;
 
 namespace WinTabberUI;
 

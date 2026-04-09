@@ -1,12 +1,6 @@
 ﻿using Microsoft.Win32;
 using Microsoft.Win32.TaskScheduler;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Reflection.Metadata;
 using System.Security.Principal;
-using System.Text;
-using System.Threading.Tasks;
 
 namespace WinTabberUI.Services;
 

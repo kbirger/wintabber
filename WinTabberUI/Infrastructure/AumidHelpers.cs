@@ -1,6 +1,4 @@
 ﻿using Microsoft.WindowsAPICodePack.Shell;
-using MS.WindowsAPICodePack.Internal;
-using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
@@ -11,7 +9,6 @@ using Windows.Win32.System.Com.StructuredStorage;
 using Windows.Win32.System.Threading;
 using Windows.Win32.System.Variant;
 using Windows.Win32.UI.Shell;
-using Windows.Win32.UI.Shell.PropertiesSystem;
 
 namespace WinTabberUI.Infrastructure;
 

@@ -1,21 +1,8 @@
-﻿using DynamicData.Binding;
-using ReactiveUI;
-using Splat;
-using System;
-using System.Collections.Generic;
-using System.ComponentModel;
-using System.Diagnostics;
-using System.Linq;
+﻿using ReactiveUI;
 using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Input;
-using System.Windows.Media;
 using WinTabber.API;
-using WinTabberUI.Commands;
 
 namespace WinTabberUI.ViewModels;
 

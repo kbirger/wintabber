@@ -1,11 +1,5 @@
-﻿using DynamicData;
-using NAudio.CoreAudioApi;
-using System;
-using System.Collections.Generic;
-using System.Text;
-using WinTabber.Api.Media.CoreAudio.Dtos;
+﻿using NAudio.CoreAudioApi;
 using WinTabber.Api.Media.CoreAudio.Services;
-using WinTabber.Api.Media.Repositories;
 
 namespace WinTabberUI.ViewModels.Factories;
 

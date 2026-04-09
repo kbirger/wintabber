@@ -1,5 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Runtime.Caching;
 using WinTabber.API.CircularBuffer;
 using WinTabber.Interop;
 

@@ -7,7 +7,6 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using WinTabber.API;
 using WinTabber.Interop;
-using WinTabberUI.Coordinators;
 using WinTabberUI.ViewModels;
 using WinTabberUI.Windowing;
 

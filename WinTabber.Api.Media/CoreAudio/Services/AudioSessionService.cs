@@ -1,7 +1,6 @@
-﻿using System.Reactive.Linq;
-using DynamicData;
+﻿using DynamicData;
+using System.Reactive.Linq;
 using WinTabber.Api.Media.CoreAudio.Dtos;
-using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Api.Media.Repositories;
 

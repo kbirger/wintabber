@@ -2,7 +2,6 @@
 using Windows.Media.Control;
 using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.ShellApplications.Models;
-using WinTabberUI.Infrastructure;
 
 namespace WinTabberUI.Models;
 

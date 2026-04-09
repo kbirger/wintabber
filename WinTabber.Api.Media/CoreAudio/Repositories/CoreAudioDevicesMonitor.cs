@@ -1,9 +1,9 @@
-﻿using System.Reactive;
+﻿using NAudio.CoreAudioApi;
+using NAudio.CoreAudioApi.Interfaces;
+using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using NAudio.CoreAudioApi;
-using NAudio.CoreAudioApi.Interfaces;
 using WinTabber.Api.Media.CoreAudio.Models;
 
 namespace WinTabber.Api.Media.CoreAudio.Repositories;

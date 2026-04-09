@@ -1,10 +1,7 @@
 ﻿using DynamicData;
-using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reactive;
 using System.Reactive.Linq;
-using System.Text;
 using Windows.Media.Control;
 
 namespace WinTabber.Api.Media.SMTC.Repositories;

@@ -1,17 +1,10 @@
 ﻿using ReactiveUI;
-using System;
-using System.Collections.Generic;
 using System.Drawing;
-using System.Linq;
-using System.Linq.Expressions;
 using System.Reactive.Linq;
-using System.Text;
-using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Media;
 using WinTabberUI.ViewModels;
-using WinTabberUI.ViewModels.Settings;
 
 namespace WinTabberUI.Services
 {

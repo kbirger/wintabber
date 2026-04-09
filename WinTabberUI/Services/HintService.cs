@@ -1,19 +1,6 @@
-﻿using iNKORE.UI.WPF.DragDrop.Utilities;
-using Microsoft.Xaml.Behaviors;
-using System;
-using System.Collections.Generic;
-using System.Linq;
-using System.Text;
-using System.Threading.Tasks;
-using System.Windows;
-using System.Windows.Automation;
-using System.Windows.Automation.Peers;
-using System.Windows.Automation.Provider;
+﻿using System.Windows;
 using System.Windows.Controls;
-using System.Windows.Controls.Primitives;
-using System.Windows.Documents;
 //using System.Windows.Forms;
-using WinTabberUI.Behaviors;
 
 namespace WinTabberUI.Services;
 

@@ -1,6 +1,6 @@
 ﻿using TUnit.Core.Interfaces;
 
-namespace WinTabber.Infrastructure.Tests;
+namespace WinTabber.Infrastructure.Tests.Data;
 
 public class DataClass : IAsyncInitializer, IAsyncDisposable
 {

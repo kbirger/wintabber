@@ -1,7 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using WinTabber.Api.Media.CoreAudio.Services;
+﻿using WinTabber.Api.Media.CoreAudio.Services;
 using WinTabberUI.Models;
 
 namespace WinTabberUI.ViewModels.Factories;

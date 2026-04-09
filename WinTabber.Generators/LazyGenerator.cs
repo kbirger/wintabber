@@ -1,7 +1,4 @@
-﻿using Microsoft.CodeAnalysis;
-using System.Text;
-
-namespace WinTabber.Generators;
+﻿namespace WinTabber.Generators;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -11,8 +8,6 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
-using System.Security.Cryptography.X509Certificates;
 using System.Text;
 using System.Text.RegularExpressions;
 

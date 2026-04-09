@@ -1,8 +1,4 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-
-namespace WinTabber.Api.Media.CoreAudio.Dtos;
+﻿namespace WinTabber.Api.Media.CoreAudio.Dtos;
 
 public class SessionDto
 {

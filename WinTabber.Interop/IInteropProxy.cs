@@ -1,6 +1,4 @@
 ﻿using System.Diagnostics;
-using System.Drawing;
-using static WinTabber.Interop.InteropProxy;
 
 namespace WinTabber.Interop;
 public interface IInteropProxy

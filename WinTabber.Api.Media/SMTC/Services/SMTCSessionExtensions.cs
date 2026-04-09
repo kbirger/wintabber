@@ -1,9 +1,6 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Reactive;
+﻿using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
-using System.Text;
 using Windows.Media.Control;
 using SMTCMediaProps = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties;
 using SMTCPlaybackInfo = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionPlaybackInfo;
