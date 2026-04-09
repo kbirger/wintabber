@@ -181,7 +181,7 @@
                     <Trigger.Setters>
                         <Setter Property="Content">
                             <Setter.Value>
-                                <ui:FontIcon  FontSize="30" Icon="{x:Static ui:FluentSystemIcons.PauseCircle_20_Filled}"/>
+                                <ui:FontIcon  FontSize="32" Icon="{x:Static ui:FluentSystemIcons.PauseCircle_32_Filled}"/>
 
                             </Setter.Value>
                         </Setter>
@@ -191,8 +191,7 @@
                         <Trigger.Setters>
                         <Setter Property="Content">
                             <Setter.Value>
-                                <ui:FontIcon FontSize="30" Icon="{x:Static ui:FluentSystemIcons.PlayCircle_48_Filled}"/>
-                                
+                                <ui:FontIcon FontSize="32" Icon="{x:Static ui:FluentSystemIcons.PlayCircle_28_Filled}"/>                                
                             </Setter.Value>
                         </Setter>
                         </Trigger.Setters>

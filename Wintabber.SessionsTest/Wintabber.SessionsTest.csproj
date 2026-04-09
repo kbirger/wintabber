@@ -9,10 +9,9 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <PackageReference Include="NAudio.WASAPI" Version="2.2.1" />
-    <PackageReference Include="System.Reactive" Version="6.1.0" />
-	  <PackageReference Include="System.Reactive.Linq" Version="6.1.0" />
-	  <PackageReference Include="ReactiveUI" Version="23.1.1" />
+    <PackageReference Include="NAudio.WASAPI" />
+    <PackageReference Include="System.Reactive" />
+	  <PackageReference Include="ReactiveUI" />
 
   </ItemGroup>
 

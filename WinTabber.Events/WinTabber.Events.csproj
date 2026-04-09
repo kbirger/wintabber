@@ -7,13 +7,13 @@
 		
 	</PropertyGroup>
 	<ItemGroup>
-		<PackageReference Include="GlobalHotKeys.Windows" Version="0.1.0" />
-		<PackageReference Include="MouseKeyHook" Version="5.7.1" />
-		<PackageReference Include="sharphook" Version="7.1.1" />
-		<PackageReference Include="sharphook.reactive" Version="7.1.1" />
-		<PackageReference Include="System.Management" Version="10.0.3" />
-		<PackageReference Include="System.Reactive" Version="6.1.0" />
-		<PackageReference Include="NHotkey.WindowsForms" Version="4.0.0" />
+		<PackageReference Include="GlobalHotKeys.Windows" />
+		<PackageReference Include="MouseKeyHook" />
+		<PackageReference Include="sharphook" />
+		<PackageReference Include="sharphook.reactive" />
+		<PackageReference Include="System.Management" />
+		<PackageReference Include="System.Reactive" />
+		<PackageReference Include="NHotkey.WindowsForms" />
 	</ItemGroup>
 	<ItemGroup>
 	  <ProjectReference Include="..\WinTabber.Interop\WinTabber.Interop.csproj" />

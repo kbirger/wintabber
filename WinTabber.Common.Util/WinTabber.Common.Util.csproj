@@ -5,5 +5,8 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
   </PropertyGroup>
-
+	<ItemGroup>
+		<PackageReference Include="System.Reactive" />
+		<PackageReference Include="Microsoft.Windows.CsWin32" />
+	</ItemGroup>
 </Project>

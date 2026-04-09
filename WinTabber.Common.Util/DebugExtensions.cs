@@ -4,7 +4,7 @@ using System.Diagnostics;
 using System.Reactive.Linq;
 using System.Text;
 
-namespace WinTabberUI;
+namespace WinTabber.Common.Util;
 
 public static class DebugExtensions
 {

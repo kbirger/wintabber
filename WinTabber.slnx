@@ -1,0 +1,22 @@
+<Solution>
+  <Configurations>
+    <Platform Name="Any CPU" />
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Folder Name="/Solution Items/">
+    <File Path=".csharpierrc.yaml" />
+    <File Path=".editorconfig" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+  </Folder>
+  <Project Path="WinTabber.Api.Media/WinTabber.Api.Media.csproj" />
+  <Project Path="WinTabber.API/WinTabber.API.csproj" />
+  <Project Path="WinTabber.Common.Util/WinTabber.Common.Util.csproj" />
+  <Project Path="WinTabber.Events/WinTabber.Events.csproj" />
+  <Project Path="WinTabber.Generators/WinTabber.Generators.csproj" />
+  <Project Path="WinTabber.Infrastructure.Tests/WinTabber.Infrastructure.Tests.csproj" />
+  <Project Path="WinTabber.Interop/WinTabber.Interop.csproj" />
+  <Project Path="Wintabber.SessionsTest/Wintabber.SessionsTest.csproj" />
+  <Project Path="WinTabberUI/WinTabberUI.csproj" />
+</Solution>

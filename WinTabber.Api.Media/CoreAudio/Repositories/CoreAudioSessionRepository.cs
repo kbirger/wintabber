@@ -9,6 +9,7 @@ using DynamicData;
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
 using WinTabber.Api.Media.CoreAudio.Models;
+using WinTabber.Common.Util;
 
 namespace WinTabber.Api.Media.CoreAudio.Repositories;
 
@@ -40,27 +41,29 @@ public class CoreAudioSessionRepository : IDisposable
                             var newSessions = ObserveSessionCreation(manager);
 
                             var subscription = newSessions
-                            .SubscribeOn(STAScheduler.Default)
-                            .ObserveOn(STAScheduler.Default)
-                            .Subscribe(nativeSession =>
-                            {
-                                var session = new AudioSessionControl(nativeSession);
-                                var wrapper = new CoreAudioSessionWrapper(session, device);
-                                wrapper
-                                    .SessionEnded.Take(1)
-                                    .Subscribe(_ =>
-                                    {
-                                        cache.Remove(wrapper);
-                                    });
-                                cache.AddOrUpdate(wrapper);
-                            })
+                                .SubscribeOn(STAScheduler.Default)
+                                .ObserveOn(STAScheduler.Default)
+                                .Subscribe(nativeSession =>
+                                {
+                                    var session = new AudioSessionControl(nativeSession);
+                                    var wrapper = new CoreAudioSessionWrapper(session, device);
+                                    wrapper
+                                        .SessionEnded.Take(1)
+                                        .Subscribe(_ =>
+                                        {
+                                            cache.Remove(wrapper);
+                                        });
+                                    cache.AddOrUpdate(wrapper);
+                                })
                             ;
 
                             return new CompositeDisposable(subscription);
                         },
                         item => item.NativeSession.GetSessionInstanceIdentifier
                     )
-                    .AutoRefreshOnObservable(session => session.SessionChanged);
+                    .AutoRefreshOnObservable(session => session.SessionChanged
+                        .Log(x => "Session changed triggering refresh")
+                        )    ;
 
                 return changes;
             })

@@ -20,6 +20,7 @@ Project("{2150E333-8FDC-42A3-9474-1A3956D46DE8}") = "Solution Items", "Solution 
 		.csharpierrc.yaml = .csharpierrc.yaml
 		.editorconfig = .editorconfig
 		global.json = global.json
+		Directory.Packages.props = Directory.Packages.props
 	EndProjectSection
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinTabber.Infrastructure.Tests", "WinTabber.Infrastructure.Tests\WinTabber.Infrastructure.Tests.csproj", "{21943D1F-D917-4642-BAC0-DB0FCFCB8C27}"
@@ -27,6 +28,8 @@ EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "Wintabber.SessionsTest", "Wintabber.SessionsTest\Wintabber.SessionsTest.csproj", "{9370B5CF-0141-45F2-ADBB-5BC8455C2200}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinTabber.Api.Media", "WinTabber.Api.Media\WinTabber.Api.Media.csproj", "{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "WinTabber.Common.Util", "WinTabber.Common.Util\WinTabber.Common.Util.csproj", "{0E825315-D10B-49EA-8014-3D321F7B4A90}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -146,6 +149,18 @@ Global
 		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Release|x64.Build.0 = Release|Any CPU
 		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Release|x86.ActiveCfg = Release|Any CPU
 		{3D7C7F42-00B0-4D2F-8CAE-FE9037608632}.Release|x86.Build.0 = Release|Any CPU
+		{0E825315-D10B-49EA-8014-3D321F7B4A90}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{0E825315-D10B-49EA-8014-3D321F7B4A90}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{0E825315-D10B-49EA-8014-3D321F7B4A90}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{0E825315-D10B-49EA-8014-3D321F7B4A90}.Debug|x64.Build.0 = Debug|Any CPU
+		{0E825315-D10B-49EA-8014-3D321F7B4A90}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{0E825315-D10B-49EA-8014-3D321F7B4A90}.Debug|x86.Build.0 = Debug|Any CPU
+		{0E825315-D10B-49EA-8014-3D321F7B4A90}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{0E825315-D10B-49EA-8014-3D321F7B4A90}.Release|Any CPU.Build.0 = Release|Any CPU
+		{0E825315-D10B-49EA-8014-3D321F7B4A90}.Release|x64.ActiveCfg = Release|Any CPU
+		{0E825315-D10B-49EA-8014-3D321F7B4A90}.Release|x64.Build.0 = Release|Any CPU
+		{0E825315-D10B-49EA-8014-3D321F7B4A90}.Release|x86.ActiveCfg = Release|Any CPU
+		{0E825315-D10B-49EA-8014-3D321F7B4A90}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

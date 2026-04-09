@@ -13,6 +13,8 @@ using WinTabber.Api.Media.Repositories;
 using WinTabber.Api.Media.ShellApplications.Models;
 using WinTabber.Api.Media.ShellApplications.Repositories;
 using WinTabber.Api.Media.SMTC.Repositories;
+using WinTabber.Common.Util;
+using WinTabber.Interop;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Models;
 
@@ -79,7 +81,7 @@ public partial class MediaSessionService(
         return GetCoreAudioSessions()
             .Filter( x =>
             {
-                Debug.WriteLine($"Session: {x.DisplayName}");
+                x.DisplayName.Take(1).Log(s => $"Session: {s}").Subscribe();
                 return true;
             })
             //.AutoRefreshOnObservable(_ => appsByPath.Connect())
