@@ -9,12 +9,12 @@ namespace WinTabber.Api.Media.CoreAudio.Dtos;
 
 public class ObservableSessionDto
 {
-    public ObservableSessionDto(CoreAudioSessionWrapper deviceWrapper)
+    public ObservableSessionDto(CoreAudioSessionWrapper session)
     {
-        IsMutedChanges = deviceWrapper.VolumeChanges.Select(change => change.IsMuted).DistinctUntilChanged();
-        VolumeChanges = deviceWrapper.VolumeChanges.Select(change => change.Volume).DistinctUntilChanged();
-        State = deviceWrapper.StateChanges;
-        DisplayName = deviceWrapper.DisplayName;
+        IsMutedChanges = session.VolumeChanges.Select(change => change.IsMuted).DistinctUntilChanged();
+        VolumeChanges = session.VolumeChanges.Select(change => change.Volume).DistinctUntilChanged();
+        State = session.StateChanges;
+        DisplayName = session.DisplayName;
 
     }
 

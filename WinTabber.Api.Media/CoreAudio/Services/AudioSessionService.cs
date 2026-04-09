@@ -1,6 +1,7 @@
 ﻿using System.Reactive.Linq;
 using DynamicData;
 using WinTabber.Api.Media.CoreAudio.Dtos;
+using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Api.Media.Repositories;
 
@@ -18,7 +19,8 @@ public partial class AudioSessionService(
     private IObservable<IChangeSet<SessionDto, string>> GetSessions()
     {
         return _deviceRepository
-            .Devices.MergeManyChangeSets(_sessionRepository.Connect)
+            .Devices.Connect()
+            .MergeManyChangeSets(_sessionRepository.Connect)
             .DisposeMany()
             .Transform(session => new SessionDto
             {
@@ -30,17 +32,9 @@ public partial class AudioSessionService(
             .RefCount();
     }
 
-    public ObservableSessionDto WatchSession(string sessionId)
-    {
-        var value = _deviceRepository
-            .Devices
-                .MergeManyChangeSets(_sessionRepository.Connect)
-                .AsObservableCache().Lookup(sessionId);
-        if(value.HasValue)
-        {
-            return new ObservableSessionDto(value.Value);
-        }
+    //public IObservable<ObservableSessionDto> WatchSession(CoreAudioSessionWrapper session)
+    //{
+    //    return new ObservableSessionDto(session);
 
-        throw new InvalidOperationException("No such session");
-    }
+    //}
 }

@@ -3,6 +3,7 @@ using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Data;
 using System.Windows.Media.Imaging;
+using WinTabberUI.ViewModels;
 
 namespace WinTabberUI.Coordinators;
 

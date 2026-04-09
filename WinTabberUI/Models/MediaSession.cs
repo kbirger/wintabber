@@ -1,12 +1,12 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using Windows.Media.Control;
-using WinTabberUI.Infrastructure;
+﻿//using System;
+//using System.Collections.Generic;
+//using System.Text;
+//using Windows.Media.Control;
+//using WinTabberUI.Infrastructure;
 
-namespace WinTabberUI.Models;
+//namespace WinTabberUI.Models;
 
-//public class MediaSession(GlobalSystemMediaTransportControlsSession mediaSession, InstalledApplicationInfo appInfo, Core)
-//{
+////public class MediaSession(GlobalSystemMediaTransportControlsSession mediaSession, InstalledApplicationInfo appInfo, Core)
+////{
 
-//}
+////}

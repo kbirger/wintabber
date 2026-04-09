@@ -1,5 +1,4 @@
-﻿using ReactiveUI;
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -14,9 +13,11 @@ using System.Threading.Tasks;
 using System.Windows;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using ReactiveUI;
 using Windows.Foundation;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
+using WinTabber.Api.Media.CoreAudio.Dtos;
 using WinTabber.Api.Media.CoreAudio.Services;
 using WinTabber.Api.Media.SMTC.Services;
 using WinTabber.Interop;
@@ -43,151 +44,188 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     private readonly ObservableAsPropertyHelper<float> _deviceVolume;
 
     private readonly ObservableAsPropertyHelper<bool> _canSetDeviceVolume;
-    private readonly ObservableAsPropertyHelper<bool> _canSetSessionvolume;
+    private readonly ObservableAsPropertyHelper<bool> _canMuteDevice;
+    private readonly ObservableAsPropertyHelper<bool> _canSetSessionVolume;
 
     private AggregateSession _session;
     private readonly CompositeDisposable _disposable = new CompositeDisposable();
-    public MediaSessionViewModel(AggregateSession session, AudioSessionService audioSessionService, AudioDeviceService audioDeviceService)
+
+    //private readonly ObservableSessionDto? _deviceSession;
+    //private readonly ObservableDeviceDto? _device;
+
+    public MediaSessionViewModel(
+        AggregateSession session,
+        AudioSessionService audioSessionService,
+        AudioDeviceService audioDeviceService
+    )
     {
         _session = session;
         var scheduler = RxSchedulers.MainThreadScheduler;
 
         var smtcSession = session.MediaSession;
-        var deviceSession = audioSessionService.WatchSession(session.NativeSession!.Id);
+        var deviceSession = session.NativeSession is null ? null : new ObservableSessionDto(session.NativeSession);
         // todo: this is incorrect. need device
-        var device = audioDeviceService.WatchDevice(session.NativeSession.Id);
+        var device = session.NativeSession is null
+            ? Observable.Empty<ObservableDeviceDto>()
+            : audioDeviceService.WatchDevice(session.NativeSession.DeviceId).FirstAsync();
         //var mediaPropertiesChanged = ObserveMediaProperties(smtcSession);
         //var playbackPropertiesChanged = ObservePlaybackProperties(smtcSession);
         //var timelinePropertyChanged = ObserveTimelineProperties(smtcSession);
 
         var monitor = new SMTCSessionMonitor(smtcSession);
-        _artistName = monitor.ArtistNameChanges
+        _artistName = monitor
+            .ArtistNameChanges
             //.Do(t => Debug.WriteLine($"artist {t}"))
             .ToProperty(this, vm => vm.ArtistName, initialValue: "")
             .DisposeWith(_disposable);
 
-        _albumTitle = monitor.AlbumTitleChanges
-            .ToProperty(this, vm => vm.AlbumTitle, initialValue: "")
+        _albumTitle = monitor
+            .AlbumTitleChanges.ToProperty(this, vm => vm.AlbumTitle, initialValue: "")
             .DisposeWith(_disposable);
 
-        _title = monitor.TitleChanges
-            .ToProperty(this, vm => vm.Title, initialValue: "")
-            .DisposeWith(_disposable);
+        _title = monitor.TitleChanges.ToProperty(this, vm => vm.Title, initialValue: "").DisposeWith(_disposable);
 
-        _thumbnail = monitor.ThumbnailChanges
-            .ObserveOn(scheduler)            
+        _thumbnail = monitor
+            .ThumbnailChanges.ObserveOn(scheduler)
             .ToProperty(this, vm => vm.Thumbnail, initialValue: null)
             .DisposeWith(_disposable);
 
-        _isPlaying = monitor.IsPlayingChanges
-            //.Do(t => Debug.WriteLine($"playing: {t}"))
+        _thumbnail
+            .ThrownExceptions.Subscribe(ex =>
+            {
+                Debug.WriteLine("Error retrieving thumbnail: {Error}", ex);
+            })
+            .DisposeWith(_disposable);
+
+        _isPlaying = monitor
+            .IsPlayingChanges
+            .Do(t => Debug.WriteLine($"playing: {t}"))
             .ToProperty(this, vm => vm.IsPlaying)
             .DisposeWith(_disposable);
 
-        _canSeek = monitor.CanSeekChanges
-            .ToProperty(this, vm => vm.CanSeek)
-            .DisposeWith(_disposable);
+        _canSeek = monitor.CanSeekChanges.ToProperty(this, vm => vm.CanSeek).DisposeWith(_disposable);
 
-        _duration = monitor.DurationChanges
-            .ToProperty(this, vm => vm.Duration)
-            .DisposeWith(_disposable);
+        _duration = monitor.DurationChanges.ToProperty(this, vm => vm.Duration).DisposeWith(_disposable);
 
-        _canSetDeviceVolume = Observable.Return(true)
+        _canSetDeviceVolume = device
+            .Select(d => d.CanSetVolume)
             .ToProperty(this, vm => vm.CanChangeDeviceVolume)
             .DisposeWith(_disposable);
-
-        _canSetSessionvolume = Observable.Return(session.NativeSession is not null)
+        _canMuteDevice = device
+            .Select(d => d.CanMute)
+            .ToProperty(this, vm => vm.CanChangeDeviceVolume)
+            .DisposeWith(_disposable);
+        _canSetSessionVolume = Observable
+            .Return(session.NativeSession is not null)
             .ToProperty(this, vm => vm.CanChangeSessionVolume);
 
-        _isSessionMuted = deviceSession.IsMutedChanges
-            .ToProperty(this, vm => vm.IsSessionMuted);
+        _isSessionMuted = (deviceSession?.IsMutedChanges ?? Observable.Return(false)).ToProperty(
+            this,
+            vm => vm.IsSessionMuted
+        );
 
-        _isDeviceMuted = device.MuteChanges
-            .ToProperty(this, vm => vm.IsDeviceMuted);
+        _isDeviceMuted = device
+            .SelectMany(d => d.MuteChanges)
+            .ToProperty(this, vm => vm.IsDeviceMuted, initialValue: false);
 
-        _sessionVolume = deviceSession.VolumeChanges
-            .ToProperty(this, vm => vm.SessionVolume)
+        _sessionVolume = (deviceSession?.VolumeChanges ?? Observable.Empty<float>())
+            .ToProperty(this, vm => vm.SessionVolume, initialValue: 0f)
             .DisposeWith(_disposable);
 
-        _deviceVolume = device.VolumeChanges
-            .ToProperty(this, vm => vm.DeviceVolume)
+        _deviceVolume = device
+            .SelectMany(d => d.VolumeChanges)
+            .ToProperty(this, vm => vm.DeviceVolume, initialValue: 0f)
             .DisposeWith(_disposable);
 
+        PlayPause = ReactiveCommand
+            .CreateFromObservable(PlayPauseImpl, canExecute: monitor.CanPlayPauseChanges, outputScheduler: scheduler)
+            .DisposeWith(_disposable);
+        Next = ReactiveCommand
+            .CreateFromObservable(NextImpl, canExecute: monitor.CanNextChanges, outputScheduler: scheduler)
+            .DisposeWith(_disposable);
+        Prev = ReactiveCommand
+            .CreateFromObservable(PrevImpl, canExecute: monitor.CanPrevChanges, outputScheduler: scheduler)
+            .DisposeWith(_disposable);
 
+        Mute = ReactiveCommand
+            .CreateFromObservable(MuteImpl, canExecute: null, outputScheduler: scheduler)
+            .DisposeWith(_disposable);
 
-        PlayPause = ReactiveCommand.CreateFromObservable(
-            PlayPauseImpl,
-            canExecute: monitor.CanPlayPauseChanges,
-            outputScheduler: scheduler).DisposeWith(_disposable);
-        Next = ReactiveCommand.CreateFromObservable(
-            NextImpl,
-            canExecute: monitor.CanNextChanges,
-            outputScheduler: scheduler).DisposeWith(_disposable);
-        Prev = ReactiveCommand.CreateFromObservable(
-            PrevImpl,
-            canExecute: monitor.CanPrevChanges,
-            outputScheduler: scheduler).DisposeWith(_disposable);
+        Pause = ReactiveCommand
+            .CreateFromObservable(PauseImpl, canExecute: monitor.CanPauseChanges, outputScheduler: scheduler)
+            .DisposeWith(_disposable);
 
-        Mute = ReactiveCommand.CreateFromObservable(
-            MuteImpl,
-            canExecute: null,
-            outputScheduler: scheduler).DisposeWith(_disposable);
+        Seek = ReactiveCommand
+            .CreateFromObservable<TimeSpan, Unit>(
+                SeekImpl,
+                canExecute: monitor.CanSeekChanges,
+                outputScheduler: scheduler
+            )
+            .DisposeWith(_disposable);
 
-        Pause = ReactiveCommand.CreateFromObservable(
-            PauseImpl,
-            canExecute: monitor.CanPauseChanges,
-            outputScheduler: scheduler).DisposeWith(_disposable);
+        SetDeviceVolume = ReactiveCommand
+            .CreateFromObservable<float, Unit>(
+                SetDeviceVolumeImpl,
+                canExecute: Observable.Return(CanChangeDeviceVolume),
+                outputScheduler: scheduler
+            )
+            .DisposeWith(_disposable);
 
-        Seek = ReactiveCommand.CreateFromObservable<TimeSpan, Unit>(
-            SeekImpl,
-            canExecute: monitor.CanSeekChanges,
-            outputScheduler: scheduler).DisposeWith(_disposable);
+        SetSessionVolume = ReactiveCommand
+            .CreateFromObservable<float, Unit>(
+                SetSessionVolumeImpl,
+                canExecute: Observable.Return(CanChangeSessionVolume),
+                outputScheduler: scheduler
+            )
+            .DisposeWith(_disposable);
 
-        SetDeviceVolume = ReactiveCommand.CreateFromObservable<float, Unit>(
-            SetDeviceVolumeImpl,
-            canExecute: Observable.Return(CanChangeDeviceVolume),
-            outputScheduler: scheduler).DisposeWith(_disposable);
+        SetSessionMuted = ReactiveCommand
+            .CreateFromObservable<bool, Unit>(
+                SetSessionMutedImpl,
+                canExecute: Observable.Return(CanChangeSessionVolume),
+                outputScheduler: scheduler
+            )
+            .DisposeWith(_disposable);
 
-        SetSessionVolume = ReactiveCommand.CreateFromObservable<float, Unit>(
-            SetSessionVolumeImpl,
-            canExecute: Observable.Return(CanChangeSessionVolume),
-            outputScheduler: scheduler).DisposeWith(_disposable);
+        SetDeviceMuted = ReactiveCommand
+            .CreateFromObservable<bool, Unit>(
+                SetDeviceMutedImpl,
+                canExecute: Observable.Return(CanMuteDevice),
+                outputScheduler: scheduler
+            )
+            .DisposeWith(_disposable);
 
-        SetSessionMuted = ReactiveCommand.CreateFromObservable<bool, Unit>(
-            SetSessionMutedImpl,
-            canExecute: Observable.Return(CanChangeDeviceVolume),
-            outputScheduler: scheduler).DisposeWith(_disposable);
-
-        SetDeviceMuted = ReactiveCommand.CreateFromObservable<bool, Unit>(
-            SetDeviceMutedImpl,
-            canExecute: Observable.Return(CanChangeDeviceVolume),
-            outputScheduler: scheduler).DisposeWith(_disposable);
-
-        Observable.Merge(
-            PlayPause.ThrownExceptions,
-            Next.ThrownExceptions,
-            Prev.ThrownExceptions,
-            Mute.ThrownExceptions,
-            Pause.ThrownExceptions,
-            Seek.ThrownExceptions,
-            SetDeviceVolume.ThrownExceptions,
-            SetSessionVolume.ThrownExceptions,
-            SetDeviceMuted.ThrownExceptions,
-            SetSessionMuted.ThrownExceptions
-        ).Subscribe(ex =>
-        {
-            Debug.WriteLine("Error processing media keys");
-            Debug.WriteLine(ex);
-        });
+        Observable
+            .Merge(
+                PlayPause.ThrownExceptions,
+                Next.ThrownExceptions,
+                Prev.ThrownExceptions,
+                Mute.ThrownExceptions,
+                Pause.ThrownExceptions,
+                Seek.ThrownExceptions,
+                SetDeviceVolume.ThrownExceptions,
+                SetSessionVolume.ThrownExceptions,
+                SetDeviceMuted.ThrownExceptions,
+                SetSessionMuted.ThrownExceptions
+            )
+            .Subscribe(ex =>
+            {
+                Debug.WriteLine("Error processing media keys");
+                Debug.WriteLine(ex);
+            });
         _isDeviceMuted = Observable.Return(false).ToProperty(this, vm => vm.IsDeviceMuted);
         var isSeekingChanges = this.WhenAnyValue(vm => vm.IsSeeking, true)
-            .SelectMany(value => value ? Observable.Return(value) : Observable.Timer(TimeSpan.FromMilliseconds(250)).Select(_ => value));
-        var timestamps = Observable.Interval(TimeSpan.FromSeconds(1))
+            .SelectMany(value =>
+                value ? Observable.Return(value) : Observable.Timer(TimeSpan.FromMilliseconds(250)).Select(_ => value)
+            );
+        var timestamps = Observable
+            .Interval(TimeSpan.FromSeconds(1))
             .Select(_ => DateTimeOffset.Now)
             //.Do(_ => Debug.WriteLine("tick"))
             .Publish()
             .RefCount();
-        var positionObservable = monitor.PositionChanges
+        var positionObservable = monitor
+            .PositionChanges
             //.Do(_ => Debug.WriteLine("timeline"))
             .CombineLatest(isSeekingChanges)
             .Where(values => !values.Second)
@@ -208,7 +246,6 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
             .Select(values => values.Second.Ticks > 0 ? (float)(values.First.Ticks / values.Second.Ticks) : 0)
             .ToProperty(this, vm => vm.Progress, initialValue: 0)
             .DisposeWith(_disposable);
-
     }
 
     public ReactiveCommand<Unit, Unit> PlayPause { get; private set; }
@@ -225,7 +262,7 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     public ReactiveCommand<bool, Unit> SetDeviceMuted { get; init; }
 
     public string ArtistName => _artistName.Value;
-    public string AlbumTitle => _albumTitle.Value ;
+    public string AlbumTitle => _albumTitle.Value;
     public string Title => _title.Value;
     public TimeSpan Duration => _duration.Value;
 
@@ -255,8 +292,10 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     //    }
     //}
 
-    public bool CanChangeSessionVolume => _session.NativeSession is not null;
-    public bool CanChangeDeviceVolume => _session.NativeSession is not null;
+    public bool CanChangeSessionVolume => _canSetSessionVolume.Value;
+    public bool CanChangeDeviceVolume => _canSetDeviceVolume.Value;
+
+    public bool CanMuteDevice => _canMuteDevice.Value;
     private bool _isSeeking = false;
 
     //public float Volume
@@ -279,13 +318,8 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
         set => this.RaiseAndSetIfChanged(ref _isSeeking, value);
     }
 
-
-
-
     public static async Task<ImageSource?> GetCurrentMediaAlbumArt(IRandomAccessStreamReference? imageStream)
     {
-
-
         if (imageStream is not null)
         {
             // The Thumbnail property is a RandomAccessStreamReference
@@ -394,7 +428,7 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
 
     private IObservable<Unit> SeekImpl(TimeSpan position)
     {
-        if(position > TimeSpan.Zero && position < Duration)
+        if (position > TimeSpan.Zero && position < Duration)
         {
             return Observable.StartAsync(async () =>
             {

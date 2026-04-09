@@ -136,19 +136,19 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
 
     private void Slider_DragStarted(object sender, System.Windows.Controls.Primitives.DragStartedEventArgs e)
     {
-        if (ViewModel?.SessionData is not null)
+        if (ViewModel?.ActiveSession is not null)
         {
-            ViewModel.SessionData.IsSeeking = true;
+            ViewModel.ActiveSession.IsSeeking = true;
         }
     }
 
     private void Slider_DragCompleted(object sender, System.Windows.Controls.Primitives.DragCompletedEventArgs e)
     {
-        if(sender is Slider slider && ViewModel?.SessionData is not null)
+        if(sender is Slider slider && ViewModel?.ActiveSession is not null)
         {
-            ViewModel.SessionData.IsSeeking = false;
+            ViewModel.ActiveSession.IsSeeking = false;
 
-            ViewModel.SessionData.Seek.Execute(TimeSpan.FromSeconds(slider.Value));
+            ViewModel.ActiveSession.Seek.Execute(TimeSpan.FromSeconds(slider.Value));
 
         }
     }

@@ -21,6 +21,7 @@ using WinTabberUI.Models;
 using WinTabberUI.Services;
 using WinTabberUI.Updaters;
 using WinTabberUI.ViewModels;
+using WinTabberUI.ViewModels.Factories;
 using WinTabberUI.Views;
 
 namespace WinTabberUI;
@@ -41,6 +42,7 @@ public static class Bootstrapper
         var serviceProvider = new ServiceCollection()
 
             .RegisterApplication(application)
+            .AddFactories()
             .AddCoordinators()
             .AddCoreServices()
             .AddDomainModels()
@@ -50,6 +52,13 @@ public static class Bootstrapper
             .AddViewModels()
             .BuildServiceProvider();
         return serviceProvider;
+    }
+
+    private static IServiceCollection AddFactories(this IServiceCollection services)
+    {
+        return services
+            .AddSingleton<AudioDeviceSelectorViewModelFactory>()
+            .AddSingleton<MediaSessionViewModelFactory>();
     }
 
     private static IServiceCollection AddCoreServices(this IServiceCollection services)

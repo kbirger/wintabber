@@ -1,10 +1,10 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
+﻿//using System;
+//using System.Collections.Generic;
+//using System.Text;
 
-namespace WinTabberUI.Models;
+//namespace WinTabberUI.Models;
 
-public class SessionSnapshot
-{
-    public SessionSnapshot() { }
-}
+//public class SessionSnapshot
+//{
+//    public SessionSnapshot() { }
+//}

@@ -15,6 +15,9 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
 {
     private readonly AudioSessionControl _nativeSession;
 
+    public string DeviceId { get; }
+
+    internal MMDevice Device { get; }
     public uint ProcessId { get; }
     public string Id { get; }
 
@@ -33,9 +36,11 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
     public IObservable<string> DisplayName => _displayName;
 
     public IObservable<AudioSessionState> StateChanges => _state;
-    public CoreAudioSessionWrapper(AudioSessionControl nativeSession)
+    public CoreAudioSessionWrapper(AudioSessionControl nativeSession, MMDevice device)
     {
         _nativeSession = nativeSession;
+        DeviceId = device.ID;
+        Device = device;
         _state.OnNext(nativeSession.State);
         _volumeChanges.OnNext((nativeSession.SimpleAudioVolume.Mute, nativeSession.SimpleAudioVolume.Volume));
         _displayName.OnNext(nativeSession.DisplayName);

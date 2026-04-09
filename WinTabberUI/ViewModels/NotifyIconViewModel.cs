@@ -2,11 +2,9 @@
 using ReactiveUI;
 using WinTabber.Events;
 using System.Reactive;
+using System.Reactive.Linq;
 
-namespace WinTabberUI;
-
-
-
+namespace WinTabberUI.ViewModels;
 
 /// <summary>
 /// Provides bindable properties and commands for the NotifyIcon. In this sample, the
@@ -34,11 +32,11 @@ public partial class NotifyIconViewModel : ReactiveObject
         });
 
         _areHooksActive = eventManager.WhenAnyValue(em => em.IsRunning)
-            .ToProperty(this, vm => vm.AreHooksPaused);
+            .ToProperty(this, vm => vm.AreHooksActive);
     }
 
     private ObservableAsPropertyHelper<bool> _areHooksActive;
-    public bool AreHooksPaused => !_areHooksActive.Value;
+    public bool AreHooksActive => _areHooksActive.Value;
     public ReactiveCommand<Unit, Unit> ShowSettingsCommand { get; }
     public ReactiveCommand<Unit, Unit> ExitApplicationCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowWindowCommand { get; }

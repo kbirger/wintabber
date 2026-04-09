@@ -44,7 +44,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
     private readonly Subject<WinTabberEvent> _subject = new Subject<WinTabberEvent>();
     private Dictionary<int, EventType> _mappings = new Dictionary<int, EventType>();
 
-    private BehaviorSubject<bool> _stopListening = new BehaviorSubject<bool>(true);
+    private BehaviorSubject<bool> _enabled = new BehaviorSubject<bool>(false);
 
     [MemberNotNull(nameof(CommandEvents), nameof(ApplicationChange), nameof(WindowChange))]
     internal WinTabberEventManager Init()
@@ -91,7 +91,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
     {
         //var scheduler = GetScheduler();
 
-        return _stopListening
+        return _enabled
             .Select(state =>
             {
                 if (!state)
@@ -112,12 +112,12 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
 
     public void Pause()
     {
-        _stopListening.OnNext(false);        
+        _enabled.OnNext(false);        
     }
 
     public void Start()
     {
-        _stopListening.OnNext(true);
+        _enabled.OnNext(true);
     }
     private IObservable<WinTabberEvent<string>> CreateApplicaionChangeObservable(EventLoopScheduler scheduler)
     {
