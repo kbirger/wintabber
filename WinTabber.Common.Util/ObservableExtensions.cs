@@ -5,7 +5,7 @@ using System.Reactive.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WinTabberUI.Extensions;
+namespace WinTabber.Common.Util;
 
 public static class ObservableExtensions
 {

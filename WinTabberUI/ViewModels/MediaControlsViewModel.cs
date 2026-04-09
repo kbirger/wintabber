@@ -22,6 +22,7 @@ using WinTabberUI.Infrastructure;
 using WinTabberUI.Models;
 using WinTabberUI.Services;
 using WinTabberUI.ViewModels.Factories;
+using WinTabber.Common.Util;
 
 namespace WinTabberUI.ViewModels;
 
@@ -63,6 +64,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         MediaSessionViewModelFactory mediaSessionViewModelFactory,
         AudioDeviceSelectorViewModelFactory deviceSelectorViewModelFactory,
         WinTabberEventManager eventManager
+
     )
     {
         PropertyChanged += MediaControlsViewModel_PropertyChanged;
@@ -103,7 +105,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                     },
                     ex =>
                     {
-                        Debug.WriteLine("Error in ActiveSession pipeline: {Error}", ex);
+                        Debug.WriteLine("Error in ActiveSession pipeline: {0}", ex);
                     }
                 )
                 .DisposeWith(_cleanUp);

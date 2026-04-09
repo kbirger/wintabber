@@ -29,6 +29,7 @@ public static class SMTCMediaChangeExtensions
                             .StartWith(Unit.Default)
                             .Select(_ => session.GetTimelineProperties())
                 )
+                .ObserveOn(DispatcherScheduler.Current)
                 .Replay(1)
                 .RefCount();
         }
@@ -43,7 +44,7 @@ public static class SMTCMediaChangeExtensions
                     events =>
                         events.Select(_ => Unit.Default).StartWith(Unit.Default).Select(_ => session.GetPlaybackInfo())
                 )
-                .ObserveOn(Scheduler.Default)
+                .ObserveOn(DispatcherScheduler.Current)
                 .Replay(1)
                 .RefCount();
         }
@@ -61,7 +62,7 @@ public static class SMTCMediaChangeExtensions
                             .SelectMany(_ => session.TryGetMediaPropertiesAsync())
                             .Catch(Observable.Empty<SMTCMediaProps>())
                 )
-                .ObserveOn(Scheduler.Default)
+                .ObserveOn(DispatcherScheduler.Current)
                 .Replay(1)
                 .RefCount();
         }

@@ -46,29 +46,30 @@
 
 
 	<ItemGroup>
-		<PackageReference Include="AutomaticInterface" Version="5.2.6">
+		<PackageReference Include="AutomaticInterface">
 		  <PrivateAssets>all</PrivateAssets>
 		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.0" />
-		<PackageReference Include="fontawesome.sharp" Version="6.6.0" />
-		<PackageReference Include="GlobalHotKeys.Windows" Version="0.1.0" />
-		<PackageReference Include="H.NotifyIcon.Wpf" Version="2.4.1" />
-		<PackageReference Include="iNKORE.UI.WPF.Modern" Version="0.10.2.1" />
-		<PackageReference Include="Material.Icons.WPF" Version="3.0.0" />
-		<PackageReference Include="Microsoft-WindowsAPICodePack-Shell" Version="1.1.5" />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
-		<PackageReference Include="Microsoft.Windows.CsWin32" Version="0.3.269">
+		<PackageReference Include="CommunityToolkit.Mvvm" />
+		<PackageReference Include="fontawesome.sharp" />
+		<PackageReference Include="GlobalHotKeys.Windows" />
+		<PackageReference Include="H.NotifyIcon.Wpf" />
+		<PackageReference Include="iNKORE.UI.WPF.Modern" />
+		<PackageReference Include="Material.Icons.WPF" />
+		<PackageReference Include="Microsoft-WindowsAPICodePack-Shell" />
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+		<PackageReference Include="Microsoft.Windows.CsWin32">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
 		</PackageReference>
-		<PackageReference Include="MouseKeyHook" Version="5.7.1" />
-		<PackageReference Include="NAudio.WASAPI" Version="2.2.1" />
-		<PackageReference Include="ReactiveUI" Version="22.3.1" />
-		<PackageReference Include="TaskScheduler" Version="2.12.2" />
+		<PackageReference Include="MouseKeyHook" />
+		<PackageReference Include="NAudio.WASAPI" />
+		<PackageReference Include="ReactiveUI" />
+		<PackageReference Include="TaskScheduler" />
 		<ProjectReference Include="..\WinTabber.Api.Media\WinTabber.Api.Media.csproj" />
+		<ProjectReference Include="..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />
 		<ProjectReference Include="..\WinTabber.Generators\WinTabber.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-		<PackageReference Include="reactiveui.wpf" Version="22.3.1" />
+		<PackageReference Include="reactiveui.wpf" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -89,6 +90,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
+	  <Folder Include="Extensions\" />
 	  <Folder Include="Infrastructure\NewFolder\" />
 	  <Folder Include="Factories\" />
 	</ItemGroup>

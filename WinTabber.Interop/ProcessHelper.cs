@@ -2,12 +2,14 @@ using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Runtime.InteropServices;
 using System.Text;
-using System.Text.Unicode;
 using Windows.Wdk.System.Threading;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.System.Diagnostics.ToolHelp;
 using Windows.Win32.System.Threading;
+using WinTabber.Common.Util;
+
+namespace WinTabber.Interop;
 
 public static class ProcessHelper
 {
@@ -25,15 +27,15 @@ public static class ProcessHelper
 
     public static bool IsSystemProcess(int processId)
     {
-        try
+        if (processId == 0)
         {
-            var process = Process.GetProcessById(processId);
+            return true;
+        }
+        if (Process.TryGetProcessById(processId, out var process))
+        {
             return IsSystemProcess(process);
         }
-        catch
-        {
-            return false;
-        }
+        return false;
     }
 
     public static bool IsSystemProcess(uint processId)
@@ -41,25 +43,7 @@ public static class ProcessHelper
         return IsSystemProcess((int)processId);
     }
 
-    extension(Process process)
-    {
-        public bool IsSystemProcess => IsSystemProcess(process);
-        public Process? Parent => GetParentProcess(Process.GetProcessById(process.Id));
-
-        public IEnumerable<Process> GetAncestors() => GetAncestors(process.Id);
-        public bool TryGetExecutablePath([MaybeNullWhen(false)] out string executablePath) =>
-            TryGetProcessExecutablePath((uint)process.Id, out executablePath);
-    }
-
-    extension(ProcessInfo process)
-    {
-        public bool IsSystemProcess => IsSystemProcess(process.Id);
-
-        public Process? Parent => GetParentProcess(Process.GetProcessById(process.Id));
-
-        public bool TryGetExecutablePath([MaybeNullWhen(false)] out string executablePath) =>
-            TryGetProcessExecutablePath((uint)process.Id, out executablePath);
-    }
+    
 
     public static bool TryGetProcessExecutablePath(uint pid, [MaybeNullWhen(false)] out string executablePath)
     {
@@ -89,35 +73,6 @@ public static class ProcessHelper
         executablePath = null;
         return false;
     }
-
-    // [DllImport("kernel32.dll", SetLastError = true)]
-    // static extern IntPtr CreateToolhelp32Snapshot(uint dwFlags, uint th32ProcessID);
-
-    // [DllImport("kernel32.dll", SetLastError = true)]
-    // static extern bool Process32First(IntPtr hSnapshot, ref PROCESSENTRY32 lppe);
-
-    // [DllImport("kernel32.dll", SetLastError = true)]
-    // static extern bool Process32Next(IntPtr hSnapshot, ref PROCESSENTRY32 lppe);
-
-    // [StructLayout(LayoutKind.Sequential, CharSet = CharSet.Auto)]
-    // struct PROCESSENTRY32
-    // {
-    //     public uint dwSize;
-    //     public uint cntUsage;
-    //     public uint th32ProcessID;
-    //     public IntPtr th32DefaultHeapID;
-    //     public uint th32ModuleID;
-    //     public uint cntThreads;
-    //     public uint th32ParentProcessID;
-    //     public int pcPriClassBase;
-    //     public uint dwFlags;
-
-    //     [MarshalAs(UnmanagedType.ByValTStr, SizeConst = 260)]
-    //     public string szExeFile;
-    // }
-
-    // const uint TH32CS_SNAPPROCESS = 0x00000002;
-
     public static IEnumerable<Process> GetAncestors(uint processId)
     {
         return GetAncestors((int)processId);
@@ -125,7 +80,10 @@ public static class ProcessHelper
 
     public static IEnumerable<Process> GetAncestors(int processId)
     {
-        var process = Process.GetProcessById(processId);
+        if (!Process.TryGetProcessById(processId, out var process))
+        {
+            yield break;
+        }
         while (process is not null && process.Id > 0)
         {
             yield return process;
@@ -161,14 +119,14 @@ public static class ProcessHelper
         if (result.SeverityCode > NTSTATUS.Severity.Informational)
         {
             return null;
-            //Marshal.ThrowExceptionForHR((int)result);
+            Marshal.ThrowExceptionForHR((int)result);
         }
 
         sw.Stop();
-        //Debug.WriteLine($"GetParentProcess => {pbi.InheritedFromUniqueProcessId} for {process.ProcessName} ({process.Id}) took {sw.ElapsedMilliseconds}ms");
-        if (pbi.InheritedFromUniqueProcessId != 0)
+        Debug.WriteLine($"GetParentProcess => {pbi.InheritedFromUniqueProcessId} for {process.ProcessName} ({process.Id}) took {sw.ElapsedMilliseconds}ms");
+        if (pbi.InheritedFromUniqueProcessId != 0 && Process.TryGetProcessById((int)pbi.InheritedFromUniqueProcessId, out var parent))
         {
-            return Process.GetProcessById((int)pbi.InheritedFromUniqueProcessId);
+            return parent;
         }
         return null;
     }

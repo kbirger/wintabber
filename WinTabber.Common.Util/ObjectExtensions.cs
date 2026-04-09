@@ -4,7 +4,7 @@ using System.Linq;
 using System.Text;
 using System.Threading.Tasks;
 
-namespace WinTabber.Api.Media;
+namespace WinTabber.Common.Util;
 
 public static class ObjectExtensions
 {

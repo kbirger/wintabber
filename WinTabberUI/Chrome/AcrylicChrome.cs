@@ -8,6 +8,7 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Shell;
+using Windows.Media.Devices;
 using Windows.Win32.Graphics.Dwm;
 
 namespace WinTabberUI.Chrome;
@@ -379,7 +380,7 @@ public sealed class AcrylicChrome : WindowChrome
         typeof(AccentState),
         typeof(AcrylicChrome),
         new PropertyMetadata(AccentState.ACCENT_ENABLE_ACRYLICBLURBEHIND));
-
+    
     public AccentState AccentState
     {
         get { return (AccentState)GetValue(AccentStateProperty); }

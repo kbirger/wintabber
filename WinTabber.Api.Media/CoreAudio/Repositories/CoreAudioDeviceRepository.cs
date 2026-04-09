@@ -8,6 +8,7 @@ using DynamicData;
 using NAudio.CoreAudioApi;
 using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.CoreAudio.Repositories;
+using WinTabber.Common.Util;
 
 namespace WinTabber.Api.Media.Repositories;
 
