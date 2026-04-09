@@ -1,4 +1,5 @@
 ﻿using System.Reactive.Linq;
+using WinTabber.UI.Media.Services;
 using WinTabberUI.Services;
 
 namespace WinTabberUI.ViewModels;

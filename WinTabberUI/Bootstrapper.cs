@@ -9,13 +9,15 @@ using WinTabber.Api.Media.SMTC.Repositories;
 using WinTabber.API;
 using WinTabber.Events;
 using WinTabber.Interop;
+using WinTabber.UI.Media.Services;
+using WinTabber.UI.Media.ViewModels;
+using WinTabber.UI.Media.ViewModels.Factories;
 using WinTabberUI.Coordinators;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Models;
 using WinTabberUI.Services;
 using WinTabberUI.Updaters;
 using WinTabberUI.ViewModels;
-using WinTabberUI.ViewModels.Factories;
 using WinTabberUI.Views;
 
 namespace WinTabberUI;

@@ -1,5 +1,5 @@
 ﻿using System.Windows;
-using WinTabberUI.Hints;
+using WinTabber.UI.Common.Hints;
 using WinTabberUI.Infrastructure;
 
 namespace WinTabber.Infrastructure.Tests;

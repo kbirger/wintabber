@@ -13,6 +13,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
     <ProjectReference Include="..\WinTabberUI\WinTabberUI.csproj" />
   </ItemGroup>
 

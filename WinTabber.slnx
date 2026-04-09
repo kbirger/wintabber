@@ -18,5 +18,7 @@
   <Project Path="WinTabber.Infrastructure.Tests/WinTabber.Infrastructure.Tests.csproj" />
   <Project Path="WinTabber.Interop/WinTabber.Interop.csproj" />
   <Project Path="Wintabber.SessionsTest/Wintabber.SessionsTest.csproj" />
+  <Project Path="WinTabber.UI.Common/WinTabber.UI.Common.csproj" Id="6c62a599-abec-4e60-9041-31f6c3db7dd4" />
+  <Project Path="WinTabber.UI.Media/WinTabber.UI.Media.csproj" Id="1c832ef2-4b5b-4f5b-bc19-bdbf004c8a25" />
   <Project Path="WinTabberUI/WinTabberUI.csproj" />
 </Solution>
