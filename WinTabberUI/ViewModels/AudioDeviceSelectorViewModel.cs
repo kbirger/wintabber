@@ -7,6 +7,7 @@ using System.Diagnostics;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using WinTabber.Api.Media.CoreAudio.Dtos;
+using WinTabber.Api.Media.CoreAudio.Services;
 
 namespace WinTabberUI.ViewModels
 {
@@ -54,29 +55,19 @@ namespace WinTabberUI.ViewModels
 
 
 
-        //public AudioDeviceSelectorViewModel(IObservable<IEnumerable<MMDevice>> devicesObservable, DataFlow dataFlow, Action<MMDevice> activateFunction)
-        public AudioDeviceSelectorViewModel(IObservable<IChangeSet<DeviceDto, string>> devices)
+        public AudioDeviceSelectorViewModel(AudioDeviceService deviceService, DataFlow flow)
         {
-            devices.Bind(out _devices)
+            var devices = deviceService.Devices.Filter(device => device.DataFlow == flow);
+            devices
+                .ObserveOnDispatcher()
+                .Bind(out _devices)
                 .Subscribe();
 
-
-            devices.QueryWhenChanged(query => query.Items.FirstOrDefault(item => item.IsSelected))
-                .Subscribe(selectedItem =>
+            deviceService.GetDefaultDevice(flow)
+                .Subscribe(defaultDevice =>
                 {
-                    SelectedDevice = selectedItem;
+                    SelectedDevice = defaultDevice;
                 });
-            devices
-                .MergeMany(device => device
-                    .ObservableForProperty(d => d.IsSelected))
-                    .AsObservable()
-                    .Subscribe(change =>
-                    {
-                        if (change.Value)
-                        {
-                            SelectedDevice = change.Sender;
-                        }
-                    });
             //_dataFlow = dataFlow;
             //_activateFunction = activateFunction;
             //var deviceItems = devicesObservable

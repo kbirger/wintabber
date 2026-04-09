@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+<Project>
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="AutomaticInterface" Version="5.2.6" />
+    <PackageVersion Include="CommunityToolkit.Mvvm" Version="8.4.0" />
+    <PackageVersion Include="fontawesome.sharp" Version="6.6.0" />
+    <PackageVersion Include="GlobalHotKeys.Windows" Version="0.1.0" />
+    <PackageVersion Include="H.NotifyIcon.Wpf" Version="2.4.1" />
+    <PackageVersion Include="iNKORE.UI.WPF.Modern" Version="0.10.2.1" />
+    <PackageVersion Include="Material.Icons.WPF" Version="3.0.0" />
+    <PackageVersion Include="Microsoft-WindowsAPICodePack-Shell" Version="1.1.5" />
+    <PackageVersion Include="Microsoft.Extensions.DependencyInjection" Version="10.0.3" />
+    <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.269" />
+    <PackageVersion Include="MouseKeyHook" Version="5.7.1" />
+    <PackageVersion Include="NAudio.WASAPI" Version="2.2.1" />
+    <PackageVersion Include="ReactiveUI" Version="22.3.1" />
+    <PackageVersion Include="reactiveui.wpf" Version="22.3.1" />
+    <PackageVersion Include="TaskScheduler" Version="2.12.2" />
+    <PackageVersion Include="DynamicData" Version="9.4.1" />
+    <PackageVersion Include="System.Reactive" Version="6.1.0" />
+  </ItemGroup>
+</Project>

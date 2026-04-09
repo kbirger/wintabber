@@ -1,6 +1,9 @@
 ﻿using ReactiveUI;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Reactive.Disposables.Fluent;
+using System.Reactive.Linq;
 using System.Text;
 using System.Windows.Media;
 using WinTabberUI.Models;
@@ -12,9 +15,17 @@ public class SessionListItem : ReactiveObject, IEquatable<SessionListItem>
     public SessionListItem(AggregateSession session)
     {
         Name = session.App.Name;
-        _icon = session.App.Icon.ToProperty(this, vm  => vm.Icon);
+        _icon = session.App.Icon
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .ToProperty(this, vm  => vm.Icon, scheduler: RxApp.MainThreadScheduler);
         Aumid = session.MediaSession.SourceAppUserModelId;
         Session = session;
+
+        _icon.ThrownExceptions.Subscribe(ex =>
+        {
+            Debug.WriteLine("Error getting session app icon {0}", ex);
+        });
+
     }
 
     public AggregateSession Session { get; init; }

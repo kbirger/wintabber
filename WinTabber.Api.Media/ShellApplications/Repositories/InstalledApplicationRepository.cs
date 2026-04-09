@@ -267,6 +267,7 @@ public partial class InstalledApplicationRepository : IDisposable
                                         ex
                                     );
                                 }
+
                             }
                             finally
                             {
@@ -300,7 +301,7 @@ public partial class InstalledApplicationRepository : IDisposable
 
                         //return image;
                     },
-                    Scheduler.Default
+                    Scheduler.CurrentThread
                 )
             )
             .Replay(1)

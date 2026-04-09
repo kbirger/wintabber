@@ -7,6 +7,18 @@ namespace WinTabberUI.Infrastructure
     {
         private readonly IServiceProvider _serviceProvider = serviceProvider;
 
+        public IViewFor? ResolveView<T>(T? viewModel, string? contract = null)
+        {
+            var view = _serviceProvider.GetRequiredService(typeof(T)) as IViewFor;
+            if (view is not null)
+            {
+                view.ViewModel = viewModel;
+            }
+
+            return view;
+        }
+    
+
         public IViewFor<TViewModel>? ResolveView<TViewModel>(string? contract = null) where TViewModel : class
         {
             var view = _serviceProvider.GetRequiredService<IViewFor<TViewModel>>();

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
 using System.Text;
@@ -66,17 +67,25 @@ public partial class MediaSessionService(
     private IObservable<IChangeSet<CoreAudioSessionWrapper, string>> GetCoreAudioSessions()
     {
         return _coreAudioDeviceRepository
-            .Devices.MergeManyChangeSets(_coreAudioSessionRepository.Connect)
+            .Devices
+            .Connect()
+            .MergeManyChangeSets(_coreAudioSessionRepository.Connect)
             .DisposeMany();
     }
 
-    private IObservable<IChangeSet<NativeSessionWithApp, string>> GetNativeSessionsWithApps()
+    private IObservableCache<NativeSessionWithApp, string> GetNativeSessionsWithApps()
     {
         var appsByPath = _installedApplicationRepository.ApplicationsByPath;
         return GetCoreAudioSessions()
-            .AutoRefreshOnObservable(_ => appsByPath.Connect())
+            .Filter( x =>
+            {
+                Debug.WriteLine($"Session: {x.DisplayName}");
+                return true;
+            })
+            //.AutoRefreshOnObservable(_ => appsByPath.Connect())
             .Transform(nativeSession =>
             {
+
                 var processes = ProcessHelper.GetAncestors(nativeSession.ProcessId);
                 foreach (var process in processes)
                 {
@@ -91,22 +100,31 @@ public partial class MediaSessionService(
                 }
 
                 return new NativeSessionWithApp(nativeSession, null);
-            })
-            .Filter(item => item.IsComplete);
+            }, true)
+            .Filter(item => item.IsComplete)
+            .ChangeKey(session => session.App!.AppUserModelId)
+            .AsObservableCache();
     }
 
     [Lazy]
-    private IObservable<IChangeSet<AggregateSession, string>> GetMasterSessions()
+    private IObservableCache<AggregateSession, string> GetMasterSessions()
     {
         var nativeSessionsWithApps = GetNativeSessionsWithApps();
+        
         return GetSMTCSessionsByAumid()
+            .ObserveOn(STAScheduler.Default) // ?
             .LeftJoin(
-                nativeSessionsWithApps,
+                nativeSessionsWithApps.Connect(),
                 session => session.App!.AppUserModelId,
                 (mediaSession, nativeSession) =>
-                    new AggregateSession(mediaSession.Session, mediaSession.App, nativeSession.ValueOrDefault()?.Session)
+                    new AggregateSession(
+                        mediaSession.Session, 
+                        mediaSession.App, 
+                        nativeSession.ValueOrDefault()?.Session
+                    )
             )
-            .AutoRefreshOnObservable(_ => nativeSessionsWithApps);
+            .AutoRefreshOnObservable(_ => nativeSessionsWithApps.Connect())
+            .AsObservableCache();
     }
 
     [Lazy]

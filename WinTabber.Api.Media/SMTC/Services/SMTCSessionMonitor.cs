@@ -76,19 +76,26 @@ public partial class SMTCSessionMonitor
           .Publish()
           .RefCount();
 
+        var predictedPositions = timestamps
+            .CombineLatest(IsPlayingChanges, timelinePropertyChanged)
+            .Where(item => item.Second)
+            .Select(item => item.First - item.Third.LastUpdatedTime);
+
         var positionObservable = timelinePropertyChanged
-            //.Do(_ => Debug.WriteLine("timeline"))
-            .CombineLatest(timestamps, IsPlayingChanges)
-            //.Do(_ => Debug.WriteLine("playback"))
-            .Select((values) => values.Third ? values.First.Position.Add(values.Second - values.First.LastUpdatedTime) : values.First.Position)
-            //.Do(x => Debug.WriteLine(x))
+            .Select(timeline => timeline.Position)
+            .Merge(predictedPositions)
             .Publish()
             .RefCount();
 
+        
+
+
         PositionChanges = positionObservable;
 
-        ProgressChanges = timelinePropertyChanged
-            .Select(update => update.EndTime.TotalSeconds > 0 ? (float)(update.Position.TotalSeconds / update.EndTime.TotalSeconds) : 0);
+        ProgressChanges = PositionChanges.CombineLatest(DurationChanges, (position, duration) =>
+            duration.TotalSeconds > 0 ? (float)(position.TotalSeconds / duration.TotalSeconds) : 0);
+        //ProgressChanges = timelinePropertyChanged
+        //    .Select(update => update.EndTime.TotalSeconds > 0 ? (float)(update.Position.TotalSeconds / update.EndTime.TotalSeconds) : 0);
 
         CanSeekChanges = playbackPropertiesChanged.Select(info => info.Controls.IsPlaybackPositionEnabled);
     }
@@ -106,6 +113,7 @@ public partial class SMTCSessionMonitor
                 imageSource.BeginInit();
                 imageSource.StreamSource = inputStream;
                 imageSource.EndInit();
+                imageSource.Freeze();
                 return imageSource;
 
                 // Example 2: Load into a UI framework's Image source (e.g., WPF, WinForms, UWP)
