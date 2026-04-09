@@ -1,0 +1,53 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<UseWPF>true</UseWPF>
+		<ImplicitUsings>enable</ImplicitUsings>
+
+		<Platform>x64</Platform>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<Folder Include="Coordinators\" />
+		<Folder Include="UserControls\" />
+		<Folder Include="Factories\" />
+		<Folder Include="Controls\" />
+		<Folder Include="Resources\" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<Compile Update="Views\FadingWindow.xaml.cs">
+			<SubType>Code</SubType>
+		</Compile>
+		<Compile Update="Views\MediaControlsWindow.xaml.cs">
+			<SubType>Code</SubType>
+		</Compile>
+	</ItemGroup>
+
+	<ItemGroup>
+		<PackageReference Include="CommunityToolkit.Mvvm" />
+
+		<PackageReference Include="iNKORE.UI.WPF.Modern" />
+		<PackageReference Include="Material.Icons.WPF" />
+		<!--<PackageReference Include="Microsoft-WindowsAPICodePack-Shell" />-->
+		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+		<!--<PackageReference Include="Microsoft.Windows.CsWin32">
+			<PrivateAssets>all</PrivateAssets>
+			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+		</PackageReference>-->
+		<!--<PackageReference Include="MouseKeyHook" />-->
+		<!--<PackageReference Include="NAudio.WASAPI" />-->
+		<PackageReference Include="ReactiveUI" />
+		<!--<PackageReference Include="TaskScheduler" />-->
+		<ProjectReference Include="..\WinTabber.Api.Media\WinTabber.Api.Media.csproj" />
+		<ProjectReference Include="..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />
+		<ProjectReference Include="..\WinTabber.Events\WinTabber.Events.csproj" />
+		<ProjectReference Include="..\WinTabber.Generators\WinTabber.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+		<ProjectReference Include="..\WinTabber.Interop\WinTabber.Interop.csproj" />
+		<ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
+		<PackageReference Include="reactiveui.wpf" />
+	</ItemGroup>
+
+</Project>

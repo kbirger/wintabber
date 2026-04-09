@@ -2,9 +2,6 @@
 <Project ToolsVersion="Current" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup />
   <ItemGroup>
-    <Compile Update="Chrome\CaptionButtons.xaml.cs">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Update="Views\AppearanceSettingsPage.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
@@ -14,13 +11,7 @@
     <Compile Update="Views\EditableTextBlock.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
-    <Compile Update="Views\FadingWindow.xaml.cs">
-      <SubType>Code</SubType>
-    </Compile>
     <Compile Update="Views\GeneralSettingsPage.xaml.cs">
-      <SubType>Code</SubType>
-    </Compile>
-    <Compile Update="Views\MediaControlsWindow.xaml.cs">
       <SubType>Code</SubType>
     </Compile>
     <Compile Update="Views\RenameWindow.xaml.cs">

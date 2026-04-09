@@ -19,10 +19,6 @@
 	  <None Remove="Images\logo.png" />
 	</ItemGroup>
 
-	<ItemGroup>
-	  <None Include="Hints\GeneratedHintsProvider.cs" />
-	</ItemGroup>
-
 
 
 	<ItemGroup>
@@ -75,6 +71,8 @@
 	<ItemGroup>
 		<ProjectReference Include="..\WinTabber.API\WinTabber.API.csproj" />
 		<ProjectReference Include="..\WinTabber.Events\WinTabber.Events.csproj" />
+		<ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
+		<ProjectReference Include="..\WinTabber.UI.Media\WinTabber.UI.Media.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
