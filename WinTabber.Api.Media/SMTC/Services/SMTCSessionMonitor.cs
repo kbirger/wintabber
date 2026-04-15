@@ -73,7 +73,12 @@ public partial class SMTCSessionMonitor
         var predictedPositions = timestamps
             .CombineLatest(IsPlayingChanges, timelinePropertyChanged)
             .Where(item => item.Second)
-            .Select(item => item.First - item.Third.LastUpdatedTime);
+            .Select(item =>
+            {
+                var predictedTime = item.Third.Position + (item.First - item.Third.LastUpdatedTime);
+                var ticks = Math.Min(predictedTime.Ticks, item.Third.MaxSeekTime.Ticks);
+                return TimeSpan.FromTicks(ticks);
+            });
 
         var positionObservable = timelinePropertyChanged
             .Select(timeline => timeline.Position)

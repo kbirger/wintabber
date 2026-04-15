@@ -10,6 +10,7 @@
     xmlns:fa="http://schemas.awesome.incremented/wpf/xaml/fontawesome.sharp"
     xmlns:mdi="clr-namespace:Material.Icons.WPF;assembly=Material.Icons.WPF"
     xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
+    xmlns:uc="clr-namespace:WinTabber.UI.Media.UserControls"
     xmlns:i="http://schemas.microsoft.com/xaml/behaviors"
     xmlns:vm="clr-namespace:WinTabber.UI.Media.ViewModels"
     xmlns:b="clr-namespace:WinTabber.UI.Common.Behaviors;assembly=WinTabber.UI.Common"
@@ -27,7 +28,7 @@
     Padding="20"
     Width="700"
     MinHeight="221"
-    d:DataContext="{d:DesignInstance vm:MediaControlsViewModel}"
+    d:DataContext="{d:DesignInstance vm:MediaControlsViewModel, IsDesignTimeCreatable=False}"
     xmlns:ca="clr-namespace:WinTabber.Api.Media.CoreAudio.Dtos;assembly=WinTabber.Api.Media"
     IsHitTestVisible="True"
     Title="MediaControlsWindow"
@@ -43,191 +44,204 @@
         <b:HintBehavior />
     </i:Interaction.Behaviors>
     <Window.Resources>
-        <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#22000000" />
-        <DataTemplate x:Key="DeviceItemTemplate" DataType="ca:DeviceDto">
-            <StackPanel Orientation="Horizontal">
-                <TextBlock Text="{Binding DeviceName}" Margin="4" />
-            </StackPanel>
-        </DataTemplate>
-        <c:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <ResourceDictionary Source="/WinTabber.UI.Common;component/Resources/ValueConvertersResources.xaml"/>
+                <ResourceDictionary Source="/WinTabber.UI.Media;component/Resources/Resources.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <SolidColorBrush x:Key="PanelBackgroundBrush" Color="#22000000" />
+            <DataTemplate x:Key="DeviceItemTemplate" DataType="ca:DeviceDto">
+                <StackPanel Orientation="Horizontal">
+                    <TextBlock Text="{Binding DeviceName}" Margin="4" />
+                </StackPanel>
+            </DataTemplate>
+            <c:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
 
-        <DataTemplate x:Key="PlayButton">
-            <TextBlock Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
-                <!--<mdi:MaterialIconExt Kind="Play" Animation="Pulse" />-->
-                <ui:FontIcon Icon="{x:Static ui:FluentSystemIcons.Pause_16_Filled}" />
-            </TextBlock>
-        </DataTemplate>
-        <DataTemplate x:Key="PauseButton">
-            <TextBlock
-                HorizontalAlignment="Center"
-                Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
-            >
-                <ui:FontIcon Icon="{x:Static ui:FluentSystemIcons.Pause_16_Filled}" />
-                <!--<mdi:MaterialIconExt Kind="Pause" Animation="Pulse"/>-->
-            </TextBlock>
-        </DataTemplate>
+            <DataTemplate x:Key="PlayButton">
+                <TextBlock Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}">
+                    <!--<mdi:MaterialIconExt Kind="Play" Animation="Pulse" />-->
+                    <ui:FontIcon Icon="{x:Static ui:FluentSystemIcons.Pause_16_Filled}" />
+                </TextBlock>
+            </DataTemplate>
+            <DataTemplate x:Key="PauseButton">
+                <TextBlock
+                    HorizontalAlignment="Center"
+                    Foreground="{Binding RelativeSource={RelativeSource AncestorType=Button}, Path=Foreground}"
+                >
+                    <ui:FontIcon Icon="{x:Static ui:FluentSystemIcons.Pause_16_Filled}" />
+                    <!--<mdi:MaterialIconExt Kind="Pause" Animation="Pulse"/>-->
+                </TextBlock>
+            </DataTemplate>
 
-        <Style TargetType="Button" x:Key="MediaButton">
-            <Setter Property="Width" Value="42" />
-            <Setter Property="Height" Value="42" />
+            <Style TargetType="Button" x:Key="MediaButton">
+                <Setter Property="Width" Value="42" />
+                <Setter Property="Height" Value="42" />
 
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
-            <Setter Property="FontSize" Value="24" />
-            <Setter Property="Margin" Value="0" />
-            <Setter Property="Padding" Value="0, 0" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="HorizontalAlignment" Value="Center" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
+                <Setter Property="FontSize" Value="24" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="Padding" Value="0, 0" />
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
 
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="Button">
-                        <Border
-                            Background="{TemplateBinding Background}"
-                            Padding="{TemplateBinding Padding}"
-                            CornerRadius="4"
-                        >
-                            <ContentPresenter
-                                Content="{TemplateBinding Content}"
-                                ContentTemplate="{TemplateBinding ContentTemplate}"
-                            />
-                        </Border>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-
-            <Style.Triggers>
-                <Trigger Property="IsEnabled" Value="False">
-                    <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}" />
-                </Trigger>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Trigger.Setters>
-                        <Setter Property="Background" Value="#22666666" />
-                    </Trigger.Setters>
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Trigger.EnterActions>
-                        <BeginStoryboard>
-                            <Storyboard>
-                                <ColorAnimation
-                                    Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                    From="#dd666666"
-                                    To="#dd777777"
-                                    Duration="0:0:0.1"
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="Button">
+                            <Border
+                                Background="{TemplateBinding Background}"
+                                Padding="{TemplateBinding Padding}"
+                                CornerRadius="4"
+                            >
+                                <ContentPresenter
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}"
                                 />
-                            </Storyboard>
-                        </BeginStoryboard>
-                    </Trigger.EnterActions>
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
 
-                    <Trigger.ExitActions>
-                        <BeginStoryboard>
-                            <Storyboard>
-                                <ColorAnimation
-                                    Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                                    To="Transparent"
-                                    Duration="0:0:0.1"
-                                />
-                            </Storyboard>
-                        </BeginStoryboard>
-                    </Trigger.ExitActions>
-                </Trigger>
-            </Style.Triggers>
-        </Style>
-        <Style TargetType="ToggleButton" x:Key="PlayPauseMediaButton">
-            <Setter Property="Width" Value="42" />
-            <Setter Property="Height" Value="42" />
+                <Style.Triggers>
+                    <Trigger Property="IsEnabled" Value="False">
+                        <Setter
+                            Property="Foreground"
+                            Value="{DynamicResource {x:Static SystemColors.GrayTextBrushKey}}"
+                        />
+                    </Trigger>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Trigger.Setters>
+                            <Setter Property="Background" Value="#22666666" />
+                        </Trigger.Setters>
+                    </Trigger>
+                    <Trigger Property="IsPressed" Value="True">
+                        <Trigger.EnterActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <ColorAnimation
+                                        Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                        From="#dd666666"
+                                        To="#dd777777"
+                                        Duration="0:0:0.1"
+                                    />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </Trigger.EnterActions>
 
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
-            <!--<Setter Property="Foreground" Value="Red"/>-->
-            <Setter Property="FontSize" Value="60" />
-            <Setter Property="Margin" Value="0" />
-            <Setter Property="Padding" Value="0, 0" />
-            <!--<Setter Property="FontFamily" Value="Webdings" />-->
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="HorizontalAlignment" Value="Center" />
-            
-            <Setter Property="Template">
-                <Setter.Value>
-                    <ControlTemplate TargetType="{x:Type ToggleButton}">
-                        <Border
-    Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
-    CornerRadius="4"
->
-                            <!--<mdi:MaterialIcon Kind="VolumeHigh" x:Name="Icon" />-->
-                            <!--<ui:FontIcon x:Name="Icon" FontSize="30" Icon="{x:Static ui:FluentSystemIcons.PlantCattail_20_Filled}"/>-->
-                            <ContentPresenter />
-                        </Border>
-                        <ControlTemplate.Triggers>
-                            <!--<DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
+                        <Trigger.ExitActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <ColorAnimation
+                                        Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                        To="Transparent"
+                                        Duration="0:0:0.1"
+                                    />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </Trigger.ExitActions>
+                    </Trigger>
+                </Style.Triggers>
+            </Style>
+            <Style TargetType="ToggleButton" x:Key="PlayPauseMediaButton">
+                <Setter Property="Width" Value="42" />
+                <Setter Property="Height" Value="42" />
+
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
+                <!--<Setter Property="Foreground" Value="Red"/>-->
+                <Setter Property="FontSize" Value="60" />
+                <Setter Property="Margin" Value="0" />
+                <Setter Property="Padding" Value="0, 0" />
+                <!--<Setter Property="FontFamily" Value="Webdings" />-->
+                <Setter Property="VerticalAlignment" Value="Center" />
+                <Setter Property="HorizontalAlignment" Value="Center" />
+
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="{x:Type ToggleButton}">
+                            <Border
+                                Background="{Binding Background, RelativeSource={RelativeSource AncestorType=ToggleButton}}"
+                                CornerRadius="4"
+                            >
+                                <!--<mdi:MaterialIcon Kind="VolumeHigh" x:Name="Icon" />-->
+                                <!--<ui:FontIcon x:Name="Icon" FontSize="30" Icon="{x:Static ui:FluentSystemIcons.PlantCattail_20_Filled}"/>-->
+                                <ContentPresenter />
+                            </Border>
+                            <ControlTemplate.Triggers>
+                                <!--<DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}" Value="True">
                                 <Setter TargetName="Icon" Property="Icon" Value="{x:Static ui:FluentSystemIcons.PlantCattail_20_Filled}"/>
                             </DataTrigger>-->
-                            <!--<Trigger Property="IsChecked" Value="True">
+                                <!--<Trigger Property="IsChecked" Value="True">
                                 <Setter TargetName="Icon" Property="Icon" Value="{x:Static ui:FluentSystemIcons.PauseCircle_20_Filled}"/>
                             </Trigger>
                             <Trigger Property="IsChecked" Value="False">
                                 <Setter TargetName="Icon" Property="Icon" Value="{x:Static ui:FluentSystemIcons.PlayCircle_48_Filled}"/>
                             </Trigger>-->
-                            <!--<DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}" Value="False">
+                                <!--<DataTrigger Binding="{Binding IsChecked, RelativeSource={RelativeSource TemplatedParent}}" Value="False">
                                 <Setter TargetName="Icon" Property="Icon" Value="{x:Static ui:FluentSystemIcons.PlayCircle_48_Filled}"/>
                             </DataTrigger>-->
-                        </ControlTemplate.Triggers>
-                    </ControlTemplate>
-                </Setter.Value>
-            </Setter>
-            <Style.Triggers>
-                <Trigger Property="IsChecked" Value="True">
-                    <Trigger.Setters>
-                        <Setter Property="Content">
-                            <Setter.Value>
-                                <ui:FontIcon  FontSize="32" Icon="{x:Static ui:FluentSystemIcons.PauseCircle_32_Filled}"/>
-
-                            </Setter.Value>
-                        </Setter>
-                    </Trigger.Setters>
-                </Trigger>
-                <Trigger Property="IsChecked" Value="False">
+                            </ControlTemplate.Triggers>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+                <Style.Triggers>
+                    <Trigger Property="IsChecked" Value="True">
                         <Trigger.Setters>
-                        <Setter Property="Content">
-                            <Setter.Value>
-                                <ui:FontIcon FontSize="32" Icon="{x:Static ui:FluentSystemIcons.PlayCircle_28_Filled}"/>                                
-                            </Setter.Value>
-                        </Setter>
+                            <Setter Property="Content">
+                                <Setter.Value>
+                                    <ui:FontIcon
+                                        FontSize="32"
+                                        Icon="{x:Static ui:FluentSystemIcons.PauseCircle_32_Filled}"
+                                    />
+                                </Setter.Value>
+                            </Setter>
                         </Trigger.Setters>
                     </Trigger>
-                <Trigger Property="IsMouseOver" Value="True">
-                    <Trigger.Setters>
-                        <Setter Property="Background" Value="#22666666" />
-                    </Trigger.Setters>
-                </Trigger>
-                <Trigger Property="IsPressed" Value="True">
-                    <Trigger.EnterActions>
-                        <BeginStoryboard>
-                            <Storyboard>
-                                <ColorAnimation
-                        Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                        From="#dd666666"
-                        To="#dd777777"
-                        Duration="0:0:0.1"
-                    />
-                            </Storyboard>
-                        </BeginStoryboard>
-                    </Trigger.EnterActions>
+                    <Trigger Property="IsChecked" Value="False">
+                        <Trigger.Setters>
+                            <Setter Property="Content">
+                                <Setter.Value>
+                                    <ui:FontIcon
+                                        FontSize="32"
+                                        Icon="{x:Static ui:FluentSystemIcons.PlayCircle_28_Filled}"
+                                    />
+                                </Setter.Value>
+                            </Setter>
+                        </Trigger.Setters>
+                    </Trigger>
+                    <Trigger Property="IsMouseOver" Value="True">
+                        <Trigger.Setters>
+                            <Setter Property="Background" Value="#22666666" />
+                        </Trigger.Setters>
+                    </Trigger>
+                    <Trigger Property="IsPressed" Value="True">
+                        <Trigger.EnterActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <ColorAnimation
+                                        Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                        From="#dd666666"
+                                        To="#dd777777"
+                                        Duration="0:0:0.1"
+                                    />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </Trigger.EnterActions>
 
-                    <Trigger.ExitActions>
-                        <BeginStoryboard>
-                            <Storyboard>
-                                <ColorAnimation
-                        Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
-                        To="Transparent"
-                        Duration="0:0:0.1"
-                    />
-                            </Storyboard>
-                        </BeginStoryboard>
-                    </Trigger.ExitActions>
-                </Trigger>
-            </Style.Triggers>
-            <!--<Style.Triggers>
+                        <Trigger.ExitActions>
+                            <BeginStoryboard>
+                                <Storyboard>
+                                    <ColorAnimation
+                                        Storyboard.TargetProperty="(Background).(SolidColorBrush.Color)"
+                                        To="Transparent"
+                                        Duration="0:0:0.1"
+                                    />
+                                </Storyboard>
+                            </BeginStoryboard>
+                        </Trigger.ExitActions>
+                    </Trigger>
+                </Style.Triggers>
+                <!--<Style.Triggers>
                 <DataTrigger Binding="{Binding ActiveSession.IsPlaying}" Value="True">
                     <Setter Property="ContentTemplate" Value="{StaticResource PauseButton}" />
                 </DataTrigger>
@@ -235,15 +249,19 @@
                     <Setter Property="ContentTemplate" Value="{StaticResource PlayButton}" />
                 </DataTrigger>
             </Style.Triggers>-->
-        </Style>
+            </Style>
 
-        <Style x:Key="MuteToggle" TargetType="ToggleButton">
+            <!--<Style x:Key="MuteToggle" TargetType="ToggleButton">
+            -->
             <!--<Setter Property="ContentTemplate" Value="{StaticResource UnmuteButton}"/>-->
+            <!--
             <Setter Property="Width" Value="42" />
 
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Foreground" Value="{DynamicResource {x:Static SystemColors.HighlightTextBrushKey}}" />
+            -->
             <!--<Setter Property="Foreground" Value="Red"/>-->
+            <!--
             <Setter Property="FontSize" Value="16" />
             <Setter Property="Margin" Value="0" />
             <Setter Property="Padding" Value="0, 0" />
@@ -301,6 +319,7 @@
                     </Trigger.ExitActions>
                 </Trigger>
             </Style.Triggers>
+            -->
             <!--<Setter Property="ContentTemplate"></Setter>-->
             <!--<Style.Triggers>
                 <Trigger Property="IsChecked" Value="False">
@@ -322,7 +341,9 @@
                     </Setter>
                 </Trigger>
             </Style.Triggers>-->
-        </Style>
+            <!--
+        </Style>-->
+        </ResourceDictionary>
     </Window.Resources>
     <AdornerDecorator>
         <Grid Margin="25">
@@ -466,7 +487,7 @@
                             VerticalAlignment="Top"
                         />
                         <Image
-                            d:Source="/Images/loading.png"
+                            d:Source="/WinTabber.UI.Media;component/Images/loading.png"
                             Grid.Column="0"
                             Width="48"
                             Height="48"
@@ -537,7 +558,7 @@
                             x:Name="PlayPauseButton"
                             DataContext="{Binding ActiveSession}"
                             IsChecked="{Binding IsPlaying, Mode=OneWay}"
-                       />
+                        />
                         <Button
                             HorizontalAlignment="Left"
                             Style="{StaticResource MediaButton}"
@@ -567,6 +588,7 @@
                             Text="{Binding ActiveSession.Duration, Converter={StaticResource TimeSpanToStringConverter}}"
                             Grid.Row="1"
                             Grid.Column="1"
+                            IsEnabled="{Binding ActiveSession.CanSeek}"
                             HorizontalAlignment="Right"
                             d:Text="3:59"
                             DockPanel.Dock="Right"
@@ -587,15 +609,14 @@
                         ></Slider>
                     </DockPanel>
 
-                    <Grid Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Right">
+                    <Grid Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Stretch">
                         <Grid.RowDefinitions>
                             <RowDefinition />
                             <RowDefinition />
                         </Grid.RowDefinitions>
                         <Grid.ColumnDefinitions>
                             <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition />
-                            <ColumnDefinition Width="Auto" />
+                            <ColumnDefinition Width="*" />
                         </Grid.ColumnDefinitions>
                         <Label
                             Grid.Row="0"
@@ -604,6 +625,11 @@
                             Margin="0 0 16 0"
                             VerticalAlignment="Center"
                         />
+                        <uc:VolumeControls
+                            Grid.Column="1"
+                            DataContext="{Binding Path=ActiveSession.DeviceVolumeControls}"
+                        />
+
                         <Label
                             Grid.Row="1"
                             Grid.Column="0"
@@ -611,62 +637,11 @@
                             Margin="0 0 16 0"
                             VerticalAlignment="Center"
                         />
-                        <Slider
-                            Grid.Column="1"
-                            Width="100"
-                            Minimum="0"
-                            Maximum="100"
-                            TickFrequency="5"
-                            AutoToolTipPlacement="TopLeft"
-                            AutoToolTipPrecision="0"
-                            IsMoveToPointEnabled="true"
-                            b:HintBehavior.HintText="S"
-                            IsEnabled="{Binding ActiveSession.CanChangeDeviceVolume}"
-                            
-                            Value="{Binding ActiveSession.DeviceVolume, Converter={StaticResource FloatToPercentageConverter}, Mode=OneWay}"
-                        />
-                        <ToggleButton
-                            Style="{StaticResource MuteToggle}"
-                            Margin="10 0 0 0"
-                            Grid.Column="2"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Stretch"
-                            DataContext="{Binding Playback.SelectedDevice}"
-                            IsChecked="{Binding IsMuted, Mode=OneWay}"
-                            Command="{Binding Mute}"
-                            b:HintBehavior.HintText="M"
-                        >
-                            <!--<mdi:MaterialIconExt Kind="VolumeOff"/>-->
-                        </ToggleButton>
-                        <Slider
+                        <uc:VolumeControls 
                             Grid.Column="1"
                             Grid.Row="1"
-                            Width="100"
-                            Minimum="0"
-                            Maximum="100"
-                            TickFrequency="5"
-                            AutoToolTipPlacement="TopLeft"
-                            AutoToolTipPrecision="0"
-                            IsMoveToPointEnabled="true"
-                            b:HintBehavior.HintText="V"
-                            IsEnabled="{Binding ActiveSession.CanChangeSessionVolume}"
-                            Value="{Binding Path=ActiveSession.SessionVolume, Converter={StaticResource FloatToPercentageConverter}, Mode=OneWay}"
+                            DataContext="{Binding Path=ActiveSession.SessionVolumeControls}"
                         />
-
-                        <ToggleButton
-                            Style="{StaticResource MuteToggle}"
-                            Margin="10 0 0 0"
-                            HorizontalAlignment="Center"
-                            VerticalAlignment="Stretch"
-                            Grid.Row="2"
-                            Grid.Column="2"
-                            DataContext="{Binding ActiveSession}"
-                            IsChecked="{Binding IsMuted, Mode=OneWay}"
-                            Command="{Binding Mute}"
-                            b:HintBehavior.HintText="X"
-                        >
-                            <!--<mdi:MaterialIconExt Kind="VolumeOff"/>-->
-                        </ToggleButton>
                     </Grid>
                 </Grid>
             </Grid>

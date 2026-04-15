@@ -1,96 +1,92 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <UseWPF>true</UseWPF>
+        <Platform>x64</Platform>
 
-	<PropertyGroup>
-		<TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
-		<OutputType>WinExe</OutputType>
-		<Nullable>enable</Nullable>
-		<ImplicitUsings>enable</ImplicitUsings>
-		<UseWPF>true</UseWPF>
-		<Platform>x64</Platform>
+        <OutputType>WinExe</OutputType>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+    </PropertyGroup>
 
-		<ApplicationManifest>app.manifest</ApplicationManifest>
-	</PropertyGroup>
+    <ItemGroup>
+        <None Remove="Images\icon.psd" />
+        <None Remove="Images\loading.png" />
+        <None Remove="Images\logo-small.ico" />
+        <None Remove="Images\logo.ico" />
+        <None Remove="Images\logo.png" />
+    </ItemGroup>
 
-	<ItemGroup>
-	  <None Remove="Images\icon.psd" />
-	  <None Remove="Images\loading.png" />
-	  <None Remove="Images\logo-small.ico" />
-	  <None Remove="Images\logo.ico" />
-	  <None Remove="Images\logo.png" />
-	</ItemGroup>
+    <ItemGroup>
+        <Resource Include="Images\icon.jpg">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Resource>
+        <Resource Include="Images\icon.psd">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Resource>
+        <Resource Include="Images\loading.png" />
+        <Resource Include="Images\logo-small.ico">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Resource>
+        <Resource Include="Images\logo.ico">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Resource>
+        <Resource Include="Images\logo.png">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </Resource>
+    </ItemGroup>
 
+    <ItemGroup>
+        <PackageReference Include="AutomaticInterface">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="CommunityToolkit.Mvvm" />
+        <PackageReference Include="fontawesome.sharp" />
+        <PackageReference Include="GlobalHotKeys.Windows" />
+        <PackageReference Include="H.NotifyIcon.Wpf" />
+        <PackageReference Include="iNKORE.UI.WPF.Modern" />
+        <PackageReference Include="Material.Icons.WPF" />
+        <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+        <PackageReference Include="Microsoft.Windows.CsWin32">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+        <PackageReference Include="MouseKeyHook" />
+        <PackageReference Include="NAudio.WASAPI" />
+        <PackageReference Include="ReactiveUI" />
+        <PackageReference Include="TaskScheduler" />
+        <ProjectReference Include="..\WinTabber.Api.Media\WinTabber.Api.Media.csproj" />
+        <ProjectReference Include="..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />
+        <ProjectReference Include="..\WinTabber.Generators\WinTabber.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
+        <PackageReference Include="reactiveui.wpf" />
+    </ItemGroup>
 
+    <ItemGroup>
+        <ProjectReference Include="..\WinTabber.API\WinTabber.API.csproj" />
+        <ProjectReference Include="..\WinTabber.Events\WinTabber.Events.csproj" />
+        <ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
+        <ProjectReference Include="..\WinTabber.UI.Media\WinTabber.UI.Media.csproj" />
+    </ItemGroup>
 
-	<ItemGroup>
-	  <Resource Include="Images\icon.jpg">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Resource>
-	  <Resource Include="Images\icon.psd">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Resource>
-	  <Resource Include="Images\loading.png" />
-	  <Resource Include="Images\logo-small.ico">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Resource>
-	  <Resource Include="Images\logo.ico">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Resource>
-	  <Resource Include="Images\logo.png">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </Resource>
-	</ItemGroup>
+    <ItemGroup>
+        <AdditionalFiles Update="NativeMethods.txt">
+            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+        </AdditionalFiles>
+    </ItemGroup>
 
+    <ItemGroup>
+        <Page Update="Resources\Theme.xaml">
+            <Generator>MSBuild:Compile</Generator>
+        </Page>
+    </ItemGroup>
 
-	<ItemGroup>
-		<PackageReference Include="AutomaticInterface">
-		  <PrivateAssets>all</PrivateAssets>
-		  <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-		<PackageReference Include="CommunityToolkit.Mvvm" />
-		<PackageReference Include="fontawesome.sharp" />
-		<PackageReference Include="GlobalHotKeys.Windows" />
-		<PackageReference Include="H.NotifyIcon.Wpf" />
-		<PackageReference Include="iNKORE.UI.WPF.Modern" />
-		<PackageReference Include="Material.Icons.WPF" />
-		<PackageReference Include="Microsoft-WindowsAPICodePack-Shell" />
-		<PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-		<PackageReference Include="Microsoft.Windows.CsWin32">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-		<PackageReference Include="MouseKeyHook" />
-		<PackageReference Include="NAudio.WASAPI" />
-		<PackageReference Include="ReactiveUI" />
-		<PackageReference Include="TaskScheduler" />
-		<ProjectReference Include="..\WinTabber.Api.Media\WinTabber.Api.Media.csproj" />
-		<ProjectReference Include="..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />
-		<ProjectReference Include="..\WinTabber.Generators\WinTabber.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-		<PackageReference Include="reactiveui.wpf" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<ProjectReference Include="..\WinTabber.API\WinTabber.API.csproj" />
-		<ProjectReference Include="..\WinTabber.Events\WinTabber.Events.csproj" />
-		<ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
-		<ProjectReference Include="..\WinTabber.UI.Media\WinTabber.UI.Media.csproj" />
-	</ItemGroup>
-
-	<ItemGroup>
-		<AdditionalFiles Update="NativeMethods.txt">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</AdditionalFiles>
-	</ItemGroup>
-
-	<ItemGroup>
-	  <Page Update="Resources\Theme.xaml">
-	    <Generator>MSBuild:Compile</Generator>
-	  </Page>
-	</ItemGroup>
-
-	<ItemGroup>
-	  <Folder Include="Extensions\" />
-	  <Folder Include="Infrastructure\NewFolder\" />
-	  <Folder Include="Factories\" />
-	</ItemGroup>
-
+    <ItemGroup>
+        <Folder Include="Extensions\" />
+        <Folder Include="Infrastructure\NewFolder\" />
+        <Folder Include="Factories\" />
+        <Folder Include="ValueConverters\" />
+    </ItemGroup>
 </Project>

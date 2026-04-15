@@ -22,8 +22,19 @@ namespace WinTabber.UI.Common.Behaviors
             DependencyProperty.RegisterAttached(
                 "HintText",
                 typeof(string),
-                typeof(FrameworkElement),
+                typeof(DependencyObject),
                 new PropertyMetadata(null, OnHintTextChanged));
+
+        public static string GetHintText(DependencyObject obj)
+        {
+            return (obj.GetValue(HintTextProperty) as string)!;
+        }
+
+        public static void SetHintText(DependencyObject obj, string value)
+        {
+            obj.SetValue(HintTextProperty, value);
+        }
+
 
         public static readonly DependencyProperty HintAdornerProperty =
             DependencyProperty.RegisterAttached(
@@ -142,15 +153,7 @@ namespace WinTabber.UI.Common.Behaviors
         //    set => SetValue(HintTextProperty, value);
         //}
 
-        public static string? GetHintText(DependencyObject obj)
-        {
-            return obj.GetValue(HintTextProperty) as string;
-        }
 
-        public static void SetHintText(DependencyObject obj, string? value)
-        {
-            obj.SetValue(HintTextProperty, value);
-        }
 
         //public static List<FrameworkElement> GetAttachedElements(DependencyObject obj) => (List<FrameworkElement>)obj.GetValue(AdornerLayerAdornedElementsProperty);
         public static IEnumerable<FrameworkElement> GetAttachedElements(FrameworkElement obj)

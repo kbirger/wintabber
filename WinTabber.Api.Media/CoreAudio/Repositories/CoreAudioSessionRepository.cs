@@ -1,6 +1,7 @@
 ﻿using DynamicData;
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
+using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using WinTabber.Api.Media.CoreAudio.Models;
@@ -10,7 +11,12 @@ namespace WinTabber.Api.Media.CoreAudio.Repositories;
 
 public class CoreAudioSessionRepository : IDisposable
 {
-    public IObservable<IChangeSet<CoreAudioSessionWrapper, string>> Connect(MMDevice device)
+    public IObservable<IChangeSet<CoreAudioSessionWrapper, string>> Connect(CoreAudioDeviceWrapper device)
+    {
+        return Connect(device.Device);
+    }
+
+    internal IObservable<IChangeSet<CoreAudioSessionWrapper, string>> Connect(MMDevice device)
     {
         return Observable
             .Defer(() =>
@@ -20,8 +26,9 @@ public class CoreAudioSessionRepository : IDisposable
                     .Create<CoreAudioSessionWrapper, string>(
                         (cache) =>
                         {
+                            var scheduler = Scheduler;
                             var initialSessions = GetNativeSessions(manager)
-                                .Select(session => new CoreAudioSessionWrapper(session, device));
+                                .Select(session => new CoreAudioSessionWrapper(session, device, scheduler));
                             cache.AddOrUpdate(initialSessions);
 
                             initialSessions.Select(session =>
@@ -36,12 +43,16 @@ public class CoreAudioSessionRepository : IDisposable
                             var newSessions = ObserveSessionCreation(manager);
 
                             var subscription = newSessions
-                                .SubscribeOn(STAScheduler.Default)
-                                .ObserveOn(STAScheduler.Default)
+                                .SubscribeOn(Scheduler)
+                                .ObserveOn(Scheduler)
                                 .Subscribe(nativeSession =>
                                 {
                                     var session = new AudioSessionControl(nativeSession);
-                                    var wrapper = new CoreAudioSessionWrapper(session, device);
+                                    if (session.IsSystemSoundsSession)
+                                    {
+                                        return;
+                                    }
+                                    var wrapper = new CoreAudioSessionWrapper(session, device, scheduler);
                                     wrapper
                                         .SessionEnded.Take(1)
                                         .Subscribe(_ =>
@@ -54,7 +65,7 @@ public class CoreAudioSessionRepository : IDisposable
 
                             return new CompositeDisposable(subscription);
                         },
-                        item => item.NativeSession.GetSessionInstanceIdentifier
+                        item => item.CoreAudioSession.GetSessionInstanceIdentifier
                     )
                     .AutoRefreshOnObservable(session => session.SessionChanged
                         .Log(x => "Session changed triggering refresh")
@@ -62,9 +73,11 @@ public class CoreAudioSessionRepository : IDisposable
 
                 return changes;
             })
-            .SubscribeOn(STAScheduler.Default) // ?
-            .ObserveOn(STAScheduler.Default);
+            .SubscribeOn(Scheduler) // ?
+            .ObserveOn(Scheduler);
     }
+
+    public IScheduler Scheduler => STAScheduler.Default;
 
     private static IEnumerable<AudioSessionControl> GetNativeSessions(AudioSessionManager manager)
     {

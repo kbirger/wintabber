@@ -54,7 +54,6 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
     protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
     {
         base.OnPreviewMouseDown(e);
-        Debug.WriteLine("X");
         //ApplyOpacity(30);
     }
     

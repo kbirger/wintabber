@@ -5,6 +5,7 @@ using System.Reactive.Linq;
 using Windows.Media.Control;
 using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.CoreAudio.Repositories;
+using WinTabber.Api.Media.CoreAudio.Services;
 using WinTabber.Api.Media.Repositories;
 using WinTabber.Api.Media.ShellApplications.Models;
 using WinTabber.Api.Media.ShellApplications.Repositories;
@@ -13,10 +14,10 @@ using WinTabber.Common.Util;
 using WinTabber.Interop;
 using WinTabber.UI.Media.Models;
 
-namespace WinTabberUI.Services;
+namespace WinTabber.UI.Media.Services;
 public partial class MediaSessionService(
     CoreAudioDeviceRepository coreAudioDeviceRepository,
-    CoreAudioSessionRepository coreAudioSessionRepository,
+    AudioSessionService audioSessionService,
     SMTCSessionRepository mediaSessionRepository,
     InstalledApplicationRepository installedApplicationRepository
 )
@@ -41,7 +42,7 @@ public partial class MediaSessionService(
     record MediaSessionWithApp(GlobalSystemMediaTransportControlsSession Session, InstalledApplicationInfo App);
 
     private readonly CoreAudioDeviceRepository _coreAudioDeviceRepository = coreAudioDeviceRepository;
-    private readonly CoreAudioSessionRepository _coreAudioSessionRepository = coreAudioSessionRepository;
+    private readonly AudioSessionService _audioSessionService = audioSessionService;
     private readonly SMTCSessionRepository _mediaSessionRepository = mediaSessionRepository;
     private readonly InstalledApplicationRepository _installedApplicationRepository = installedApplicationRepository;
 
@@ -61,24 +62,13 @@ public partial class MediaSessionService(
             .ChangeKey(x => x.Session.SourceAppUserModelId);
     }
 
-    private IObservable<IChangeSet<CoreAudioSessionWrapper, string>> GetCoreAudioSessions()
-    {
-        return _coreAudioDeviceRepository
-            .Devices
-            .Connect()
-            .MergeManyChangeSets(_coreAudioSessionRepository.Connect)
-            .DisposeMany();
-    }
+    
 
     private IObservableCache<NativeSessionWithApp, string> GetNativeSessionsWithApps()
     {
         var appsByPath = _installedApplicationRepository.ApplicationsByPath;
-        return GetCoreAudioSessions()
-            .Filter( x =>
-            {
-                x.DisplayName.Take(1).Log(s => $"Session: {s}").Subscribe();
-                return true;
-            })
+        return _audioSessionService.CoreAudioSessions
+            .Connect()                        
             //.AutoRefreshOnObservable(_ => appsByPath.Connect())
             .Transform(nativeSession =>
             {

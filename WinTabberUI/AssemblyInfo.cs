@@ -1,3 +1,4 @@
+using System.Reflection;
 using System.Runtime.Versioning;
 using System.Windows;
 
