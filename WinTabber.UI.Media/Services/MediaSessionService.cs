@@ -42,7 +42,6 @@ public partial class MediaSessionService(
 
     record MediaSessionWithApp(GlobalSystemMediaTransportControlsSession Session, InstalledApplicationInfo App);
 
-    private readonly CoreAudioDeviceRepository _coreAudioDeviceRepository = coreAudioDeviceRepository;
     private readonly AudioSessionService _audioSessionService = audioSessionService;
     private readonly SMTCSessionRepository _mediaSessionRepository = mediaSessionRepository;
     private readonly InstalledApplicationRepository _installedApplicationRepository = installedApplicationRepository;
@@ -151,6 +150,7 @@ public partial class MediaSessionService(
                     .Watch(smtcSession.SourceAppUserModelId)
                     .Select(change => change.Current);
             })
-            .Switch();
+            .Switch()
+            .DistinctUntilChanged(session => session.Key);
     }
 }

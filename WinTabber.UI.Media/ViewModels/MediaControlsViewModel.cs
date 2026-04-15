@@ -74,7 +74,18 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                 .Transform(session => new SessionListItem(session));
 
             sessions.ObserveOn(RxSchedulers.MainThreadScheduler).Bind(out _sessions).Subscribe().DisposeWith(_cleanUp);
-
+            _sessions
+                .ActOnEveryObject(
+                    (x) =>
+                    {
+                        Debug.WriteLine("add");
+                    },
+                    (x) =>
+                    {
+                        Debug.WriteLine("remove");
+                    }
+                )
+                .DisposeWith(_cleanUp);
             // Watch for SMTC session changes and match against known sessions.
             var activeSessionChanges = _mediaSessionService
                 .ActiveSession.Select(session =>
@@ -105,7 +116,9 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
             // or when user selects a different session from the list
             this.WhenAnyValue(vm => vm.SelectedSessionListItem)
                 .Merge(activeSessionChanges)
+                .Throttle(TimeSpan.FromMilliseconds(250))
                 .DistinctUntilChanged()
+                .ObserveOn(scheduler)
                 .Select(changedSession =>
                     changedSession is not null
                         ? Observable.Using(

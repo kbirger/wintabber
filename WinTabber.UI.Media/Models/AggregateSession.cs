@@ -22,4 +22,6 @@ public sealed class AggregateSession(
 
     [MemberNotNullWhen(true, nameof(NativeSession))]
     public bool IsComplete => NativeSession != null;
+
+    public object Key => (IsComplete, MediaSession.SourceAppUserModelId);
 }

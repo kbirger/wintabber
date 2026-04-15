@@ -119,7 +119,7 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
     {
         if (ViewModel?.ActiveSession is not null)
         {
-            ViewModel.ActiveSession.IsSeeking = true;
+            ViewModel.ActiveSession.Playback.IsSeeking = true;
         }
     }
 
@@ -127,9 +127,9 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
     {
         if(sender is Slider slider && ViewModel?.ActiveSession is not null)
         {
-            ViewModel.ActiveSession.IsSeeking = false;
+            ViewModel.ActiveSession.Playback.IsSeeking = false;
 
-            ViewModel.ActiveSession.Seek.Execute(TimeSpan.FromSeconds(slider.Value));
+            ViewModel.ActiveSession.Playback.Seek.Execute(TimeSpan.FromSeconds(slider.Value));
 
         }
     }
