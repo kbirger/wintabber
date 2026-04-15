@@ -9,7 +9,8 @@ public class ObservableSessionDto
     public ObservableSessionDto(CoreAudioSessionWrapper session)
     {
         IsMutedChanges = session.VolumeChanges.Select(change => change.IsMuted).DistinctUntilChanged();
-        VolumeChanges = session.VolumeChanges.Select(change => change.Volume).DistinctUntilChanged();
+        VolumeChanges = session.VolumeChanges
+            .Select(change => change.Volume).DistinctUntilChanged();
         State = session.StateChanges;
         DisplayName = session.DisplayName;
 

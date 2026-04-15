@@ -2,13 +2,17 @@
 using NAudio.CoreAudioApi.Interfaces;
 using System.Diagnostics;
 using System.Reactive;
+using System.Reactive.Concurrency;
+using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using static Microsoft.WindowsAPICodePack.Shell.PropertySystem.SystemProperties.System;
 
 namespace WinTabber.Api.Media.CoreAudio.Models;
 
 public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
 {
-    private readonly AudioSessionControl _nativeSession;
+    private readonly AudioSessionControl _coreAudioSession;
+    private readonly IScheduler _scheduler;
 
     public string DeviceId { get; }
 
@@ -20,9 +24,9 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
 
     private Subject<Unit> _sessionEnded = new Subject<Unit>();
     private Subject<Unit> _changes = new Subject<Unit>();
-    private Subject<string> _displayName = new();
+    private ReplaySubject<string> _displayName = new(1);
     private Subject<AudioSessionState> _state = new();
-    private Subject<(bool IsMuted, float Volume)> _volumeChanges = new();
+    private ReplaySubject<(bool IsMuted, float Volume)> _volumeChanges = new(1);
     public IObservable<Unit> SessionEnded => _sessionEnded;
     public IObservable<Unit> SessionChanged => _changes;
 
@@ -31,25 +35,30 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
     public IObservable<string> DisplayName => _displayName;
 
     public IObservable<AudioSessionState> StateChanges => _state;
-    public CoreAudioSessionWrapper(AudioSessionControl nativeSession, MMDevice device)
+    public CoreAudioSessionWrapper(AudioSessionControl nativeSession, MMDevice device, IScheduler scheduler)
     {
-        _nativeSession = nativeSession;
-        DeviceId = device.ID;
+        // Set internal Device property so that code inside this project can access directly
+        // as it will already be running on correct thread
         Device = device;
+
+        _coreAudioSession = nativeSession;
+        DeviceId = device.ID;
+        _scheduler = scheduler;
         _state.OnNext(nativeSession.State);
         _volumeChanges.OnNext((nativeSession.SimpleAudioVolume.Mute, nativeSession.SimpleAudioVolume.Volume));
         _displayName.OnNext(nativeSession.DisplayName);
-        ProcessId = _nativeSession.GetProcessID;
-        Id = _nativeSession.GetSessionIdentifier;
-        _nativeSession.RegisterEventClient(this);
+        ProcessId = _coreAudioSession.GetProcessID;
+        Id = _coreAudioSession.GetSessionIdentifier;
+        _coreAudioSession.RegisterEventClient(this);
+
     }
 
     public void Dispose()
     {
         try
         {
-            _nativeSession.UnRegisterEventClient(this);
-            _nativeSession.Dispose();
+            _coreAudioSession.UnRegisterEventClient(this);
+            _coreAudioSession.Dispose();
             _disposed = true;
         }
         catch
@@ -67,7 +76,7 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
     }
 
 
-    public AudioSessionControl NativeSession => _nativeSession;
+    internal AudioSessionControl CoreAudioSession => _coreAudioSession;
 
     
 
@@ -109,7 +118,7 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
 
     public void OnStateChanged(AudioSessionState state)
     {
-        Debug.WriteLine($"Session state changed: {NativeSession.GetSessionIdentifier} {state}");
+        Debug.WriteLine($"Session state changed: {CoreAudioSession.GetSessionIdentifier} {state}");
         _state.OnNext(state);
         _changes.OnNext(Unit.Default);
         if(state == AudioSessionState.AudioSessionStateExpired)
@@ -121,8 +130,30 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
 
     public void OnVolumeChanged(float volume, bool isMuted)
     {
-        Debug.WriteLine($"volume changed");
+        Debug.WriteLine($"[{this.Id}]volume changed: {volume}");
         _volumeChanges.OnNext((isMuted, volume));
         //OnPropertyChanged(nameof(Volume));
+    }
+
+    internal IObservable<Unit> SetVolume(float volume)
+    {
+        return Observable.Start(() =>
+        {
+            if(Math.Abs(_coreAudioSession.SimpleAudioVolume.Volume - volume) > .01)
+            {
+                _coreAudioSession.SimpleAudioVolume.Volume = volume;
+            }
+        }, _scheduler);
+    }
+
+    internal IObservable<Unit> SetMute(bool isMuted)
+    {
+        return Observable.Start(() =>
+        {
+            if (isMuted != _coreAudioSession.SimpleAudioVolume.Mute)
+            {
+                _coreAudioSession.SimpleAudioVolume.Mute = isMuted;
+            }
+        }, _scheduler);
     }
 }

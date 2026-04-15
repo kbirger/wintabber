@@ -14,6 +14,7 @@ using WinTabber.Api.Media.CoreAudio.Services;
 using WinTabber.Api.Media.SMTC.Services;
 using WinTabber.Interop;
 using WinTabber.UI.Media.Models;
+using static Microsoft.WindowsAPICodePack.Shell.PropertySystem.SystemProperties.System;
 
 namespace WinTabber.UI.Media.ViewModels;
 
@@ -37,7 +38,9 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     private readonly ObservableAsPropertyHelper<bool> _canMuteDevice;
     private readonly ObservableAsPropertyHelper<bool> _canSetSessionVolume;
 
-    private AggregateSession _session;
+    private readonly AggregateSession _session;
+    private readonly AudioSessionService _sessionService;
+    private readonly AudioDeviceService _deviceService;
     private readonly CompositeDisposable _disposable = new CompositeDisposable();
 
     //private readonly ObservableSessionDto? _deviceSession;
@@ -50,14 +53,16 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     )
     {
         _session = session;
+        _sessionService = audioSessionService;
+        _deviceService = audioDeviceService;
         var scheduler = RxSchedulers.MainThreadScheduler;
-
+        var hasNativeSession = session.NativeSession is not null;
         var smtcSession = session.MediaSession;
         var deviceSession = session.NativeSession is null ? null : new ObservableSessionDto(session.NativeSession);
         // todo: this is incorrect. need device
         var device = session.NativeSession is null
             ? Observable.Empty<ObservableDeviceDto>()
-            : audioDeviceService.WatchDevice(session.NativeSession.DeviceId).FirstAsync();
+            : audioDeviceService.WatchDevice(session.NativeSession.DeviceId).FirstAsync().ObserveOn(scheduler);
         //var mediaPropertiesChanged = ObserveMediaProperties(smtcSession);
         //var playbackPropertiesChanged = ObservePlaybackProperties(smtcSession);
         //var timelinePropertyChanged = ObserveTimelineProperties(smtcSession);
@@ -89,7 +94,6 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
 
         _isPlaying = monitor
             .IsPlayingChanges
-            .Do(t => Debug.WriteLine($"playing: {t}"))
             .ToProperty(this, vm => vm.IsPlaying)
             .DisposeWith(_disposable);
 
@@ -99,15 +103,15 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
 
         _canSetDeviceVolume = device
             .Select(d => d.CanSetVolume)
-            .ToProperty(this, vm => vm.CanChangeDeviceVolume)
+            .ToProperty(this, vm => vm.CanChangeDeviceVolume, scheduler: scheduler)
             .DisposeWith(_disposable);
         _canMuteDevice = device
             .Select(d => d.CanMute)
-            .ToProperty(this, vm => vm.CanChangeDeviceVolume)
+            .ToProperty(this, vm => vm.CanChangeDeviceVolume, scheduler: scheduler)
             .DisposeWith(_disposable);
         _canSetSessionVolume = Observable
-            .Return(session.NativeSession is not null)
-            .ToProperty(this, vm => vm.CanChangeSessionVolume);
+            .Return(hasNativeSession)
+            .ToProperty(this, vm => vm.CanChangeSessionVolume, scheduler: scheduler);
 
         _isSessionMuted = (deviceSession?.IsMutedChanges ?? Observable.Return(false)).ToProperty(
             this,
@@ -116,15 +120,15 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
 
         _isDeviceMuted = device
             .SelectMany(d => d.MuteChanges)
-            .ToProperty(this, vm => vm.IsDeviceMuted, initialValue: false);
+            .ToProperty(this, vm => vm.IsDeviceMuted, initialValue: false, scheduler: scheduler);
 
         _sessionVolume = (deviceSession?.VolumeChanges ?? Observable.Empty<float>())
-            .ToProperty(this, vm => vm.SessionVolume, initialValue: 0f)
+            .ToProperty(this, vm => vm.SessionVolume, initialValue: 0f, scheduler: scheduler)
             .DisposeWith(_disposable);
 
         _deviceVolume = device
             .SelectMany(d => d.VolumeChanges)
-            .ToProperty(this, vm => vm.DeviceVolume, initialValue: 0f)
+            .ToProperty(this, vm => vm.DeviceVolume, initialValue: 0f, scheduler: scheduler)
             .DisposeWith(_disposable);
 
         PlayPause = ReactiveCommand
@@ -164,7 +168,7 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
         SetSessionVolume = ReactiveCommand
             .CreateFromObservable<float, Unit>(
                 SetSessionVolumeImpl,
-                canExecute: Observable.Return(CanChangeSessionVolume),
+                canExecute: Observable.Return(hasNativeSession),
                 outputScheduler: scheduler
             )
             .DisposeWith(_disposable);
@@ -172,7 +176,7 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
         SetSessionMuted = ReactiveCommand
             .CreateFromObservable<bool, Unit>(
                 SetSessionMutedImpl,
-                canExecute: Observable.Return(CanChangeSessionVolume),
+                canExecute: Observable.Return(hasNativeSession),
                 outputScheduler: scheduler
             )
             .DisposeWith(_disposable);
@@ -184,6 +188,28 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
                 outputScheduler: scheduler
             )
             .DisposeWith(_disposable);
+
+        DeviceVolumeControls = new VolumeControlsViewModel(
+            canSetVolumeChanges: device.Select(d => d.CanSetVolume),
+            canMuteChanges: device.Select(d => d.CanMute),
+            volumeChanges: device.SelectMany(d => d.VolumeChanges),
+            muteChanges: device.SelectMany(d => d.MuteChanges),
+            muteImpl: SetDeviceMutedImpl,
+            setVolumeImpl: SetDeviceVolumeImpl,
+            volumeHintText: "V",
+            muteHintText: "M"
+        );
+
+        SessionVolumeControls = new VolumeControlsViewModel(
+            canSetVolumeChanges: Observable.Return(deviceSession is not null),
+            canMuteChanges: Observable.Return(deviceSession is not null),
+            volumeChanges: deviceSession?.VolumeChanges ?? Observable.Empty<float>(),
+            muteChanges: deviceSession?.IsMutedChanges ?? Observable.Empty<bool>(),
+            muteImpl: SetSessionMutedImpl,
+            setVolumeImpl: SetSessionVolumeImpl,
+            volumeHintText: "U",
+            muteHintText: "X"
+        );
 
         Observable
             .Merge(
@@ -237,6 +263,9 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
             .ToProperty(this, vm => vm.Progress, initialValue: 0)
             .DisposeWith(_disposable);
     }
+
+    public VolumeControlsViewModel DeviceVolumeControls { get; }
+    public VolumeControlsViewModel SessionVolumeControls { get; }
 
     public ReactiveCommand<Unit, Unit> PlayPause { get; private set; }
     public ReactiveCommand<Unit, Unit> Next { get; private set; }
@@ -365,50 +394,45 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
 
     private IObservable<Unit> SetDeviceVolumeImpl(float volume)
     {
-        return Observable.Start(() =>
+        if (_session.NativeSession is not null)
         {
-            if (_session.NativeSession is not null)
-            {
-                // todo: marshall
-                //_session.NativeSession.SetVolume(volume);
-            }
-        });
+
+            return _deviceService.SetVolume(_session.NativeSession.DeviceId, volume);
+        }
+        return Observable.Empty<Unit>();
     }
 
     private IObservable<Unit> SetSessionVolumeImpl(float volume)
     {
-        return Observable.Start(() =>
+        if (_session.NativeSession is not null && _sessionVolume.Value != volume)
         {
-            if (_session.NativeSession is not null)
-            {
-                // todo: marshall
-                //_session.NativeSession.SetVolume(volume);
-            }
-        });
+            return _sessionService.SetVolume(_session.NativeSession, volume);
+
+            // todo: marshall
+            //_sessionser
+            //_session.Nat╝iveSessionSetVolume(volume);
+        }
+
+        return Observable.Empty<Unit>();
     }
 
     private IObservable<Unit> SetSessionMutedImpl(bool isMuted)
     {
-        return Observable.Start(() =>
+        if (_session.NativeSession is not null)
         {
-            if (_session.NativeSession is not null)
-            {
-                // todo: marshall
-                //_session.NativeSession.SetMute(isMuted);
-            }
-        });
+            return _sessionService.SetMute(_session.NativeSession, isMuted);
+        }
+        return Observable.Empty<Unit>();
     }
 
     private IObservable<Unit> SetDeviceMutedImpl(bool isMuted)
     {
-        return Observable.Start(() =>
+        if (_session.NativeSession is not null)
         {
-            if (_session.NativeSession is not null)
-            {
-                // todo: marshall
-                //_session.NativeSession.SetMute(isMuted);
-            }
-        });
+
+            return _deviceService.SetMute(_session.NativeSession.DeviceId, isMuted);
+        }
+        return Observable.Empty<Unit>();
     }
 
     private static IObservable<Unit> OperationToObservable(IAsyncOperation<bool> operation)

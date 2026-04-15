@@ -10,5 +10,6 @@ public class DeviceEvents
     public required IObservable<PropertyKey> PropertyChanges { get; init; }
 
     public required IObservable<bool> IsDefaultChanges { get; init; }
-    public required IObservable<AudioVolumeNotificationData> VolumeChanges { get; init; }
+    public required IObservable<float> VolumeChanges { get; init; }
+    public required IObservable<bool> MuteChanges { get; init; }
 }

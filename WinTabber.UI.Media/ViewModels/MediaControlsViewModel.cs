@@ -110,7 +110,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                     },
                     ex =>
                     {
-                        Debug.WriteLine("Error in ActiveSession pipeline2: {Error}", ex);
+                        Debug.WriteLine("Error in ActiveSession pipeline2: {0}", ex);
                     }
                 )
                 .DisposeWith(_cleanUp);

@@ -1,9 +1,9 @@
-﻿using NAudio.CoreAudioApi;
-using NAudio.CoreAudioApi.Interfaces;
-using System.Reactive;
+﻿using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using NAudio.CoreAudioApi;
+using NAudio.CoreAudioApi.Interfaces;
 using WinTabber.Api.Media.CoreAudio.Models;
 
 namespace WinTabber.Api.Media.CoreAudio.Repositories;
@@ -70,9 +70,17 @@ public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
 
     public DeviceEvents Watch(MMDevice device)
     {
+        var volumeChanged = GetVolumeChanged(device)
+            .Select(change => (change.MasterVolume, change.Muted))
+            .StartWith((device.AudioEndpointVolume.MasterVolumeLevelScalar, device.AudioEndpointVolume.Mute))
+            .Replay(1)
+            .RefCount();
         return new DeviceEvents
         {
-            VolumeChanges = GetVolumeChanged(device),
+            VolumeChanges = volumeChanged
+                .Select(change => change.Item1),
+            MuteChanges = volumeChanged
+                .Select(change => change.Item2),
             PropertyChanges = GetPropertyChanges(device),
             Removed = GetRemoved(device),
             StateChanges = GetStateChanges(device),
@@ -128,9 +136,7 @@ public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
                     }
                 );
             })
-            .SubscribeOn(_scheduler)
-            .Publish()
-            .RefCount();
+            .SubscribeOn(_scheduler);
     }
 
     public void Dispose()

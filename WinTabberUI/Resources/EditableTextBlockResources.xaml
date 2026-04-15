@@ -1,10 +1,10 @@
 ﻿<ResourceDictionary xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
                     xmlns:l="clr-namespace:WinTabberUI"
                     xmlns:tb="clr-namespace:H.NotifyIcon;assembly=H.NotifyIcon.Wpf"
-                    xmlns:c="clr-namespace:WinTabberUI.ValueConverters"                    
+                    xmlns:conv="clr-namespace:WinTabber.UI.Common.ValueConverters;assembly=WinTabber.UI.Common"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!-- Button style (simple, small) -->
-    <c:BoolToBrushConverter x:Key="BorderBrushConverter" c:BoolToBrushConverter.EditBrush="#ff666666" c:BoolToBrushConverter.ViewBrush="Transparent"/>
+    <conv:BoolToBrushConverter x:Key="BorderBrushConverter" conv:BoolToBrushConverter.EditBrush="#ff666666" conv:BoolToBrushConverter.ViewBrush="Transparent"/>
     <Style x:Key="InlineButton" TargetType="Button">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="White"/>

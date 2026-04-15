@@ -5,7 +5,7 @@
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
       xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
       xmlns:local="clr-namespace:WinTabberUI.Views"
-      xmlns:c="clr-namespace:WinTabberUI.ValueConverters"                    
+      xmlns:c="clr-namespace:WinTabber.UI.Common.ValueConverters;assembly=WinTabber.UI.Common"
                     
       xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
       xmlns:settingsvm="clr-namespace:WinTabberUI.ViewModels.Settings"

@@ -1,0 +1,14 @@
+﻿<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:c="clr-namespace:WinTabber.UI.Common.ValueConverters"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+>
+    <c:BoolToThicknessConverter x:Key="BoolToThicknessConverter" />
+    <c:BoolToBrushConverter x:Key="BoolToBrushConverter" />
+    <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    <c:InverseBoolConverter x:Key="InverseBoolConverter" />
+    <c:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+    <c:TimeSpanToFloatConverter x:Key="TimeSpanToFloatConverter" />
+    <c:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter" />
+    <c:FloatToPercentageConverter x:Key="FloatToPercentageConverter" />
+</ResourceDictionary>

@@ -1,28 +1,40 @@
-﻿<Window x:Class="WinTabberUI.DockWindow"
-        xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-        xmlns:chrome="clr-namespace:WinTabber.UI.Common.Chrome;assembly=WinTabber.UI.Common"
-        xmlns:local="clr-namespace:WinTabberUI"
-        mc:Ignorable="d"
-        ScrollViewer.HorizontalScrollBarVisibility="Disabled" 
-        ScrollViewer.VerticalScrollBarVisibility="Hidden" 
-        Title="DockWindow" Width="200" Padding="10" Margin="10">
+﻿<Window
+    x:Class="WinTabberUI.DockWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:chrome="clr-namespace:WinTabber.UI.Common.Chrome;assembly=WinTabber.UI.Common"
+    xmlns:local="clr-namespace:WinTabberUI"
+    mc:Ignorable="d"
+    ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+    ScrollViewer.VerticalScrollBarVisibility="Hidden"
+    Title="DockWindow"
+    Width="200"
+    Padding="10"
+    Margin="10"
+>
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-        <ResourceDictionary Source="/Resources/DockWindowResources.xaml"/>
-                
+                <ResourceDictionary Source="/Resources/DockWindowResources.xaml" />
             </ResourceDictionary.MergedDictionaries>
-            
         </ResourceDictionary>
     </Window.Resources>
     <chrome:AcrylicChrome.AcrylicChrome>
-        <chrome:AcrylicChrome AccentState="ACCENT_ENABLE_BLURBEHIND" CornerPreference="DWMWCP_ROUNDSMALL" UnderStratumColor="#55ff0000" />
+        <chrome:AcrylicChrome
+            AccentState="ACCENT_ENABLE_BLURBEHIND"
+            CornerPreference="DWMWCP_ROUNDSMALL"
+            UnderStratumColor="#55ff0000"
+        />
     </chrome:AcrylicChrome.AcrylicChrome>
-    <ListView x:Name="Windows" ItemsSource="{Binding Path=Windows}" Background="#01000000"                         ScrollViewer.HorizontalScrollBarVisibility="Disabled" 
-                        ScrollViewer.VerticalScrollBarVisibility="Hidden" >
+    <ListView
+        x:Name="Windows"
+        ItemsSource="{Binding Path=Windows}"
+        Background="#01000000"
+        ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+        ScrollViewer.VerticalScrollBarVisibility="Hidden"
+    >
         <ListView.ItemsPanel>
             <ItemsPanelTemplate>
                 <StackPanel Orientation="Vertical" />
@@ -30,25 +42,27 @@
         </ListView.ItemsPanel>
         <ListView.ItemContainerStyle>
             <Style TargetType="ListViewItem">
-                <Setter Property="Margin" Value="0"/>
+                <Setter Property="Margin" Value="0" />
             </Style>
         </ListView.ItemContainerStyle>
         <ListView.ItemTemplate>
             <DataTemplate>
                 <Grid Margin="0">
                     <Grid.RowDefinitions>
-                        <RowDefinition Height="auto"/>
-                        <RowDefinition Height="*"/>
+                        <RowDefinition Height="auto" />
+                        <RowDefinition Height="*" />
                     </Grid.RowDefinitions>
-                    <TextBlock 
+                    <TextBlock
                         Text="{Binding Title}"
-                        FontSize="16" Margin="0 0 0 10" 
+                        FontSize="16"
+                        Margin="0 0 0 10"
                         Padding="0"
-                        Grid.Row="0" 
-                        TextWrapping="NoWrap" 
-                        
-                        TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
-                    <Viewbox Grid.Row="1"  HorizontalAlignment="Center" VerticalAlignment="Top" Stretch="Uniform">
+                        Grid.Row="0"
+                        TextWrapping="NoWrap"
+                        TextTrimming="CharacterEllipsis"
+                        VerticalAlignment="Center"
+                    />
+                    <Viewbox Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Top" Stretch="Uniform">
                         <local:WindowThumbnail Source="{Binding Path=Handle}" />
                     </Viewbox>
                 </Grid>
