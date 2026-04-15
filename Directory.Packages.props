@@ -17,6 +17,7 @@
     <PackageVersion Include="MouseKeyHook" Version="5.7.1" />
     <PackageVersion Include="NAudio.WASAPI" Version="2.3.0" />
     <PackageVersion Include="ReactiveUI" Version="22.3.1" />
+    <PackageVersion Include="ReactiveUI.SourceGenerators" Version="2.6.1" />
     <PackageVersion Include="reactiveui.wpf" Version="22.3.1" />
     <PackageVersion Include="TaskScheduler" Version="2.12.2" />
     <PackageVersion Include="DynamicData" Version="9.4.1" />
@@ -24,9 +25,9 @@
     <PackageVersion Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
     <PackageVersion Include="Microsoft.CodeAnalysis.Analyzers" Version="5.3.0" />
     <PackageVersion Include="sharphook" Version="7.1.1" />
-	<PackageVersion Include="sharphook.reactive" Version="7.1.1" />
+    <PackageVersion Include="sharphook.reactive" Version="7.1.1" />
     <PackageVersion Include="NHotkey.WindowsForms" Version="4.0.0" />
-	<PackageVersion Include="System.Management" Version="10.0.3" />
+    <PackageVersion Include="System.Management" Version="10.0.3" />
     <PackageVersion Include="TUnit" Version="1.16.4" />
     <PackageVersion Include="System.Drawing.Common" Version="10.0.5" />
     <PackageVersion Include="System.Runtime.Caching" Version="10.0.5" />

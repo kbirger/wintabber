@@ -23,9 +23,9 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
 
     private Subject<Unit> _sessionEnded = new Subject<Unit>();
     private Subject<Unit> _changes = new Subject<Unit>();
-    private ReplaySubject<string> _displayName = new(1);
-    private Subject<AudioSessionState> _state = new();
-    private ReplaySubject<(bool IsMuted, float Volume)> _volumeChanges = new(1);
+    private BehaviorSubject<string> _displayName;
+    private BehaviorSubject<AudioSessionState> _stateChanges;
+    private BehaviorSubject<(bool IsMuted, float Volume)> _volumeChanges;
     public IObservable<Unit> SessionEnded => _sessionEnded;
     public IObservable<Unit> SessionChanged => _changes;
 
@@ -33,7 +33,7 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
 
     public IObservable<string> DisplayName => _displayName;
 
-    public IObservable<AudioSessionState> StateChanges => _state;
+    public IObservable<AudioSessionState> StateChanges => _stateChanges;
     public CoreAudioSessionWrapper(AudioSessionControl nativeSession, CoreAudioDeviceWrapper device, IScheduler scheduler)
     {
         // Set internal Device property so that code inside this project can access directly
@@ -42,9 +42,9 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
 
         _coreAudioSession = nativeSession;
         _scheduler = scheduler;
-        _state.OnNext(nativeSession.State);
-        _volumeChanges.OnNext((nativeSession.SimpleAudioVolume.Mute, nativeSession.SimpleAudioVolume.Volume));
-        _displayName.OnNext(nativeSession.DisplayName);
+        _stateChanges = new(nativeSession.State);
+        _volumeChanges = new((nativeSession.SimpleAudioVolume.Mute, nativeSession.SimpleAudioVolume.Volume));
+        _displayName = new (nativeSession.DisplayName);
         ProcessId = _coreAudioSession.GetProcessID;
         Id = _coreAudioSession.GetSessionIdentifier;
         _coreAudioSession.RegisterEventClient(this);
@@ -117,7 +117,7 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
     public void OnStateChanged(AudioSessionState state)
     {
         Debug.WriteLine($"Session state changed: {CoreAudioSession.GetSessionIdentifier} {state}");
-        _state.OnNext(state);
+        _stateChanges.OnNext(state);
         _changes.OnNext(Unit.Default);
         if(state == AudioSessionState.AudioSessionStateExpired)
         {

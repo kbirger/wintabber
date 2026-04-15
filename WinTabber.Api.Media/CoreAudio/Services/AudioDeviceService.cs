@@ -36,7 +36,11 @@ public partial class AudioDeviceService(CoreAudioDeviceRepository repository)
                 Removed = Observable.Empty<Unit>(),
                 StateChanges = Observable.Empty<DeviceState>(),
                 VolumeChanges = Observable.Empty<float>(),
-                MuteChanges = Observable.Empty<bool>()
+                IsMutedChanges = Observable.Empty<bool>(),
+                CanMuteChanges = Observable.Return(false),
+                CanSetVolumeChanges = Observable.Return(false),
+                SetVolume = (volume) => Observable.Empty<Unit>(),
+                SetMute = (volume) => Observable.Empty<Unit>()
             };
         }
 
@@ -59,7 +63,11 @@ public partial class AudioDeviceService(CoreAudioDeviceRepository repository)
             VolumeChanges = deviceEvents
                 .VolumeChanges
                 .Throttle(TimeSpan.FromMilliseconds(100)),
-            MuteChanges = deviceEvents.MuteChanges
+            IsMutedChanges = deviceEvents.MuteChanges,
+            CanMuteChanges = Observable.Return(device.CanMute),
+            CanSetVolumeChanges = Observable.Return(device.CanSetVolume),
+            SetVolume = device.SetVolume,
+            SetMute = device.SetMute
         };
     }
 

@@ -37,6 +37,10 @@
         <!--<PackageReference Include="MouseKeyHook" />-->
         <!--<PackageReference Include="NAudio.WASAPI" />-->
         <PackageReference Include="ReactiveUI" />
+        <PackageReference Include="ReactiveUI.SourceGenerators">
+          <PrivateAssets>all</PrivateAssets>
+          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <!--<PackageReference Include="TaskScheduler" />-->
         <ProjectReference Include="..\WinTabber.Api.Media\WinTabber.Api.Media.csproj" />
         <ProjectReference Include="..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />

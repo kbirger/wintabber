@@ -9,7 +9,7 @@ namespace WinTabber.Api.Media.SMTC.Services;
 
 public partial class SMTCSessionMonitor 
 {
-    private readonly GlobalSystemMediaTransportControlsSession _smtcSession;
+    public GlobalSystemMediaTransportControlsSession Session { get; }
     private readonly CompositeDisposable _disposable = new CompositeDisposable();
     public IObservable<string> ArtistNameChanges { get; }
     public IObservable<string> AlbumTitleChanges { get; }
@@ -26,7 +26,7 @@ public partial class SMTCSessionMonitor
     public IObservable<bool> CanSeekChanges { get; }
     public SMTCSessionMonitor(GlobalSystemMediaTransportControlsSession smtcSession)
     {
-        _smtcSession = smtcSession;
+        Session = smtcSession;
 
         var mediaPropertiesChanged = smtcSession.ObserveMediaProperties();
         var playbackPropertiesChanged = smtcSession.ObservePlaybackProperties();

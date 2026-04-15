@@ -546,7 +546,7 @@
                         <Button
                             HorizontalAlignment="Right"
                             Style="{StaticResource MediaButton}"
-                            Command="{Binding ActiveSession.Prev}"
+                            Command="{Binding ActiveSession.Playback.Prev}"
                             b:HintBehavior.HintText="B"
                         >
                             <!--<mdi:MaterialIconExt Kind="SkipPrevious"/>-->
@@ -554,16 +554,16 @@
                         </Button>
                         <ToggleButton
                             Style="{StaticResource PlayPauseMediaButton}"
+                            DataContext="{Binding ActiveSession.Playback}"
                             Command="{Binding PlayPause}"
                             b:HintBehavior.HintText="P"
                             x:Name="PlayPauseButton"
-                            DataContext="{Binding ActiveSession}"
                             IsChecked="{Binding IsPlaying, Mode=OneWay}"
                         />
                         <Button
                             HorizontalAlignment="Left"
                             Style="{StaticResource MediaButton}"
-                            Command="{Binding ActiveSession.Next}"
+                            Command="{Binding ActiveSession.Playback.Next}"
                             b:HintBehavior.HintText="F"
                         >
                             <!--<mdi:MaterialIconExt Kind="SkipNext"/>-->
@@ -578,7 +578,7 @@
                         Grid.Row="1"
                     >
                         <TextBlock
-                            Text="{Binding ActiveSession.Position, Converter={StaticResource TimeSpanToStringConverter}}"
+                            Text="{Binding ActiveSession.Playback.Position, Converter={StaticResource TimeSpanToStringConverter}}"
                             Grid.Row="1"
                             d:Text="00:00"
                             DockPanel.Dock="Left"
@@ -586,10 +586,10 @@
                             Margin="0 0 10 0"
                         />
                         <TextBlock
-                            Text="{Binding ActiveSession.Duration, Converter={StaticResource TimeSpanToStringConverter}}"
+                            Text="{Binding ActiveSession.Playback.Duration, Converter={StaticResource TimeSpanToStringConverter}}"
                             Grid.Row="1"
                             Grid.Column="1"
-                            IsEnabled="{Binding ActiveSession.CanSeek}"
+                            IsEnabled="{Binding ActiveSession.Playback.CanSeek}"
                             HorizontalAlignment="Right"
                             d:Text="3:59"
                             DockPanel.Dock="Right"
@@ -600,13 +600,13 @@
                             Grid.ColumnSpan="5"
                             Grid.Column="0"
                             ValueChanged="Slider_ValueChanged"
-                            IsEnabled="{Binding ActiveSession.CanSeek}"
+                            IsEnabled="{Binding ActiveSession.Playback.CanSeek}"
                             AutoToolTipPlacement="None"
                             Thumb.DragStarted="Slider_DragStarted"
                             Thumb.DragCompleted="Slider_DragCompleted"
                             IsMoveToPointEnabled="true"
-                            Maximum="{Binding ActiveSession.Duration, Converter={StaticResource TimeSpanToFloatConverter}}"
-                            Value="{Binding ActiveSession.Position, Mode=OneWay, Converter={StaticResource TimeSpanToFloatConverter}}"
+                            Maximum="{Binding ActiveSession.Playback.Duration, Converter={StaticResource TimeSpanToFloatConverter}}"
+                            Value="{Binding ActiveSession.Playback.Position, Mode=OneWay, Converter={StaticResource TimeSpanToFloatConverter}}"
                         ></Slider>
                     </DockPanel>
 

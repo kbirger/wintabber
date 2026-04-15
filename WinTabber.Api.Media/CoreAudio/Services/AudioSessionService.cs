@@ -1,5 +1,6 @@
 ﻿using DynamicData;
 using DynamicData.Kernel;
+using NAudio.CoreAudioApi.Interfaces;
 using System.Reactive;
 using System.Reactive.Linq;
 using WinTabber.Api.Media.CoreAudio.Dtos;
@@ -26,6 +27,7 @@ public partial class AudioSessionService
             .Connect()
             .MergeManyChangeSets(_sessionRepository.Connect)
             .DisposeMany()
+            .FilterOnObservable(session => session.StateChanges.Take(1).Select(state => state == AudioSessionState.AudioSessionStateActive))
             .AsObservableCache();
 
         CoreAudioSessions = sessions;

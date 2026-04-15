@@ -1,14 +1,13 @@
-﻿using DynamicData;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Reactive;
 using System.Reactive.Linq;
+using DynamicData;
 using Windows.Media.Control;
 
 namespace WinTabber.Api.Media.SMTC.Repositories;
 
 public partial class SMTCSessionRepository
 {
-
     [Lazy(IsPrivate = true)]
     private IObservable<GlobalSystemMediaTransportControlsSessionManager> GetSessionManagerObservable()
     {
@@ -21,11 +20,7 @@ public partial class SMTCSessionRepository
     [Lazy(IsPrivate = true)]
     private IObservable<IReadOnlyList<GlobalSystemMediaTransportControlsSession>> GetMediaSessionsChanges()
     {
-        return GetSessionManagerObservable()
-            .Select(GetSMTCSessionChanges)
-            .Switch()
-            .Replay(1)
-            .RefCount();
+        return GetSessionManagerObservable().Select(GetSMTCSessionChanges).Switch().Replay(1).RefCount();
     }
 
     [Lazy]
@@ -34,6 +29,7 @@ public partial class SMTCSessionRepository
         return GetSessionManagerObservable()
             .Select(GetSMTCActiveSessionChanges)
             .Switch()
+            .DistinctUntilChanged(session => session?.SourceAppUserModelId)
             .Replay(1)
             .RefCount();
     }
@@ -41,8 +37,7 @@ public partial class SMTCSessionRepository
     [Lazy]
     private IObservable<IChangeSet<GlobalSystemMediaTransportControlsSession, string>> GetMediaSessions()
     {
-        return MediaSessionsChanges
-            .ToObservableChangeSet(s => s.SourceAppUserModelId);
+        return MediaSessionsChanges.ToObservableChangeSet(s => s.SourceAppUserModelId);
     }
 
     private static IObservable<GlobalSystemMediaTransportControlsSession> GetSMTCActiveSessionChanges(

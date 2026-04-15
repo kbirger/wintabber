@@ -5,6 +5,7 @@ using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
 using System.Windows.Controls;
+using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
@@ -357,6 +358,12 @@ namespace WinTabber.UI.Common.Behaviors
                         HideHints(rootElement);
                         //peer.par
                         //peer = new ListBoxItemAutomationPeer(elem, new )
+                    }
+                    else if (elem is ToggleButton tb)
+                    {
+                        IToggleProvider? prov = peer.GetPattern(PatternInterface.ExpandCollapse) as IToggleProvider;
+
+                        prov?.Toggle();
                     }
                     else //if (elem is ListBox listBox)
                     {

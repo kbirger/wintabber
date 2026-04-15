@@ -74,8 +74,8 @@ public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
             () => (device.AudioEndpointVolume.MasterVolumeLevelScalar, device.AudioEndpointVolume.Mute),
             _scheduler
         );
-        var volumeChanged = initialValues.Concat(GetVolumeChanged(device)
-            .Select(change => (change.MasterVolume, change.Muted)))
+        var volumeChanged = initialValues
+            .Concat(GetVolumeChanged(device).Select(change => (change.MasterVolume, change.Muted)))
             .Replay(1)
             .RefCount();
         return new DeviceEvents
