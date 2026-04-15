@@ -22,11 +22,11 @@ public partial class AudioSessionService
 
 
         var sessions = _deviceRepository
-        .Devices
-        .Connect()
-        .MergeManyChangeSets(_sessionRepository.Connect)
-        .DisposeMany()
-        .AsObservableCache();
+            .Devices
+            .Connect()
+            .MergeManyChangeSets(_sessionRepository.Connect)
+            .DisposeMany()
+            .AsObservableCache();
 
         CoreAudioSessions = sessions;
 

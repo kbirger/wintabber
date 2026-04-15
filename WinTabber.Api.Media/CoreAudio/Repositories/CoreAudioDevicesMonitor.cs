@@ -70,17 +70,18 @@ public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
 
     public DeviceEvents Watch(MMDevice device)
     {
-        var volumeChanged = GetVolumeChanged(device)
-            .Select(change => (change.MasterVolume, change.Muted))
-            .StartWith((device.AudioEndpointVolume.MasterVolumeLevelScalar, device.AudioEndpointVolume.Mute))
+        var initialValues = Observable.Start(
+            () => (device.AudioEndpointVolume.MasterVolumeLevelScalar, device.AudioEndpointVolume.Mute),
+            _scheduler
+        );
+        var volumeChanged = initialValues.Concat(GetVolumeChanged(device)
+            .Select(change => (change.MasterVolume, change.Muted)))
             .Replay(1)
             .RefCount();
         return new DeviceEvents
         {
-            VolumeChanges = volumeChanged
-                .Select(change => change.Item1),
-            MuteChanges = volumeChanged
-                .Select(change => change.Item2),
+            VolumeChanges = volumeChanged.Select(change => change.Item1),
+            MuteChanges = volumeChanged.Select(change => change.Item2),
             PropertyChanges = GetPropertyChanges(device),
             Removed = GetRemoved(device),
             StateChanges = GetStateChanges(device),

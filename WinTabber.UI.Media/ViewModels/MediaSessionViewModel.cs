@@ -60,9 +60,10 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
         var smtcSession = session.MediaSession;
         var deviceSession = session.NativeSession is null ? null : new ObservableSessionDto(session.NativeSession);
         // todo: this is incorrect. need device
-        var device = session.NativeSession is null
-            ? Observable.Empty<ObservableDeviceDto>()
-            : audioDeviceService.WatchDevice(session.NativeSession.DeviceId).FirstAsync().ObserveOn(scheduler);
+        var device = audioDeviceService.WatchDevice(session.NativeSession?.Device);
+        //var device = session.NativeSession is null
+        //    ? Observable.Empty<ObservableDeviceDto>()
+        //    : audioDeviceService.WatchDevice(session.NativeSession.Device).FirstAsync().ObserveOn(scheduler);
         //var mediaPropertiesChanged = ObserveMediaProperties(smtcSession);
         //var playbackPropertiesChanged = ObservePlaybackProperties(smtcSession);
         //var timelinePropertyChanged = ObserveTimelineProperties(smtcSession);
@@ -88,7 +89,7 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
         _thumbnail
             .ThrownExceptions.Subscribe(ex =>
             {
-                Debug.WriteLine("Error retrieving thumbnail: {Error}", ex);
+                Debug.WriteLine("Error retrieving thumbnail: {0}", ex);
             })
             .DisposeWith(_disposable);
 
@@ -101,12 +102,10 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
 
         _duration = monitor.DurationChanges.ToProperty(this, vm => vm.Duration).DisposeWith(_disposable);
 
-        _canSetDeviceVolume = device
-            .Select(d => d.CanSetVolume)
+        _canSetDeviceVolume = Observable.Return(device.CanSetVolume)
             .ToProperty(this, vm => vm.CanChangeDeviceVolume, scheduler: scheduler)
             .DisposeWith(_disposable);
-        _canMuteDevice = device
-            .Select(d => d.CanMute)
+        _canMuteDevice = Observable.Return(device.CanMute)
             .ToProperty(this, vm => vm.CanChangeDeviceVolume, scheduler: scheduler)
             .DisposeWith(_disposable);
         _canSetSessionVolume = Observable
@@ -118,16 +117,14 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
             vm => vm.IsSessionMuted
         );
 
-        _isDeviceMuted = device
-            .SelectMany(d => d.MuteChanges)
+        _isDeviceMuted = device.MuteChanges
             .ToProperty(this, vm => vm.IsDeviceMuted, initialValue: false, scheduler: scheduler);
 
         _sessionVolume = (deviceSession?.VolumeChanges ?? Observable.Empty<float>())
             .ToProperty(this, vm => vm.SessionVolume, initialValue: 0f, scheduler: scheduler)
             .DisposeWith(_disposable);
 
-        _deviceVolume = device
-            .SelectMany(d => d.VolumeChanges)
+        _deviceVolume = device.VolumeChanges
             .ToProperty(this, vm => vm.DeviceVolume, initialValue: 0f, scheduler: scheduler)
             .DisposeWith(_disposable);
 
@@ -190,10 +187,10 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
             .DisposeWith(_disposable);
 
         DeviceVolumeControls = new VolumeControlsViewModel(
-            canSetVolumeChanges: device.Select(d => d.CanSetVolume),
-            canMuteChanges: device.Select(d => d.CanMute),
-            volumeChanges: device.SelectMany(d => d.VolumeChanges),
-            muteChanges: device.SelectMany(d => d.MuteChanges),
+            canSetVolumeChanges: Observable.Return(device.CanSetVolume),
+            canMuteChanges: Observable.Return(device.CanMute),
+            volumeChanges: device.VolumeChanges,
+            muteChanges: device.MuteChanges,
             muteImpl: SetDeviceMutedImpl,
             setVolumeImpl: SetDeviceVolumeImpl,
             volumeHintText: "V",
@@ -397,7 +394,7 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
         if (_session.NativeSession is not null)
         {
 
-            return _deviceService.SetVolume(_session.NativeSession.DeviceId, volume);
+            return _deviceService.SetVolume(_session.NativeSession.Device.Id, volume);
         }
         return Observable.Empty<Unit>();
     }
@@ -430,7 +427,7 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
         if (_session.NativeSession is not null)
         {
 
-            return _deviceService.SetMute(_session.NativeSession.DeviceId, isMuted);
+            return _deviceService.SetMute(_session.NativeSession.Device.Id, isMuted);
         }
         return Observable.Empty<Unit>();
     }
