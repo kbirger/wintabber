@@ -1,11 +1,11 @@
-﻿using DynamicData;
-using NAudio.CoreAudioApi;
-using ReactiveUI;
-using System.Collections.ObjectModel;
+﻿using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
+using DynamicData;
+using NAudio.CoreAudioApi;
+using ReactiveUI;
 using WinTabber.Common.Util;
 using WinTabber.Events;
 using WinTabber.UI.Media.Services;
@@ -17,7 +17,7 @@ namespace WinTabber.UI.Media.ViewModels;
 public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 {
     private ReadOnlyObservableCollection<SessionListItem> _sessions =
-           new ReadOnlyObservableCollection<SessionListItem>([]);
+        new ReadOnlyObservableCollection<SessionListItem>([]);
     private MediaSessionViewModel? _activeSession;
     private readonly MediaSessionService _mediaSessionService;
     private readonly IMediaControlsStateService _mediaControlsStateService;
@@ -41,6 +41,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     }
 
     public ViewModelActivator Activator { get; } = new ViewModelActivator();
+
     //public ReactiveCommand<Unit, Unit> PlayPause { get; private set; }
     //public ReactiveCommand<Unit, Unit> Next { get; private set; }
     //public ReactiveCommand<Unit, Unit> Prev { get; private set; }
@@ -52,7 +53,6 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         MediaSessionViewModelFactory mediaSessionViewModelFactory,
         AudioDeviceSelectorViewModelFactory deviceSelectorViewModelFactory,
         WinTabberEventManager eventManager
-
     )
     {
         PropertyChanged += MediaControlsViewModel_PropertyChanged;
@@ -69,22 +69,25 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
             Debug.WriteLine("Activated");
             ActiveSession = null;
 
-            var sessions = _mediaSessionService.MasterSessions
-                .Connect()
+            var sessions = _mediaSessionService
+                .MasterSessions.Connect()
                 .Transform(session => new SessionListItem(session));
 
-            sessions
-                .ObserveOn(RxSchedulers.MainThreadScheduler)
-                .Bind(out _sessions).Subscribe().DisposeWith(_cleanUp);
+            sessions.ObserveOn(RxSchedulers.MainThreadScheduler).Bind(out _sessions).Subscribe().DisposeWith(_cleanUp);
 
-            var activeSessionChanges = _mediaSessionService.ActiveSession
-                .Select(session => sessions
-                    .WatchValue(session.MediaSession.SourceAppUserModelId)
-                    .Log(s => $"Session watch update: {s.Aumid} - {s.Session.NativeSession != null}"))
+            // Watch for SMTC session changes and match against known sessions.
+            var activeSessionChanges = _mediaSessionService
+                .ActiveSession.Select(session =>
+                    sessions
+                        .WatchValue(session.MediaSession.SourceAppUserModelId)
+                        .Log(s => $"Session watch update: {s.Aumid} - {s.Session.NativeSession != null}")
+                )
                 .Switch()
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Publish()
                 .RefCount();
+
+            // Update selected session when active session changes
             activeSessionChanges
                 .Subscribe(
                     changedSession =>
@@ -98,10 +101,20 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
                 )
                 .DisposeWith(_cleanUp);
 
-            activeSessionChanges
-                .Select(changedSession => Observable.Using(
-                    () => _mediaSessionViewModelFactory.Create(changedSession.Session), 
-                    sessionViewModel => Observable.Return(sessionViewModel).Concat(Observable.Never<MediaSessionViewModel>())))
+            // Create or dispose session view model when active session changes
+            // or when user selects a different session from the list
+            this.WhenAnyValue(vm => vm.SelectedSessionListItem)
+                .Merge(activeSessionChanges)
+                .DistinctUntilChanged()
+                .Select(changedSession =>
+                    changedSession is not null
+                        ? Observable.Using(
+                            () => _mediaSessionViewModelFactory.Create(changedSession.Session),
+                            sessionViewModel =>
+                                Observable.Return(sessionViewModel).Concat(Observable.Never<MediaSessionViewModel>())
+                        )
+                        : Observable.Empty<MediaSessionViewModel>()
+                )
                 .Switch()
                 .Subscribe(
                     viewModel =>
@@ -121,7 +134,10 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         }
     }
 
-    private void MediaControlsViewModel_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    private void MediaControlsViewModel_PropertyChanged(
+        object? sender,
+        System.ComponentModel.PropertyChangedEventArgs e
+    )
     {
         //throw new NotImplementedException();
     }
@@ -151,7 +167,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         get => field;
         set => this.RaiseAndSetIfChanged(ref field, value);
     }
- 
+
     //private MMDevice? GetDefaultPlaybackDevice()
     //{
     //    try

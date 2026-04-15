@@ -1,13 +1,14 @@
-﻿using System.Diagnostics;
+﻿using DynamicData;
+using NAudio.CoreAudioApi;
+using System.Diagnostics;
 using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
-using DynamicData;
-using NAudio.CoreAudioApi;
 using WinTabber.Api.Media.CoreAudio.Dtos;
 using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Api.Media.Repositories;
+using static Microsoft.WindowsAPICodePack.Shell.PropertySystem.SystemProperties.System;
 
 namespace WinTabber.Api.Media.CoreAudio.Services;
 
@@ -20,35 +21,53 @@ public partial class AudioDeviceService(CoreAudioDeviceRepository repository)
         .GetDefaultDevices()
         .AsObservableCache();
 
+    public ObservableDeviceDto WatchDevice(CoreAudioDeviceWrapper? device)
+    {
+        if (device == null)
+        {
+            return new ObservableDeviceDto
+            {
+                CanMute = false,
+                CanSetVolume = false,
+                DisplayName = string.Empty,
+                Id = string.Empty,
+                IsDefaultChanges = Observable.Empty<bool>(),
+                PropertyChanges = Observable.Empty<PropertyKey>(),
+                Removed = Observable.Empty<Unit>(),
+                StateChanges = Observable.Empty<DeviceState>(),
+                VolumeChanges = Observable.Empty<float>(),
+                MuteChanges = Observable.Empty<bool>()
+            };
+        }
+
+        var deviceEvents = _repository.Watch(device.Device);
+        var canSetVolume = device.CanSetVolume;
+        var canMute = canSetVolume || device.CanMute;
+        //var endpoint = device.Device.AudioEndpointVolume;
+
+        return new ObservableDeviceDto
+        {
+            CanMute = canMute,
+            CanSetVolume = canSetVolume,
+            DisplayName = device.DisplayName,
+            Id = device.Id,
+
+            IsDefaultChanges = deviceEvents.IsDefaultChanges,
+            PropertyChanges = deviceEvents.PropertyChanges,
+            Removed = deviceEvents.Removed,
+            StateChanges = deviceEvents.StateChanges,
+            VolumeChanges = deviceEvents
+                .VolumeChanges
+                .Throttle(TimeSpan.FromMilliseconds(100)),
+            MuteChanges = deviceEvents.MuteChanges
+        };
+    }
+
     public IObservable<ObservableDeviceDto> WatchDevice(string deviceId)
     {
         return _nativeDevices
             .WatchValue(deviceId)
-            .Select(device =>
-            {
-                
-                var deviceEvents = _repository.Watch(device.Device);
-                var canSetVolume = CanSetVolume(device.Device);
-                var canMute = canSetVolume || CanMute(device.Device);
-                var endpoint = device.Device.AudioEndpointVolume;
-
-                return new ObservableDeviceDto
-                {
-                    CanMute = canMute,
-                    CanSetVolume = canSetVolume,
-                    DisplayName = device.Device.DeviceFriendlyName ?? device.Device.FriendlyName,
-                    Id = device.Device.ID,
-
-                    IsDefaultChanges = deviceEvents.IsDefaultChanges,
-                    PropertyChanges = deviceEvents.PropertyChanges,
-                    Removed = deviceEvents.Removed,
-                    StateChanges = deviceEvents.StateChanges,
-                    VolumeChanges = deviceEvents
-                        .VolumeChanges
-                        .Throttle(TimeSpan.FromMilliseconds(100)),
-                    MuteChanges = deviceEvents.MuteChanges
-                };
-            })
+            .Select(WatchDevice)
             .SubscribeOn(_repository.Scheduler);
         //.ObserveOn(DefaultScheduler.Instance);
     }

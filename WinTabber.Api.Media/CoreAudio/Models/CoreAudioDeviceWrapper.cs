@@ -15,12 +15,13 @@ public class CoreAudioDeviceWrapper(MMDevice device, IScheduler scheduler)
     internal MMDevice Device { get; } = device;
 
     // Create properties for being able to safely access some fields without being on the right thread
-    public readonly DataFlow DataFlow = device.DataFlow;
-    public string DisplayName = device.FriendlyName ?? device.DeviceFriendlyName;
-    public string FriendlyName = device.FriendlyName ?? "Unknown Device";
-    public string DeviceFriendlyName = device.DeviceFriendlyName;
-
-    public string Id = device.ID;
+    public DataFlow DataFlow { get; } = device.DataFlow;
+    public string DisplayName { get; } = device.FriendlyName ?? device.DeviceFriendlyName;
+    public string FriendlyName { get; } = device.FriendlyName ?? "Unknown Device";
+    public string DeviceFriendlyName { get; } = device.DeviceFriendlyName;
+    public bool CanSetVolume { get; } = device.AudioEndpointVolume.VolumeRange.MaxDecibels > device.AudioEndpointVolume.VolumeRange.MinDecibels;
+    public bool CanMute { get; } = device.AudioEndpointVolume.HardwareSupport.HasFlag(EEndpointHardwareSupport.Mute);
+    public string Id { get; } = device.ID;
 
 
 

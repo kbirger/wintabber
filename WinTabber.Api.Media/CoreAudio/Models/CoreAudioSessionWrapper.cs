@@ -14,9 +14,8 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
     private readonly AudioSessionControl _coreAudioSession;
     private readonly IScheduler _scheduler;
 
-    public string DeviceId { get; }
 
-    internal MMDevice Device { get; }
+    public CoreAudioDeviceWrapper Device { get; }
     public uint ProcessId { get; }
     public string Id { get; }
 
@@ -35,14 +34,13 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
     public IObservable<string> DisplayName => _displayName;
 
     public IObservable<AudioSessionState> StateChanges => _state;
-    public CoreAudioSessionWrapper(AudioSessionControl nativeSession, MMDevice device, IScheduler scheduler)
+    public CoreAudioSessionWrapper(AudioSessionControl nativeSession, CoreAudioDeviceWrapper device, IScheduler scheduler)
     {
         // Set internal Device property so that code inside this project can access directly
         // as it will already be running on correct thread
         Device = device;
 
         _coreAudioSession = nativeSession;
-        DeviceId = device.ID;
         _scheduler = scheduler;
         _state.OnNext(nativeSession.State);
         _volumeChanges.OnNext((nativeSession.SimpleAudioVolume.Mute, nativeSession.SimpleAudioVolume.Volume));

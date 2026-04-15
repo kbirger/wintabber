@@ -25,10 +25,11 @@ public partial class MediaSessionService(
     // todo: implement updates
     
 
-    private class NativeSessionWithApp(CoreAudioSessionWrapper Session, InstalledApplicationInfo? App)
+    private class NativeSessionWithApp(CoreAudioSessionWrapper session, InstalledApplicationInfo? app)
     {
-        public CoreAudioSessionWrapper Session { get; } = Session;
-        public InstalledApplicationInfo? App { get; private set; } = App;
+        public CoreAudioSessionWrapper Session { get; } = session;
+        public InstalledApplicationInfo? App { get; private set; } = app;
+
 
         public void UpdateApp(InstalledApplicationInfo? newApp)
         {
@@ -69,29 +70,50 @@ public partial class MediaSessionService(
         var appsByPath = _installedApplicationRepository.ApplicationsByPath;
         return _audioSessionService.CoreAudioSessions
             .Connect()                        
-            //.AutoRefreshOnObservable(_ => appsByPath.Connect())
-            .Transform(nativeSession =>
-            {
-
-                var processes = ProcessHelper.GetAncestors(nativeSession.ProcessId);
-                foreach (var process in processes)
+            .AutoRefreshOnObservable(_ => appsByPath.Connect())
+            .TransformWithInlineUpdate(
+                nativeSession =>
                 {
-                    if (process.TryGetExecutablePath(out var path))
+                    var app = GetApp(nativeSession.ProcessId, appsByPath);
+                    return new NativeSessionWithApp(nativeSession, app);
+                },
+                (item, wrapper) => 
+                {
+                    if(item.IsComplete)
                     {
-                        var appOption = appsByPath.Lookup(path);
-                        if (appOption.HasValue)
-                        {
-                            return new NativeSessionWithApp(nativeSession, appOption.Value);
-                        }
+                        return;
                     }
-                }
+                    var app = GetApp(wrapper.ProcessId, appsByPath);
+                    if(app is not null)
+                    {
+                        item.UpdateApp(app);
+                    }
 
-                return new NativeSessionWithApp(nativeSession, null);
-            }, true)
+                }, 
+                true)
             .Filter(item => item.IsComplete)
             .ChangeKey(session => session.App!.AppUserModelId)
             .AsObservableCache();
     }
+
+    private static InstalledApplicationInfo? GetApp(uint processId, IObservableCache<InstalledApplicationInfo, string> appsByPath)
+    {
+        var processes = ProcessHelper.GetAncestors(processId);
+        foreach (var process in processes)
+        {
+            if (process.TryGetExecutablePath(out var path))
+            {
+                var appOption = appsByPath.Lookup(path);
+                if (appOption.HasValue)
+                {
+                    return appOption.Value;
+                }
+            }
+        }
+
+        return null;
+    }
+
 
     [Lazy]
     private IObservableCache<AggregateSession, string> GetMasterSessions()
