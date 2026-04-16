@@ -46,7 +46,7 @@
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
-                <ResourceDictionary Source="/WinTabber.UI.Common;component/Resources/ValueConvertersResources.xaml"/>
+                <ResourceDictionary Source="/WinTabber.UI.Common;component/Resources/ValueConvertersResources.xaml" />
                 <ResourceDictionary Source="/WinTabber.UI.Media;component/Resources/Resources.xaml" />
             </ResourceDictionary.MergedDictionaries>
             <SolidColorBrush x:Key="PanelBackgroundBrush" Color="Transparent" />
@@ -360,13 +360,25 @@
                     <RowDefinition Height="Auto" />
                 </Grid.RowDefinitions>
                 <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition />
+                    <ColumnDefinition Width="Auto" />
                     <ColumnDefinition />
                 </Grid.ColumnDefinitions>
-                <Label Content="Session" VerticalContentAlignment="Center" Grid.Row="0" Margin="0 0 0 10" />
+                <!-- Session -->
+                <Label
+                    Content="Session"
+                    VerticalAlignment="Stretch"
+                    VerticalContentAlignment="Center"
+                    Grid.Row="0"
+                    Padding="7 0 7 0"
+                />
+                <uc:VolumeControls Grid.Column="1" DataContext="{Binding Path=ActiveSession.SessionVolumeControls}" />
                 <ComboBox
                     Grid.Row="1"
+                    Grid.ColumnSpan="2"
                     ItemsSource="{Binding Sessions}"
                     HorizontalAlignment="Stretch"
                     VerticalAlignment="Stretch"
@@ -393,9 +405,25 @@
                         <b:HintBehavior />
                     </i:Interaction.Behaviors>
                 </ComboBox>
-                <Label Content="Playback" VerticalContentAlignment="Center" Grid.Column="1" Margin="0 0 0 10" />
+
+                <!-- Playback -->
+                <Label
+                    Content="Playback"
+                    VerticalAlignment="Stretch"
+                    VerticalContentAlignment="Center"
+                    Grid.Column="2"
+                    Margin="7 0 0 0"
+                    Padding="7 0 7 0"
+                />
+                <uc:VolumeControls
+                    Grid.Column="3"
+                    VerticalAlignment="Center"
+                    DataContext="{Binding Path=ActiveSession.DeviceVolumeControls}"
+                />
+
                 <ComboBox
-                    Grid.Column="1"
+                    Grid.Column="2"
+                    Grid.ColumnSpan="2"
                     Grid.Row="1"
                     Margin="7 0 0 0"
                     HorizontalAlignment="Stretch"
@@ -413,14 +441,17 @@
                 </ComboBox>
                 <Label
                     Content="Recording"
+                    VerticalAlignment="Stretch"
                     VerticalContentAlignment="Center"
                     Grid.Row="0"
-                    Grid.Column="2"
-                    Margin="0 0 0 10"
+                    Grid.Column="4"
+                    Margin="7 0 0 0"
+Padding="7 0 7 0"
                 />
                 <ComboBox
                     Margin="7 0 0 0"
-                    Grid.Column="2"
+                    Grid.Column="4"
+                    Grid.ColumnSpan="2"
                     Grid.Row="1"
                     DockPanel.Dock="Right"
                     HorizontalAlignment="Stretch"
@@ -609,41 +640,6 @@
                             Value="{Binding ActiveSession.Playback.Position, Mode=OneWay, Converter={StaticResource TimeSpanToFloatConverter}}"
                         ></Slider>
                     </DockPanel>
-
-                    <Grid Grid.Column="2" VerticalAlignment="Center" HorizontalAlignment="Stretch">
-                        <Grid.RowDefinitions>
-                            <RowDefinition />
-                            <RowDefinition />
-                        </Grid.RowDefinitions>
-                        <Grid.ColumnDefinitions>
-                            <ColumnDefinition Width="Auto" />
-                            <ColumnDefinition Width="*" />
-                        </Grid.ColumnDefinitions>
-                        <Label
-                            Grid.Row="0"
-                            Grid.Column="0"
-                            Content="Device"
-                            Margin="0 0 16 0"
-                            VerticalAlignment="Center"
-                        />
-                        <uc:VolumeControls
-                            Grid.Column="1"
-                            DataContext="{Binding Path=ActiveSession.DeviceVolumeControls}"
-                        />
-
-                        <Label
-                            Grid.Row="1"
-                            Grid.Column="0"
-                            Content="Application"
-                            Margin="0 0 16 0"
-                            VerticalAlignment="Center"
-                        />
-                        <uc:VolumeControls 
-                            Grid.Column="1"
-                            Grid.Row="1"
-                            DataContext="{Binding Path=ActiveSession.SessionVolumeControls}"
-                        />
-                    </Grid>
                 </Grid>
             </Grid>
         </Grid>

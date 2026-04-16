@@ -29,7 +29,8 @@ public class VolumeControlsViewModel : ReactiveObject, IDisposable
         _volumeDtos = volumeDto;
         var scheduler = RxSchedulers.MainThreadScheduler;
 
-        var canSetVolume = CanSetVolumeImpl();
+        var canSetVolume = CanSetVolumeImpl()
+            .Log(x => $"can set volume? {x}");
         var canSetMuted = CanSetMutedImpl();
         SetMuted = ReactiveCommand.CreateFromObservable<bool, Unit>(
             execute: SetMutedImpl,

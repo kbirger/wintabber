@@ -144,5 +144,8 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
         //ApplyOpacity(128); // 50%
     }
 
-   
+    private void VolumeControls_Loaded(object sender, RoutedEventArgs e)
+    {
+
+    }
 }
