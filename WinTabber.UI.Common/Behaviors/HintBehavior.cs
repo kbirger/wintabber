@@ -361,9 +361,11 @@ namespace WinTabber.UI.Common.Behaviors
                     }
                     else if (elem is ToggleButton tb)
                     {
-                        IToggleProvider? prov = peer.GetPattern(PatternInterface.ExpandCollapse) as IToggleProvider;
-
+                        IToggleProvider? prov = peer.GetPattern(PatternInterface.Toggle) as IToggleProvider;
+                        tb.Command?.Execute(tb.CommandParameter);
                         prov?.Toggle();
+                        HideHints(rootElement);
+
                     }
                     else //if (elem is ListBox listBox)
                     {

@@ -11,8 +11,8 @@ public class MediaSessionViewModelFactory(
     private readonly AudioSessionService _audioSessionService = audioSessionService;
     private readonly AudioDeviceService _audioDeviceService = audioDeviceService;
 
-    public MediaSessionViewModel Create(AggregateSession session)
+    public MediaSessionViewModel Create()
     {
-        return new MediaSessionViewModel(session, _audioSessionService, _audioDeviceService);
+        return new MediaSessionViewModel(_audioSessionService, _audioDeviceService);
     }
 }
