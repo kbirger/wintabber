@@ -39,7 +39,7 @@
         />
         <ToggleButton
             Style="{StaticResource MuteToggle}"
-            Margin="10 0 0 0"
+            Margin="7 0 0 0"
             Grid.Column="1"
             HorizontalAlignment="Center"
             VerticalAlignment="Stretch"
