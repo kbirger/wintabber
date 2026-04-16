@@ -78,43 +78,25 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
             .Switch();
         _progress = positionObservable
             .WithLatestFrom(durationObservable)
-            .Select(values => values.Second.Ticks > 0 ? (float)(values.First.Ticks / values.Second.Ticks) : 0)
+            .Select(SelectProgress)
             .ToProperty(this, vm => vm.Progress, initialValue: 0);
 
         PlayPause = ReactiveCommand.CreateFromObservable(
             PlayPauseImpl,
-            canExecute: SessionChanged
-                .Log(x => $"Session changed {x?.Session?.SourceAppUserModelId}")
-                .Select(session => session?.CanPlayPauseChanges)
-                .Log(x => $"PlayPauseChanges null? {x is null}")
-                .OrDefault(false)
-                .Switch()
-                .Log(x => $"Can play pause? {x}"),
+            canExecute: CanPlayPauseImpl(),
             outputScheduler: scheduler
         );
-        Next = ReactiveCommand.CreateFromObservable(
-            NextImpl,
-            canExecute: SessionChanged.Select(session => session?.CanNextChanges).OrDefault(false).Switch(),
-            outputScheduler: scheduler
-        );
-        Prev = ReactiveCommand.CreateFromObservable(
-            PrevImpl,
-            canExecute: SessionChanged.Select(session => session?.CanPrevChanges).OrDefault(false).Switch(),
-            outputScheduler: scheduler
-        );
+        Next = ReactiveCommand.CreateFromObservable(NextImpl, canExecute: CanNextImpl(), outputScheduler: scheduler);
+        Prev = ReactiveCommand.CreateFromObservable(PrevImpl, canExecute: CanPrevImpl(), outputScheduler: scheduler);
 
         //Mute = ReactiveCommand
         //    .CreateFromObservable(MuteImpl, canExecute: null, outputScheduler: scheduler);
 
-        Pause = ReactiveCommand.CreateFromObservable(
-            PauseImpl,
-            canExecute: SessionChanged.Select(session => session?.CanPauseChanges).OrDefault(false).Switch(),
-            outputScheduler: scheduler
-        );
+        Pause = ReactiveCommand.CreateFromObservable(PauseImpl, canExecute: CanPauseImpl(), outputScheduler: scheduler);
 
         Seek = ReactiveCommand.CreateFromObservable<TimeSpan, Unit>(
             SeekImpl,
-            canExecute: SessionChanged.Select(session => session?.CanSeekChanges).OrDefault(false).Switch(),
+            canExecute: CanSeekImpl(),
             outputScheduler: scheduler
         );
 
@@ -130,6 +112,38 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
             _position,
             _progress
         );
+    }
+
+    private static float SelectProgress((TimeSpan Position, TimeSpan Duration) values)
+    {
+        return values.Position.Ticks > 0 && values.Duration.Ticks > 0 ? 
+            (values.Position.Ticks / values.Duration.Ticks) 
+            : 0;
+    }
+
+    private IObservable<bool> CanPlayPauseImpl()
+    {
+        return SessionChanged.Select(session => session?.CanPlayPauseChanges).OrDefault(false).Switch();
+    }
+
+    private IObservable<bool> CanSeekImpl()
+    {
+        return SessionChanged.Select(session => session?.CanSeekChanges).OrDefault(false).Switch();
+    }
+
+    private IObservable<bool> CanPauseImpl()
+    {
+        return SessionChanged.Select(session => session?.CanPauseChanges).OrDefault(false).Switch();
+    }
+
+    private IObservable<bool> CanPrevImpl()
+    {
+        return SessionChanged.Select(session => session?.CanPrevChanges).OrDefault(false).Switch();
+    }
+
+    private IObservable<bool> CanNextImpl()
+    {
+        return SessionChanged.Select(session => session?.CanNextChanges).OrDefault(false).Switch();
     }
 
     //public IObservable<Exception> ThrownExceptions { get; }
@@ -164,7 +178,7 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
     private IObservable<Unit> PlayPauseImpl()
     {
         return SessionChanged
-            .Select(session => OperationToObservable(session?.Session.TryTogglePlayPauseAsync()))
+            .Select(session => OperationToObservable(session, s => s.TryTogglePlayPauseAsync()))
             .Switch()
             .Take(1);
     }
@@ -172,27 +186,37 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
     private IObservable<Unit> PrevImpl()
     {
         return SessionChanged
-            .Select(session => OperationToObservable(session?.Session.TrySkipPreviousAsync()))
-            .Switch();
+            .Select(session => OperationToObservable(session, s => s.TrySkipPreviousAsync()))
+            .Switch()
+            .Take(1);
     }
 
     private IObservable<Unit> NextImpl()
     {
-        return SessionChanged.Select(session => OperationToObservable(session?.Session.TrySkipNextAsync())).Switch();
+        return SessionChanged
+            .Select(session => OperationToObservable(session, s => s.TrySkipNextAsync()))
+            .Switch()
+            .Take(1);
     }
 
     private IObservable<Unit> PauseImpl()
     {
-        return SessionChanged.Select(session => OperationToObservable(session?.Session.TryPauseAsync())).Switch();
+        return SessionChanged
+            .Select(session => OperationToObservable(session, s => s.TryPauseAsync()))
+            .Switch()
+            .Take(1);
     }
 
-    private static IObservable<Unit> OperationToObservable(IAsyncOperation<bool>? operation)
+    private static IObservable<Unit> OperationToObservable(
+        SMTCSessionMonitor? monitor,
+        Func<GlobalSystemMediaTransportControlsSession, IAsyncOperation<bool>> operation
+    )
     {
-        if (operation is null)
+        if (monitor is null)
         {
             return Observable.Empty<Unit>();
         }
-        return Observable.FromAsync(() => operation.AsTask()).Select(_ => Unit.Default);
+        return Observable.FromAsync(() => operation(monitor.Session).AsTask()).Select(_ => Unit.Default);
     }
 
     private IObservable<Unit> SeekImpl(TimeSpan position)

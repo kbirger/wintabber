@@ -1,4 +1,5 @@
 ﻿using ReactiveUI;
+using ReactiveUI.SourceGenerators;
 using System.Diagnostics;
 using System.IO;
 using System.Reactive.Disposables;
@@ -10,11 +11,12 @@ using Windows.Storage.Streams;
 using WinTabber.Api.Media.CoreAudio.Dtos;
 using WinTabber.Api.Media.CoreAudio.Services;
 using WinTabber.Api.Media.SMTC.Services;
+using WinTabber.Common.Util;
 using WinTabber.UI.Media.Models;
 
 namespace WinTabber.UI.Media.ViewModels;
 
-public class MediaSessionViewModel : ReactiveObject, IDisposable
+public partial class MediaSessionViewModel : ReactiveObject, IDisposable
 {
     private readonly ObservableAsPropertyHelper<string> _artistName;
     private readonly ObservableAsPropertyHelper<string> _albumTitle;
@@ -22,44 +24,59 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
     private readonly ObservableAsPropertyHelper<ImageSource?> _thumbnail;
 
 
-    private readonly AggregateSession _session;
     private readonly AudioSessionService _sessionService;
     private readonly AudioDeviceService _deviceService;
+
+    public IObservable<AggregateSession?> SessionChanged { get; }
+
     private readonly CompositeDisposable _disposable = new CompositeDisposable();
 
-
+    [Reactive] public partial AggregateSession? Session { get; set; }
     public MediaSessionViewModel(
-        AggregateSession session,
         AudioSessionService audioSessionService,
         AudioDeviceService audioDeviceService
     )
     {
-        _session = session;
         _sessionService = audioSessionService;
         _deviceService = audioDeviceService;
+
+        SessionChanged = this.WhenAnyValue(vm => vm.Session);
+
         var scheduler = RxSchedulers.MainThreadScheduler;
-        var hasNativeSession = session.NativeSession is not null;
-        var smtcSession = session.MediaSession;
-        var deviceSession = session.NativeSession is null ? new ObservableSessionDto() : new ObservableSessionDto(session.NativeSession);
+        //var hasNativeSession = session.NativeSession is not null;
+        //var smtcSession = session.MediaSession;
+        var deviceSession = SessionChanged.Select(session =>  new ObservableSessionDto(session?.NativeSession));
         // todo: this is incorrect. need device
-        var device = audioDeviceService.WatchDevice(session.NativeSession?.Device);
+        var device = SessionChanged.Select(session => audioDeviceService.WatchDevice(session?.NativeSession?.Device));
 
 
-        var monitor = new SMTCSessionMonitor(smtcSession);
-        _artistName = monitor
-            .ArtistNameChanges
+        var monitors = SessionChanged.Select(session => session is null ? null : new SMTCSessionMonitor(session.MediaSession));
+        _artistName = monitors
+            .Select(monitor => monitor?.ArtistNameChanges)
+            .OrDefault("")
+            .Switch()
             //.Do(t => Debug.WriteLine($"artist {t}"))
             .ToProperty(this, vm => vm.ArtistName, initialValue: "")
             .DisposeWith(_disposable);
 
-        _albumTitle = monitor
-            .AlbumTitleChanges.ToProperty(this, vm => vm.AlbumTitle, initialValue: "")
+        _albumTitle = monitors
+            .Select(monitor => monitor?.AlbumTitleChanges)
+            .OrDefault("")
+            .Switch()
+            .ToProperty(this, vm => vm.AlbumTitle, initialValue: "")
             .DisposeWith(_disposable);
 
-        _title = monitor.TitleChanges.ToProperty(this, vm => vm.Title, initialValue: "").DisposeWith(_disposable);
+        _title = monitors
+            .Select(monitor => monitor?.TitleChanges)
+            .OrDefault("")
+            .Switch()
+            .ToProperty(this, vm => vm.Title, initialValue: "").DisposeWith(_disposable);
 
-        _thumbnail = monitor
-            .ThumbnailChanges.ObserveOn(scheduler)
+        _thumbnail = monitors
+            .Select(monitor => monitor?.ThumbnailChanges)
+            .OrDefault<ImageSource?>(null)
+            .Switch()
+            .ObserveOn(scheduler)
             .ToProperty(this, vm => vm.Thumbnail, initialValue: null)
             .DisposeWith(_disposable);
 
@@ -73,7 +90,12 @@ public class MediaSessionViewModel : ReactiveObject, IDisposable
 
 
         Playback = new PlaybackControlsViewModel(scheduler);
-        Playback.Session = monitor;
+        monitors.Subscribe(monitor =>
+        {
+            Playback.Session = monitor;
+
+        });
+
         DeviceVolumeControls = new VolumeControlsViewModel(
             device,
             volumeHintText: "V",

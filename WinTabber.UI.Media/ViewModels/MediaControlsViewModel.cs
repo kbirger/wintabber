@@ -114,25 +114,26 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
 
             // Create or dispose session view model when active session changes
             // or when user selects a different session from the list
+            ActiveSession = _mediaSessionViewModelFactory.Create();
             this.WhenAnyValue(vm => vm.SelectedSessionListItem)
                 .Merge(activeSessionChanges)
                 .Throttle(TimeSpan.FromMilliseconds(250))
                 .DistinctUntilChanged()
                 .ObserveOn(scheduler)
-                .Select(changedSession =>
-                    changedSession is not null
-                        ? Observable.Using(
-                            () => _mediaSessionViewModelFactory.Create(changedSession.Session),
-                            sessionViewModel =>
-                                Observable.Return(sessionViewModel).Concat(Observable.Never<MediaSessionViewModel>())
-                        )
-                        : Observable.Empty<MediaSessionViewModel>()
-                )
-                .Switch()
+                //.Select(changedSession =>
+                //    changedSession is not null
+                //        ? Observable.Using(
+                //            () => _mediaSessionViewModelFactory.Create(changedSession.Session),
+                //            sessionViewModel =>
+                //                Observable.Return(sessionViewModel).Concat(Observable.Never<MediaSessionViewModel>())
+                //        )
+                //        : Observable.Empty<MediaSessionViewModel>()
+                //)
+                //.Switch()
                 .Subscribe(
                     viewModel =>
                     {
-                        ActiveSession = viewModel;
+                        ActiveSession.Session = viewModel?.Session;
                     },
                     ex =>
                     {
