@@ -1,11 +1,13 @@
-﻿using DynamicData;
-using NAudio.CoreAudioApi;
-using System.Diagnostics;
+﻿using System.Diagnostics;
+using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Runtime.InteropServices;
+using DynamicData;
+using NAudio.CoreAudioApi;
+using WinTabber.Api.Media.CoreAudio;
 using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Common.Util;
@@ -16,11 +18,12 @@ public partial class CoreAudioDeviceRepository : IDisposable
 {
     private readonly MMDeviceEnumerator _enumerator;
     private readonly CoreAudioDevicesMonitor _monitor;
+    private readonly PolicyConfigClient _policyClient;
 
     public CoreAudioDeviceRepository()
     {
         _enumerator = new MMDeviceEnumerator();
-
+        _policyClient = new PolicyConfigClient();
         _monitor = new CoreAudioDevicesMonitor(_enumerator, Scheduler);
     }
 
@@ -85,7 +88,7 @@ public partial class CoreAudioDeviceRepository : IDisposable
         }
         catch (COMException) { }
 
-        if(change is not null)
+        if (change is not null)
         {
             yield return change;
         }
@@ -136,7 +139,9 @@ public partial class CoreAudioDeviceRepository : IDisposable
                                 Debug.WriteLine(
                                     $"Devices fetched on thread {Environment.CurrentManagedThreadId} - {Thread.CurrentThread.Name} - {Thread.CurrentThread.GetApartmentState()}"
                                 );
-                                cache.AddOrUpdate(devices.Select(device => new CoreAudioDeviceWrapper(device, Scheduler)));
+                                cache.AddOrUpdate(
+                                    devices.Select(device => new CoreAudioDeviceWrapper(device, Scheduler))
+                                );
 
                                 var removalSubscription = _monitor.DeviceRemovals.Subscribe(deviceId =>
                                 {
@@ -227,6 +232,29 @@ public partial class CoreAudioDeviceRepository : IDisposable
         // Marshal notifications to UI thread
         //.ObserveOn(RxSchedulers.MainThreadScheduler);
     }
+
+    internal IObservable<Unit> SetDefaultAudioEndpoint(string deviceId, params Role[] roles)
+    {
+        return PolicyConfigClient
+            .Take(1)
+            .Select(policyClient =>
+            {
+                foreach (var role in roles)
+                {
+                    policyClient.SetDefaultEndpoint(deviceId, role);
+                }
+
+                return Unit.Default;
+            });
+    }
+
+    [Lazy(IsPrivate = true)]
+    private IObservable<PolicyConfigClient> GetPolicyConfigClient()
+    {
+        return Observable.Start(() => new PolicyConfigClient(), Scheduler)
+            .ObserveOn(Scheduler);
+    }
+
     //[Lazy]
     //private IObservable<IReadOnlyList<MMDevice>> GetDevicesObservable()
     //{

@@ -92,19 +92,13 @@ public partial class AudioDeviceService(CoreAudioDeviceRepository repository)
     }
 
     [Lazy]
-    private IObservable<IChangeSet<DeviceDto, string>> GetDevices()
+    private IObservableCache<DeviceDto, string> GetDevices()
     {
         return _nativeDevices
             .Connect()
             .ObserveOn(_repository.Scheduler)
-            .Transform(data =>
-            {
-                var isDefault = _defaultDevices.Lookup(new DefaultDeviceKey(data.DataFlow, Role.Multimedia));
-
-                return CreateItem(data);
-            })
-            .Publish()
-            .RefCount();
+            .Transform(CreateItem)
+            .AsObservableCache();
     }
 
     private static DeviceDto CreateItem(CoreAudioDeviceWrapper data)
@@ -139,6 +133,7 @@ public partial class AudioDeviceService(CoreAudioDeviceRepository repository)
                     })
             )
             .Switch()
+            .DistinctUntilChanged(device => device.Id)
             .Select(CreateItem);
     }
 
@@ -161,5 +156,14 @@ public partial class AudioDeviceService(CoreAudioDeviceRepository repository)
             return nativeDevice.Value.SetMute(isMuted);
         }
         return Observable.Empty<Unit>();
+    }
+
+    public IObservable<Unit> SetDefaultAudioEndpoint(string deviceId)
+    {
+        return SetDefaultAudioEndpoint(deviceId, [Role.Multimedia, Role.Communications, Role.Console]);
+    }
+    public IObservable<Unit> SetDefaultAudioEndpoint(string deviceId, params Role[] roles)
+    {
+        return _repository.SetDefaultAudioEndpoint(deviceId, roles);
     }
 }

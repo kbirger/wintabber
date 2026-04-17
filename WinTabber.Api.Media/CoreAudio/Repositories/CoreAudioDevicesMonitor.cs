@@ -27,7 +27,8 @@ public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
 
     public IObservable<string> DeviceAdditions => _deviceAdditions.ObserveOn(_scheduler);
     public IObservable<string> DeviceRemovals => _deviceRemovals.ObserveOn(_scheduler);
-    public IObservable<DefaultDeviceChange> DefaultDeviceChanges => _defaultDeviceChanges.ObserveOn(_scheduler);
+    public IObservable<DefaultDeviceChange> DefaultDeviceChanges =>
+        _defaultDeviceChanges.DistinctUntilChanged().ObserveOn(_scheduler);
     public IObservable<(string DeviceId, NAudio.CoreAudioApi.PropertyKey Key)> DevicePropertyChanges =>
         _devicePropertyChanges.ObserveOn(_scheduler);
 

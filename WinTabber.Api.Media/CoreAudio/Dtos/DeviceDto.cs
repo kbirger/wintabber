@@ -16,9 +16,20 @@ public class DeviceDto : IEquatable<DeviceDto>
     {
         return base.Equals(obj as DeviceDto);
     }
+
     public bool Equals(DeviceDto? other)
     {
         return string.Equals(other?.DeviceId, DeviceId, StringComparison.Ordinal);
+    }
+
+    public static bool operator ==(DeviceDto? left, DeviceDto? right)
+    {
+        return left is null && right is null || (left?.Equals(right) ?? false);
+    }
+
+    public static bool operator !=(DeviceDto? left, DeviceDto? right)
+    {
+        return !(left == right);
     }
 
     public override int GetHashCode()

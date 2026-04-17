@@ -1,8 +1,9 @@
-﻿using DynamicData;
+﻿using System.Collections.ObjectModel;
+using System.Diagnostics;
+using System.Reactive.Linq;
+using DynamicData;
 using NAudio.CoreAudioApi;
 using ReactiveUI;
-using System.Collections.ObjectModel;
-using System.Reactive.Linq;
 using WinTabber.Api.Media.CoreAudio.Dtos;
 using WinTabber.Api.Media.CoreAudio.Services;
 
@@ -14,7 +15,6 @@ namespace WinTabber.UI.Media.ViewModels
         //{
         //    var deviceEnum = new MMDeviceEnumerator(Guid.NewGuid());
         //    var notif = new MMNotificationClient(deviceEnum);
-
 
         //    var groupsObservable = GetDevicesObservable(deviceEnum)
         //        //.SubscribeOn(Scheduler.Default)
@@ -50,17 +50,14 @@ namespace WinTabber.UI.Media.ViewModels
             });
         }
 
-
-
         public AudioDeviceSelectorViewModel(AudioDeviceService deviceService, DataFlow flow)
         {
-            var devices = deviceService.Devices.Filter(device => device.DataFlow == flow);
-            devices
-                .ObserveOnDispatcher()
-                .Bind(out _devices)
-                .Subscribe();
+            _deviceService = deviceService;
+            var devices = deviceService.Devices.Connect().Filter(device => device.DataFlow == flow);
+            devices.ObserveOnDispatcher().Bind(out _devices).Subscribe();
 
-            deviceService.GetDefaultDevice(flow)
+            deviceService
+                .GetDefaultDevice(flow)
                 .Subscribe(defaultDevice =>
                 {
                     SelectedDevice = defaultDevice;
@@ -76,7 +73,6 @@ namespace WinTabber.UI.Media.ViewModels
             //{
             //    SelectedDevice = devices.SingleOrDefault(device => device.IsSelected);
             //});
-
         }
 
         //private readonly ObservableAsPropertyHelper<DeviceDto[]> _devices;
@@ -93,21 +89,27 @@ namespace WinTabber.UI.Media.ViewModels
             get => _selectedDevice;
             set
             {
-                _selectedDevice = value;
-                if (_selectedDevice is not null)
+                if (_selectedDevice != value)
                 {
-                    //_selectedDevice.IsSelected = true;
-                    // todo: invoke device activate on dispatcher
-                    //_selectedDevice.Activate();
-                    // END
-                    //foreach (var device in Devices.Where(device => device != _selectedDevice))
-                    //{
-                    //    device.IsSelected = false;
-                    //}
+                    _selectedDevice = value;
+                    if (_selectedDevice is not null)
+                    {
+                        // todo: catch errors
+                        _deviceService
+                            .SetDefaultAudioEndpoint(_selectedDevice.DeviceId)
+                            .Subscribe(
+                                (_) => { },
+                                onError: (ex) =>
+                                {
+                                    Debug.WriteLine($"error setting default device {ex.Message}");
+                                }
+                            );
+                    }
+                    this.RaisePropertyChanged();
                 }
-                this.RaisePropertyChanged();
             }
         }
         private DeviceDto? _selectedDevice;
+        private readonly AudioDeviceService _deviceService;
     }
 }

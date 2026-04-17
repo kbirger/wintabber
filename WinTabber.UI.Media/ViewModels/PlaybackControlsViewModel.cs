@@ -117,7 +117,7 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
     private static float SelectProgress((TimeSpan Position, TimeSpan Duration) values)
     {
         return values.Position.Ticks > 0 && values.Duration.Ticks > 0 ? 
-            (values.Position.Ticks / values.Duration.Ticks) 
+            ((float)values.Position.Ticks / (float)values.Duration.Ticks) 
             : 0;
     }
 
