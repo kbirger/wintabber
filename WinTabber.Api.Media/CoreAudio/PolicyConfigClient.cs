@@ -1,7 +1,7 @@
 ﻿using NAudio.CoreAudioApi;
 using System.Runtime.InteropServices;
 
-namespace WinTabberUI.Interop;
+namespace WinTabber.Api.Media.CoreAudio;
 
 [ComImport, Guid("870AF99C-171D-4F9E-AF0D-E63DF40C2BC9")]
 internal class _PolicyConfigClient
