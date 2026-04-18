@@ -98,14 +98,14 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
 
         DeviceVolumeControls = new VolumeControlsViewModel(
             device,
-            volumeHintText: "V",
-            muteHintText: "M"
+            volumeHintText: "DV",
+            muteHintText: "DM"
         );
 
         SessionVolumeControls = new VolumeControlsViewModel(
             deviceSession,
-            volumeHintText: "U",
-            muteHintText: "X"
+            volumeHintText: "PM",
+            muteHintText: "PM"
         );
 
         Observable

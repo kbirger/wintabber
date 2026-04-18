@@ -14,12 +14,20 @@ public class HintAdorner : Adorner
     private const int CornerRadius = 4;
     private const double FontSize = 10;
 
-    private static readonly Typeface _typeface = new Typeface(SystemFonts.IconFontFamily, SystemFonts.IconFontStyle, SystemFonts.IconFontWeight, FontStretch.FromOpenTypeStretch(1));
+    private static readonly Typeface _typeface = new Typeface(
+        SystemFonts.IconFontFamily, 
+        SystemFonts.IconFontStyle, 
+        FontWeights.Bold, 
+        FontStretch.FromOpenTypeStretch(1)
+    );
+
     private static readonly Brush _textBrush = SystemColors.HighlightTextBrush;
     private static readonly Brush _fillBrush = SystemColors.AccentColorLight2Brush;
     private static readonly Brush _borderBrush = SystemColors.AccentColorDark1Brush;
+    private static readonly Brush _highlightTextBrush = SystemColors.AccentColorLight1Brush;
 
-    
+
+
 
     private static readonly double _wWidth;
 
@@ -36,8 +44,14 @@ public class HintAdorner : Adorner
 
     public HintPosition Position { get; set; } = HintPosition.TopLeft;
 
+    private int _selectionLength = 0;
+
     protected override void OnRender(DrawingContext drawingContext)
     {
+        if(_selectionLength == -1)
+        {
+            return;
+        }
         // Get the size of the adorned element
         Rect adornedElementRect = new Rect(this.AdornedElement.RenderSize);
         
@@ -49,6 +63,17 @@ public class HintAdorner : Adorner
             10, 
             _textBrush, 
             1);
+
+        var highlight = new FormattedText(
+            HintText.Substring(0, _selectionLength),
+            CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight,
+            _typeface,
+            10,
+            _highlightTextBrush,
+        1);
+        text.SetTextDecorations(TextDecorations.Underline, 0, _selectionLength);
+        highlight.SetTextDecorations(TextDecorations.Underline);
 
         Point borderPosition = Position.GetPoint(adornedElementRect, text.Width, text.Height, new Thickness { Left = PaddingX, Right = PaddingX, Top = PaddingY, Bottom = PaddingY });
         Rect borderRect = new Rect(
@@ -64,12 +89,36 @@ public class HintAdorner : Adorner
             new Pen(_borderBrush, 0.5), 
             borderRect, CornerRadius, CornerRadius);
 
+        var textPoint = new Point(
+            (borderRect.Left) + (borderRect.Width / 2) - (text.Width / 2),
+            (borderRect.Top) + (borderRect.Height / 2) - (text.Height / 2)
+        );
         drawingContext.DrawText(
             text,
-            new Point(
-                (borderRect.Left) + (borderRect.Width / 2) - (text.Width / 2),
-                (borderRect.Top ) + (borderRect.Height / 2) - (text.Height / 2)
-            )
+            textPoint
         );
+
+        //drawingContext.DrawText(
+        //    highlight,
+        //    textPoint
+        //);
+    }
+
+    internal void OnInput(string currentInput)
+    {
+        int newLength;
+        if (HintText.StartsWith(currentInput))
+        {
+            newLength = currentInput.Length;
+        }
+        else
+        {
+            newLength = -1;
+        }
+        if(newLength != _selectionLength)
+        {
+            _selectionLength = newLength;
+            InvalidateVisual();
+        }
     }
 }

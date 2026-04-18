@@ -30,6 +30,11 @@ public partial class NotifyIconViewModel : ReactiveObject
             }
         });
 
+        SysColorsCommand = ReactiveCommand.Create(() =>
+        {
+            var sysColors = new SysColor();
+            sysColors.ShowDialog();
+        });
         _areHooksActive = eventManager.WhenAnyValue(em => em.IsRunning)
             .ToProperty(this, vm => vm.AreHooksActive);
     }
@@ -40,6 +45,7 @@ public partial class NotifyIconViewModel : ReactiveObject
     public ReactiveCommand<Unit, Unit> ExitApplicationCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowWindowCommand { get; }
     public ReactiveCommand<Unit, Unit> PauseHooksCommand { get; }
+    public ReactiveCommand<Unit, Unit> SysColorsCommand { get; }
 
     public Action ShowSettings(WinTabberEventManager eventManager)
     {

@@ -86,7 +86,6 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
     {
         //Focus();
         //PlayPauseButton.Focus();
-
         base.OnActivated(e);
     }
 

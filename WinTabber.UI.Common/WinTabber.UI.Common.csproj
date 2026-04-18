@@ -26,4 +26,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
     </ItemGroup>
+    <ItemGroup>
+      <ProjectReference Include="..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />
+    </ItemGroup>
 </Project>
