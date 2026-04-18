@@ -1,6 +1,6 @@
-﻿using Microsoft.Xaml.Behaviors;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using System.Windows;
 using System.Windows.Automation.Peers;
 using System.Windows.Automation.Provider;
@@ -9,6 +9,8 @@ using System.Windows.Controls.Primitives;
 using System.Windows.Documents;
 using System.Windows.Input;
 using System.Windows.Media;
+using Microsoft.Xaml.Behaviors;
+using WinTabber.UI.Common.Hints;
 
 namespace WinTabber.UI.Common.Behaviors
 {
@@ -19,12 +21,13 @@ namespace WinTabber.UI.Common.Behaviors
             public required FrameworkElement Element { get; init; }
             public required IHintBehaviorKernel Kernel { get; init; }
         }
-        public static readonly DependencyProperty HintTextProperty =
-            DependencyProperty.RegisterAttached(
-                "HintText",
-                typeof(string),
-                typeof(DependencyObject),
-                new PropertyMetadata(null, OnHintTextChanged));
+
+        public static readonly DependencyProperty HintTextProperty = DependencyProperty.RegisterAttached(
+            "HintText",
+            typeof(string),
+            typeof(DependencyObject),
+            new PropertyMetadata(null, OnHintTextChanged)
+        );
 
         public static string GetHintText(DependencyObject obj)
         {
@@ -36,14 +39,12 @@ namespace WinTabber.UI.Common.Behaviors
             obj.SetValue(HintTextProperty, value);
         }
 
-
-        public static readonly DependencyProperty HintAdornerProperty =
-            DependencyProperty.RegisterAttached(
-                "HintAdorner",
-                typeof(HintAdorner),
-                typeof(FrameworkElement),
-                new PropertyMetadata(null, OnHintsShownChanged));
-
+        public static readonly DependencyProperty HintAdornerProperty = DependencyProperty.RegisterAttached(
+            "HintAdorner",
+            typeof(HintAdorner),
+            typeof(FrameworkElement),
+            new PropertyMetadata(null)
+        );
 
         public static HintAdorner? GetHintAdorner(FrameworkElement element)
         {
@@ -59,25 +60,24 @@ namespace WinTabber.UI.Common.Behaviors
         {
             return Interaction.GetBehaviors(elem).OfType<HintBehavior>().FirstOrDefault();
         }
-        public static readonly DependencyProperty AreHintsShownProperty =
-             DependencyProperty.RegisterAttached(
-                nameof(AreHintsShown),
-                typeof(bool),
-                typeof(HintBehavior),
-                new PropertyMetadata(false, OnHintsShownChanged));
 
+        public static readonly DependencyProperty AreHintsShownProperty = DependencyProperty.RegisterAttached(
+            nameof(AreHintsShown),
+            typeof(bool),
+            typeof(HintBehavior),
+            new PropertyMetadata(false, OnHintsShownChanged)
+        );
 
-        public static DependencyProperty HintPositionProperty =
-            DependencyProperty.RegisterAttached(
-                "HintPosition",
-                typeof(HintPosition),
-                typeof(FrameworkElement),
-                new PropertyMetadata(HintPosition.TopLeft)
-                );
+        public static DependencyProperty HintPositionProperty = DependencyProperty.RegisterAttached(
+            "HintPosition",
+            typeof(HintPosition),
+            typeof(FrameworkElement),
+            new PropertyMetadata(HintPosition.TopLeft)
+        );
 
         public static HintPosition GetHintPosition(FrameworkElement elem)
         {
-            return (HintPosition) elem.GetValue(HintPositionProperty);
+            return (HintPosition)elem.GetValue(HintPositionProperty);
         }
 
         public static void SetHintPosition(FrameworkElement elem, HintPosition value)
@@ -90,8 +90,43 @@ namespace WinTabber.UI.Common.Behaviors
             get => (bool)GetValue(AreHintsShownProperty);
             set => SetValue(AreHintsShownProperty, value);
         }
+
+        private HintChordState State { get; } = new HintChordState();
+
         private static void OnHintsShownChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
         {
+            if (e.NewValue is null || e.NewValue.Equals(e.OldValue))
+            {
+                // Defensive programming;
+                return;
+            }
+
+            var newElement = (d is HintBehavior b) ? b.AssociatedObject : null;
+            var shown = true.Equals(e.NewValue) && newElement is not null;
+            var activeRoot = (_activeRootRef is not null && _activeRootRef.TryGetTarget(out var x)) ? x : null;
+
+
+            if (shown)
+            {
+
+                if (activeRoot is not null)
+                {
+                    HideHints(activeRoot);
+                }
+
+                if (_activeRootRef is not null)
+                {
+                    _activeRootRef.SetTarget(newElement!);
+                }
+                else
+                {
+                    _activeRootRef = new(newElement!);
+                }
+            }
+            else
+            {
+                _activeRootRef = null;
+            }
         }
 
         private static void OnHintTextChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
@@ -111,7 +146,6 @@ namespace WinTabber.UI.Common.Behaviors
             {
                 if (e.NewValue is string newValue)
                 {
-
                     if (!string.IsNullOrWhiteSpace(newValue))
                     {
                         behavior.RegisterHint(elem, newValue);
@@ -124,6 +158,8 @@ namespace WinTabber.UI.Common.Behaviors
             }
         }
 
+        private static WeakReference<FrameworkElement>? _activeRootRef;
+
         private Dictionary<string, HintItem> _hints = new Dictionary<string, HintItem>();
 
         private void UnregisterHint(string hint)
@@ -133,19 +169,16 @@ namespace WinTabber.UI.Common.Behaviors
 
         private void RegisterHint(FrameworkElement elem, string hint)
         {
-            _hints[hint] = new HintItem
-            {
-                Element = elem,
-                Kernel = CreateKernel(elem)
-            };
+            _hints[hint] = new HintItem { Element = elem, Kernel = CreateKernel(elem) };
         }
 
         public static readonly DependencyProperty AdornerLayerAdornedElementsProperty =
-                        DependencyProperty.RegisterAttached(
+            DependencyProperty.RegisterAttached(
                 "AdornerLayerAdornedElements",
                 typeof(List<FrameworkElement>),
                 typeof(HintBehavior),
-                new PropertyMetadata(new List<FrameworkElement>()));
+                new PropertyMetadata(new List<FrameworkElement>())
+            );
         private IHintBehaviorKernel _kernel;
 
         //public static string? HintText
@@ -153,8 +186,6 @@ namespace WinTabber.UI.Common.Behaviors
         //    get => (string?)HintBehavior.GetValue(HintTextProperty);
         //    set => SetValue(HintTextProperty, value);
         //}
-
-
 
         //public static List<FrameworkElement> GetAttachedElements(DependencyObject obj) => (List<FrameworkElement>)obj.GetValue(AdornerLayerAdornedElementsProperty);
         public static IEnumerable<FrameworkElement> GetAttachedElements(FrameworkElement obj)
@@ -168,7 +199,6 @@ namespace WinTabber.UI.Common.Behaviors
                     if (GetHintText(child) is not null)
                     {
                         yield return elem;
-
                     }
                     foreach (var grandChild in GetAttachedElements(elem))
                     {
@@ -178,8 +208,11 @@ namespace WinTabber.UI.Common.Behaviors
             }
         }
 
-        public IReadOnlyList<FrameworkElement> GetAdornedElements(DependencyObject obj) => _kernel.GetAttachableElements(AssociatedObject);
-        public static void SetAttachAdorner(DependencyObject obj, List<FrameworkElement> value) => obj.SetValue(AdornerLayerAdornedElementsProperty, value);
+        public IReadOnlyList<FrameworkElement> GetAdornedElements(DependencyObject obj) =>
+            _kernel.GetAttachableElements(AssociatedObject);
+
+        public static void SetAttachAdorner(DependencyObject obj, List<FrameworkElement> value) =>
+            obj.SetValue(AdornerLayerAdornedElementsProperty, value);
 
         public static void AddAdornedElementToLayer(AdornerLayer adornerLayer, FrameworkElement element)
         {
@@ -203,7 +236,7 @@ namespace WinTabber.UI.Common.Behaviors
 
         private HintAdorner? _adorner;
 
-        override protected void OnAttached()
+        protected override void OnAttached()
         {
             base.OnAttached();
             _kernel = CreateKernel(AssociatedObject);
@@ -252,7 +285,7 @@ namespace WinTabber.UI.Common.Behaviors
             {
                 ItemsControl itemsControl => new ItemsControlHintBehaviorKernel(),
                 FrameworkElement _ => new DefaultHintBehaviorKernel(),
-                _ => throw new NotSupportedException()
+                _ => throw new NotSupportedException(),
             };
         }
 
@@ -265,7 +298,6 @@ namespace WinTabber.UI.Common.Behaviors
             //AdornerLayer adornerLayer = AdornerLayer.GetAdornerLayer(elem);
 
             //AddAdornedElementToLayer(adornerLayer, elem);
-
         }
 
         private static void OnTriggerKeyDown(object sender, System.Windows.Input.KeyEventArgs e)
@@ -277,14 +309,20 @@ namespace WinTabber.UI.Common.Behaviors
 
             if (e.Key == Key.LeftAlt || e.SystemKey == Key.LeftAlt)
             {
+                FrameworkElement? current = null;
+                var hasActive = _activeRootRef?.TryGetTarget(out current) ?? false;
+                if(hasActive && elem != current)
+                {
+                    return;
+                }
                 ShowHints(elem);
                 e.Handled = true;
             }
-            else if (e.Key == Key.Escape || e.SystemKey == Key.Escape)
-            {
-                HideHints(elem);
-                e.Handled = true;
-            }
+            //else if (e.Key == Key.Escape || e.SystemKey == Key.Escape)
+            //{
+            //    HideHints(elem);
+            //    e.Handled = true;
+            //}
             else
             {
                 e.Handled = ProcessKey(elem, e);
@@ -293,115 +331,159 @@ namespace WinTabber.UI.Common.Behaviors
 
         private static bool ProcessKey(FrameworkElement rootElement, KeyEventArgs e)
         {
-            bool handled = false;
             var behavior = HintBehavior.GetHintBehavior(rootElement);
             if (behavior is null || !behavior.AreHintsShown)
             {
                 return false;
             }
+
+            var keyResult = behavior.State.AddKey(e);
+            if (keyResult == HintChordState.KeyResult.Ignored)
+            {
+                return false;
+            }
+            else if (keyResult == HintChordState.KeyResult.Reset)
+            {
+                HideHints(rootElement);
+                return false;
+            }
+
+
             var elements = behavior._kernel.GetAttachableElements(rootElement);
             var decorationInfo = behavior._kernel.GetHints(elements);
             //var elements =  HintBehavior.GetAttachedElements(rootElement).Where(element => element.IsLoaded);
-            var key = e.SystemKey != Key.None ? e.SystemKey : e.Key;
-            var text = GetText(key);
-            foreach (var info in decorationInfo)
+            var text = behavior.State.Value;
+
+            var possibleMatches = decorationInfo
+                .Where(info => info.Element.IsEnabled && info.HintText.StartsWith(text))
+                .ToArray();
+
+            if (possibleMatches.Length == 0)
             {
-                var elem = info.Element;
-                var hint = info.HintText;
+                HideHints(rootElement);
+                return false;
+            }
+            else
+            {
+                UpdateHints(rootElement, text);
+            }
 
-                if (!elem.IsEnabled)
+            var matchingItem = possibleMatches.FirstOrDefault(info => info.HintText == text);
+            if (matchingItem is null)
+            {
+                return false;
+            }
+
+
+            var activated = ActivateElement(matchingItem, rootElement);
+            if (activated)
+            {
+                HideHints(rootElement);
+
+                return true;
+            }
+
+            return false;
+        }
+
+        private static bool ActivateElement(DecoratedElementInfo info, FrameworkElement rootElement)
+        {
+            var elem = info.Element;
+            var hint = info.HintText;
+
+            var adornerLayer = AdornerLayer.GetAdornerLayer(elem);
+            var peer = FrameworkElementAutomationPeer.CreatePeerForElement(elem);
+            if (peer is null)
+            {
+                if (Debugger.IsAttached)
                 {
-                    continue;
+                    Debugger.Break();
                 }
-                var adornerLayer = AdornerLayer.GetAdornerLayer(elem);
+                return false;
+            }
 
-                if (hint == text)
-                {
-                    var peer = FrameworkElementAutomationPeer.CreatePeerForElement(elem);
-                    if (peer is null)
-                    {
-                        if (Debugger.IsAttached)
-                        {
-                            Debugger.Break();
-                        }
-                        return false;
-                    }
-                    if (elem is Button btn)
-                    {
-                        //ButtonAutomationPeer peer = new ButtonAutomationPeer(btn);
-                        IInvokeProvider? invokeProv = peer.GetPattern(PatternInterface.Invoke) as IInvokeProvider;
-                        invokeProv?.Invoke();
-                        HideHints(rootElement);
+            var handled = false;
+            if (elem is Button btn)
+            {
+                //ButtonAutomationPeer peer = new ButtonAutomationPeer(btn);
+                IInvokeProvider? invokeProv = peer.GetPattern(PatternInterface.Invoke) as IInvokeProvider;
+                invokeProv?.Invoke();
+                return true;
+            }
+            else if (elem is ComboBox comboBox)
+            {
+                //ComboBoxAutomationPeer peer = new ComboBoxAutomationPeer(comboBox);
+                IExpandCollapseProvider? prov =
+                    peer.GetPattern(PatternInterface.ExpandCollapse) as IExpandCollapseProvider;
+                peer.SetFocus();
+                elem.Focus();
+                prov?.Expand();
+                handled = true;
 
-                    }
-                    else if (elem is ComboBox comboBox)
-                    {
-                        //ComboBoxAutomationPeer peer = new ComboBoxAutomationPeer(comboBox);
-                        IExpandCollapseProvider? prov = peer.GetPattern(PatternInterface.ExpandCollapse) as IExpandCollapseProvider;
-                        peer.SetFocus();
-                        elem.Focus();
-                        prov?.Expand();
-                        HideHints(rootElement);
+                //ShowHints(comboBox);
+            }
+            else if (elem is ComboBoxItem cbi)
+            {
+                cbi.IsSelected = true;
+                //var prov = peer.GetPattern(PatternInterface.SelectionItem);
+                IExpandCollapseProvider? prov =
+                    FrameworkElementAutomationPeer
+                        .CreatePeerForElement(rootElement)
+                        .GetPattern(PatternInterface.ExpandCollapse) as IExpandCollapseProvider;
+                prov?.Collapse();
+                //var i = new ListBoxItemAutomationPeer(cbi, r);
+                //(i as ISelectionItemProvider).Select();
+                //var p = peer.GetPattern(PatternInterface.SelectionItem);
+                handled = true;
+                //peer.par
+                //peer = new ListBoxItemAutomationPeer(elem, new )
+            }
+            else if (elem is ToggleButton tb)
+            {
+                IToggleProvider? prov = peer.GetPattern(PatternInterface.Toggle) as IToggleProvider;
+                tb.Command?.Execute(tb.CommandParameter);
+                prov?.Toggle();
+                handled = true;
+            }
+            else //if (elem is ListBox listBox)
+            {
+                //ListBoxAutomationPeer peer = new ListBoxAutomationPeer(listBox);
+                peer.SetFocus();
+                elem.Focus();
+                handled = true;
+            }
 
-                        //ShowHints(comboBox);
-                    }
-                    else if (elem is ComboBoxItem cbi)
-                    {
-                        cbi.IsSelected = true;
-                        //var prov = peer.GetPattern(PatternInterface.SelectionItem);
-                        IExpandCollapseProvider? prov = FrameworkElementAutomationPeer.CreatePeerForElement(rootElement)
-                            .GetPattern(PatternInterface.ExpandCollapse) as IExpandCollapseProvider;
-                        prov?.Collapse();
-                        //var i = new ListBoxItemAutomationPeer(cbi, r);
-                        //(i as ISelectionItemProvider).Select();
-                        //var p = peer.GetPattern(PatternInterface.SelectionItem);
-                        HideHints(rootElement);
-                        //peer.par
-                        //peer = new ListBoxItemAutomationPeer(elem, new )
-                    }
-                    else if (elem is ToggleButton tb)
-                    {
-                        IToggleProvider? prov = peer.GetPattern(PatternInterface.Toggle) as IToggleProvider;
-                        tb.Command?.Execute(tb.CommandParameter);
-                        prov?.Toggle();
-                        HideHints(rootElement);
-
-                    }
-                    else //if (elem is ListBox listBox)
-                    {
-                        //ListBoxAutomationPeer peer = new ListBoxAutomationPeer(listBox);
-                        peer.SetFocus();
-                        elem.Focus();
-                        HideHints(rootElement);
-                    }
-
-                    if (Interaction.GetBehaviors(elem).OfType<HintBehavior>().Any())
-                    {
-                        ShowHints(elem);
-                    }
-                    e.Handled = true;
-                    break;
-                }
+            if (Interaction.GetBehaviors(elem).OfType<HintBehavior>().Any())
+            {
+                ShowHints(elem);
+                return true;
             }
 
             return handled;
+
         }
 
-        private static string GetText(Key key)
+        private static void UpdateHints(FrameworkElement rootElement, string currentInput)
         {
-            // Letters A–Z
-            if (key >= Key.A && key <= Key.Z)
-                return key.ToString(); // already "A"…"Z"
+            var behavior = GetHintBehavior(rootElement);
+            if (behavior is null || !behavior.AreHintsShown)
+            {
+                return;
+            }
 
-            // Top-row digits D0–D9
-            if (key >= Key.D0 && key <= Key.D9)
-                return ((int)(key - Key.D0)).ToString();
-
-            // Numpad digits NumPad0–NumPad9
-            if (key >= Key.NumPad0 && key <= Key.NumPad9)
-                return ((int)(key - Key.NumPad0)).ToString();
-
-            return string.Empty;
+            var elements = behavior._kernel.GetAttachableElements(rootElement);
+            foreach (var elem in elements)
+            {
+                var layer = AdornerLayer.GetAdornerLayer(elem);
+                if (layer is not null)
+                {
+                    var adorner = GetHintAdorner(elem);
+                    if (adorner is not null)
+                    {
+                        adorner.OnInput(currentInput);
+                    }
+                }
+            }
         }
 
         private static void HideHints(FrameworkElement rootElement)
@@ -411,7 +493,7 @@ namespace WinTabber.UI.Common.Behaviors
             {
                 return;
             }
-
+            behavior.State.Reset();
             //var elements = GetAttachedElements(rootElement).Where(element => element.IsLoaded);
             var elements = behavior._kernel.GetAttachableElements(rootElement);
             foreach (var elem in elements)
@@ -429,7 +511,6 @@ namespace WinTabber.UI.Common.Behaviors
             }
 
             behavior.AreHintsShown = false;
-
         }
 
         private static void ShowHints(FrameworkElement sender)
@@ -442,10 +523,13 @@ namespace WinTabber.UI.Common.Behaviors
             //var elements = GetAttachedElements(scope).Where(element => element.IsLoaded);
 
             var elements = behavior._kernel.GetAttachableElements(sender);
-            
+
             foreach (var elem in elements)
             {
-                AttachAdornerToElement(elem);                
+                if (elem.IsEnabled)
+                {
+                    AttachAdornerToElement(elem);
+                }
             }
 
             behavior.AreHintsShown = true;
@@ -463,16 +547,14 @@ namespace WinTabber.UI.Common.Behaviors
 
         private static void AttachAdornerToElement(FrameworkElement elem)
         {
-            HintAdorner? adorner = GetHintAdorner(elem) ??
-                new HintAdorner(elem)
-                {
-                    HintText = GetHintText(elem)!,
-                    Position = GetHintPosition(elem)
-                };
+            HintAdorner? adorner =
+                GetHintAdorner(elem)
+                ?? new HintAdorner(elem) { HintText = GetHintText(elem)!, Position = GetHintPosition(elem) };
             SetHintAdorner(elem, adorner);
             var adornerLayer = AdornerLayer.GetAdornerLayer(elem);
             adornerLayer.Add(adorner);
         }
+
         //private static void AttachExecuteKeyListener(FrameworkElement scope)
         //{
         //    scope.PreviewKeyDown += RootElement_PreviewKeyDown;
@@ -533,9 +615,8 @@ namespace WinTabber.UI.Common.Behaviors
             {
                 cb.DropDownClosed -= Cb_DropDownClosed;
             }
-
-
         }
+
         private void AssociatedObject_Loaded(object sender, RoutedEventArgs e)
         {
             if (sender is FrameworkElement element)
@@ -612,7 +693,6 @@ namespace WinTabber.UI.Common.Behaviors
         //                e.Handled = true;
         //                break;
         //            }
-
 
         //        }
         //    }

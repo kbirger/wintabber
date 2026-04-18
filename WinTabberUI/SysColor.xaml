@@ -10,7 +10,7 @@
         <local:SystemColorsViewModel/>
     </Window.DataContext>
     <Grid>
-        <ListView ItemsSource="{Binding SystemColorsList}">
+        <ListView ItemsSource="{Binding SystemColorsList}" Background="Gray">
             <ListView.View>
                 <GridView>
                     <GridViewColumn Header="Color Name" DisplayMemberBinding="{Binding Name}" Width="200"/>

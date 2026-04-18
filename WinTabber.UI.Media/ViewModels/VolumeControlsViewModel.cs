@@ -1,14 +1,11 @@
 ﻿using ReactiveUI;
-using ReactiveUI.SourceGenerators;
 using System.Diagnostics;
 using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
-using System.Windows;
 using WinTabber.Api.Media.CoreAudio.Dtos;
 using WinTabber.Common.Util;
-using static Microsoft.WindowsAPICodePack.Shell.PropertySystem.SystemProperties.System;
 
 namespace WinTabber.UI.Media.ViewModels;
 
@@ -51,12 +48,6 @@ public class VolumeControlsViewModel : ReactiveObject, IDisposable
             .Switch()
             .Do(x => { Debug.WriteLine($"Muted? {x}");  })
             .ToProperty(this, vm => vm.IsMuted, scheduler: scheduler);
-
-        //this.WhenAnyValue(vm => vm.Volume, true)
-        //    .ObserveOn(scheduler)
-        //    .Sample(TimeSpan.FromMicroseconds(100))
-        //    .InvokeCommand(this, vm => vm.SetVolume)
-        //    .DisposeWith(_disposable);
 
         volumeDto.Select(dto => dto?.VolumeChanges ?? Observable.Empty<float>())
             .Switch()
