@@ -118,11 +118,11 @@ public partial class MediaSessionService(
     private IObservableCache<AggregateSession, string> GetMasterSessions()
     {
         var nativeSessionsWithApps = GetNativeSessionsWithApps();
-        
+        var nativeAppChanges = nativeSessionsWithApps.Connect();
         return GetSMTCSessionsByAumid()
             .ObserveOn(STAScheduler.Default) // ?
             .LeftJoin(
-                nativeSessionsWithApps.Connect(),
+                nativeAppChanges,
                 session => session.App!.AppUserModelId,
                 (mediaSession, nativeSession) =>
                     new AggregateSession(
@@ -131,7 +131,7 @@ public partial class MediaSessionService(
                         nativeSession.ValueOrDefault()?.Session
                     )
             )
-            .AutoRefreshOnObservable(_ => nativeSessionsWithApps.Connect())
+            .AutoRefreshOnObservable(_ => nativeAppChanges)
             .AsObservableCache();
     }
 

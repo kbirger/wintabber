@@ -118,7 +118,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
             this.WhenAnyValue(vm => vm.SelectedSessionListItem)
                 .Merge(activeSessionChanges)
                 .Throttle(TimeSpan.FromMilliseconds(250))
-                .DistinctUntilChanged()
+                .DistinctUntilChanged(session => session?.Session.Key)
                 .ObserveOn(scheduler)
                 //.Select(changedSession =>
                 //    changedSession is not null
