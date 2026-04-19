@@ -7,31 +7,22 @@ namespace WinTabber.API;
 
 public partial class ApplicationRef : WindowOwner
 {
-    private static readonly string _winTabberApplication;
-    private static readonly HashSet<string> _ignoredProcesses;
-    static ApplicationRef()
-    {
-        _winTabberApplication = Process.GetCurrentProcess().ProcessName;
-        _ignoredProcesses = new HashSet<string>([
-        "idle",
-        _winTabberApplication
-    ], StringComparer.OrdinalIgnoreCase);
-    }
     public ApplicationRef(string processName, WindowManager windowManager)
         : base()
     {
         ProcessName = processName;
         Manager = windowManager;
-        IsValidProcess = !_ignoredProcesses.Contains(processName);
+        var ignored = GetIgnoredProcesses(windowManager.ProcessRepository);
+        IsValidProcess = !ignored.Contains(processName);
     }
+
+    private static HashSet<string> GetIgnoredProcesses(IProcessRepository repo) =>
+        new(["idle", repo.GetCurrentProcessName()], StringComparer.OrdinalIgnoreCase);
 
     public string ProcessName { get; }
     public override WindowRef[] GetWindows()
     {
-        // return GetWindows(ProcessMonitor.Processes.Take(1).Wait()[ProcessName].ToArray());
-        return GetWindows(
-            Process.GetProcessesByName(ProcessName)
-        );
+        return GetWindows(Manager.ProcessRepository.GetProcessesByName(ProcessName));
     }
 
 
@@ -75,9 +66,10 @@ public partial class ApplicationRef : WindowOwner
 
     public override WindowManager Manager { get; }
 
-    private static bool ValidateProcess(Process process)
+    private bool ValidateProcess(Process process)
     {
-        return process.Id > 0 && !_ignoredProcesses.Contains(process.ProcessName);
+        return process.Id > 0 && process.Id != Manager.ProcessRepository.GetCurrentProcessId()
+            && process.ProcessName != Manager.ProcessRepository.GetCurrentProcessName();
     }
 
     public bool IsValidProcess { get; private init; }

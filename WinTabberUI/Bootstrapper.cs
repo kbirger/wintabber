@@ -73,6 +73,7 @@ public static class Bootstrapper
             .AddSingleton<WinTabberEventManager>()
             .AddSingleton<ApplicationState>()
             .AddSingleton<IInteropProxy, InteropProxy>()
+            .AddSingleton<IProcessRepository, ProcessRepository>()
             .AddSingleton<WindowManager>()
             //.AddSingleton<IAudioDeviceManager, AudioDeviceManager>()
             .AddSingleton<AppCache>()

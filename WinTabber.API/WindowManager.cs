@@ -1,17 +1,18 @@
-﻿using System.Diagnostics;
-using WinTabber.API.CircularBuffer;
+﻿using WinTabber.API.CircularBuffer;
 using WinTabber.Interop;
 
 namespace WinTabber.API;
 
 public class WindowManager : WindowOwner
 {
-    public WindowManager(IInteropProxy interop)
+    public WindowManager(IInteropProxy interop, IProcessRepository processRepository)
     {
         Interop = interop;
+        ProcessRepository = processRepository;
     }
 
     internal IInteropProxy Interop { get; }
+    internal IProcessRepository ProcessRepository { get; }
 
     internal WindowTitleStore TitleStore { get; } = new WindowTitleStore();
 
@@ -25,7 +26,7 @@ public class WindowManager : WindowOwner
 
     public override WindowRef[] GetWindows()
     {
-        return Process.GetProcesses()
+        return ProcessRepository.GetProcesses()
             // .Where(process => !string.IsNullOrWhiteSpace(process.MainWindowTitle))
             .GroupBy(process => process.ProcessName)
             .SelectMany(processGroup => NewApplicationRef(processGroup.Key).GetWindows(processGroup))
@@ -35,7 +36,7 @@ public class WindowManager : WindowOwner
 
     public ApplicationRef[] GetApplications()
     {
-        return Process.GetProcesses()
+        return ProcessRepository.GetProcesses()
             .GroupBy(Process => Process.ProcessName)
             .Select(processGroup => NewApplicationRef(processGroup.Key))
             .OrderBy(a => a.ProcessName)
