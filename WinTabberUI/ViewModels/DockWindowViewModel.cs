@@ -1,36 +1,34 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Reactive.Linq;
-using System.Windows;
+using ReactiveUI;
 using WinTabber.API;
 using WinTabber.Interop;
 
 namespace WinTabberUI.ViewModels;
 
-public class DockWindowViewModel : DependencyObject
+public class DockWindowViewModel : ReactiveObject
 {
+    private WindowManager _windowManager;
+    private ApplicationRef? _application;
+    private string? _applicationName;
 
     public DockWindowViewModel(WindowManager windowManager)
     {
         _windowManager = windowManager;
     }
 
-
-    private WindowManager _windowManager;
-    private ApplicationRef? _application;
-
-    private static DependencyProperty ApplicationNameProperty = DependencyProperty.Register(
-        "ApplicationName",
-        typeof(string),
-        typeof(DockWindowViewModel),
-        new PropertyMetadata(null, OnApplicationNameChanged));
-
-    private static void OnApplicationNameChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    public string? ApplicationName
     {
-        if(d is DockWindowViewModel vm && e.NewValue is string newApplicationName)
+        get => _applicationName;
+        set
         {
-            vm.UpdateApplication(newApplicationName);
+            this.RaiseAndSetIfChanged(ref _applicationName, value);
+            if (value is not null)
+                UpdateApplication(value);
         }
     }
+
+    public ObservableCollection<WindowItem> Windows { get; } = new();
 
     private void UpdateApplication(string newApplicationName)
     {
@@ -40,42 +38,11 @@ public class DockWindowViewModel : DependencyObject
 
     private void RefreshWindows()
     {
-        if(_application is null)
-        {
+        if (_application is null)
             return;
-        }
-        var windows = _application.GetWindows();
         Windows.Clear();
-        foreach (var window in windows)
-        {
+        foreach (var window in _application.GetWindows())
             Windows.Add(new WindowItem(window, Observable.Empty<bool>()));
-        }
-    }
-
-    public string ApplicationName
-    {
-        get { return (string)GetValue(ApplicationNameProperty); }
-        set
-        {
-            SetValue(ApplicationNameProperty, value);
-        }
-    }
-
-    public static DependencyProperty WindowsProperty = DependencyProperty.Register(
-        "Windows",
-        typeof(ObservableCollection<WindowItem>),
-        typeof(DockWindowViewModel),
-        new PropertyMetadata(new ObservableCollection<WindowItem>()));
-    
-    private readonly System.Timers.Timer _timer;
-
-    public ObservableCollection<WindowItem> Windows
-    {
-        get { return (ObservableCollection<WindowItem>)GetValue(WindowsProperty); }
-        set
-        {
-            SetValue(WindowsProperty, value);
-        }
     }
 
     public WindowRef[] GetMaximizedWindows()
