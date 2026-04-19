@@ -142,15 +142,13 @@ public partial class MediaSessionService(
         return _mediaSessionRepository.ActiveMediaSessionChanges
             .Select(smtcSession =>
             {
-                if(smtcSession == null)
-                {
+                if (smtcSession == null)
                     return Observable.Empty<AggregateSession>();
-                }
                 return MasterSessions
                     .Watch(smtcSession.SourceAppUserModelId)
-                    .Select(change => change.Current);
+                    .Select(change => change.Current)
+                    .DistinctUntilChanged(session => session.Key);
             })
-            .Switch()
-            .DistinctUntilChanged(session => session.Key);
+            .Switch();
     }
 }
