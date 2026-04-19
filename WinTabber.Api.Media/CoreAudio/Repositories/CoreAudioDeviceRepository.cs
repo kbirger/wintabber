@@ -19,12 +19,14 @@ public partial class CoreAudioDeviceRepository : IDisposable
     private readonly MMDeviceEnumerator _enumerator;
     private readonly CoreAudioDevicesMonitor _monitor;
     private readonly PolicyConfigClient _policyClient;
+    private readonly IScheduler _scheduler;
 
-    public CoreAudioDeviceRepository()
+    public CoreAudioDeviceRepository(IScheduler scheduler)
     {
+        _scheduler = scheduler;
         _enumerator = new MMDeviceEnumerator();
         _policyClient = new PolicyConfigClient();
-        _monitor = new CoreAudioDevicesMonitor(_enumerator, Scheduler);
+        _monitor = new CoreAudioDevicesMonitor(_enumerator, _scheduler);
     }
 
     public void Dispose()
@@ -42,7 +44,7 @@ public partial class CoreAudioDeviceRepository : IDisposable
     //    return _enumerator.EnumerateAudioEndPoints(DataFlow.All, DeviceState.Active);
     //}
 
-    public EventLoopScheduler Scheduler => STAScheduler.Default;
+    public IScheduler Scheduler => _scheduler;
 
     public IObservableCache<DefaultDeviceChange, DefaultDeviceKey> GetDefaultDevices()
     {

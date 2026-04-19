@@ -75,7 +75,14 @@ public class CoreAudioSessionRepository : IDisposable
         return changes;
     }
 
-    public IScheduler Scheduler => STAScheduler.Default;
+    public IScheduler Scheduler => _scheduler;
+
+    private readonly IScheduler _scheduler;
+
+    public CoreAudioSessionRepository(IScheduler scheduler)
+    {
+        _scheduler = scheduler;
+    }
 
     private static IEnumerable<AudioSessionControl> GetNativeSessions(AudioSessionManager manager)
     {
