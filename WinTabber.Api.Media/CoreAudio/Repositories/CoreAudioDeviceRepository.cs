@@ -16,16 +16,14 @@ namespace WinTabber.Api.Media.Repositories;
 
 public partial class CoreAudioDeviceRepository : IDisposable
 {
-    private readonly MMDeviceEnumerator _enumerator;
+    private readonly IMMDeviceEnumeratorWrapper _enumerator;
     private readonly CoreAudioDevicesMonitor _monitor;
-    private readonly PolicyConfigClient _policyClient;
     private readonly IScheduler _scheduler;
 
-    public CoreAudioDeviceRepository(IScheduler scheduler)
+    public CoreAudioDeviceRepository(IScheduler scheduler, IMMDeviceEnumeratorWrapper enumerator)
     {
         _scheduler = scheduler;
-        _enumerator = new MMDeviceEnumerator();
-        _policyClient = new PolicyConfigClient();
+        _enumerator = enumerator;
         _monitor = new CoreAudioDevicesMonitor(_enumerator, _scheduler);
     }
 
@@ -251,9 +249,9 @@ public partial class CoreAudioDeviceRepository : IDisposable
     }
 
     [Lazy(IsPrivate = true)]
-    private IObservable<PolicyConfigClient> GetPolicyConfigClient()
+    private IObservable<IPolicyConfigClientWrapper> GetPolicyConfigClient()
     {
-        return Observable.Start(() => new PolicyConfigClient(), Scheduler)
+        return Observable.Start<IPolicyConfigClientWrapper>(() => new PolicyConfigClient(), Scheduler)
             .ObserveOn(Scheduler);
     }
 

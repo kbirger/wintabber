@@ -4,6 +4,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
+using WinTabber.Api.Media.CoreAudio;
 using WinTabber.Api.Media.CoreAudio.Models;
 
 namespace WinTabber.Api.Media.CoreAudio.Repositories;
@@ -19,7 +20,7 @@ public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
     private Subject<string> _deviceRemovals = new();
     private Subject<DefaultDeviceChange> _defaultDeviceChanges = new();
     private Subject<(string DeviceId, NAudio.CoreAudioApi.PropertyKey Key)> _devicePropertyChanges = new();
-    private readonly MMDeviceEnumerator _enumerator;
+    private readonly IMMDeviceEnumeratorWrapper _enumerator;
     private readonly IScheduler _scheduler;
 
     public IObservable<(string DeviceId, DeviceState NewState)> DeviceStateChanges =>
@@ -32,7 +33,7 @@ public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
     public IObservable<(string DeviceId, NAudio.CoreAudioApi.PropertyKey Key)> DevicePropertyChanges =>
         _devicePropertyChanges.ObserveOn(_scheduler);
 
-    public CoreAudioDevicesMonitor(MMDeviceEnumerator enumerator, IScheduler scheduler)
+    public CoreAudioDevicesMonitor(IMMDeviceEnumeratorWrapper enumerator, IScheduler scheduler)
     {
         enumerator.RegisterEndpointNotificationCallback(this);
         _enumerator = enumerator;

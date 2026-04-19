@@ -2,6 +2,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using System.Reactive.Concurrency;
 using System.Windows;
+using WinTabber.Api.Media.CoreAudio;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Api.Media.CoreAudio.Services;
 using WinTabber.Api.Media.Repositories;
@@ -75,8 +76,11 @@ public static class Bootstrapper
             .AddSingleton<WindowManager>()
             //.AddSingleton<IAudioDeviceManager, AudioDeviceManager>()
             .AddSingleton<AppCache>()
+            .AddSingleton<IMMDeviceEnumeratorWrapper, MMDeviceEnumeratorWrapper>()
             .AddSingleton<CoreAudioDeviceRepository>(sp =>
-                new CoreAudioDeviceRepository(sp.GetRequiredKeyedService<IScheduler>(STAScheduler.Key)))
+                new CoreAudioDeviceRepository(
+                    sp.GetRequiredKeyedService<IScheduler>(STAScheduler.Key),
+                    sp.GetRequiredService<IMMDeviceEnumeratorWrapper>()))
             .AddSingleton<CoreAudioSessionRepository>(sp =>
                 new CoreAudioSessionRepository(sp.GetRequiredKeyedService<IScheduler>(STAScheduler.Key)))
             .AddSingleton<SMTCSessionRepository>()
