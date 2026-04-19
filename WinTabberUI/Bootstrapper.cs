@@ -1,5 +1,6 @@
 ﻿using CommunityToolkit.Mvvm.DependencyInjection;
 using Microsoft.Extensions.DependencyInjection;
+using System.Reactive.Concurrency;
 using System.Windows;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Api.Media.CoreAudio.Services;
@@ -66,6 +67,7 @@ public static class Bootstrapper
     private static IServiceCollection AddDomainModels(this IServiceCollection services)
     {
         return services
+            .AddKeyedSingleton<IScheduler>(STAScheduler.Key, (_, _) => STAScheduler.Create())
             .AddSingleton<InputListenerService>()
             .AddSingleton<WinTabberEventManager>()
             .AddSingleton<ApplicationState>()
@@ -73,8 +75,10 @@ public static class Bootstrapper
             .AddSingleton<WindowManager>()
             //.AddSingleton<IAudioDeviceManager, AudioDeviceManager>()
             .AddSingleton<AppCache>()
-            .AddSingleton<CoreAudioDeviceRepository>()
-            .AddSingleton<CoreAudioSessionRepository>()
+            .AddSingleton<CoreAudioDeviceRepository>(sp =>
+                new CoreAudioDeviceRepository(sp.GetRequiredKeyedService<IScheduler>(STAScheduler.Key)))
+            .AddSingleton<CoreAudioSessionRepository>(sp =>
+                new CoreAudioSessionRepository(sp.GetRequiredKeyedService<IScheduler>(STAScheduler.Key)))
             .AddSingleton<SMTCSessionRepository>()
             .AddSingleton<MediaSessionService>()
             .AddSingleton<AudioSessionService>()

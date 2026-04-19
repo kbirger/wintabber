@@ -1,18 +1,13 @@
-﻿using System.Diagnostics;
+using System.Diagnostics;
 using System.Reactive.Concurrency;
 
 namespace WinTabber.Api.Media.CoreAudio.Repositories;
 
 public static class STAScheduler
 {
-    private static readonly EventLoopScheduler _instance;
+    public const string Key = "STAScheduler";
 
-    static STAScheduler()
-    {
-        _instance = GetScheduler();
-    }
-
-    private static EventLoopScheduler GetScheduler()
+    public static EventLoopScheduler Create()
     {
         return new EventLoopScheduler(ts =>
         {
@@ -23,7 +18,4 @@ public static class STAScheduler
             return thread;
         });
     }
-
-
-    public static EventLoopScheduler Default => _instance;
 }

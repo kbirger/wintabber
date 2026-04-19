@@ -1,6 +1,8 @@
 ﻿using DynamicData;
 using DynamicData.Kernel;
+using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics.CodeAnalysis;
+using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using Windows.Media.Control;
 using WinTabber.Api.Media.CoreAudio.Models;
@@ -19,7 +21,8 @@ public partial class MediaSessionService(
     CoreAudioDeviceRepository coreAudioDeviceRepository,
     AudioSessionService audioSessionService,
     SMTCSessionRepository mediaSessionRepository,
-    InstalledApplicationRepository installedApplicationRepository
+    InstalledApplicationRepository installedApplicationRepository,
+    [FromKeyedServices(STAScheduler.Key)] IScheduler staScheduler
 )
 {
     // todo: implement updates
@@ -120,7 +123,7 @@ public partial class MediaSessionService(
         var nativeSessionsWithApps = GetNativeSessionsWithApps();
         var nativeAppChanges = nativeSessionsWithApps.Connect();
         return GetSMTCSessionsByAumid()
-            .ObserveOn(STAScheduler.Default) // ?
+            .ObserveOn(staScheduler)
             .LeftJoin(
                 nativeAppChanges,
                 session => session.App!.AppUserModelId,
