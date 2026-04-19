@@ -131,7 +131,12 @@ internal interface IPolicyConfig10
     int SetEndpointVisibility(string pszDeviceName, bool bVisible);
 }
 
-public class PolicyConfigClient
+public interface IPolicyConfigClientWrapper
+{
+    void SetDefaultEndpoint(string devID, Role eRole);
+}
+
+public class PolicyConfigClient : IPolicyConfigClientWrapper
 {
     private readonly IPolicyConfig _PolicyConfig;
     private readonly IPolicyConfigVista _PolicyConfigVista;
