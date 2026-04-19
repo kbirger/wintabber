@@ -1,68 +1,69 @@
-﻿using DynamicData;
+using DynamicData;
 using ReactiveUI;
 using System.Diagnostics;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
-using System.Windows;
 using System.Windows.Forms;
 using WinTabber.API;
 using WinTabber.Events;
 
 namespace WinTabberUI.ViewModels;
 
-public partial class WindowSelectorViewModel : DependencyObject, IDisposable, IActivatableViewModel
+public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IActivatableViewModel
 {
+    private WindowItem[] _windowItems = [];
+    private WindowItem? _selectedItem;
+    private int _selectedIndex = -1;
+
     public WindowSelectorViewModel(ApplicationStateViewModel applicationState, WinTabberEventManager eventManager, WindowManager windowManager)
     {
         _applicationState = applicationState ?? throw new ArgumentNullException(nameof(applicationState));
         WindowManager = windowManager ?? throw new ArgumentNullException(nameof(windowManager));
         _eventManager = eventManager;
 
-        //IsEditing = this.WhenAny(vm => vm.SelectedItem!.IsEditing, (x) => x.Value);
         IsEditing = this.WhenAnyValue(vm => vm.WindowItems)
             .Select(items =>
             {
                 if (items == null || items.Length == 0)
                     return Observable.Return(false);
 
-                // Combine all item IsEditing streams into one that emits true if any are true
                 return items
                     .Select(item => item.WhenAnyValue(x => x.IsEditing).StartWith(false))
                     .CombineLatest()
                     .Select(states => states.Any(x => x));
             })
-            .Switch() // switch to the latest combined stream when items list changes
+            .Switch()
             .DistinctUntilChanged();
 
-
+        var scheduler = RxApp.MainThreadScheduler;
 
         var appChanges = _applicationState.ActiveApplicationChanges
             .Where(app => app is null)
-            .ObserveOnDispatcher()
+            .ObserveOn(scheduler)
             .Subscribe(Clear);
 
         var winChanges = _applicationState.ActiveWindowChanges
             .Where(window => window is not null)
             .Select(window => window!.Process.Application.GetWindows())
-            .ObserveOnDispatcher()
+            .ObserveOn(scheduler)
             .Subscribe(Update);
 
         var nextEvents = eventManager.CommandEvents
             .Where(evt => evt.Type == EventType.CmdNextWindow)
-            .ObserveOnDispatcher()
+            .ObserveOn(scheduler)
             .Subscribe(_ => SelectNext());
 
         var prevEvents = eventManager.CommandEvents
             .Where(evt => evt.Type == EventType.CmdPreviousWindow)
-            .ObserveOnDispatcher()
+            .ObserveOn(scheduler)
             .Subscribe(_ => SelectPrevious());
 
         var selectEvents = eventManager.CommandEvents
             .Where(evt => evt.Type == EventType.CmdAppHide)
             .WithLatestFrom(IsSwitcherActiveChanges)
             .Where(state => state.Second)
-            .ObserveOnDispatcher()
+            .ObserveOn(scheduler)
             .Subscribe(_ => SelectAndClose());
 
         _cleanUp = new CompositeDisposable(
@@ -102,29 +103,54 @@ public partial class WindowSelectorViewModel : DependencyObject, IDisposable, IA
             .DistinctUntilChanged()
             .Replay(1)
             .RefCount()
-            .ObserveOnDispatcher();
+            .ObserveOn(RxApp.MainThreadScheduler);
     }
 
     public IObservable<bool> IsEditing { get; }
+
+    public WindowItem[] WindowItems
+    {
+        get => _windowItems;
+        private set
+        {
+            new CompositeDisposable(_windowItems).Dispose();
+            this.RaiseAndSetIfChanged(ref _windowItems, value);
+        }
+    }
+
+    public WindowItem? SelectedItem
+    {
+        get => _selectedItem;
+        set
+        {
+            if (value == _selectedItem) return;
+            this.RaiseAndSetIfChanged(ref _selectedItem, value);
+            _selectedIndex = _windowItems.IndexOf(value);
+            this.RaisePropertyChanged(nameof(SelectedIndex));
+        }
+    }
+
+    public int SelectedIndex
+    {
+        get => _selectedIndex;
+        set
+        {
+            if (value == _selectedIndex) return;
+            this.RaiseAndSetIfChanged(ref _selectedIndex, value);
+            _selectedItem = _windowItems.ElementAtOrDefault(value);
+            this.RaisePropertyChanged(nameof(SelectedItem));
+        }
+    }
+
     private void SelectPrevious()
     {
         var index = SelectedIndex - 1;
-        if (index < 0)
-        {
-            SelectedIndex = WindowItems.Length - 1;
-        }
-        else
-        {
-            SelectedIndex = index;
-        }
+        SelectedIndex = index < 0 ? WindowItems.Length - 1 : index;
     }
 
     private void SelectNext()
     {
-        if(WindowItems.Length == 0)
-        {
-            return;
-        }
+        if (WindowItems.Length == 0) return;
         SelectedIndex = (SelectedIndex + 1) % WindowItems.Length;
     }
 
@@ -153,90 +179,20 @@ public partial class WindowSelectorViewModel : DependencyObject, IDisposable, IA
         Deactivate();
     }
 
-    private List<WindowRef> GetWindows(ApplicationRef? application)
-    {
-        return application!.GetWindows().ToList();
-    }
     public void Update(IEnumerable<WindowRef> windows)
     {
-        //var currentApplication = _applicationState.ActiveApplication;
-
-        //if (currentApplication is null)
-        //{
-        //    WindowItems.Clear();
-        //    return;
-        //}
-        //var windows = currentApplication.GetWindows2().ToList();
         SelectedIndex = -1;
-        // SelectedItem = null;
-        //WindowItems.Clear();
         WindowItems = windows
             .Select(w => new WindowItem(w, IsEditing.Select(x => !x)))
             .ToArray()
             ?? Array.Empty<WindowItem>();
-
-        // if (windows.Count > 0)
-        // {
-        //     SelectedIndex = 0;
-        // }
     }
 
     internal void Deactivate()
     {
         WindowItems = [];
-        // SelectedItem = null;
         SelectedIndex = -1;
     }
-
-    public WindowItem[] WindowItems
-    {
-        get
-        {
-            return (WindowItem[])GetValue(WindowItemsProperty);
-        }
-
-        private set
-        {
-            new CompositeDisposable(WindowItems).Dispose();
-            SetValue(WindowItemsProperty, value);
-        }
-    }
-
-
-
-    public static readonly DependencyProperty SelectedItemProperty = DependencyProperty.Register(
-        "SelectedItem",
-        typeof(WindowItem),
-        typeof(WindowSelectorViewModel),
-        new PropertyMetadata(null, OnSelectedItemChanged));
-
-    private static void OnSelectedItemChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    {
-        if(e.OldValue != e.NewValue && d is WindowSelectorViewModel vm)
-        {
-            vm.SelectedIndex = vm.WindowItems.IndexOf(vm.SelectedItem);
-        }
-    }
-
-    public static readonly DependencyProperty SelectedIndexProperty = DependencyProperty.Register(
-        "SelectedIndex",
-        typeof(int),
-        typeof(WindowSelectorViewModel),
-        new PropertyMetadata(-1, OnSelectedIndexChanged));
-
-    private static void OnSelectedIndexChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
-    {
-        if(e.OldValue != e.NewValue && d is WindowSelectorViewModel vm)
-        {
-            vm.SelectedItem = vm.WindowItems.ElementAtOrDefault(vm.SelectedIndex);
-        }
-    }
-
-    public static readonly DependencyProperty WindowItemsProperty = DependencyProperty.Register(
-        "WindowItems",
-        typeof(WindowItem[]),
-        typeof(WindowSelectorViewModel),
-        new PropertyMetadata(Array.Empty<WindowItem>()));
 
     private readonly ApplicationStateViewModel _applicationState;
     private readonly CompositeDisposable _cleanUp;
@@ -254,29 +210,6 @@ public partial class WindowSelectorViewModel : DependencyObject, IDisposable, IA
     public void Dispose()
     {
         _cleanUp.Dispose();
-    }
-
-    public WindowItem? SelectedItem
-    {
-        get { return (WindowItem)GetValue(SelectedItemProperty); }
-        set
-        {
-            if (value != SelectedItem)
-            {
-                SetValue(SelectedItemProperty, value);
-            }
-        }
-    }
-    public int SelectedIndex
-    {
-        get { return (int)GetValue(SelectedIndexProperty); }
-        set
-        {
-            if (value != SelectedIndex)
-            {
-                SetValue(SelectedIndexProperty, value);
-            }
-        }
     }
 
     public ViewModelActivator Activator { get; } = new ViewModelActivator();
