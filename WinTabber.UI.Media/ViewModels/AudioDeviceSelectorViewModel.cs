@@ -54,7 +54,7 @@ namespace WinTabber.UI.Media.ViewModels
         {
             _deviceService = deviceService;
             var devices = deviceService.Devices.Connect().Filter(device => device.DataFlow == flow);
-            devices.ObserveOnDispatcher().Bind(out _devices).Subscribe();
+            devices.ObserveOn(RxApp.MainThreadScheduler).Bind(out _devices).Subscribe();
 
             deviceService
                 .GetDefaultDevice(flow)
