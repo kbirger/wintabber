@@ -1,6 +1,7 @@
 ﻿using ReactiveUI;
 using System.Reactive;
 using System.Windows;
+using WinTabber.API.Suspension;
 using WinTabber.Events;
 
 namespace WinTabberUI.ViewModels;
@@ -12,7 +13,7 @@ namespace WinTabberUI.ViewModels;
 /// </summary>
 public partial class NotifyIconViewModel : ReactiveObject
 {
-    public NotifyIconViewModel(WinTabberEventManager eventManager)
+    public NotifyIconViewModel(WinTabberEventManager eventManager, IProcessSuspensionService suspensionService)
     {
         ExitApplicationCommand = ReactiveCommand.Create(ExitApplication);
         ShowSettingsCommand = ReactiveCommand.Create(ShowSettings(eventManager));
@@ -37,6 +38,12 @@ public partial class NotifyIconViewModel : ReactiveObject
         });
         _areHooksActive = eventManager.WhenAnyValue(em => em.IsRunning)
             .ToProperty(this, vm => vm.AreHooksActive);
+
+        // Escape hatch: recovery of frozen processes should never depend on the switcher /
+        // suspended-windows bar being reachable.
+        ResumeAllSuspendedCommand = ReactiveCommand.Create(
+            suspensionService.ResumeAll,
+            suspensionService.HasSuspendedChanges);
     }
 
     private ObservableAsPropertyHelper<bool> _areHooksActive;
@@ -46,6 +53,7 @@ public partial class NotifyIconViewModel : ReactiveObject
     public ReactiveCommand<Unit, Unit> ShowWindowCommand { get; }
     public ReactiveCommand<Unit, Unit> PauseHooksCommand { get; }
     public ReactiveCommand<Unit, Unit> SysColorsCommand { get; }
+    public ReactiveCommand<Unit, Unit> ResumeAllSuspendedCommand { get; }
 
     public Action ShowSettings(WinTabberEventManager eventManager)
     {

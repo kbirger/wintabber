@@ -44,6 +44,8 @@
                      IsReadOnly="{Binding IsEditing, Converter={StaticResource InverseBoolConverter}}"
                      Cursor="Arrow"
                      VerticalAlignment="Center"
+                     VerticalContentAlignment="Center"
+                     MinHeight="0"
                      Padding="2"
                      ui:TextBoxHelper.IsDeleteButtonVisible="False"
                      GotFocus="TextBox_GotFocus">
@@ -54,8 +56,17 @@
             </TextBox>
 
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
-                <Button 
-                    x:Name="AcceptButton" 
+                <Button
+                    x:Name="SuspendButton"
+                    Style="{StaticResource InlineButton}"
+                    Command="{Binding SuspendCommand}"
+                    ToolTip="Sleep this process"
+                    Visibility="{Binding Path=IsEditing, Converter={StaticResource InverseBoolToVisibilityConverter}}"
+                    >
+                    <fa:IconBlock Icon="Moon"/>
+                </Button>
+                <Button
+                    x:Name="AcceptButton"
                     Style="{StaticResource InlineButton}" 
                     Command="{Binding SaveTitleCommand}"
                     CommandParameter="{Binding Title}"

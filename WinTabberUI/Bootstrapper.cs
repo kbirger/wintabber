@@ -9,6 +9,7 @@ using WinTabber.Api.Media.Repositories;
 using WinTabber.Api.Media.ShellApplications.Repositories;
 using WinTabber.Api.Media.SMTC.Repositories;
 using WinTabber.API;
+using WinTabber.API.Suspension;
 using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabber.UI.Media.Services;
@@ -38,7 +39,6 @@ public static class Bootstrapper
     private static ServiceProvider ConfigureServices(Application application)
     {
         var serviceProvider = new ServiceCollection()
-
             .RegisterApplication(application)
             .AddFactories()
             .AddCoordinators()
@@ -76,6 +76,10 @@ public static class Bootstrapper
             .AddSingleton<IProcessRepository, ProcessRepository>()
             .AddSingleton<WindowManager>()
             //.AddSingleton<IAudioDeviceManager, AudioDeviceManager>()
+            .AddSingleton<ISuspensionStrategy, NtProcessSuspensionStrategy>()
+            .AddSingleton<ISuspensionStrategy, ThreadSuspensionStrategy>()
+            .AddSingleton<ISuspendedWindowStore>(_ => new SuspendedWindowFileStore(Paths.SuspensionDirectory))
+            .AddSingleton<IProcessSuspensionService, ProcessSuspensionService>()
             .AddSingleton<AppCache>()
             .AddSingleton<IMMDeviceEnumeratorWrapper, MMDeviceEnumeratorWrapper>()
             .AddSingleton<CoreAudioDeviceRepository>(sp =>
@@ -104,7 +108,8 @@ public static class Bootstrapper
             .AddSingleton<SettingsWindowViewCoordinator>()
             .AddSingleton<MediaWindowViewCoordinator>()
             .AddSingleton<WindowCommandCoordinator>()
-            .AddSingleton<NotifyIconCoordinator>();
+            .AddSingleton<NotifyIconCoordinator>()
+            .AddSingleton<SuspendedWindowsViewCoordinator>();
 
     }
 
@@ -129,7 +134,8 @@ public static class Bootstrapper
             .AddSingleton<MediaControlsViewModel>()
             .AddTransient<WindowRenameViewModel>()
             .AddSingleton<SettingsViewModel>()
-            .AddSingleton<NotifyIconViewModel>();
+            .AddSingleton<NotifyIconViewModel>()
+            .AddSingleton<SuspendedWindowsViewModel>();
     }
     private static IServiceCollection AddViews(this IServiceCollection services)
     {
@@ -143,6 +149,7 @@ public static class Bootstrapper
             .AddTransient<DockWindow>()
             .AddTransient<SettingsWindow>()
             .AddTransient<MediaControlsWindow>()
+            .AddTransient<SuspendedWindowsWindow>()
             .AddSingleton<WindowSelectorWindowFactory>()
             .AddSingleton(sp => sp.GetRequiredService<WindowSelectorWindowFactory>().CreateWindowSelectorWindow());
     }

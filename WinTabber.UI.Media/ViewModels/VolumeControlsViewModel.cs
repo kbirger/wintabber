@@ -25,7 +25,8 @@ public class VolumeControlsViewModel : ReactiveObject, IDisposable
         MuteHintText = muteHintText;
         _volumeDtos = volumeDto;
         var scheduler = RxSchedulers.MainThreadScheduler;
-
+        Disposable.Create(() => Debug.WriteLine("VolumeControlsViewModel disposed"))
+            .DisposeWith(_disposable);
         var canSetVolume = CanSetVolumeImpl()
             .Log(x => $"can set volume? {x}");
         var canSetMuted = CanSetMutedImpl();

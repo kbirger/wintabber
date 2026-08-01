@@ -49,6 +49,17 @@
         <local:SpatialNavigationListView.ItemTemplate>
             <DataTemplate>
                 <Grid Margin="0" Background="Transparent" IsHitTestVisible="True" MouseUp="Grid_MouseUp">
+                    <!-- Dim the whole tile, not just the title strip: a suspended window is hidden,
+                         so its thumbnail renders blank and would otherwise just look broken. -->
+                    <Grid.Style>
+                        <Style TargetType="Grid">
+                            <Style.Triggers>
+                                <DataTrigger Binding="{Binding IsSuspended}" Value="True">
+                                    <Setter Property="Opacity" Value="0.4"/>
+                                </DataTrigger>
+                            </Style.Triggers>
+                        </Style>
+                    </Grid.Style>
                     <Grid.RowDefinitions>
                         <RowDefinition Height="auto"/>
                         <RowDefinition Height="*"/>

@@ -1,12 +1,12 @@
-﻿using ReactiveUI;
-using ReactiveUI.SourceGenerators;
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.IO;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
+using ReactiveUI;
+using ReactiveUI.SourceGenerators;
 using Windows.Storage.Streams;
 using WinTabber.Api.Media.CoreAudio.Dtos;
 using WinTabber.Api.Media.CoreAudio.Services;
@@ -23,7 +23,6 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
     private readonly ObservableAsPropertyHelper<string> _title;
     private readonly ObservableAsPropertyHelper<ImageSource?> _thumbnail;
 
-
     private readonly AudioSessionService _sessionService;
     private readonly AudioDeviceService _deviceService;
 
@@ -31,26 +30,41 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
 
     private readonly CompositeDisposable _disposable = new CompositeDisposable();
 
-    [Reactive] public partial AggregateSession? Session { get; set; }
-    public MediaSessionViewModel(
-        AudioSessionService audioSessionService,
-        AudioDeviceService audioDeviceService
-    )
+    //[Reactive] public partial AggregateSession? Session { get; set; }
+    public AggregateSession? Session
+    {
+        get => field;
+        set
+        {
+            Debug.WriteLine("Session set");
+            if (field != value)
+            {
+                field = value;
+                this.RaiseAndSetIfChanged(ref field, value);
+            }
+        }
+    }
+
+    public MediaSessionViewModel(AudioSessionService audioSessionService, AudioDeviceService audioDeviceService)
     {
         _sessionService = audioSessionService;
         _deviceService = audioDeviceService;
 
-        SessionChanged = this.WhenAnyValue(vm => vm.Session);
+        SessionChanged = this.WhenAnyValue(vm => vm.Session)
+            .Log(x => $"Session changed before distinct: {x?.Key} - {x?.NativeSession != null}")
+            .Replay()
+            .RefCount();
 
         var scheduler = RxSchedulers.MainThreadScheduler;
         //var hasNativeSession = session.NativeSession is not null;
         //var smtcSession = session.MediaSession;
-        var deviceSession = SessionChanged.Select(session =>  new ObservableSessionDto(session?.NativeSession));
+        var deviceSession = SessionChanged.Select(session => new ObservableSessionDto(session?.NativeSession));
         // todo: this is incorrect. need device
         var device = SessionChanged.Select(session => audioDeviceService.WatchDevice(session?.NativeSession?.Device));
 
-
-        var monitors = SessionChanged.Select(session => session is null ? null : new SMTCSessionMonitor(session.MediaSession));
+        var monitors = SessionChanged.Select(session =>
+            session is null ? null : new SMTCSessionMonitor(session.MediaSession)
+        );
         _artistName = monitors
             .Select(monitor => monitor?.ArtistNameChanges)
             .OrDefault("")
@@ -70,7 +84,8 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
             .Select(monitor => monitor?.TitleChanges)
             .OrDefault("")
             .Switch()
-            .ToProperty(this, vm => vm.Title, initialValue: "").DisposeWith(_disposable);
+            .ToProperty(this, vm => vm.Title, initialValue: "")
+            .DisposeWith(_disposable);
 
         _thumbnail = monitors
             .Select(monitor => monitor?.ThumbnailChanges)
@@ -87,38 +102,23 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
             })
             .DisposeWith(_disposable);
 
-
-
         Playback = new PlaybackControlsViewModel(scheduler);
         monitors.Subscribe(monitor =>
         {
             Playback.Session = monitor;
-
         });
 
-        DeviceVolumeControls = new VolumeControlsViewModel(
-            device,
-            volumeHintText: "DV",
-            muteHintText: "DM"
-        );
+        DeviceVolumeControls = new VolumeControlsViewModel(device, volumeHintText: "DV", muteHintText: "DM");
 
-        SessionVolumeControls = new VolumeControlsViewModel(
-            deviceSession,
-            volumeHintText: "PM",
-            muteHintText: "PM"
-        );
+        SessionVolumeControls = new VolumeControlsViewModel(deviceSession, volumeHintText: "PM", muteHintText: "PM");
 
         Observable
-            .Merge(
-                SessionVolumeControls.ThrownExceptions,
-                DeviceVolumeControls.ThrownExceptions
-            )
+            .Merge(SessionVolumeControls.ThrownExceptions, DeviceVolumeControls.ThrownExceptions)
             .Subscribe(ex =>
             {
                 Debug.WriteLine("Error processing media keys");
                 Debug.WriteLine(ex);
             });
-        
     }
 
     public VolumeControlsViewModel DeviceVolumeControls { get; }
@@ -130,7 +130,6 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
     public string AlbumTitle => _albumTitle.Value;
     public string Title => _title.Value;
     public ImageSource? Thumbnail => _thumbnail?.Value;
-
 
     public static async Task<ImageSource?> GetCurrentMediaAlbumArt(IRandomAccessStreamReference? imageStream)
     {
@@ -161,8 +160,6 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
 
         return null;
     }
-
- 
 
     public void Dispose()
     {

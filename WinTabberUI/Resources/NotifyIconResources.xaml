@@ -26,6 +26,7 @@
             Header="Show theme colors"
             Command="{Binding SysColorsCommand}"
         />
+        <MenuItem Header="Resume all suspended" Command="{Binding ResumeAllSuspendedCommand}" />
         <MenuItem Header="Exit" Command="{Binding ExitApplicationCommand}" />
     </ContextMenu>
 </ResourceDictionary>

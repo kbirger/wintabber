@@ -9,4 +9,7 @@ public static class Paths
 
     public static readonly string SettingsFilePath = Path.Combine(SettingsDirectory, "settings.json");
 
+    /// <summary>Holds suspended_state.json, which survives a crash so frozen processes stay recoverable.</summary>
+    public static readonly string SuspensionDirectory = Path.Combine(RoamingDataPath, "Suspension");
+
 }

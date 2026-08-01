@@ -11,6 +11,7 @@
     <File Path="global.json" />
   </Folder>
   <Project Path="WinTabber.Api.Media/WinTabber.Api.Media.csproj" />
+  <Project Path="WinTabber.Api.Tests/WinTabber.Api.Tests.csproj" />
   <Project Path="WinTabber.API/WinTabber.API.csproj" />
   <Project Path="WinTabber.Common.Util/WinTabber.Common.Util.csproj" />
   <Project Path="WinTabber.Events/WinTabber.Events.csproj" />

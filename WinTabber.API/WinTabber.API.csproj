@@ -8,6 +8,8 @@
 
 	<ItemGroup>
 		<PackageReference Include="System.Runtime.Caching" />
+		<PackageReference Include="DynamicData" />
+		<PackageReference Include="System.Reactive" />
 	</ItemGroup>
 
 	<ItemGroup>

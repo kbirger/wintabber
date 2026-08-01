@@ -40,4 +40,34 @@ public interface IInteropProxy
     bool IsWindowVisible(int handle);
     bool IsProcessElevated(Process process);
     void SendInput(ushort key, bool down);
+
+    /// <summary>Suspends all threads of the process atomically (NtSuspendProcess).</summary>
+    void SuspendProcess(int pid);
+
+    /// <summary>Resumes all threads of the process atomically (NtResumeProcess).</summary>
+    void ResumeProcess(int pid);
+
+    /// <summary>Suspends each thread of the process individually, as PsSuspend does.</summary>
+    void SuspendProcessThreads(int pid);
+
+    /// <summary>Resumes each thread of the process individually, as PsSuspend does.</summary>
+    void ResumeProcessThreads(int pid);
+
+    /// <summary>Hides a window (ShowWindow SW_HIDE). No-op if the handle is not a window.</summary>
+    void HideWindow(int handle);
+
+    /// <summary>Restores and foregrounds a window (ShowWindow SW_RESTORE + SetForegroundWindow). No-op if the handle is not a window.</summary>
+    void RestoreWindow(int handle);
+
+    /// <summary>Full executable path of the process. Throws InvalidOperationException if it cannot be determined.</summary>
+    string GetProcessImagePath(int pid);
+
+    /// <summary>Best-effort enabling of SeDebugPrivilege for the current process. Call once at startup.</summary>
+    void EnableDebugPrivilege();
+
+    /// <summary>
+    /// Sets WS_EX_NOACTIVATE | WS_EX_TOOLWINDOW on the window's extended style so it can never take
+    /// focus/activation, even from a mouse click. Clicks still reach its child controls.
+    /// </summary>
+    void MakeWindowNonActivating(nint handle);
 }

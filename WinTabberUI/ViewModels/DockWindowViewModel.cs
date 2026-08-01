@@ -2,6 +2,7 @@ using System.Collections.ObjectModel;
 using System.Reactive.Linq;
 using ReactiveUI;
 using WinTabber.API;
+using WinTabber.API.Suspension;
 using WinTabber.Interop;
 
 namespace WinTabberUI.ViewModels;
@@ -9,12 +10,14 @@ namespace WinTabberUI.ViewModels;
 public class DockWindowViewModel : ReactiveObject
 {
     private WindowManager _windowManager;
+    private readonly IProcessSuspensionService _suspensionService;
     private ApplicationRef? _application;
     private string? _applicationName;
 
-    public DockWindowViewModel(WindowManager windowManager)
+    public DockWindowViewModel(WindowManager windowManager, IProcessSuspensionService suspensionService)
     {
         _windowManager = windowManager;
+        _suspensionService = suspensionService;
     }
 
     public string? ApplicationName
@@ -42,7 +45,7 @@ public class DockWindowViewModel : ReactiveObject
             return;
         Windows.Clear();
         foreach (var window in _application.GetWindows())
-            Windows.Add(new WindowItem(window, Observable.Empty<bool>()));
+            Windows.Add(new WindowItem(window, Observable.Empty<bool>(), _suspensionService));
     }
 
     public WindowRef[] GetMaximizedWindows()

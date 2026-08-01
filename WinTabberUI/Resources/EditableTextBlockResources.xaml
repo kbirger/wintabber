@@ -5,6 +5,7 @@
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
     <!-- Button style (simple, small) -->
     <conv:BoolToBrushConverter x:Key="BorderBrushConverter" conv:BoolToBrushConverter.EditBrush="#ff666666" conv:BoolToBrushConverter.ViewBrush="Transparent"/>
+    <conv:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter"/>
     <Style x:Key="InlineButton" TargetType="Button">
         <Setter Property="Background" Value="Transparent"/>
         <Setter Property="Foreground" Value="White"/>
