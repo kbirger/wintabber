@@ -6,6 +6,7 @@ using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Windows.Forms;
 using WinTabber.API;
+using WinTabber.API.Suspension;
 using WinTabber.Events;
 
 namespace WinTabberUI.ViewModels;
@@ -16,11 +17,16 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
     private WindowItem? _selectedItem;
     private int _selectedIndex = -1;
 
-    public WindowSelectorViewModel(ApplicationStateViewModel applicationState, WinTabberEventManager eventManager, WindowManager windowManager)
+    public WindowSelectorViewModel(
+        ApplicationStateViewModel applicationState,
+        WinTabberEventManager eventManager,
+        WindowManager windowManager,
+        IProcessSuspensionService suspensionService)
     {
         _applicationState = applicationState ?? throw new ArgumentNullException(nameof(applicationState));
         WindowManager = windowManager ?? throw new ArgumentNullException(nameof(windowManager));
         _eventManager = eventManager;
+        _suspensionService = suspensionService ?? throw new ArgumentNullException(nameof(suspensionService));
 
         IsEditing = this.WhenAnyValue(vm => vm.WindowItems)
             .Select(items =>
@@ -183,7 +189,7 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
     {
         SelectedIndex = -1;
         WindowItems = windows
-            .Select(w => new WindowItem(w, IsEditing.Select(x => !x)))
+            .Select(w => new WindowItem(w, IsEditing.Select(x => !x), _suspensionService))
             .ToArray()
             ?? Array.Empty<WindowItem>();
     }
@@ -195,6 +201,7 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
     }
 
     private readonly ApplicationStateViewModel _applicationState;
+    private readonly IProcessSuspensionService _suspensionService;
     private readonly CompositeDisposable _cleanUp;
 
     public void PreviewSelectedWindow()

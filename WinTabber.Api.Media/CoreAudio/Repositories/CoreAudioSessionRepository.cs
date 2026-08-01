@@ -68,6 +68,8 @@ public class CoreAudioSessionRepository : IDisposable
                 },
                 item => item.CoreAudioSession.GetSessionInstanceIdentifier
             )
+            .SubscribeOn(Scheduler)
+            .ObserveOn(Scheduler)
             .AutoRefreshOnObservable(session => session.SessionChanged
                 .Log(x => "Session changed triggering refresh")
                 );

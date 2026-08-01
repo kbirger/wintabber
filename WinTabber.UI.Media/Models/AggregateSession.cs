@@ -5,11 +5,11 @@ using WinTabber.Api.Media.ShellApplications.Models;
 
 namespace WinTabber.UI.Media.Models;
 
-public sealed class AggregateSession(
+public class AggregateSession(
         GlobalSystemMediaTransportControlsSession MediaSession,
         InstalledApplicationInfo App,
         CoreAudioSessionWrapper? NativeSession
-    )
+    ) : IEquatable<AggregateSession>
 {
     public GlobalSystemMediaTransportControlsSession MediaSession { get; } = MediaSession;
     public InstalledApplicationInfo App { get; } = App;
@@ -24,4 +24,19 @@ public sealed class AggregateSession(
     public bool IsComplete => NativeSession != null;
 
     public object Key => (IsComplete, MediaSession.SourceAppUserModelId);
+
+    public override bool Equals(object? obj)
+    {
+        return Equals (obj as AggregateSession);
+    }
+
+    public bool Equals(AggregateSession? other)
+    {
+        return Key.Equals(other?.Key);
+    }
+
+    public override int GetHashCode()
+    {
+        return Key.GetHashCode();
+    }
 }

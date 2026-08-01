@@ -2,8 +2,12 @@
 using System.Diagnostics;
 using System.Reactive.Linq;
 using System.Runtime.InteropServices;
+using System.Text;
 using Windows.Win32;
 using Windows.Win32.Foundation;
+using Windows.Win32.Security;
+using Windows.Win32.System.Diagnostics.ToolHelp;
+using Windows.Win32.System.Threading;
 using Windows.Win32.UI.Accessibility;
 using Windows.Win32.UI.Input.KeyboardAndMouse;
 using Windows.Win32.UI.WindowsAndMessaging;
@@ -518,6 +522,173 @@ public class InteropProxy : IInteropProxy
     public void SendInput(ushort key, bool down)
     {
         PInvoke.keybd_event((byte)key, 0, down ? 0 : KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP, 0);
+    }
+
+    // ── Process suspension (Phase 1 of process-suspension-plan.md) ─────────────
+
+    public void SuspendProcess(int pid)
+    {
+        using var hProcess = OpenProcessForSuspendResume(pid);
+        uint status = NtNativeMethods.NtSuspendProcess(hProcess.DangerousGetHandle());
+        if (status != 0)
+        {
+            throw new InvalidOperationException($"NtSuspendProcess failed with NTSTATUS 0x{status:X8}.");
+        }
+    }
+
+    public void ResumeProcess(int pid)
+    {
+        using var hProcess = OpenProcessForSuspendResume(pid);
+        uint status = NtNativeMethods.NtResumeProcess(hProcess.DangerousGetHandle());
+        if (status != 0)
+        {
+            throw new InvalidOperationException($"NtResumeProcess failed with NTSTATUS 0x{status:X8}.");
+        }
+    }
+
+    private static SafeHandle OpenProcessForSuspendResume(int pid)
+    {
+        var hProcess = PInvoke.OpenProcess_SafeHandle(PROCESS_ACCESS_RIGHTS.PROCESS_SUSPEND_RESUME, false, (uint)pid);
+        if (hProcess.IsInvalid)
+        {
+            int err = Marshal.GetLastWin32Error();
+            throw new InvalidOperationException($"Cannot open process {pid}. Win32 error {err}. Try running as Administrator.");
+        }
+        return hProcess;
+    }
+
+    public void SuspendProcessThreads(int pid)
+    {
+        ForEachThread(pid, hThread => PInvoke.SuspendThread(hThread));
+    }
+
+    public void ResumeProcessThreads(int pid)
+    {
+        ForEachThread(pid, hThread => PInvoke.ResumeThread(hThread));
+    }
+
+    private static void ForEachThread(int pid, Action<HANDLE> action)
+    {
+        using var snap = PInvoke.CreateToolhelp32Snapshot_SafeHandle(CREATE_TOOLHELP_SNAPSHOT_FLAGS.TH32CS_SNAPTHREAD, 0);
+        if (snap.IsInvalid)
+        {
+            throw new InvalidOperationException("CreateToolhelp32Snapshot failed.");
+        }
+
+        var entry = new THREADENTRY32 { dwSize = (uint)Marshal.SizeOf<THREADENTRY32>() };
+
+        if (!PInvoke.Thread32First(snap, ref entry))
+        {
+            return;
+        }
+
+        do
+        {
+            if (entry.th32OwnerProcessID != (uint)pid)
+            {
+                continue;
+            }
+
+            using var hThread = PInvoke.OpenThread_SafeHandle(THREAD_ACCESS_RIGHTS.THREAD_SUSPEND_RESUME, false, entry.th32ThreadID);
+            if (hThread.IsInvalid)
+            {
+                continue;
+            }
+
+            action(new HANDLE(hThread.DangerousGetHandle()));
+        } while (PInvoke.Thread32Next(snap, ref entry));
+    }
+
+    public void HideWindow(int handle)
+    {
+        var hwnd = new HWND(handle);
+        if (handle != 0 && PInvoke.IsWindow(hwnd))
+        {
+            PInvoke.ShowWindow(hwnd, SHOW_WINDOW_CMD.SW_HIDE);
+        }
+    }
+
+    public void RestoreWindow(int handle)
+    {
+        var hwnd = new HWND(handle);
+        if (handle != 0 && PInvoke.IsWindow(hwnd))
+        {
+            PInvoke.ShowWindow(hwnd, SHOW_WINDOW_CMD.SW_RESTORE);
+            PInvoke.SetForegroundWindow(hwnd);
+        }
+    }
+
+    public string GetProcessImagePath(int pid)
+    {
+        using var hProcess = PInvoke.OpenProcess_SafeHandle(PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)pid);
+        if (!hProcess.IsInvalid)
+        {
+            uint size = 1024;
+            Span<char> buffer = new char[size];
+            if (PInvoke.QueryFullProcessImageName(hProcess, 0, buffer, ref size) && size > 0)
+            {
+                return buffer[..(int)size].ToString();
+            }
+        }
+
+        // Fallback: managed API (may throw for protected or already-exited processes)
+        try
+        {
+            using var process = Process.GetProcessById(pid);
+            string? path = process.MainModule?.FileName;
+            if (string.IsNullOrEmpty(path))
+            {
+                throw new InvalidOperationException($"Cannot determine executable path for PID {pid}.");
+            }
+            return path;
+        }
+        catch (Exception ex) when (ex is not InvalidOperationException)
+        {
+            throw new InvalidOperationException($"Cannot determine executable path for PID {pid}.", ex);
+        }
+    }
+
+    public unsafe void EnableDebugPrivilege()
+    {
+        try
+        {
+            using var currentProcess = Process.GetCurrentProcess();
+            if (!PInvoke.OpenProcessToken(
+                    currentProcess.SafeHandle,
+                    TOKEN_ACCESS_MASK.TOKEN_ADJUST_PRIVILEGES | TOKEN_ACCESS_MASK.TOKEN_QUERY,
+                    out var hToken))
+            {
+                return; // best-effort
+            }
+
+            using (hToken)
+            {
+                if (!PInvoke.LookupPrivilegeValue(null, "SeDebugPrivilege", out var luid))
+                {
+                    return;
+                }
+
+                var tp = new TOKEN_PRIVILEGES { PrivilegeCount = 1 };
+                tp.Privileges[0] = new LUID_AND_ATTRIBUTES { Luid = luid, Attributes = TOKEN_PRIVILEGES_ATTRIBUTES.SE_PRIVILEGE_ENABLED };
+
+                var tokenHandle = new HANDLE(hToken.DangerousGetHandle());
+                PInvoke.AdjustTokenPrivileges(tokenHandle, false, &tp, 0, null, null);
+            }
+        }
+        catch
+        {
+            // best-effort; never throw from here
+        }
+    }
+
+    public void MakeWindowNonActivating(nint handle)
+    {
+        var hwnd = new HWND(handle);
+        int exStyle = PInvoke.GetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
+        PInvoke.SetWindowLong(
+            hwnd,
+            WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE,
+            exStyle | (int)(WINDOW_EX_STYLE.WS_EX_NOACTIVATE | WINDOW_EX_STYLE.WS_EX_TOOLWINDOW));
     }
 
     public void SendInput2(ushort key, bool down)

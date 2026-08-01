@@ -268,6 +268,40 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
 
     private void Grid_MouseUp(object sender, MouseButtonEventArgs e)
     {
+        if (IsUnderEditableTextBlock(e.OriginalSource))
+        {
+            // The click landed on a button (suspend/accept/cancel) inside the tab-title component;
+            // don't also switch windows and close the selector out from under it.
+            return;
+        }
+
         SwitchWindowAndClose();
+    }
+
+    /// <summary>
+    /// Walks up the visual tree from <paramref name="originalSource"/> looking for an <see cref="EditableTextBlock"/>.
+    /// WPF's MouseUp/MouseLeftButtonUp promotion means a button click's bubbled event can't be relied upon to be
+    /// swallowed by the button itself, so this is checked explicitly.
+    /// </summary>
+    private static bool IsUnderEditableTextBlock(object? originalSource)
+    {
+        if (originalSource is not DependencyObject node)
+        {
+            return false;
+        }
+
+        while (node is not null)
+        {
+            if (node is EditableTextBlock)
+            {
+                return true;
+            }
+            // OriginalSource can be a content element (e.g. a Run); VisualTreeHelper throws on those.
+            node = node is Visual or System.Windows.Media.Media3D.Visual3D
+                ? VisualTreeHelper.GetParent(node)
+                : LogicalTreeHelper.GetParent(node);
+        }
+
+        return false;
     }
 }

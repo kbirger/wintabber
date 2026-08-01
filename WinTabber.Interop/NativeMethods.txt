@@ -35,6 +35,7 @@ GetShellWindow
 GetDesktopWindow
 GetAncestor
 GetWindowLong
+SetWindowLong
 WM_SYSCOMMAND
 SC_RESTORE
 WINEVENT_OUTOFCONTEXT
@@ -60,3 +61,17 @@ keybd_event
 NtQueryInformationProcess
 PROCESS_BASIC_INFORMATION
 QueryFullProcessImageName
+
+ShowWindow
+IsWindow
+LookupPrivilegeValueW
+AdjustTokenPrivileges
+TOKEN_PRIVILEGES
+TOKEN_PRIVILEGES_ATTRIBUTES
+
+Thread32First
+Thread32Next
+THREADENTRY32
+OpenThread
+SuspendThread
+ResumeThread
