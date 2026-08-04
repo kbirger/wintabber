@@ -7,6 +7,7 @@ using System.Reactive.Linq;
 using System.Windows.Forms;
 using WinTabber.API;
 using WinTabber.API.Suspension;
+using WinTabber.API.Thumbnails;
 using WinTabber.Events;
 
 namespace WinTabberUI.ViewModels;
@@ -21,12 +22,14 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
         ApplicationStateViewModel applicationState,
         WinTabberEventManager eventManager,
         WindowManager windowManager,
-        IProcessSuspensionService suspensionService)
+        IProcessSuspensionService suspensionService,
+        IWindowThumbnailService thumbnailService)
     {
         _applicationState = applicationState ?? throw new ArgumentNullException(nameof(applicationState));
         WindowManager = windowManager ?? throw new ArgumentNullException(nameof(windowManager));
         _eventManager = eventManager;
         _suspensionService = suspensionService ?? throw new ArgumentNullException(nameof(suspensionService));
+        _thumbnailService = thumbnailService ?? throw new ArgumentNullException(nameof(thumbnailService));
 
         IsEditing = this.WhenAnyValue(vm => vm.WindowItems)
             .Select(items =>
@@ -189,7 +192,7 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
     {
         SelectedIndex = -1;
         WindowItems = windows
-            .Select(w => new WindowItem(w, IsEditing.Select(x => !x), _suspensionService))
+            .Select(w => new WindowItem(w, IsEditing.Select(x => !x), _suspensionService, _thumbnailService))
             .ToArray()
             ?? Array.Empty<WindowItem>();
     }
@@ -202,6 +205,7 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
 
     private readonly ApplicationStateViewModel _applicationState;
     private readonly IProcessSuspensionService _suspensionService;
+    private readonly IWindowThumbnailService _thumbnailService;
     private readonly CompositeDisposable _cleanUp;
 
     public void PreviewSelectedWindow()

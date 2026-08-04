@@ -10,6 +10,7 @@ using WinTabber.Api.Media.ShellApplications.Repositories;
 using WinTabber.Api.Media.SMTC.Repositories;
 using WinTabber.API;
 using WinTabber.API.Suspension;
+using WinTabber.API.Thumbnails;
 using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabber.UI.Media.Services;
@@ -80,6 +81,7 @@ public static class Bootstrapper
             .AddSingleton<ISuspensionStrategy, ThreadSuspensionStrategy>()
             .AddSingleton<ISuspendedWindowStore>(_ => new SuspendedWindowFileStore(Paths.SuspensionDirectory))
             .AddSingleton<IProcessSuspensionService, ProcessSuspensionService>()
+            .AddSingleton<IWindowThumbnailService, WindowThumbnailService>()
             .AddSingleton<AppCache>()
             .AddSingleton<IMMDeviceEnumeratorWrapper, MMDeviceEnumeratorWrapper>()
             .AddSingleton<CoreAudioDeviceRepository>(sp =>
@@ -109,7 +111,8 @@ public static class Bootstrapper
             .AddSingleton<MediaWindowViewCoordinator>()
             .AddSingleton<WindowCommandCoordinator>()
             .AddSingleton<NotifyIconCoordinator>()
-            .AddSingleton<SuspendedWindowsViewCoordinator>();
+            .AddSingleton<SuspendedWindowsViewCoordinator>()
+            .AddSingleton<ThumbnailWindowCoordinator>();
 
     }
 
@@ -135,7 +138,8 @@ public static class Bootstrapper
             .AddTransient<WindowRenameViewModel>()
             .AddSingleton<SettingsViewModel>()
             .AddSingleton<NotifyIconViewModel>()
-            .AddSingleton<SuspendedWindowsViewModel>();
+            .AddSingleton<SuspendedWindowsViewModel>()
+            .AddTransient<ThumbnailWindowViewModel>();
     }
     private static IServiceCollection AddViews(this IServiceCollection services)
     {
@@ -150,6 +154,7 @@ public static class Bootstrapper
             .AddTransient<SettingsWindow>()
             .AddTransient<MediaControlsWindow>()
             .AddTransient<SuspendedWindowsWindow>()
+            .AddTransient<ThumbnailWindow>()
             .AddSingleton<WindowSelectorWindowFactory>()
             .AddSingleton(sp => sp.GetRequiredService<WindowSelectorWindowFactory>().CreateWindowSelectorWindow());
     }

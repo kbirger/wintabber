@@ -106,4 +106,16 @@ public sealed class FakeInteropProxy : IInteropProxy
     public void SendInput(ushort key, bool down) => throw new NotSupportedException();
 
     public void MakeWindowNonActivating(nint handle) => throw new NotSupportedException();
+
+    public bool IsWindow(int handle) => throw new NotSupportedException();
+
+    public WindowPlacement MoveWindowOffScreen(int handle) => throw new NotSupportedException();
+
+    public void RestoreWindowPosition(int handle, WindowPlacement placement) => throw new NotSupportedException();
+
+    public void ResizeWindow(int handle, int width, int height) => throw new NotSupportedException();
+
+    public int HideFromTaskbar(int handle) => throw new NotSupportedException();
+
+    public void RestoreExtendedStyle(int handle, int originalExStyle) => throw new NotSupportedException();
 }

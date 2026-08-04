@@ -66,6 +66,15 @@
                     <fa:IconBlock Icon="Moon"/>
                 </Button>
                 <Button
+                    x:Name="ThumbnailButton"
+                    Style="{StaticResource InlineButton}"
+                    Command="{Binding ThumbnailCommand}"
+                    ToolTip="Show as floating thumbnail"
+                    Visibility="{Binding Path=IsEditing, Converter={StaticResource InverseBoolToVisibilityConverter}}"
+                    >
+                    <fa:IconBlock Icon="ExternalLinkAlt"/>
+                </Button>
+                <Button
                     x:Name="AcceptButton"
                     Style="{StaticResource InlineButton}" 
                     Command="{Binding SaveTitleCommand}"

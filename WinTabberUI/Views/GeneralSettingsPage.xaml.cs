@@ -25,6 +25,15 @@ namespace WinTabberUI.Views
                     signalViewUpdate: Observable.FromEventPattern(StartupList, nameof(StartupList.SelectionChanged))
                 )
                 .DisposeWith(dispose);
+
+                this.Bind(
+                    ViewModel,
+                    vm => vm.ThumbnailResizeMode,
+                    view => view.ThumbnailResizeModeList.SelectedValue,
+
+                    signalViewUpdate: Observable.FromEventPattern(ThumbnailResizeModeList, nameof(ThumbnailResizeModeList.SelectionChanged))
+                )
+                .DisposeWith(dispose);
             });
             StartupList.LostFocus += StartupList_LostFocus;
         }

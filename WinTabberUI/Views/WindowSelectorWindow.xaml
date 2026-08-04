@@ -57,6 +57,11 @@
                                 <DataTrigger Binding="{Binding IsSuspended}" Value="True">
                                     <Setter Property="Opacity" Value="0.4"/>
                                 </DataTrigger>
+                                <!-- A thumbnailed window has been moved off-screen; dim its tile so it doesn't
+                                     look like a duplicate of the floating thumbnail window. -->
+                                <DataTrigger Binding="{Binding IsThumbnailed}" Value="True">
+                                    <Setter Property="Opacity" Value="0.4"/>
+                                </DataTrigger>
                             </Style.Triggers>
                         </Style>
                     </Grid.Style>

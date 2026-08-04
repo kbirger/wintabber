@@ -34,6 +34,7 @@ public class WindowThumbnail : FrameworkElement
 
     public static DependencyProperty SourceProperty;
     public static DependencyProperty ClientAreaOnlyProperty;
+    public static DependencyProperty StretchProperty;
 
     static WindowThumbnail()
     {
@@ -61,6 +62,16 @@ public class WindowThumbnail : FrameworkElement
                     ((WindowThumbnail)obj).UpdateThumbnail();
                 }));
 
+        // When true, always fills exactly the space it's given (DWM stretches the bitmap to match,
+        // non-uniformly if the aspect ratio doesn't line up) instead of computing an aspect-preserving,
+        // letterboxed size. Off by default so existing consumers (e.g. the selector tiles) keep their
+        // current letterboxed behavior.
+        StretchProperty = DependencyProperty.Register(
+            "Stretch",
+            typeof(bool),
+            typeof(WindowThumbnail),
+            new FrameworkPropertyMetadata(false, FrameworkPropertyMetadataOptions.AffectsMeasure | FrameworkPropertyMetadataOptions.AffectsArrange));
+
         OpacityProperty.OverrideMetadata(
             typeof(WindowThumbnail),
             new FrameworkPropertyMetadata(
@@ -82,6 +93,12 @@ public class WindowThumbnail : FrameworkElement
     {
         get { return (bool)GetValue(ClientAreaOnlyProperty); }
         set { SetValue(ClientAreaOnlyProperty, value); }
+    }
+
+    public bool Stretch
+    {
+        get { return (bool)GetValue(StretchProperty); }
+        set { SetValue(StretchProperty, value); }
     }
 
     public new double Opacity
@@ -191,6 +208,16 @@ public class WindowThumbnail : FrameworkElement
 
     protected override Size MeasureOverride(Size availableSize)
     {
+        // In Stretch mode we always occupy exactly what we're given — DWM scales (non-uniformly, if the
+        // aspect ratio doesn't match) to fill it, rather than us computing an aspect-preserving letterboxed
+        // size. Used by ThumbnailWindow, which wants the preview to fill its floating window with no bars.
+        if (Stretch)
+        {
+            return new Size(
+                double.IsInfinity(availableSize.Width) ? 0 : availableSize.Width,
+                double.IsInfinity(availableSize.Height) ? 0 : availableSize.Height);
+        }
+
         PInvoke.DwmQueryThumbnailSourceSize(_thumb, out var size);
 
         double scale = 1;
@@ -207,6 +234,11 @@ public class WindowThumbnail : FrameworkElement
 
     protected override Size ArrangeOverride(Size finalSize)
     {
+        if (Stretch)
+        {
+            return finalSize;
+        }
+
         PInvoke.DwmQueryThumbnailSourceSize(_thumb, out var size);
 
         // scale to fit whatever size we were allocated

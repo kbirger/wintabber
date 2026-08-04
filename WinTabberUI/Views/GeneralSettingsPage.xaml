@@ -26,16 +26,28 @@
             <HeaderedContentControl.Header>
                 <TextBlock FontSize="24">General</TextBlock>
             </HeaderedContentControl.Header>
-            <ui:SettingsCard Header="Startup mode">
-                <ui:SettingsCard.HeaderIcon>
-                    <ui:FontIcon Glyph="&#xe7f4;" />
-                </ui:SettingsCard.HeaderIcon>
-                <ComboBox MinWidth="220" x:Name="StartupList"
-                        VerticalAlignment="Center"
-                        FontSize="14"
-                        ItemsSource="{Binding StartupModes}"
-                        SelectedValue="{Binding Path=StarupMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-            </ui:SettingsCard>
+            <StackPanel>
+                <ui:SettingsCard Header="Startup mode">
+                    <ui:SettingsCard.HeaderIcon>
+                        <ui:FontIcon Glyph="&#xe7f4;" />
+                    </ui:SettingsCard.HeaderIcon>
+                    <ComboBox MinWidth="220" x:Name="StartupList"
+                            VerticalAlignment="Center"
+                            FontSize="14"
+                            ItemsSource="{Binding StartupModes}"
+                            SelectedValue="{Binding Path=StarupMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                </ui:SettingsCard>
+                <ui:SettingsCard Header="Thumbnail resize mode" Margin="0,8,0,0"
+                        Description="What resizing a floating window thumbnail does">
+                    <ui:SettingsCard.HeaderIcon>
+                        <ui:FontIcon Glyph="&#xe740;" />
+                    </ui:SettingsCard.HeaderIcon>
+                    <ComboBox MinWidth="220" x:Name="ThumbnailResizeModeList"
+                            VerticalAlignment="Center"
+                            FontSize="14"
+                            ItemsSource="{Binding ThumbnailResizeModes}" />
+                </ui:SettingsCard>
+            </StackPanel>
         </HeaderedContentControl>
     </Grid>
 </rxwpf:ReactivePage>

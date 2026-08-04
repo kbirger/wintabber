@@ -3,6 +3,7 @@ using System.Reactive.Disposables;
 using WinTabber.Api.Media.ShellApplications.Repositories;
 using WinTabber.API;
 using WinTabber.API.Suspension;
+using WinTabber.API.Thumbnails;
 using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabberUI.Coordinators;
@@ -33,6 +34,7 @@ public class BackgroundServiceContainer : IDisposable
             ioc.GetRequiredService<WindowSelectorViewCoordinator>().Init(),
             ioc.GetRequiredService<MediaWindowViewCoordinator>().Init(),
             ioc.GetRequiredService<SuspendedWindowsViewCoordinator>().Init(),
+            ioc.GetRequiredService<ThumbnailWindowCoordinator>().Init(),
             ioc.GetRequiredService<WindowHistoryUpdater>().Init(),
             ioc.GetRequiredService<WindowCommandCoordinator>(),
             ioc.GetRequiredService<WinTabberEventManager>(),
@@ -40,7 +42,10 @@ public class BackgroundServiceContainer : IDisposable
             // Disposing this resumes every frozen process on exit. Order within the composite is
             // insertion order and does not matter here: ResumeAll only touches IInteropProxy and
             // the state file, neither of which the composite owns.
-            ioc.GetRequiredService<IProcessSuspensionService>()
+            ioc.GetRequiredService<IProcessSuspensionService>(),
+            // Same idea: disposing this moves every off-screen thumbnailed window back to its
+            // original position on exit, so a killed/crashed app doesn't leave windows stranded.
+            ioc.GetRequiredService<IWindowThumbnailService>()
             //ioc.GetRequiredService<IAudioDeviceManager>().Init()
         );
 

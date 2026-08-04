@@ -13,9 +13,11 @@ namespace WinTabberUI.ViewModels.Settings
         {
             _settings = settings;
             StartupMode = settings.StartupMode;
+            ThumbnailResizeMode = settings.ThumbnailResizeMode;
         }
 
         private StartupMode _startupMode;
+        private ThumbnailResizeMode _thumbnailResizeMode;
         private GeneralSettings _settings;
 
         public StartupMode StartupMode
@@ -29,5 +31,17 @@ namespace WinTabberUI.ViewModels.Settings
         }
 
         public StartupMode[] StartupModes => Enum.GetValues<StartupMode>();
+
+        public ThumbnailResizeMode ThumbnailResizeMode
+        {
+            get => _thumbnailResizeMode;
+            set
+            {
+                _settings.ThumbnailResizeMode = value;
+                this.RaiseAndSetIfChanged(ref _thumbnailResizeMode, value);
+            }
+        }
+
+        public ThumbnailResizeMode[] ThumbnailResizeModes => Enum.GetValues<ThumbnailResizeMode>();
     }
 }

@@ -4,12 +4,17 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using WinTabber.API;
 using WinTabber.API.Suspension;
+using WinTabber.API.Thumbnails;
 
 namespace WinTabberUI.ViewModels;
 
 public class WindowItem : ReactiveObject, IDisposable
 {
-    public WindowItem(WindowRef windowRef, IObservable<bool> canEdit, IProcessSuspensionService suspensionService)
+    public WindowItem(
+        WindowRef windowRef,
+        IObservable<bool> canEdit,
+        IProcessSuspensionService suspensionService,
+        IWindowThumbnailService thumbnailService)
     {
         WindowRef = windowRef ?? throw new ArgumentNullException(nameof(windowRef));
         //Icon = WindowRef.GetIcon().ToImageSource();
@@ -47,6 +52,27 @@ public class WindowItem : ReactiveObject, IDisposable
             .ObserveOn(RxApp.MainThreadScheduler)
             .ToProperty(this, x => x.IsSuspended);
 
+        var canThumbnailChanges = thumbnailService.Connect()
+            .Select(_ => thumbnailService.CanThumbnail(WindowRef))
+            .StartWith(thumbnailService.CanThumbnail(WindowRef));
+
+        var canThumbnail = Observable
+            .CombineLatest(editingChanges, canThumbnailChanges, (isEditing, canThumbnail) => !isEditing && canThumbnail)
+            .DistinctUntilChanged()
+            // Unlike suspend, thumbnail state can also change from the service's background watchdog
+            // (self-restore on source-window destruction), so this can't rely on always being raised
+            // from the UI thread the way the (pre-existing) canSuspend path implicitly does.
+            .ObserveOn(RxApp.MainThreadScheduler);
+
+        ThumbnailCommand = ReactiveCommand.Create(() => { thumbnailService.StartThumbnail(WindowRef); }, canThumbnail);
+
+        _isThumbnailed = thumbnailService.Connect()
+            .Select(_ => thumbnailService.IsThumbnailed(WindowRef.Handle))
+            .StartWith(thumbnailService.IsThumbnailed(WindowRef.Handle))
+            .DistinctUntilChanged()
+            .ObserveOn(RxApp.MainThreadScheduler)
+            .ToProperty(this, x => x.IsThumbnailed);
+
         //var editWatch = canEdit.Subscribe(value =>
         //{
         //    if (!value)
@@ -59,8 +85,10 @@ public class WindowItem : ReactiveObject, IDisposable
             CancelEditTitleCommand,
             StartEditCommand,
             SuspendCommand,
+            ThumbnailCommand,
             _canEdit,
-            _isSuspended);
+            _isSuspended,
+            _isThumbnailed);
     }
 
     public WindowRef WindowRef { get; }
@@ -69,13 +97,17 @@ public class WindowItem : ReactiveObject, IDisposable
     public ReactiveCommand<Unit, Unit> CancelEditTitleCommand { get; }
     public ReactiveCommand<Unit, Unit> StartEditCommand { get; }
     public ReactiveCommand<Unit, Unit> SuspendCommand { get; }
+    public ReactiveCommand<Unit, Unit> ThumbnailCommand { get; }
 
     public bool CanEdit => _canEdit.Value;
 
     public bool IsSuspended => _isSuspended.Value;
 
+    public bool IsThumbnailed => _isThumbnailed.Value;
+
     private readonly ObservableAsPropertyHelper<bool> _canEdit;
     private readonly ObservableAsPropertyHelper<bool> _isSuspended;
+    private readonly ObservableAsPropertyHelper<bool> _isThumbnailed;
     private readonly CompositeDisposable _cleanUp;
 
     public string ProcessName => WindowRef.Process.ProcessInstance.ProcessName;

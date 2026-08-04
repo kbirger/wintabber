@@ -129,7 +129,10 @@ public class InteropProxy : IInteropProxy
                 WindowState.Minimized => new Rectangle(wp.ptMinPosition, primaryScreen.Size),
                 WindowState.Normal => wp.rcNormalPosition,
                 WindowState.Hidden => wp.rcNormalPosition
-            }
+            },
+            // Always the true restored geometry, independent of current show state (Windows tracks this
+            // separately from Bounds above even while the window is maximized/minimized).
+            NormalBounds = wp.rcNormalPosition
         };
     }
 
@@ -689,6 +692,132 @@ public class InteropProxy : IInteropProxy
             hwnd,
             WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE,
             exStyle | (int)(WINDOW_EX_STYLE.WS_EX_NOACTIVATE | WINDOW_EX_STYLE.WS_EX_TOOLWINDOW));
+    }
+
+    public bool IsWindow(int handle)
+    {
+        return handle != 0 && PInvoke.IsWindow(new HWND(handle));
+    }
+
+    public WindowPlacement MoveWindowOffScreen(int handle)
+    {
+        var hwnd = new HWND(handle);
+        WindowPlacement placement = GetWindowPlacement(handle);
+
+        int virtualScreenLeft = PInvoke.GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_XVIRTUALSCREEN);
+        int virtualScreenWidth = PInvoke.GetSystemMetrics(SYSTEM_METRICS_INDEX.SM_CXVIRTUALSCREEN);
+        int virtualScreenRight = virtualScreenLeft + virtualScreenWidth;
+
+        const int Margin = 100;
+        int newX = virtualScreenRight + Margin;
+        int newY = placement.Bounds.Y;
+
+        // A window still carrying the WS_MAXIMIZE style snaps back to its on-screen maximized rect if
+        // merely repositioned via SetWindowPos — the OS re-asserts the maximized position on its own,
+        // which looked like "restoring instead of concealing". ShowWindow(SW_RESTORE) clears that style
+        // first. The original Maximized state is preserved separately in `placement` (State + NormalBounds)
+        // and reapplied atomically by RestoreWindowPosition.
+        if (placement.State == WindowState.Maximized)
+        {
+            PInvoke.ShowWindow(hwnd, SHOW_WINDOW_CMD.SW_RESTORE);
+        }
+
+        PInvoke.SetWindowPos(
+            hwnd,
+            default(HWND),
+            newX,
+            newY,
+            placement.Bounds.Width,
+            placement.Bounds.Height,
+            SET_WINDOW_POS_FLAGS.SWP_NOZORDER | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE);
+
+        return placement;
+    }
+
+    /// <summary>
+    /// Restores a window to <paramref name="placement"/>'s captured state via SetWindowPlacement (not
+    /// SetWindowPos): this re-applies the original showCmd (Normal/Maximized/Minimized) together with
+    /// rcNormalPosition in one atomic call, so a window that was maximized when thumbnailed comes back
+    /// maximized (on the right monitor) instead of landing as an ordinary window sized to the whole screen.
+    /// </summary>
+    public void RestoreWindowPosition(int handle, WindowPlacement placement)
+    {
+        var hwnd = new HWND(handle);
+        if (handle == 0 || !PInvoke.IsWindow(hwnd))
+        {
+            return;
+        }
+
+        var wp = new WINDOWPLACEMENT { length = (uint)Marshal.SizeOf<WINDOWPLACEMENT>() };
+        if (!PInvoke.GetWindowPlacement(hwnd, ref wp))
+        {
+            return;
+        }
+
+        wp.showCmd = placement.State switch
+        {
+            WindowState.Maximized => SHOW_WINDOW_CMD.SW_SHOWMAXIMIZED,
+            WindowState.Minimized => SHOW_WINDOW_CMD.SW_SHOWMINIMIZED,
+            WindowState.Hidden => SHOW_WINDOW_CMD.SW_HIDE,
+            _ => SHOW_WINDOW_CMD.SW_SHOWNORMAL
+        };
+        wp.rcNormalPosition = placement.NormalBounds;
+
+        PInvoke.SetWindowPlacement(hwnd, wp);
+    }
+
+    public void ResizeWindow(int handle, int width, int height)
+    {
+        var hwnd = new HWND(handle);
+        if (handle == 0 || !PInvoke.IsWindow(hwnd))
+        {
+            return;
+        }
+
+        PInvoke.SetWindowPos(
+            hwnd,
+            default(HWND),
+            0,
+            0,
+            width,
+            height,
+            SET_WINDOW_POS_FLAGS.SWP_NOZORDER | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_NOMOVE);
+    }
+
+    public int HideFromTaskbar(int handle)
+    {
+        var hwnd = new HWND(handle);
+        if (handle == 0 || !PInvoke.IsWindow(hwnd))
+        {
+            return 0;
+        }
+
+        int originalExStyle = PInvoke.GetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
+        int hiddenExStyle =
+            (originalExStyle & ~(int)WINDOW_EX_STYLE.WS_EX_APPWINDOW) | (int)WINDOW_EX_STYLE.WS_EX_TOOLWINDOW;
+        ApplyExtendedStyleForTaskbar(hwnd, hiddenExStyle);
+        return originalExStyle;
+    }
+
+    public void RestoreExtendedStyle(int handle, int originalExStyle)
+    {
+        var hwnd = new HWND(handle);
+        if (handle == 0 || !PInvoke.IsWindow(hwnd))
+        {
+            return;
+        }
+
+        ApplyExtendedStyleForTaskbar(hwnd, originalExStyle);
+    }
+
+    // Changing WS_EX_TOOLWINDOW/WS_EX_APPWINDOW alone doesn't make Explorer re-evaluate a window's taskbar
+    // button — a hide/show cycle is required to force the refresh. Callers only invoke this while the
+    // window is positioned off-screen, so the brief hide/show is never visible to the user.
+    private static void ApplyExtendedStyleForTaskbar(HWND hwnd, int exStyle)
+    {
+        PInvoke.ShowWindow(hwnd, SHOW_WINDOW_CMD.SW_HIDE);
+        PInvoke.SetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE, exStyle);
+        PInvoke.ShowWindow(hwnd, SHOW_WINDOW_CMD.SW_SHOWNOACTIVATE);
     }
 
     public void SendInput2(ushort key, bool down)

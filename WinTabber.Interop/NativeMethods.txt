@@ -11,6 +11,7 @@ DWM_TNP_SOURCECLIENTAREAONLY
 DwmQueryThumbnailSourceSize
 GetForegroundWindow
 GetWindowPlacement
+SetWindowPlacement
 ShowWindowAsync
 SendMessage
 GetWindowTextLength
@@ -75,3 +76,10 @@ THREADENTRY32
 OpenThread
 SuspendThread
 ResumeThread
+
+SetWindowPos
+GetSystemMetrics
+SM_XVIRTUALSCREEN
+SM_YVIRTUALSCREEN
+SM_CXVIRTUALSCREEN
+SM_CYVIRTUALSCREEN
