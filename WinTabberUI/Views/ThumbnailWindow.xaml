@@ -1,0 +1,106 @@
+<Window
+    x:Class="WinTabberUI.ThumbnailWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:local="clr-namespace:WinTabberUI"
+    xmlns:fa="http://schemas.awesome.incremented/wpf/xaml/fontawesome.sharp"
+    xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
+    mc:Ignorable="d"
+    Title="{Binding Title}"
+    WindowStyle="None"
+    AllowsTransparency="True"
+    ResizeMode="CanResize"
+    ShowInTaskbar="False"
+    Topmost="True"
+    Width="480"
+    Height="320"
+    MinWidth="160"
+    MinHeight="120"
+    Background="Transparent"
+    d:DataContext="{d:DesignInstance vm:ThumbnailWindowViewModel, IsDesignTimeCreatable=False}"
+    MouseEnter="Window_MouseEnter"
+    MouseLeave="Window_MouseLeave"
+>
+    <!-- No AcrylicChrome here: it applies a DWM blur-behind to the whole native window regardless of WPF
+         element opacity, which made HeaderBar's "invisible" (Opacity=0) reserved strip below still show up
+         as a faint translucent bar even when not hovered. Plain WPF layered-window transparency (below)
+         renders per-pixel alpha correctly, so HeaderBar genuinely disappears at Opacity=0. -->
+    <!-- Outer wrapper: gives the 14px margin room for the shadow to render into without being clipped by the
+         window's own edge. Background is the near-zero-alpha "invisible but hit-testable" pattern (not fully
+         Transparent) so the resize edges, which now live in this margin, still register mouse hits. -->
+    <Grid Background="#01000000">
+        <!-- WindowFrame: near-zero-alpha background, same click-through-safe/hit-testable trick used
+             elsewhere. It does NOT cast the shadow (a low-alpha source can't — DropShadowEffect derives the
+             shadow from the source's own alpha, so a mostly-transparent element casts a mostly-invisible
+             shadow) — that job moved to ThumbnailHost below, which the DWM thumbnail always paints over
+             regardless of what's behind it, so an opaque WPF background there is never actually seen. -->
+        <Border
+            x:Name="WindowFrame"
+            Margin="14"
+            Background="#01000000"
+            MouseLeftButtonDown="Root_MouseLeftButtonDown"
+        >
+            <Grid>
+                <Grid.RowDefinitions>
+                    <!-- Always reserved at its full 26px height — never resized — so the thumbnail row below
+                         never changes size and the DWM-registered thumbnail's destination rect (which always
+                         paints above anything sharing it, regardless of WPF z-order) never overlaps this row.
+                         Only HeaderBar's own Opacity fades on hover (see ThumbnailWindow.xaml.cs); the layout
+                         itself never moves. -->
+                    <RowDefinition Height="26" />
+                    <RowDefinition Height="*" />
+                </Grid.RowDefinitions>
+
+                <!-- Solid-ish dark background (not the near-transparent trick used elsewhere) so the title
+                     text and expand button stay legible even when hovering over a light-colored source
+                     window underneath. -->
+                <Grid x:Name="HeaderBar" Grid.Row="0" Background="#E6141414" Opacity="0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" />
+                        <ColumnDefinition Width="Auto" />
+                    </Grid.ColumnDefinitions>
+                    <TextBlock
+                        Grid.Column="0"
+                        Text="{Binding Title}"
+                        Foreground="White"
+                        FontSize="11"
+                        Margin="8,0"
+                        VerticalAlignment="Center"
+                        TextTrimming="CharacterEllipsis"
+                    />
+                    <Button
+                        x:Name="ExpandButton"
+                        Grid.Column="1"
+                        Click="ExpandButton_Click"
+                        ToolTip="Restore window to its original position"
+                        Background="Transparent"
+                        BorderThickness="0"
+                        Foreground="White"
+                        Padding="6,2"
+                        Cursor="Hand"
+                    >
+                        <fa:IconBlock Icon="ExpandAlt" FontSize="12" />
+                    </Button>
+                </Grid>
+
+                <!-- WindowThumbnail (a bare FrameworkElement) renders nothing itself, so it has no hit-test
+                     surface of its own; this wrapping Grid's Background is what makes clicks in this area
+                     actually register. Opaque here (unlike the near-zero-alpha trick used elsewhere) purely
+                     so DropShadowEffect has real pixels to cast from — the color itself is never seen, since
+                     the DWM-registered thumbnail always paints over its destination rect on top of anything
+                     WPF puts here, regardless of z-order. -->
+                <Grid x:Name="ThumbnailHost" Grid.Row="1" Background="#FF101010">
+                    <Grid.Effect>
+                        <DropShadowEffect Color="Black" Direction="270" ShadowDepth="6" BlurRadius="24" Opacity="0.55" />
+                    </Grid.Effect>
+                    <!-- Stretch: fill this row exactly (DWM scales the bitmap to match, no letterboxing). The
+                         real window is never resized live — see ThumbnailWindow.xaml.cs — so this is a pure
+                         optical zoom. -->
+                    <local:WindowThumbnail x:Name="Thumbnail" ClientAreaOnly="True" Stretch="True" />
+                </Grid>
+            </Grid>
+        </Border>
+    </Grid>
+</Window>
