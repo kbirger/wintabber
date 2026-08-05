@@ -148,8 +148,46 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
         }
         WindowData.Deactivate();
         WindowData.EndPreview();
+        WindowData.NotifySwitcherClosed();
         Hide();
         _tileGrid = null;
+    }
+
+    /// <summary>
+    /// §5 fallback. If the trigger that opened the switcher carried no modifiers (e.g. a bare
+    /// <c>F13</c> binding) there is no modifier release to commit on, so without this the switcher
+    /// would be unclosable. Enter commits, Esc cancels.
+    /// <para>
+    /// Handled for every activation rather than only the modifier-less one: an always-available
+    /// escape hatch is cheap, and "switcher stuck open" is the worst failure mode in this feature.
+    /// </para>
+    /// </summary>
+    protected override void OnPreviewKeyDown(KeyEventArgs e)
+    {
+        // A rename is in progress; Enter/Esc belong to the editor, not to the switcher.
+        if (Keyboard.FocusedElement is System.Windows.Controls.TextBox)
+        {
+            base.OnPreviewKeyDown(e);
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case Key.Enter:
+                e.Handled = true;
+                WindowData.CommitSelection();
+                Hide();
+                _tileGrid = null;
+                return;
+            case Key.Escape:
+                e.Handled = true;
+                WindowData.CancelSelection();
+                Hide();
+                _tileGrid = null;
+                return;
+        }
+
+        base.OnPreviewKeyDown(e);
     }
 
     public WindowSelectorViewModel WindowData => (WindowSelectorViewModel)DataContext;

@@ -14,4 +14,10 @@ public enum EventType
     CmdShowSettings,
     WindowSelected,
     EditingStateChanged,
+
+    // Appended only. Ordinal 0 is CmdNextWindow, and WinTabberEvent.None is new WinTabberEvent(0),
+    // so inserting a member here would both remap every ordinal and change what "None" means.
+    CmdCommitSelection,
+    CmdThumbnailWindow,
+    CmdSuspendedWindows,
 }

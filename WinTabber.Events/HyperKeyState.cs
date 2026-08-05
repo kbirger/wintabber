@@ -2,17 +2,32 @@
 using SharpHook.Data;
 using System.Reactive.Linq;
 using System.Windows.Forms;
+using WinTabber.Events.Shortcuts.Detection;
 using WinTabber.Interop;
 
 namespace WinTabber.Events;
 
-public class HyperKeyState(KeyCode hyperKey, IObservable<KeyboardHookEventArgs> keyDownEvents, IObservable<KeyboardHookEventArgs> keyUpEvents, IInteropProxy interop)
+public class HyperKeyState(
+    KeyCode hyperKey,
+    IObservable<KeyboardHookEventArgs> keyDownEvents,
+    IObservable<KeyboardHookEventArgs> keyUpEvents,
+    IInteropProxy interop,
+    IInputCaptureGate? captureGate = null)
 {
     public const int TapDelayMs = 200;
     private readonly KeyCode _hyperKey = hyperKey;
     private readonly IObservable<KeyboardHookEventArgs> _keyDownEvents = keyDownEvents;
     private readonly IObservable<KeyboardHookEventArgs> _keyUpEvents = keyUpEvents;
     private readonly IInteropProxy _interop = interop;
+
+    /// <summary>
+    /// While a shortcut capture session is open the hyperkey steps aside entirely (§3.4): it does
+    /// not suppress CapsLock and does not inject its four modifiers. Without this bypass, pressing
+    /// CapsLock during capture would be recorded as Ctrl+Alt+Shift+Win instead of as CapsLock.
+    /// </summary>
+    private readonly IInputCaptureGate? _captureGate = captureGate;
+
+    private bool IsBypassed => _captureGate?.IsCapturing == true;
 
     public enum HyperKeyAction
     {
@@ -80,7 +95,7 @@ public class HyperKeyState(KeyCode hyperKey, IObservable<KeyboardHookEventArgs> 
             KeyCode lastKey = 0;
             DateTimeOffset start = DateTimeOffset.MinValue;
             var sub = _keyDownEvents
-                .Where(e => !e.IsEventSimulated)
+                .Where(e => !e.IsEventSimulated && !IsBypassed)
                 .Subscribe(e =>
             {
                 var now = e.EventTime;
@@ -100,7 +115,7 @@ public class HyperKeyState(KeyCode hyperKey, IObservable<KeyboardHookEventArgs> 
 
 
             var sub2 = _keyUpEvents
-                .Where(e => !e.IsEventSimulated)
+                .Where(e => !e.IsEventSimulated && !IsBypassed)
                 .Subscribe(e =>
                 {
                     if (e.Data.KeyCode == _hyperKey)
@@ -122,7 +137,10 @@ public class HyperKeyState(KeyCode hyperKey, IObservable<KeyboardHookEventArgs> 
                 });
 
 
-            return sub;
+            // Previously only `sub` was returned, leaking the key-up subscription. That now matters:
+            // the hook connection is switched on Pause()/Start(), so a leaked handler would
+            // accumulate one live subscription per resume.
+            return new System.Reactive.Disposables.CompositeDisposable(sub, sub2);
 
         });
         //var hyperKeyEvents = _keyEvents.Where(e => e.Event.KeyCode == _hyperKey);

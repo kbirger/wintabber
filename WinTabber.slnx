@@ -15,6 +15,7 @@
   <Project Path="WinTabber.API/WinTabber.API.csproj" />
   <Project Path="WinTabber.Common.Util/WinTabber.Common.Util.csproj" />
   <Project Path="WinTabber.Events/WinTabber.Events.csproj" />
+  <Project Path="WinTabber.Events.Tests/WinTabber.Events.Tests.csproj" />
   <Project Path="WinTabber.Generators/WinTabber.Generators.csproj" />
   <Project Path="WinTabber.Infrastructure.Tests/WinTabber.Infrastructure.Tests.csproj" />
   <Project Path="WinTabber.Interop/WinTabber.Interop.csproj" />

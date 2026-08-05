@@ -4,6 +4,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using WinTabber.Events;
+using WinTabber.Events.Shortcuts;
 using WinTabberUI.Models.Settings;
 using WinTabberUI.ViewModels.Settings;
 
@@ -24,24 +25,35 @@ public class SettingsViewModel : ReactiveObject, IDisposable
 
     public AppearanceSettingsViewModel Appearance { get; }
     public GeneralSettingsViewModel General { get; }
+    public ShortcutsSettingsViewModel Shortcuts { get; }
 
     private CompositeDisposable _cleanUp;
 
-    public SettingsViewModel(WinTabberEventManager winTabberEventManager)
+    public SettingsViewModel(
+        WinTabberEventManager winTabberEventManager,
+        ApplicationSettings settings,
+        IShortcutMapProvider shortcutMapProvider
+    )
     {
         _isShown = new BehaviorSubject<bool>(false);
 
         CloseCommand = ReactiveCommand.Create(() => _isShown.OnNext(false));
         SaveCommand = ReactiveCommand.Create(() => Save());
-        _settings = ApplicationSettings.Load();
+        _settings = settings;
 
 
         Appearance = new AppearanceSettingsViewModel(_settings.Appearance);
         General = new GeneralSettingsViewModel(_settings.General);
+        Shortcuts = new ShortcutsSettingsViewModel(
+            _settings.Shortcuts,
+            shortcutMapProvider,
+            winTabberEventManager.TriggerSource
+        );
         SelectedView = General;
         Sections = [
             General,
-            Appearance
+            Appearance,
+            Shortcuts
         ];
 
         _cleanUp = new CompositeDisposable(

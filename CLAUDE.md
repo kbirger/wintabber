@@ -11,12 +11,13 @@ dotnet build WinTabber.slnx
 # Run the main WPF application
 dotnet run --project WinTabberUI/WinTabberUI.csproj
 
-# Run all tests
-dotnet test WinTabber.slnx
+# Run all tests (the --solution flag is required on the .NET 10 SDK)
+dotnet test --solution WinTabber.slnx
 
 # Run specific test projects
 dotnet test WinTabber.Infrastructure.Tests/WinTabber.Infrastructure.Tests.csproj
 dotnet test WinTabber.Events.Tests/WinTabber.Events.Tests.csproj
+dotnet test WinTabber.Api.Tests/WinTabber.Api.Tests.csproj
 
 # Run specific test class
 dotnet test WinTabber.Infrastructure.Tests --filter TrieNodeTests
@@ -64,6 +65,10 @@ WinTabberUI            ← WPF app, MVVM ViewModels, DI bootstrap, window manage
 
 ### Testing
 
-- `WinTabber.Events.Tests` — xUnit (currently minimal)
-- `WinTabber.Infrastructure.Tests` — TUnit with a 3x retry policy in `GlobalSetup.cs`; contains `TrieNodeTests` and infrastructure-level tests
+All test projects use TUnit. The `test` runner opt-in in `global.json` is required — without it `dotnet test`
+fails outright on the .NET 10 SDK, which no longer supports the VSTest target.
+
+- `WinTabber.Events.Tests` — TUnit; shortcut model tests (trigger matching, conflict detection, commit tracking)
+- `WinTabber.Infrastructure.Tests` — TUnit with a 3x retry policy in `GlobalSetup.cs`; contains `TrieNodeTests`, settings persistence, and infrastructure-level tests
+- `WinTabber.Api.Tests` — TUnit
 - `Wintabber.SessionsTest` — Console app for manual session/audio testing (not a test framework)

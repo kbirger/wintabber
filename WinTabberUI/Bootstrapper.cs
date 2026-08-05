@@ -12,7 +12,9 @@ using WinTabber.API;
 using WinTabber.API.Suspension;
 using WinTabber.API.Thumbnails;
 using WinTabber.Events;
+using WinTabber.Events.Shortcuts;
 using WinTabber.Interop;
+using WinTabberUI.Models.Settings;
 using WinTabber.UI.Media.Services;
 using WinTabber.UI.Media.ViewModels;
 using WinTabber.UI.Media.ViewModels.Factories;
@@ -71,6 +73,13 @@ public static class Bootstrapper
         return services
             .AddKeyedSingleton<IScheduler>(STAScheduler.Key, (_, _) => STAScheduler.Create())
             .AddSingleton<InputListenerService>()
+            // Single shared instance: the settings page mutates this object and calls Save(), so a
+            // second Load() elsewhere would silently diverge from what the user sees.
+            .AddSingleton<ApplicationSettings>(_ => ApplicationSettings.Load())
+            // The live keymap. Seeded from settings.json so the very first hotkey registration
+            // already uses the user's bindings; the settings page pushes replacements on save.
+            .AddSingleton<IShortcutMapProvider>(sp => new ShortcutMapProvider(
+                sp.GetRequiredService<ApplicationSettings>().Shortcuts.ToMap()))
             .AddSingleton<WinTabberEventManager>()
             .AddSingleton<ApplicationState>()
             .AddSingleton<IInteropProxy, InteropProxy>()

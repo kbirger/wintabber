@@ -83,6 +83,9 @@
                 <DataTemplate DataType="{x:Type settingsvm:GeneralSettingsViewModel}">
                     <views:GeneralSettingsPage/>
                 </DataTemplate>
+                <DataTemplate DataType="{x:Type settingsvm:ShortcutsSettingsViewModel}">
+                    <views:ShortcutsSettingsPage/>
+                </DataTemplate>
             </ui:Frame.Resources>
             
         </ui:Frame>

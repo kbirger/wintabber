@@ -68,8 +68,11 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
             .ObserveOn(scheduler)
             .Subscribe(_ => SelectPrevious());
 
+        // §5/D3: commit is now its own derived event rather than an overload of CmdAppHide. It is
+        // emitted when the modifiers that *opened* the switcher are released — captured
+        // per-activation, so a second binding's modifiers can never wedge the switcher open.
         var selectEvents = eventManager.CommandEvents
-            .Where(evt => evt.Type == EventType.CmdAppHide)
+            .Where(evt => evt.Type == EventType.CmdCommitSelection)
             .WithLatestFrom(IsSwitcherActiveChanges)
             .Where(state => state.Second)
             .ObserveOn(scheduler)
@@ -93,7 +96,7 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
     {
         return _eventManager.CommandEvents
             .SubscribeOn(RxSchedulers.TaskpoolScheduler)
-            .Where(evt => evt.Type.IsOneOf(EventType.CmdNextWindow, EventType.CmdPreviousWindow, EventType.CmdAppHide, EventType.WindowSelected))
+            .Where(evt => evt.Type.IsOneOf(EventType.CmdNextWindow, EventType.CmdPreviousWindow, EventType.CmdAppHide, EventType.CmdCommitSelection, EventType.WindowSelected))
             .WithLatestFrom<WinTabberEvent, bool, (WinTabberEvent CommandEvent, bool IsEditing)>(IsEditing, (command, isEditing) => (command, isEditing))
             .Select(evt =>
             {
@@ -104,6 +107,10 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
                     EventType.CmdNextWindow => true,
                     EventType.CmdPreviousWindow => true,
                     EventType.WindowSelected => false,
+                    EventType.CmdCommitSelection => false,
+                    // CmdAppHide keeps its existing isEditing mapping. Now that ObserveKeyCommands
+                    // is gone its only producer is App.xaml.cs (app exit/hide), and that path must
+                    // still dismiss the switcher.
                     EventType.CmdAppHide => isEditing,
                     _ => throw new InvalidOperationException()
                 };
@@ -201,6 +208,35 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
     {
         WindowItems = [];
         SelectedIndex = -1;
+    }
+
+    /// <summary>
+    /// Tell the rest of the app the switcher is no longer open.
+    /// <para>
+    /// This matters more than it used to: the commit tracker (§5) holds an active hold set until it
+    /// sees the switcher close, and it only learns about closes through
+    /// <see cref="EventType.WindowSelected" /> and <see cref="EventType.CmdAppHide" />. The
+    /// window's own click-to-close and Esc paths bypass <c>SelectAndClose</c>, so without this they
+    /// would leave the tracker armed and the *next* modifier release would fire a stray commit.
+    /// </para>
+    /// </summary>
+    internal void NotifySwitcherClosed()
+    {
+        _eventManager.SendEvent(EventType.WindowSelected);
+    }
+
+    /// <summary>Dismiss the switcher without activating anything (§5 Esc fallback).</summary>
+    internal void CancelSelection()
+    {
+        Deactivate();
+        EndPreview();
+        NotifySwitcherClosed();
+    }
+
+    /// <summary>Commit the current selection from the switcher window itself (§5 Enter fallback).</summary>
+    internal void CommitSelection()
+    {
+        SelectAndClose();
     }
 
     private readonly ApplicationStateViewModel _applicationState;
