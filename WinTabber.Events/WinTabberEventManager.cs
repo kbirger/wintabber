@@ -174,23 +174,85 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
             .Subscribe(_ => { }, _ => { });
     }
 
+    /// <summary>
+    /// Derives from the shared <see cref="WindowChange" /> stream rather than subscribing to
+    /// <c>_interop.ActiveWindowChangedEvents()</c> directly, so it never installs a second
+    /// WinEvent hook.
+    /// </summary>
     private IObservable<WinTabberEvent<string>> ObserveActiveApplicationChange()
     {
-        return WindowChange.Select(evt => _interop.GetWindowProcessId(evt.Arg))
-        .DistinctUntilChanged()
-        .Select(pid => Process.GetProcessById(pid).ProcessName)
-        .DistinctUntilChanged()
-        .Select(processName => new WinTabberEvent<string>(EventType.ActiveApplicatonChanged, processName));
+        return WindowChange
+            .Select(evt => _interop.GetWindowProcessId(evt.Arg))
+            .DistinctUntilChanged()
+            .Select(TryGetProcessName)
+            // §3: Process.GetProcessById(pid).ProcessName throws if the process has already
+            // exited by the time we look it up. Because WindowChange (and therefore this
+            // stream) is now shared across every subscriber, an unhandled exception here would
+            // OnError the sequence permanently for all of them. TryGetProcessName swallows that
+            // race and returns null, which we simply skip - one stale notification is dropped
+            // instead of killing the stream.
+            .Where(processName => processName is not null)
+            .DistinctUntilChanged()
+            .Select(processName => new WinTabberEvent<string>(EventType.ActiveApplicatonChanged, processName!));
     }
 
+    private static string? TryGetProcessName(int pid)
+    {
+        try
+        {
+            return Process.GetProcessById(pid).ProcessName;
+        }
+        catch (Exception ex) when (ex is ArgumentException or InvalidOperationException or Win32Exception)
+        {
+            // Process exited between the foreground-change notification and this lookup - skip it.
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Exactly one <c>SetWinEventHook</c> exists no matter how many subscribers
+    /// <see cref="WindowChange" /> (or the derived <see cref="ApplicationChange" />) has.
+    /// <para>
+    /// <c>hookChanges</c> is the shared, multicast tail: the raw hook events, deduped and
+    /// filtered once, <c>Publish().RefCount()</c>'d so the hook installs on first subscriber
+    /// and unhooks when the last one leaves. <c>DistinctUntilChanged</c> living here means its
+    /// state is global rather than per-subscriber - that is intentional and correct, because it
+    /// is deduping the one true sequence of real hardware foreground-change notifications that
+    /// every subscriber should see identically, not any per-subscriber view state.
+    /// </para>
+    /// <para>
+    /// The <c>StartWith</c> value is a different story and must stay per-subscriber. It is
+    /// wrapped in <see cref="Observable.Defer{TResult}(Func{IObservable{TResult}})" /> so
+    /// <c>GetForegroundWindowHandle()</c> is (re-)evaluated fresh every time someone subscribes,
+    /// including a subscriber that arrives long after the first one connected. Two alternatives
+    /// were rejected: <c>Publish().RefCount()</c> alone caches nothing, so a late subscriber
+    /// gets no value at all until the next real foreground change; <c>Replay(1).RefCount()</c>
+    /// caches the last value that actually flowed through the shared stream, but once the last
+    /// subscriber unsubscribes RefCount disconnects (and unhooks), so a late subscriber arriving
+    /// after a gap with no listeners would either replay nothing or replay an arbitrarily stale
+    /// value. Deferring a fresh live query is cheap (a single GetForegroundWindow call) and is
+    /// always correct regardless of how long the stream sat unsubscribed.
+    /// </para>
+    /// </summary>
     private IObservable<WinTabberEvent<int>> ObserveActiveWindowChange()
     {
-        return _interop.ActiveWindowChangedEvents()
+        var hookChanges = _interop
+            .ActiveWindowChangedEvents()
             .Select(data => data.Handle)
-            .StartWith(_interop.GetForegroundWindowHandle())
             .DistinctUntilChanged()
-            .Where(evt => evt != 0)
-            .Select(evt => new WinTabberEvent<int>(EventType.ActiveWindowChanged, evt));
+            .Where(handle => handle != 0)
+            .Select(handle => new WinTabberEvent<int>(EventType.ActiveWindowChanged, handle))
+            .Publish()
+            .RefCount();
+
+        return Observable
+            .Defer(() =>
+                hookChanges.StartWith(
+                    new WinTabberEvent<int>(EventType.ActiveWindowChanged, _interop.GetForegroundWindowHandle())
+                )
+            )
+            .Where(evt => evt.Arg != 0)
+            .DistinctUntilChanged();
     }
 
     public void SendEvent(WinTabberEvent evt)
