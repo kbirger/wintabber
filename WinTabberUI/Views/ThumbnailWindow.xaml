@@ -49,7 +49,7 @@
                          paints above anything sharing it, regardless of WPF z-order) never overlaps this row.
                          Only HeaderBar's own Opacity fades on hover (see ThumbnailWindow.xaml.cs); the layout
                          itself never moves. -->
-                    <RowDefinition Height="26" />
+                    <RowDefinition x:Name="HeaderRow" Height="26" />
                     <RowDefinition Height="*" />
                 </Grid.RowDefinitions>
 
