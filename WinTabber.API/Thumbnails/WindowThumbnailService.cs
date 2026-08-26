@@ -17,12 +17,14 @@ public sealed class WindowThumbnailService : IWindowThumbnailService
     private static readonly TimeSpan WatchdogInterval = TimeSpan.FromSeconds(1);
 
     private readonly IInteropProxy _interop;
+    private readonly IProcessRepository _processRepository;
     private readonly SourceCache<ThumbnailEntry, int> _cache = new(e => e.Handle);
     private readonly IDisposable _watchdog;
 
-    public WindowThumbnailService(IInteropProxy interop)
+    public WindowThumbnailService(IInteropProxy interop, IProcessRepository processRepository)
     {
         _interop = interop;
+        _processRepository = processRepository;
 
         // Self-restore if a thumbnailed window's source is destroyed (app closed/crashed) while it was
         // off-screen: there's no dedicated "window destroyed" event flowing through IInteropProxy, so this
@@ -36,7 +38,27 @@ public sealed class WindowThumbnailService : IWindowThumbnailService
 
     public bool CanThumbnail(WindowRef window) =>
         !IsThumbnailed(window.Handle)
+        && !IsOwnWindow(window.Handle)
         && window.State is WindowPlacement.WindowState.Normal or WindowPlacement.WindowState.Maximized;
+
+    /// <summary>
+    /// WinTabber's own windows (the switcher, the thumbnail previews themselves, settings, …) are never
+    /// thumbnailable: moving them off-screen would hide the very UI that brings them back, and a preview
+    /// of a preview is meaningless. Checked on the raw HWND so every entry point is covered, including
+    /// the foreground-window hotkey path.
+    /// </summary>
+    private bool IsOwnWindow(int handle)
+    {
+        try
+        {
+            return _interop.GetWindowProcessId(handle) == _processRepository.GetCurrentProcessId();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"WindowThumbnailService: cannot resolve owning process for handle {handle}: {ex.Message}");
+            return false;
+        }
+    }
 
     public bool StartThumbnail(WindowRef window)
     {

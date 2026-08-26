@@ -20,4 +20,5 @@ public enum EventType
     CmdCommitSelection,
     CmdThumbnailWindow,
     CmdSuspendedWindows,
+    CmdSuspendWindow,
 }

@@ -21,6 +21,7 @@ public enum ShortcutCommand
     ShowSettings,
     ThumbnailWindow,
     SuspendedWindows,
+    SuspendWindow,
 }
 
 public static class ShortcutCommandExtensions
@@ -39,6 +40,7 @@ public static class ShortcutCommandExtensions
             ShortcutCommand.ShowSettings => EventType.CmdShowSettings,
             ShortcutCommand.ThumbnailWindow => EventType.CmdThumbnailWindow,
             ShortcutCommand.SuspendedWindows => EventType.CmdSuspendedWindows,
+            ShortcutCommand.SuspendWindow => EventType.CmdSuspendWindow,
             _ => throw new ArgumentOutOfRangeException(nameof(command), command, "Unmapped shortcut command."),
         };
 
@@ -59,6 +61,7 @@ public static class ShortcutCommandExtensions
             ShortcutCommand.ShowSettings => "ShowSettings",
             ShortcutCommand.ThumbnailWindow => "ThumbnailWindow",
             ShortcutCommand.SuspendedWindows => "SuspendedWindows",
+            ShortcutCommand.SuspendWindow => "SuspendWindow",
             _ => throw new ArgumentOutOfRangeException(nameof(command), command, "Unmapped shortcut command."),
         };
 
@@ -102,6 +105,7 @@ public static class ShortcutCommandExtensions
             ShortcutCommand.ShowSettings => "Settings",
             ShortcutCommand.ThumbnailWindow => "Thumbnail active window",
             ShortcutCommand.SuspendedWindows => "Sleeping windows",
+            ShortcutCommand.SuspendWindow => "Sleep active window",
             _ => command.ToString(),
         };
 
@@ -111,8 +115,10 @@ public static class ShortcutCommandExtensions
         {
             ShortcutCommand.NextWindow or ShortcutCommand.PreviousWindow or ShortcutCommand.CommitSelection =>
                 "Window Switching",
-            ShortcutCommand.DockWindow or ShortcutCommand.MinimizeWindow or ShortcutCommand.MaximizeWindow =>
-                "Window Management",
+            ShortcutCommand.DockWindow
+            or ShortcutCommand.MinimizeWindow
+            or ShortcutCommand.MaximizeWindow
+            or ShortcutCommand.SuspendWindow => "Window Management",
             _ => "Panels",
         };
 }

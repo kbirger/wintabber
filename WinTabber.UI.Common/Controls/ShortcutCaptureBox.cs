@@ -62,6 +62,22 @@ public class ShortcutCaptureBox : Control
         CancelCaptureCommand = new RelayCommand(_ => CancelCapture(), _ => IsCapturing);
         Unloaded += (_, _) => CancelCapture();
         LostKeyboardFocus += (_, _) => CancelCapture();
+
+        // Nothing else invokes StartCaptureCommand: the host template (see ShortcutsSettingsPage.xaml)
+        // just toggles this control's Visibility on when the row enters edit mode, it never fires the
+        // command itself. Without this, becoming visible showed the idle presenter with no capture
+        // session behind it, so keystrokes went nowhere.
+        IsVisibleChanged += (_, e) =>
+        {
+            if ((bool)e.NewValue)
+            {
+                StartCapture();
+            }
+            else
+            {
+                CancelCapture();
+            }
+        };
     }
 
     public static readonly DependencyProperty TriggerProperty = DependencyProperty.Register(

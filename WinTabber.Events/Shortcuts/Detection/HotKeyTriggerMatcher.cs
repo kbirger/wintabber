@@ -81,6 +81,31 @@ public sealed class HotKeyTriggerMatcher : IDisposable
             return;
         }
 
+        // Old registrations must go first: RegisterHotKey fails a chord that's already registered
+        // anywhere in this process, even under a different id. Registering the new set before
+        // releasing the old one meant every *unchanged* binding collided with itself and was
+        // reported as rejected — which then also tore down its own previously-working registration
+        // once the (empty-for-that-slot) new set replaced it below.
+        List<IDisposable> previous;
+        lock (_gate)
+        {
+            previous = [.. _registrations];
+            _registrations.Clear();
+            _mappings = new Dictionary<int, ShortcutActivation>();
+        }
+
+        foreach (var registration in previous)
+        {
+            try
+            {
+                registration.Dispose();
+            }
+            catch (Exception ex)
+            {
+                System.Diagnostics.Debug.WriteLine($"Failed to unregister a hotkey: {ex.Message}");
+            }
+        }
+
         var mappings = new Dictionary<int, ShortcutActivation>();
         var registrations = new List<IDisposable>();
         var failures = new List<ShortcutRegistrationFailure>();
@@ -125,25 +150,10 @@ public sealed class HotKeyTriggerMatcher : IDisposable
             }
         }
 
-        List<IDisposable> previous;
         lock (_gate)
         {
-            previous = [.. _registrations];
-            _registrations.Clear();
             _registrations.AddRange(registrations);
             _mappings = mappings;
-        }
-
-        foreach (var registration in previous)
-        {
-            try
-            {
-                registration.Dispose();
-            }
-            catch (Exception ex)
-            {
-                System.Diagnostics.Debug.WriteLine($"Failed to unregister a hotkey: {ex.Message}");
-            }
         }
 
         foreach (var failure in failures)

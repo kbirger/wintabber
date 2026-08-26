@@ -114,6 +114,14 @@ public sealed class ShortcutMap
                     }
                 ),
                 new ShortcutBinding(
+                    ShortcutCommand.SuspendWindow,
+                    new ShortcutTrigger.Keyboard
+                    {
+                        Modifiers = ShortcutModifiers.Alt | ShortcutModifiers.Ctrl | ShortcutModifiers.Shift,
+                        Key = new ShortcutKey(0x53), // S
+                    }
+                ),
+                new ShortcutBinding(
                     ShortcutCommand.ShowSettings,
                     new ShortcutTrigger.Keyboard
                     {
