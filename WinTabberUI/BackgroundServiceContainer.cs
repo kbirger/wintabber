@@ -8,7 +8,6 @@ using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabberUI.Coordinators;
 using WinTabberUI.Infrastructure;
-using WinTabberUI.Updaters;
 using WinTabberUI.ViewModels;
 
 namespace WinTabberUI;
@@ -35,7 +34,6 @@ public class BackgroundServiceContainer : IDisposable
             ioc.GetRequiredService<MediaWindowViewCoordinator>().Init(),
             ioc.GetRequiredService<SuspendedWindowsViewCoordinator>().Init(),
             ioc.GetRequiredService<ThumbnailWindowCoordinator>().Init(),
-            ioc.GetRequiredService<WindowHistoryUpdater>().Init(),
             ioc.GetRequiredService<WindowCommandCoordinator>(),
             ioc.GetRequiredService<WinTabberEventManager>(),
             ioc.GetRequiredService<NotifyIconCoordinator>(),

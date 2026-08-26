@@ -22,7 +22,6 @@ using WinTabberUI.Coordinators;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Models;
 using WinTabberUI.Services;
-using WinTabberUI.Updaters;
 using WinTabberUI.ViewModels;
 using WinTabberUI.Views;
 
@@ -48,7 +47,6 @@ public static class Bootstrapper
             .AddCoreServices()
             .AddDomainModels()
             .AddStateServices()
-            .AddUpdaters()
             .AddViews()
             .AddViewModels()
             .BuildServiceProvider();
@@ -105,12 +103,6 @@ public static class Bootstrapper
             .AddSingleton<AudioDeviceService>()
             .AddSingleton<InstalledApplicationRepository>();
     }
-    private static IServiceCollection AddUpdaters(this IServiceCollection services)
-    {
-        return services
-            .AddSingleton<WindowHistoryUpdater>();
-    }
-
     private static IServiceCollection AddCoordinators(this IServiceCollection services)
     {
         return services

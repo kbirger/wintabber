@@ -27,6 +27,18 @@ public partial class ActiveWindowStateService(WinTabberEventManager eventManager
         return _eventManager.WindowChange
             .Select(data => _windowManager.GetWindow(data.Arg))
             .Where(windowRef => windowRef is null || windowRef.IsValidUserWindow && windowRef.Process.IsValid)
+            // Activation history is recorded here, upstream of the Replay, so that every subscriber
+            // observes a history which already includes this change. Recording it from a subscriber
+            // instead made window ordering depend on subscription order: the window selector was
+            // constructed first, so its GetWindows() call read the history as of one foreground
+            // change ago and its tiles were ordered one step behind.
+            .Do(windowRef =>
+            {
+                if (windowRef is not null)
+                {
+                    _windowManager.RegisterForegroundWindowChanged(windowRef.Handle);
+                }
+            })
             .Replay(1)
             .RefCount()
             .ObserveOnDispatcher();
