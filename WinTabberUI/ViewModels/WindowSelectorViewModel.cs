@@ -160,6 +160,7 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
 
     private void SelectPrevious()
     {
+        if (WindowItems.Length == 0) return;
         var index = SelectedIndex - 1;
         SelectedIndex = index < 0 ? WindowItems.Length - 1 : index;
     }
@@ -167,7 +168,12 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
     private void SelectNext()
     {
         if (WindowItems.Length == 0) return;
-        SelectedIndex = (SelectedIndex + 1) % WindowItems.Length;
+
+        // WindowItems is ordered most-recently-focused first, so index 0 is the window that
+        // already has focus. On a fresh activation (SelectedIndex == -1) the first "next" must
+        // therefore land on index 1 — the second-most-recently-focused window — not on 0.
+        var index = SelectedIndex < 0 ? 1 : SelectedIndex + 1;
+        SelectedIndex = index % WindowItems.Length;
     }
 
     private void SelectAndClose()
