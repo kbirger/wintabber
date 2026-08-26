@@ -210,9 +210,24 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
             ?? Array.Empty<WindowItem>();
     }
 
+    /// <summary>
+    /// Drop the selection, leaving the tiles in place.
+    /// <para>
+    /// Deliberately does <i>not</i> empty <see cref="WindowItems" />. Blanking the list here was
+    /// the cause of the switcher sometimes opening empty: the only writer of WindowItems is a
+    /// foreground-change event, and the close paths that activate no window (Esc, or a click
+    /// landing with nothing selected) produce none. Normally the switcher window taking the
+    /// foreground means closing it hands focus back and that refills the list, but Windows'
+    /// foreground lock makes Activate() intermittent -- when it loses, open and close produce no
+    /// foreground change at all and the emptied list stays empty until the next app switch.
+    /// </para>
+    /// <para>
+    /// The tiles already describe the focused application, so leaving them in place is both
+    /// correct and free.
+    /// </para>
+    /// </summary>
     internal void Deactivate()
     {
-        WindowItems = [];
         SelectedIndex = -1;
     }
 
