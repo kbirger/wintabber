@@ -296,6 +296,11 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
 
     public void ShowWindowSelector()
     {
+        // Before Show(), not after. MaxItemWidth/MaxItemHeight default to 400 and are only
+        // given their real values here; leaving this to OnActivated (which Activate() raises
+        // below) meant the first layout pass ran with 400x400 tiles and the window visibly
+        // resized once the settings-derived size landed.
+        ScaleTiles();
         Top = -1000;
         Show();
         Focus();
