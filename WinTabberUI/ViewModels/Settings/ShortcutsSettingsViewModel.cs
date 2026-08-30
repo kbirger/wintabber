@@ -128,6 +128,33 @@ public class ShortcutsSettingsViewModel : SettingsViewModelBase, IDisposable
             )
         );
 
+    /// <summary>
+    /// Live conflict check for the capture dialog: same rule <see cref="RefreshConflicts" /> applies
+    /// to saved bindings, but against a trigger that has not been saved yet. <paramref name="excluding" />
+    /// leaves out the binding being re-captured, so a shortcut does not conflict with its own old value.
+    /// </summary>
+    internal string? DescribeConflict(ShortcutCommand command, ShortcutTrigger trigger, ShortcutBindingViewModel? excluding)
+    {
+        var bindings = Commands
+            .SelectMany(c =>
+                c.Bindings.Where(b => b.Trigger is not null && !ReferenceEquals(b, excluding))
+                    .Select(b => new ShortcutBinding(c.Command, b.Trigger!))
+            )
+            .Append(new ShortcutBinding(command, trigger));
+
+        var conflict = new ShortcutMap(bindings)
+            .FindConflicts()
+            .FirstOrDefault(c => string.Equals(c.Trigger.InputIdentity, trigger.InputIdentity, StringComparison.Ordinal));
+
+        if (conflict is null)
+        {
+            return null;
+        }
+
+        var others = conflict.Commands.Where(c => c != command).Select(c => c.GetDisplayName()).ToList();
+        return others.Count == 0 ? null : $"Also assigned to {string.Join(", ", others)}.";
+    }
+
     private void RefreshConflicts()
     {
         var conflicts = BuildMap().FindConflicts();
@@ -186,18 +213,17 @@ public class ShortcutCommandViewModel : ReactiveObject
         _owner = owner;
         Command = command;
         DisplayName = command.GetDisplayName();
-
-        AddCommand = ReactiveCommand.Create(Add);
+        Desscription = command.GetDescription();
+        Icon = command.GetIcon();
         ResetCommand = ReactiveCommand.Create(() => _owner.ResetCommand(this));
     }
 
     public ShortcutCommand Command { get; }
 
     public string DisplayName { get; }
-
+    public string Desscription { get; }
+    public FontIconData Icon { get; }
     public ObservableCollection<ShortcutBindingViewModel> Bindings { get; } = new();
-
-    public ReactiveCommand<Unit, Unit> AddCommand { get; }
 
     public ReactiveCommand<Unit, Unit> ResetCommand { get; }
 
@@ -210,11 +236,11 @@ public class ShortcutCommandViewModel : ReactiveObject
         }
     }
 
-    private void Add()
+    /// <summary>Called from the capture dialog's Save — nothing is added unless the user saves.</summary>
+    internal void AddFromDialog(ShortcutTrigger trigger)
     {
-        // Added empty and immediately in capture mode: the user's next keystroke defines it.
-        var binding = new ShortcutBindingViewModel(this, null) { IsEditing = true };
-        Bindings.Add(binding);
+        Bindings.Add(new ShortcutBindingViewModel(this, trigger));
+        _owner.Apply();
     }
 
     internal void Remove(ShortcutBindingViewModel binding)
@@ -230,7 +256,6 @@ public class ShortcutBindingViewModel : ReactiveObject
 {
     private readonly ShortcutCommandViewModel _owner;
     private ShortcutTrigger? _trigger;
-    private bool _isEditing;
     private string? _conflictMessage;
 
     public ShortcutBindingViewModel(ShortcutCommandViewModel owner, ShortcutTrigger? trigger)
@@ -238,10 +263,6 @@ public class ShortcutBindingViewModel : ReactiveObject
         _owner = owner;
         _trigger = trigger;
 
-        EditCommand = ReactiveCommand.Create(() =>
-        {
-            IsEditing = true;
-        });
         RemoveCommand = ReactiveCommand.Create(() => _owner.Remove(this));
     }
 
@@ -256,16 +277,13 @@ public class ShortcutBindingViewModel : ReactiveObject
             }
 
             this.RaiseAndSetIfChanged(ref _trigger, value);
-            IsEditing = false;
             _owner.OnBindingChanged();
         }
     }
 
-    public bool IsEditing
-    {
-        get => _isEditing;
-        set => this.RaiseAndSetIfChanged(ref _isEditing, value);
-    }
+    public ShortcutCommand Command => _owner.Command;
+
+    public string CommandDisplayName => _owner.DisplayName;
 
     /// <summary>Non-null when this binding collides with another command, or the OS rejected it.</summary>
     public string? ConflictMessage
@@ -280,7 +298,10 @@ public class ShortcutBindingViewModel : ReactiveObject
 
     public bool HasConflict => _conflictMessage is not null;
 
-    public ReactiveCommand<Unit, Unit> EditCommand { get; }
-
     public ReactiveCommand<Unit, Unit> RemoveCommand { get; }
+
+    /// <summary>Resets every binding for this command back to its default set, not just this one —
+    /// same rule the old standalone "Reset to default" button applied, now reachable from the
+    /// capture dialog instead.</summary>
+    internal void ResetOwnerToDefault() => _owner.ResetCommand.Execute().Subscribe();
 }

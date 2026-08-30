@@ -91,34 +91,4 @@ public static class ShortcutCommandExtensions
     /// <summary>Commands that open the window switcher, and therefore capture a hold set (§5).</summary>
     public static bool OpensSwitcher(this ShortcutCommand command) =>
         command is ShortcutCommand.NextWindow or ShortcutCommand.PreviousWindow;
-
-    public static string GetDisplayName(this ShortcutCommand command) =>
-        command switch
-        {
-            ShortcutCommand.NextWindow => "Next window",
-            ShortcutCommand.PreviousWindow => "Previous window",
-            ShortcutCommand.CommitSelection => "Commit selection",
-            ShortcutCommand.DockWindow => "Dock window",
-            ShortcutCommand.MinimizeWindow => "Minimize window",
-            ShortcutCommand.MaximizeWindow => "Maximize window",
-            ShortcutCommand.MediaWindow => "Media controls",
-            ShortcutCommand.ShowSettings => "Settings",
-            ShortcutCommand.ThumbnailWindow => "Thumbnail active window",
-            ShortcutCommand.SuspendedWindows => "Sleeping windows",
-            ShortcutCommand.SuspendWindow => "Sleep active window",
-            _ => command.ToString(),
-        };
-
-    /// <summary>Grouping used by the settings page (§6.1).</summary>
-    public static string GetGroupName(this ShortcutCommand command) =>
-        command switch
-        {
-            ShortcutCommand.NextWindow or ShortcutCommand.PreviousWindow or ShortcutCommand.CommitSelection =>
-                "Window Switching",
-            ShortcutCommand.DockWindow
-            or ShortcutCommand.MinimizeWindow
-            or ShortcutCommand.MaximizeWindow
-            or ShortcutCommand.SuspendWindow => "Window Management",
-            _ => "Panels",
-        };
 }

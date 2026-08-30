@@ -1,0 +1,68 @@
+{
+  "NextWindow": {
+    "displayName": "Next window",
+    "description": "Opens window selector and selects the next window in history",
+    "group": "Window Switching",
+    "icon": "ArrowNext_24_Filled"
+  },
+  "PreviousWindow": {
+    "displayName": "Previous window",
+    "description": "Opens window selector and selects the previous window in history",
+    "group": "Window Switching",
+    "icon": "ArrowPrevious_24_Filled"
+  },
+  "CommitSelection": {
+    "displayName": "Commit selection",
+    "description": "Activates the selected window and closes window selector",
+    "group": "Window Switching",
+    "icon": "Checkmark_24_Filled"
+  },
+  "DockWindow": {
+    "displayName": "Dock window",
+    "description": "Launches the dock window",
+    "group": "Window Management",
+    "icon": "Dock_24_Filled"
+  },
+  "MinimizeWindow": {
+    "displayName": "Minimize window",
+    "description": "Minimizes the current window",
+    "group": "Window Management",
+    "icon": "ArrowMinimize_24_Filled"
+  },
+  "MaximizeWindow": {
+    "displayName": "Maximize window",
+    "description": "Maximize the current window",
+    "group": "Window Management",
+    "icon": "Maximize_24_Filled"
+  },
+  "MediaWindow": {
+    "displayName": "Media controls",
+    "description": "Opens media controls window",
+    "group": "Panels",
+    "icon": "Speaker2_24_Filled"
+  },
+  "ShowSettings": {
+    "displayName": "Settings",
+    "description": "Opens the settings dialog",
+    "group": "Panels",
+    "icon": "Settings_24_Filled"
+  },
+  "ThumbnailWindow": {
+    "displayName": "Thumbnail active window",
+    "description": "Shrinks the current window into a live thumbnail",
+    "group": "Panels",
+    "icon": "PictureInPicture_24_Filled"
+  },
+  "SuspendedWindows": {
+    "displayName": "Sleeping windows",
+    "description": "Shows sleeping windows",
+    "group": "Panels",
+    "icon": "AppsList_24_Filled"
+  },
+  "SuspendWindow": {
+    "displayName": "Sleep active window",
+    "description": "Suspends the active window and hides it",
+    "group": "Window Management",
+    "icon": "Sleep_24_Filled"
+  }
+}

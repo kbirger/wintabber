@@ -16,6 +16,11 @@
         <None Remove="Images\logo-small.ico" />
         <None Remove="Images\logo.ico" />
         <None Remove="Images\logo.png" />
+        <None Remove="Resources\ShortcutCommands.json" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="Resources\ShortcutCommands.json" />
     </ItemGroup>
 
     <ItemGroup>

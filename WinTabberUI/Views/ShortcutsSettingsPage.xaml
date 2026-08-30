@@ -13,62 +13,32 @@
       Title="ShortcutsSettingsPage">
     <Page.Resources>
         <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- ShortcutEditButtonStyle and its brushes live here, not auto-merged like the
+                     implicit ShortcutPresenter/ShortcutCaptureBox styles WPF loads by default-style
+                     lookup — this is a plain-Button style, so it needs an explicit merge. -->
+                <ResourceDictionary Source="/WinTabber.UI.Common;component/Themes/Generic.xaml" />
+            </ResourceDictionary.MergedDictionaries>
 
-            <!-- One binding row: presenter when idle, capture box while editing. -->
+            <!-- Editing and deleting both happen in ShortcutCaptureDialog (opened from code-behind).
+                 The whole combination is one clickable frame — there is no separate pencil icon. -->
             <DataTemplate x:Key="BindingRowTemplate" DataType="{x:Type settingsvm:ShortcutBindingViewModel}">
-                <Grid Margin="0,2">
-                    <Grid.ColumnDefinitions>
-                        <ColumnDefinition Width="*" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                        <ColumnDefinition Width="Auto" />
-                    </Grid.ColumnDefinitions>
-
-                    <controls:ShortcutPresenter
-                        x:Name="Presenter"
-                        Grid.Column="0"
-                        VerticalAlignment="Center"
-                        Trigger="{Binding Trigger}" />
-
-                    <controls:ShortcutCaptureBox
-                        x:Name="CaptureBox"
-                        Grid.Column="0"
-                        Trigger="{Binding Trigger, Mode=TwoWay}"
-                        TriggerSource="{Binding DataContext.TriggerSource, RelativeSource={RelativeSource AncestorType={x:Type Page}}}"
-                        Visibility="Collapsed" />
+                <StackPanel Margin="0,2" Orientation="Horizontal" HorizontalAlignment="Right">
+                    <Button Click="OnEditShortcutClick" Style="{StaticResource ShortcutEditButtonStyle}" ToolTip="Click to change">
+                        <controls:ShortcutPresenter EmptyText="Click to set shortcut" Trigger="{Binding Trigger}" />
+                    </Button>
 
                     <!-- Conflicts warn, they never block saving (§6.1). -->
                     <ui:FontIcon
                         x:Name="ConflictIcon"
-                        Grid.Column="1"
                         Margin="8,0"
                         VerticalAlignment="Center"
                         Foreground="#FFC42B1C"
                         Glyph="&#xE7BA;"
                         ToolTip="{Binding ConflictMessage}"
                         Visibility="Collapsed" />
-
-                    <Button
-                        Grid.Column="2"
-                        Margin="4,0,0,0"
-                        Command="{Binding EditCommand}"
-                        Content="&#xE70F;"
-                        FontFamily="Segoe MDL2 Assets"
-                        ToolTip="Change" />
-
-                    <Button
-                        Grid.Column="3"
-                        Margin="4,0,0,0"
-                        Command="{Binding RemoveCommand}"
-                        Content="&#xE711;"
-                        FontFamily="Segoe MDL2 Assets"
-                        ToolTip="Remove" />
-                </Grid>
+                </StackPanel>
                 <DataTemplate.Triggers>
-                    <DataTrigger Binding="{Binding IsEditing}" Value="True">
-                        <Setter TargetName="Presenter" Property="Visibility" Value="Collapsed" />
-                        <Setter TargetName="CaptureBox" Property="Visibility" Value="Visible" />
-                    </DataTrigger>
                     <DataTrigger Binding="{Binding HasConflict}" Value="True">
                         <Setter TargetName="ConflictIcon" Property="Visibility" Value="Visible" />
                     </DataTrigger>
@@ -76,12 +46,20 @@
             </DataTemplate>
 
             <DataTemplate x:Key="CommandRowTemplate" DataType="{x:Type settingsvm:ShortcutCommandViewModel}">
-                <ui:SettingsCard Margin="0,4,0,0" Header="{Binding DisplayName}">
+                <ui:SettingsCard Margin="0,4,0,0" Header="{Binding DisplayName}" Description="{Binding Desscription}">
+                    <ui:SettingsCard.HeaderIcon>
+                        <ui:FontIcon Icon="{Binding Icon}" />
+                    </ui:SettingsCard.HeaderIcon>
                     <StackPanel MinWidth="320">
-                        <ItemsControl ItemTemplate="{StaticResource BindingRowTemplate}" ItemsSource="{Binding Bindings}" />
-                        <StackPanel Margin="0,4,0,0" Orientation="Horizontal">
-                            <Button Command="{Binding AddCommand}" Content="+ Add shortcut" />
-                            <Button Margin="8,0,0,0" Command="{Binding ResetCommand}" Content="Reset to default" />
+                        <ItemsControl ItemTemplate="{StaticResource BindingRowTemplate}" ItemsSource="{Binding Bindings}" HorizontalAlignment="Right" />
+                        <StackPanel Margin="0,4,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+                            <Button
+                                Width="40"
+                                Height="28"
+                                Click="OnAddShortcutClick"                                
+                                ToolTip="Add shortcut">
+                                <ui:FontIcon Icon="{x:Static ui:FluentSystemIcons.Add_32_Filled}"/>
+                            </Button>
                         </StackPanel>
                     </StackPanel>
                 </ui:SettingsCard>
