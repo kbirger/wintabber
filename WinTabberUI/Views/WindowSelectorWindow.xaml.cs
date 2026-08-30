@@ -19,6 +19,9 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
     private List<IDisposable> _resources = new();
     private WindowTileGrid? _tileGrid;
 
+    /// <summary>Cached by <see cref="GetScreenBounds" />; cleared at the start of each open.</summary>
+    private Rect? _screenBounds;
+
     private DpiScale _dpiScale;
 
     public static DependencyProperty MaxItemHeightProperty = DependencyProperty.Register(
@@ -117,7 +120,10 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
     private void OnDpiChanged(object sender, System.Windows.DpiChangedEventArgs e)
     {
         _dpiScale = e.NewDpi;
+        // The logical bounds are derived from the DPI that just changed, so the cache is stale.
+        _screenBounds = null;
         ScaleTiles();
+        ApplyScreenBounds();
     }
 
     private void MainWindow_LayoutUpdated(object? sender, EventArgs e)
@@ -229,13 +235,8 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
         //var source = PresentationSource.FromVisual(this);
         //_transformToDevice = source.CompositionTarget.TransformToDevice;
         //_transformtoDip = source.CompositionTarget.TransformFromDevice;
-        var origBounds = new Vector(WindowData.CursorScreen.Bounds.Width, WindowData.CursorScreen.Bounds.Height);
-        //var dipBounds = _transformtoDip.Transform(origBounds);
-        //var screenBounds2 = _transformToDevice.Transform(origBounds);
-        var ratio = origBounds.Y / origBounds.X;
-        var bounds = origBounds;
-        var windowWidth = bounds.X * FILL_PERCENT;
-        var windowHeight = bounds.Y * FILL_PERCENT;
+        var bounds = GetScreenBounds();
+        var ratio = bounds.Height / bounds.Width;
         //MaxItemWidth = windowWidth / MAX_ROW_LENGTH;
         //MaxItemHeight = 55+  MaxItemWidth * ratio;
 
@@ -250,25 +251,61 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
     private Matrix _transformToDevice;
     private Matrix _transformtoDip;
 
+    /// <summary>
+    /// Logical bounds of the screen this open belongs to.
+    /// <para>
+    /// Resolved once per open and cached, because the underlying <c>CursorScreen</c> re-reads the
+    /// live cursor on every access. Uncached, the tile sizing, the size constraints and the
+    /// centering could each land on a different monitor if the pointer crossed a boundary
+    /// mid-sequence — and <c>CenterWindow</c> runs from <c>LayoutUpdated</c>, so an open selector
+    /// would chase the pointer onto whatever screen it wandered to.
+    /// </para>
+    /// </summary>
+    private Rect GetScreenBounds()
+    {
+        if (_screenBounds is { } cached)
+        {
+            return cached;
+        }
+
+        var screen = WindowData.CursorScreen.Bounds;
+        var logical = DpiHelper.DeviceRectToLogical(
+            new Rect(screen.Left, screen.Top, screen.Width, screen.Height),
+            _dpiScale.DpiScaleX,
+            _dpiScale.DpiScaleY);
+
+        _screenBounds = logical;
+        return logical;
+    }
+
+    /// <summary>
+    /// Clamp the window to its share of the screen.
+    /// <para>
+    /// Split out of <see cref="CenterWindow" /> so it can run <i>before</i> the first layout pass:
+    /// available width decides how many tiles the <c>WrapPanel</c> puts on a row, so a MaxWidth
+    /// landing after the window is already visible reflows every tile. Same failure that was fixed
+    /// for tile size, one level up.
+    /// </para>
+    /// </summary>
+    private void ApplyScreenBounds()
+    {
+        var bounds = GetScreenBounds();
+        MaxHeight = bounds.Height * FILL_PERCENT;
+        MaxWidth = bounds.Width * FILL_PERCENT;
+    }
+
+    /// <summary>
+    /// Position only. Deliberately does <i>not</i> touch MaxWidth/MaxHeight: this runs from
+    /// <c>LayoutUpdated</c>, and with <c>SizeToContent="WidthAndHeight"</c> writing a size
+    /// constraint from inside a layout callback can re-trigger measure and reflow the tiles.
+    /// <see cref="ApplyScreenBounds" /> owns the constraints and runs outside layout.
+    /// </summary>
     private void CenterWindow()
     {
-        // if (!IsVisible)
-        // {
-        //     return;
-        // }
-        //var screenCenter = WindowData.CenterScreen;
-        var scale = 1;// _dpiScale.DpiScaleX;
-        var screen = WindowData.CursorScreen.Bounds;
-        var screen2 = new Rect(screen.Left, screen.Top, screen.Width, screen.Height);
-        //var bounds = VisualTreeHelper.GetTransform(this).TransformBounds();
-        var bounds = DpiHelper.DeviceRectToLogical(screen2, _dpiScale.DpiScaleX, _dpiScale.DpiScaleY);
-        // SizeToContent = SizeToContent.Manual;
-        // Width = W;
-        MaxHeight = bounds.Height / scale * FILL_PERCENT;
-        MaxWidth = bounds.Width / scale * FILL_PERCENT;
+        var bounds = GetScreenBounds();
 
-        Left = bounds.Left * scale + (bounds.Width / scale - ActualWidth) / 2;
-        Top = bounds.Top * scale + (bounds.Height / scale - ActualHeight) / 2;
+        Left = bounds.Left + (bounds.Width - ActualWidth) / 2;
+        Top = bounds.Top + (bounds.Height - ActualHeight) / 2;
     }
 
     public void SelectWindow(int direction)
@@ -300,9 +337,29 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
         // given their real values here; leaving this to OnActivated (which Activate() raises
         // below) meant the first layout pass ran with 400x400 tiles and the window visibly
         // resized once the settings-derived size landed.
+        // Resolve which screen this open belongs to once, up front; everything below reads it.
+        _screenBounds = null;
+        var bounds = GetScreenBounds();
+
         ScaleTiles();
-        Top = -1000;
+
+        // Size constraints too: the WrapPanel's items-per-row depends on the available width, so
+        // a MaxWidth arriving after Show() rearranges every tile in front of the user.
+        ApplyScreenBounds();
+
+        TabListView.SuppressHoverUntilPointerMoves();
+
+        // Park directly above the target screen, so layout can settle without a half-built frame
+        // being visible if one does slip through. Horizontally aligned with that screen so the
+        // window stays associated with it and doesn't pick up a neighbour's DPI on the way back.
+        Left = bounds.Left;
+        Top = bounds.Top - bounds.Height;
         Show();
+        // Show() on a reused window only invalidates measure; force the pass to completion so
+        // CenterWindow reads a settled ActualWidth/ActualHeight rather than the previous open's.
+        UpdateLayout();
+        CenterWindow();
+
         Focus();
         Activate();
         TabListView.Focus();
@@ -316,6 +373,15 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
             // The click landed on a button (suspend/accept/cancel) inside the tab-title component;
             // don't also switch windows and close the selector out from under it.
             return;
+        }
+
+        // Take the selection from the tile that was actually clicked. This handler is wired to
+        // MouseUp, which fires for any button, but a ListViewItem only selects itself on a *left*
+        // button down - so a middle- or right-click here would otherwise activate whatever was
+        // selected before. Also covers a left-click landing before hover selection is re-armed.
+        if (sender is FrameworkElement { DataContext: WindowItem clicked })
+        {
+            WindowData.SelectedItem = clicked;
         }
 
         SwitchWindowAndClose();

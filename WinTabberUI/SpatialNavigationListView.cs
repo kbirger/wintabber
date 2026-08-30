@@ -14,6 +14,34 @@ public class SpatialNavigationListView : ListView
 
     private WindowTileGrid? _tileGrid;
 
+    /// <summary>Cursor position when hover selection was suppressed; null once it is re-armed.</summary>
+    private System.Drawing.Point? _hoverAnchor;
+
+    /// <summary>
+    /// Ignore hover selection until the pointer actually moves. Called as the selector is shown;
+    /// see <see cref="HoverSelect" /> for why the reveal alone must not select anything.
+    /// </summary>
+    public void SuppressHoverUntilPointerMoves()
+    {
+        _hoverAnchor = System.Windows.Forms.Control.MousePosition;
+        HoverSelect.SetIsEnabled(this, false);
+    }
+
+    protected override void OnPreviewMouseMove(MouseEventArgs e)
+    {
+        base.OnPreviewMouseMove(e);
+
+        // Field test first: this runs for every mouse move over the list, and in the armed state
+        // (the overwhelming majority of them) it must not cost a cursor query or a property read.
+        if (_hoverAnchor is not { } anchor || System.Windows.Forms.Control.MousePosition == anchor)
+        {
+            return;
+        }
+
+        _hoverAnchor = null;
+        HoverSelect.SetIsEnabled(this, true);
+    }
+
     protected override void OnSelectionChanged(SelectionChangedEventArgs e)
     {
         if (e.AddedItems.Count > 0 && e.AddedItems[0] is WindowItem windowItem)
