@@ -57,6 +57,10 @@ public sealed class HookTriggerMatcher
 
     private void OnKeyEvent(IObserver<ShortcutActivation> observer, KeyboardHookEventArgs e, TriggerEdge edge)
     {
+        System.IO.File.AppendAllText(
+            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "shortcut-capture-debug.log"),
+            $"{DateTime.Now:HH:mm:ss.fff} OnKeyEvent edge={edge} key={e.RawEvent.Keyboard.KeyCode} simulated={e.IsEventSimulated} capturing={_captureSink.IsCapturing}\n"
+        );
         var keyCode = e.RawEvent.Keyboard.KeyCode;
         var modifierBit = SharpHookAdapters.ToModifierBit(keyCode);
 

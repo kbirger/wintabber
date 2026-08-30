@@ -12,11 +12,12 @@
         xmlns:local="clr-namespace:WinTabberUI.Views"
         xmlns:chrome="clr-namespace:WinTabber.UI.Common.Chrome;assembly=WinTabber.UI.Common"
         mc:Ignorable="d"
+        WindowStartupLocation="CenterScreen"
         xmlns:views="clr-namespace:WinTabberUI.Views"
         ui:WindowHelper.SystemBackdropType="Mica"
 
         
-        Title="Settings" Height="450" Width="800">
+        Title="Settings" Height="1000" Width="1200">
     <Window.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>

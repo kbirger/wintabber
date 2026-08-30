@@ -163,6 +163,10 @@ public class ShortcutCaptureBox : Control
 
     public void StartCapture()
     {
+        System.IO.File.AppendAllText(
+            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "shortcut-capture-debug.log"),
+            $"{DateTime.Now:HH:mm:ss.fff} StartCapture called. IsCapturing={IsCapturing} TriggerSource={TriggerSource}\n"
+        );
         if (IsCapturing || TriggerSource is not { } source)
         {
             return;
@@ -184,6 +188,10 @@ public class ShortcutCaptureBox : Control
 
     public void CancelCapture()
     {
+        System.IO.File.AppendAllText(
+            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "shortcut-capture-debug.log"),
+            $"{DateTime.Now:HH:mm:ss.fff} CancelCapture called. IsCapturing={IsCapturing}\n"
+        );
         if (!IsCapturing)
         {
             return;
@@ -209,6 +217,10 @@ public class ShortcutCaptureBox : Control
 
     private void OnCapturedInput(CapturedInput input)
     {
+        System.IO.File.AppendAllText(
+            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "shortcut-capture-debug.log"),
+            $"{DateTime.Now:HH:mm:ss.fff} OnCapturedInput Kind={input.Kind}\n"
+        );
         // Any activity resets the idle countdown.
         _idleTimer?.Stop();
         _idleTimer?.Start();
