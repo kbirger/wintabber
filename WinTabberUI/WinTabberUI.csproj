@@ -77,12 +77,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <AdditionalFiles Update="NativeMethods.txt">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </AdditionalFiles>
-    </ItemGroup>
-
-    <ItemGroup>
         <Page Update="Resources\Theme.xaml">
             <Generator>MSBuild:Compile</Generator>
         </Page>

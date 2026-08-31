@@ -6,9 +6,7 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <AdditionalFiles Include="NativeMethods.txt">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </AdditionalFiles>
+        <AdditionalFiles Include="NativeMethods.txt" />
     </ItemGroup>
 
     <ItemGroup>

@@ -1,0 +1,58 @@
+name: Release
+
+# Push a tag like v1.2.3 to build, test and publish a release.
+# The tag is the only source of the version number: it is passed to
+# dotnet as /p:Version, nothing in source tracks it.
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Derive version from tag
+        id: version
+        shell: bash
+        run: echo "version=${GITHUB_REF_NAME#v}" >> "$GITHUB_OUTPUT"
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Test
+        run: dotnet test --solution WinTabber.slnx -c Release
+
+      - name: Publish
+        run: >
+          dotnet publish WinTabberUI/WinTabberUI.csproj
+          -c Release
+          -r win-x64
+          --self-contained true
+          -p:Version=${{ steps.version.outputs.version }}
+          -p:PublishSingleFile=true
+          -p:IncludeNativeLibrariesForSelfExtract=true
+          -p:EnableCompressionInSingleFile=true
+          -o publish
+
+      - name: Zip publish output
+        shell: pwsh
+        run: >
+          Compress-Archive
+          -Path publish\*
+          -DestinationPath WinTabber-${{ steps.version.outputs.version }}-win-x64.zip
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: WinTabber-${{ steps.version.outputs.version }}-win-x64.zip
+          generate_release_notes: true
