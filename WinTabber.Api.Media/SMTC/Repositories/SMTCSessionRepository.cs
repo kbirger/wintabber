@@ -37,7 +37,25 @@ public partial class SMTCSessionRepository
     [Lazy]
     private IObservable<IChangeSet<GlobalSystemMediaTransportControlsSession, string>> GetMediaSessions()
     {
-        return MediaSessionsChanges.ToObservableChangeSet(s => s.SourceAppUserModelId);
+        return ToSessionChangeSet(MediaSessionsChanges, session => session.SourceAppUserModelId);
+    }
+
+    /// <summary>
+    /// Turns a stream of SMTC session snapshots into a change set.
+    /// </summary>
+    /// <remarks>
+    /// Every list from the session manager is a full snapshot of the sessions that exist now. A
+    /// session that is absent from a later snapshot has ended, so it must produce a remove.
+    /// </remarks>
+    public static IObservable<IChangeSet<T, string>> ToSessionChangeSet<T>(
+        IObservable<IReadOnlyList<T>> snapshots,
+        Func<T, string> keySelector
+    )
+        where T : notnull
+    {
+        // EditDiff, not ToObservableChangeSet: ToObservableChangeSet treats each list as a batch of
+        // adds and never removes, so ended sessions stayed in the media controls list forever.
+        return snapshots.EditDiff(keySelector);
     }
 
     private static IObservable<GlobalSystemMediaTransportControlsSession> GetSMTCActiveSessionChanges(

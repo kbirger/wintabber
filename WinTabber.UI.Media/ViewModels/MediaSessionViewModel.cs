@@ -30,19 +30,13 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
 
     private readonly CompositeDisposable _disposable = new CompositeDisposable();
 
-    //[Reactive] public partial AggregateSession? Session { get; set; }
+    // Do not pre-assign the backing field. RaiseAndSetIfChanged compares the field with the new
+    // value and returns without a notification when they are equal. An assignment before the call
+    // makes that comparison always true, so PropertyChanged never fires and SessionChanged stalls.
     public AggregateSession? Session
     {
         get => field;
-        set
-        {
-            Debug.WriteLine("Session set");
-            if (field != value)
-            {
-                field = value;
-                this.RaiseAndSetIfChanged(ref field, value);
-            }
-        }
+        set => this.RaiseAndSetIfChanged(ref field, value);
     }
 
     public MediaSessionViewModel(AudioSessionService audioSessionService, AudioDeviceService audioDeviceService)
@@ -103,10 +97,12 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
             .DisposeWith(_disposable);
 
         Playback = new PlaybackControlsViewModel(scheduler);
-        monitors.Subscribe(monitor =>
-        {
-            Playback.Session = monitor;
-        });
+        monitors
+            .Subscribe(monitor =>
+            {
+                Playback.Session = monitor;
+            })
+            .DisposeWith(_disposable);
 
         DeviceVolumeControls = new VolumeControlsViewModel(device, volumeHintText: "DV", muteHintText: "DM");
 

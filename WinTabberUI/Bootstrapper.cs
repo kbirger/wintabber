@@ -113,6 +113,7 @@ public static class Bootstrapper
             .AddSingleton<WindowCommandCoordinator>()
             .AddSingleton<NotifyIconCoordinator>()
             .AddSingleton<SuspendedWindowsViewCoordinator>()
+            .AddSingleton<MediaDebugWindowCoordinator>()
             .AddSingleton<ThumbnailWindowCoordinator>();
 
     }
@@ -121,7 +122,8 @@ public static class Bootstrapper
     {
         return services
             .AddSingleton<IActiveWindowStateService, ActiveWindowStateService>()
-            .AddSingleton<IMediaControlsStateService, MediaControlsStateService>();
+            .AddSingleton<IMediaControlsStateService, MediaControlsStateService>()
+            .AddSingleton<MediaDebugStateService>();
     }
 
     private static IServiceCollection RegisterApplication(this IServiceCollection services, Application application)
@@ -139,6 +141,7 @@ public static class Bootstrapper
             .AddTransient<WindowRenameViewModel>()
             .AddSingleton<SettingsViewModel>()
             .AddSingleton<NotifyIconViewModel>()
+            .AddSingleton<MediaDebugViewModel>()
             .AddSingleton<SuspendedWindowsViewModel>()
             .AddTransient<ThumbnailWindowViewModel>();
     }
@@ -155,6 +158,7 @@ public static class Bootstrapper
             .AddTransient<SettingsWindow>()
             .AddTransient<MediaControlsWindow>()
             .AddTransient<SuspendedWindowsWindow>()
+            .AddTransient<MediaDebugWindow>()
             .AddTransient<ThumbnailWindow>()
             .AddSingleton<WindowSelectorWindowFactory>()
             .AddSingleton(sp => sp.GetRequiredService<WindowSelectorWindowFactory>().CreateWindowSelectorWindow());

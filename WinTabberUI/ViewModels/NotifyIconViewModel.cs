@@ -3,6 +3,7 @@ using System.Reactive;
 using System.Windows;
 using WinTabber.API.Suspension;
 using WinTabber.Events;
+using WinTabberUI.Services;
 
 namespace WinTabberUI.ViewModels;
 
@@ -13,7 +14,11 @@ namespace WinTabberUI.ViewModels;
 /// </summary>
 public partial class NotifyIconViewModel : ReactiveObject
 {
-    public NotifyIconViewModel(WinTabberEventManager eventManager, IProcessSuspensionService suspensionService)
+    public NotifyIconViewModel(
+        WinTabberEventManager eventManager,
+        IProcessSuspensionService suspensionService,
+        MediaDebugStateService mediaDebugState
+    )
     {
         ExitApplicationCommand = ReactiveCommand.Create(ExitApplication);
         ShowSettingsCommand = ReactiveCommand.Create(ShowSettings(eventManager));
@@ -39,6 +44,12 @@ public partial class NotifyIconViewModel : ReactiveObject
         _areHooksActive = eventManager.WhenAnyValue(em => em.IsRunning)
             .ToProperty(this, vm => vm.AreHooksActive);
 
+        // Arms the media debug window. The window itself opens and closes with the media controls
+        // window, so its subscriptions start when the real feature's subscriptions start.
+        MediaDebugCommand = ReactiveCommand.Create(mediaDebugState.Toggle);
+        _isMediaDebugEnabled = mediaDebugState.IsEnabledChanges
+            .ToProperty(this, vm => vm.IsMediaDebugEnabled);
+
         // Escape hatch: recovery of frozen processes should never depend on the switcher /
         // suspended-windows bar being reachable.
         ResumeAllSuspendedCommand = ReactiveCommand.Create(
@@ -47,7 +58,10 @@ public partial class NotifyIconViewModel : ReactiveObject
     }
 
     private ObservableAsPropertyHelper<bool> _areHooksActive;
+    private ObservableAsPropertyHelper<bool> _isMediaDebugEnabled;
     public bool AreHooksActive => _areHooksActive.Value;
+    public bool IsMediaDebugEnabled => _isMediaDebugEnabled.Value;
+    public ReactiveCommand<Unit, Unit> MediaDebugCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowSettingsCommand { get; }
     public ReactiveCommand<Unit, Unit> ExitApplicationCommand { get; }
     public ReactiveCommand<Unit, Unit> ShowWindowCommand { get; }

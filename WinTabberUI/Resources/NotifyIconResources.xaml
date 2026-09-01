@@ -26,6 +26,13 @@
             Header="Show theme colors"
             Command="{Binding SysColorsCommand}"
         />
+        <MenuItem
+            Header="Media debug view"
+            Command="{Binding MediaDebugCommand}"
+            IsCheckable="True"
+            IsChecked="{Binding IsMediaDebugEnabled, Mode=OneWay}"
+            ToolTip="Shows the media debug window whenever the media controls window is shown"
+        />
         <MenuItem Header="Resume all suspended" Command="{Binding ResumeAllSuspendedCommand}" />
         <MenuItem Header="Exit" Command="{Binding ExitApplicationCommand}" />
     </ContextMenu>

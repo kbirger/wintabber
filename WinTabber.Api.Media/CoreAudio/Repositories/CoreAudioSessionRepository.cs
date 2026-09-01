@@ -26,20 +26,23 @@ public class CoreAudioSessionRepository : IDisposable
                 (cache) =>
                 {
                     var scheduler = Scheduler;
+
+                    // ToList matters. The projection is lazy, so a second enumeration would build a
+                    // second set of wrappers that the cache does not hold.
                     var initialSessions = GetNativeSessions(manager)
-                        .Select(session => new CoreAudioSessionWrapper(session, device, scheduler));
+                        .Select(session => new CoreAudioSessionWrapper(session, device, scheduler))
+                        .ToList();
 
                     cache.AddOrUpdate(initialSessions);
 
-                    // Remove session when it ends
-                    initialSessions.Select(session =>
-                        session
-                            .SessionEnded.Take(1)
-                            .Subscribe(_ =>
-                            {
-                                cache.Remove(session);
-                            })
-                    );
+                    // Every end-of-session subscription lives here, so that the caller releases them
+                    // all when it disposes the change set.
+                    var endSubscriptions = new CompositeDisposable();
+
+                    foreach (var session in initialSessions)
+                    {
+                        WatchForEnd(session, cache, endSubscriptions);
+                    }
 
                     var newSessions = ObserveSessionCreation(manager);
 
@@ -54,17 +57,12 @@ public class CoreAudioSessionRepository : IDisposable
                                 return;
                             }
                             var wrapper = new CoreAudioSessionWrapper(session, device, scheduler);
-                            wrapper
-                                .SessionEnded.Take(1)
-                                .Subscribe(_ =>
-                                {
-                                    cache.Remove(wrapper);
-                                });
+                            WatchForEnd(wrapper, cache, endSubscriptions);
                             cache.AddOrUpdate(wrapper);
                         })
                     ;
 
-                    return new CompositeDisposable(subscription);
+                    return new CompositeDisposable(endSubscriptions, subscription);
                 },
                 item => item.CoreAudioSession.GetSessionInstanceIdentifier
             )
@@ -84,6 +82,18 @@ public class CoreAudioSessionRepository : IDisposable
     public CoreAudioSessionRepository(IScheduler scheduler)
     {
         _scheduler = scheduler;
+    }
+
+    /// <summary>
+    /// Removes the session from the cache when the session ends.
+    /// </summary>
+    private static void WatchForEnd(
+        CoreAudioSessionWrapper session,
+        ISourceCache<CoreAudioSessionWrapper, string> cache,
+        CompositeDisposable subscriptions
+    )
+    {
+        subscriptions.Add(session.SessionEnded.Take(1).Subscribe(_ => cache.Remove(session)));
     }
 
     private static IEnumerable<AudioSessionControl> GetNativeSessions(AudioSessionManager manager)
@@ -116,8 +126,13 @@ public class CoreAudioSessionRepository : IDisposable
         );
     }
 
-    public void Dispose()
-    {
-        throw new NotImplementedException();
-    }
+    /// <summary>
+    /// Does nothing, because the repository owns nothing.
+    /// </summary>
+    /// <remarks>
+    /// Every subscription that Connect creates belongs to its subscriber, and the scheduler belongs
+    /// to the container. The type stays disposable because the container registers it as a
+    /// singleton and calls Dispose at shutdown.
+    /// </remarks>
+    public void Dispose() { }
 }

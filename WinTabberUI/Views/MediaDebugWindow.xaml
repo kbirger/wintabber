@@ -1,0 +1,134 @@
+<Window
+    x:Class="WinTabberUI.Views.MediaDebugWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
+    mc:Ignorable="d"
+    Title="Media Debug"
+    Width="1280"
+    Height="820"
+    Left="24"
+    Top="24"
+    ShowInTaskbar="True"
+    ShowActivated="False"
+    Topmost="True"
+    d:DataContext="{d:DesignInstance vm:MediaDebugViewModel, IsDesignTimeCreatable=False}"
+>
+    <Window.Resources>
+        <Style x:Key="DebugGrid" TargetType="DataGrid">
+            <Setter Property="AutoGenerateColumns" Value="True" />
+            <Setter Property="IsReadOnly" Value="True" />
+            <Setter Property="CanUserAddRows" Value="False" />
+            <Setter Property="CanUserDeleteRows" Value="False" />
+            <Setter Property="SelectionMode" Value="Single" />
+            <Setter Property="GridLinesVisibility" Value="Horizontal" />
+            <Setter Property="HeadersVisibility" Value="Column" />
+            <Setter Property="ColumnWidth" Value="SizeToCells" />
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="RowHeight" Value="20" />
+            <Setter Property="HorizontalScrollBarVisibility" Value="Auto" />
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+        </Style>
+
+        <Style x:Key="SectionBorder" TargetType="Border">
+            <Setter Property="BorderBrush" Value="#40808080" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="Margin" Value="4" />
+        </Style>
+
+        <Style x:Key="SectionHeader" TargetType="TextBlock">
+            <Setter Property="FontWeight" Value="Bold" />
+            <Setter Property="Margin" Value="8,5" />
+        </Style>
+    </Window.Resources>
+
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="*" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+            <ColumnDefinition Width="*" />
+        </Grid.ColumnDefinitions>
+
+        <TextBlock
+            Grid.Row="0"
+            Grid.ColumnSpan="3"
+            Margin="10,8"
+            Opacity="0.75"
+            Text="{Binding Status}"
+        />
+
+        <Border Grid.Row="1" Grid.Column="0" Style="{StaticResource SectionBorder}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionHeader}">
+                    <Run Text="Master sessions" /><Run Text=" (" /><Run
+                        Text="{Binding MasterSessions.Count, Mode=OneWay}"
+                    /><Run Text=")" />
+                </TextBlock>
+                <DataGrid Style="{StaticResource DebugGrid}" ItemsSource="{Binding MasterSessions}" />
+            </DockPanel>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="1" Style="{StaticResource SectionBorder}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionHeader}">
+                    <Run Text="SMTC sessions" /><Run Text=" (" /><Run
+                        Text="{Binding SmtcSessions.Count, Mode=OneWay}"
+                    /><Run Text=")" />
+                </TextBlock>
+                <DataGrid Style="{StaticResource DebugGrid}" ItemsSource="{Binding SmtcSessions}" />
+            </DockPanel>
+        </Border>
+
+        <Border Grid.Row="1" Grid.Column="2" Style="{StaticResource SectionBorder}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionHeader}">
+                    <Run Text="Core audio sessions" /><Run Text=" (" /><Run
+                        Text="{Binding CoreAudioSessions.Count, Mode=OneWay}"
+                    /><Run Text=")" />
+                </TextBlock>
+                <DataGrid Style="{StaticResource DebugGrid}" ItemsSource="{Binding CoreAudioSessions}" />
+            </DockPanel>
+        </Border>
+
+        <Border Grid.Row="2" Grid.Column="0" Style="{StaticResource SectionBorder}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionHeader}">
+                    <Run Text="Playback devices" /><Run Text=" (" /><Run
+                        Text="{Binding PlaybackDevices.Count, Mode=OneWay}"
+                    /><Run Text=")" />
+                </TextBlock>
+                <DataGrid Style="{StaticResource DebugGrid}" ItemsSource="{Binding PlaybackDevices}" />
+            </DockPanel>
+        </Border>
+
+        <Border Grid.Row="2" Grid.Column="1" Style="{StaticResource SectionBorder}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionHeader}">
+                    <Run Text="Recording devices" /><Run Text=" (" /><Run
+                        Text="{Binding RecordingDevices.Count, Mode=OneWay}"
+                    /><Run Text=")" />
+                </TextBlock>
+                <DataGrid Style="{StaticResource DebugGrid}" ItemsSource="{Binding RecordingDevices}" />
+            </DockPanel>
+        </Border>
+
+        <Border Grid.Row="2" Grid.Column="2" Style="{StaticResource SectionBorder}">
+            <DockPanel>
+                <TextBlock DockPanel.Dock="Top" Style="{StaticResource SectionHeader}">
+                    <Run Text="Installed apps" /><Run Text=" (" /><Run
+                        Text="{Binding InstalledApps.Count, Mode=OneWay}"
+                    /><Run Text=")" />
+                </TextBlock>
+                <DataGrid Style="{StaticResource DebugGrid}" ItemsSource="{Binding InstalledApps}" />
+            </DockPanel>
+        </Border>
+    </Grid>
+</Window>

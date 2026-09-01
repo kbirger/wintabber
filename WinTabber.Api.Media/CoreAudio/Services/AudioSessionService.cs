@@ -27,7 +27,13 @@ public partial class AudioSessionService
             .Connect()
             .MergeManyChangeSets(_sessionRepository.Connect)
             .DisposeMany()
-            .FilterOnObservable(session => session.StateChanges.Take(1).Select(state => state == AudioSessionState.AudioSessionStateActive))
+            // No Take(1) here. StateChanges is a BehaviorSubject that is seeded with the state at
+            // construction time. A Take(1) made the predicate a one-shot snapshot, so a session
+            // that appeared while it was inactive never entered the cache, and a session that
+            // stopped never left it.
+            .FilterOnObservable(session =>
+                session.StateChanges.Select(state => state == AudioSessionState.AudioSessionStateActive)
+            )
             .AsObservableCache();
 
         CoreAudioSessions = sessions;
