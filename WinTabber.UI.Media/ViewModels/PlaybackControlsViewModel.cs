@@ -218,7 +218,10 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
 
     private IObservable<Unit> SeekImpl(TimeSpan position)
     {
-        if (position > TimeSpan.Zero && position < Duration)
+        // The range is inclusive. A drag to the far left gives exactly zero and a drag to the far
+        // right gives exactly the duration. An exclusive range rejected both, so no seek ran and no
+        // baseline was set, and the next tick put the thumb back.
+        if (Duration > TimeSpan.Zero && position >= TimeSpan.Zero && position <= Duration)
         {
             return Observable.StartAsync(async () =>
             {
