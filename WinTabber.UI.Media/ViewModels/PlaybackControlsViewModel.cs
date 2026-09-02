@@ -60,12 +60,9 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
             .Select(session => session?.PositionChanges)
             .OrDefault(TimeSpan.Zero)
             .Switch()
-            //.Do(_ => Debug.WriteLine("timeline"))
             .CombineLatest(isSeekingChanges)
             .Where(values => !values.Second)
-            //.Do(_ => Debug.WriteLine("playback"))
             .Select((values) => values.First)
-            //.Do(x => Debug.WriteLine(x))
             .Publish()
             .RefCount();
         _position = positionObservable
@@ -229,7 +226,9 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
                 {
                     return;
                 }
-                var result = await Session.Session.TryChangePlaybackPositionAsync(position.Ticks).AsTask();
+                // SeekAsync, not TryChangePlaybackPositionAsync: the monitor must also move its
+                // extrapolation baseline, or the next tick puts the thumb back where it was.
+                var result = await Session.SeekAsync(position);
                 Debug.WriteLine($"Seek success: {result}");
             });
             //return SessionChanged.Select(session => OperationToObservable(session?.Session.TryChangePlaybackPositionAsync)(position.Tic()k);

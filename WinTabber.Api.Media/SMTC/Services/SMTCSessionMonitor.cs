@@ -1,5 +1,7 @@
-﻿using System.Reactive.Disposables;
+﻿using System.Diagnostics;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
 using Windows.Media.Control;
@@ -9,8 +11,17 @@ namespace WinTabber.Api.Media.SMTC.Services;
 
 public partial class SMTCSessionMonitor 
 {
+    /// <summary>
+    /// The position that the extrapolation counts from, and the time at which the source app or a
+    /// seek reported it.
+    /// </summary>
+    private readonly record struct TimelineBaseline(TimeSpan Position, DateTimeOffset UpdatedAt, TimeSpan MaxSeekTime);
+
+    private readonly record struct PlaybackTick(DateTimeOffset Now, bool IsPlaying);
+
     public GlobalSystemMediaTransportControlsSession Session { get; }
     private readonly CompositeDisposable _disposable = new CompositeDisposable();
+    private readonly Subject<TimelineBaseline> _seekBaselines = new Subject<TimelineBaseline>();
     public IObservable<string> ArtistNameChanges { get; }
     public IObservable<string> AlbumTitleChanges { get; }
     public IObservable<string> TitleChanges { get; }
@@ -46,10 +57,6 @@ public partial class SMTCSessionMonitor
             //.ObserveOn(scheduler)
             .SelectMany(update => GetCurrentMediaAlbumArt(update.Thumbnail));
 
-        IsPlayingChanges = playbackPropertiesChanged
-            .Select(info => info?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing);
-        //.Do(t => Debug.WriteLine($"playing: {t}"))
-
 
         CanPlayPauseChanges = playbackPropertiesChanged
             .Select(info => info.Controls.IsPlayPauseToggleEnabled || info.Controls.IsPauseEnabled || info.Controls.IsPlayEnabled);
@@ -64,24 +71,51 @@ public partial class SMTCSessionMonitor
 
         DurationChanges = timelinePropertyChanged.Select(update => update.EndTime);
 
-        var timestamps = Observable.Interval(TimeSpan.FromSeconds(1))
-          .Select(_ => DateTimeOffset.Now)
-          //.Do(_ => Debug.WriteLine("tick"))
-          .Publish()
-          .RefCount();
+        // The extrapolation baseline. A source app reports its position rarely, so the position
+        // between reports is the last reported position plus the time that passed since. A seek
+        // that this application makes also sets the baseline. Without that, the next tick
+        // extrapolates from the position before the seek and the slider jumps back.
+        var seekBaselines = _seekBaselines.AsObservable();
 
-        var predictedPositions = timestamps
-            .CombineLatest(IsPlayingChanges, timelinePropertyChanged)
-            .Where(item => item.Second)
+        var baselines = timelinePropertyChanged
+            .Select(timeline => new TimelineBaseline(
+                timeline.Position,
+                timeline.LastUpdatedTime,
+                timeline.MaxSeekTime
+            ))
+            .Merge(seekBaselines)
+            .Replay(1)
+            .RefCount();
+
+        // The cached playback status can stay stale after a seek. A read on each tick reports the
+        // live status, so the position keeps moving while the source app plays.
+        var ticks = Observable
+            .Interval(TimeSpan.FromSeconds(1))
+            .Select(_ => ReadTick(smtcSession))
+            .Where(tick => tick is not null)
+            .Select(tick => tick!.Value)
+            .Publish()
+            .RefCount();
+
+        IsPlayingChanges = playbackPropertiesChanged
+            .Select(info => info?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing)
+            .Merge(ticks.Select(tick => tick.IsPlaying))
+            .DistinctUntilChanged();
+
+        var predictedPositions = ticks
+            .CombineLatest(baselines)
+            .Where(item => item.First.IsPlaying)
             .Select(item =>
             {
-                var predictedTime = item.Third.Position + (item.First - item.Third.LastUpdatedTime);
-                var ticks = Math.Min(predictedTime.Ticks, item.Third.MaxSeekTime.Ticks);
-                return TimeSpan.FromTicks(ticks);
+                var baseline = item.Second;
+                var predictedTime = baseline.Position + (item.First.Now - baseline.UpdatedAt);
+                var ticksValue = Math.Min(predictedTime.Ticks, baseline.MaxSeekTime.Ticks);
+                return TimeSpan.FromTicks(Math.Max(ticksValue, 0));
             });
 
         var positionObservable = timelinePropertyChanged
             .Select(timeline => timeline.Position)
+            .Merge(seekBaselines.Select(baseline => baseline.Position))
             .Merge(predictedPositions)
             .Publish()
             .RefCount();
@@ -98,6 +132,63 @@ public partial class SMTCSessionMonitor
 
         CanSeekChanges = playbackPropertiesChanged.Select(info => info.Controls.IsPlaybackPositionEnabled);
     }
+    /// <summary>
+    /// Reads the live playback status. The read replaces the cached status, which can stay stale
+    /// after the source app seeks.
+    /// </summary>
+    private static PlaybackTick? ReadTick(GlobalSystemMediaTransportControlsSession session)
+    {
+        try
+        {
+            var info = session.GetPlaybackInfo();
+            var isPlaying =
+                info?.PlaybackStatus == GlobalSystemMediaTransportControlsSessionPlaybackStatus.Playing;
+            return new PlaybackTick(DateTimeOffset.Now, isPlaying);
+        }
+        catch (Exception ex)
+        {
+            // A dead session must not complete the position stream. A completed stream freezes the
+            // slider until the application restarts.
+            Debug.WriteLine($"SMTC playback status read failed: {ex.GetType().Name}: {ex.Message}");
+            return null;
+        }
+    }
+
+    /// <summary>
+    /// Moves playback to the given position and sets the extrapolation baseline.
+    /// </summary>
+    /// <remarks>
+    /// The baseline must move with the seek. The source app reports its position rarely, so
+    /// without a new baseline the next tick extrapolates from the position before the seek and the
+    /// slider jumps back.
+    /// </remarks>
+    public async Task<bool> SeekAsync(TimeSpan position)
+    {
+        var success = await Session.TryChangePlaybackPositionAsync(position.Ticks).AsTask();
+        if (!success)
+        {
+            return false;
+        }
+
+        var maxSeekTime = TimeSpan.MaxValue;
+        try
+        {
+            maxSeekTime = Session.GetTimelineProperties().MaxSeekTime;
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"SMTC MaxSeekTime read failed: {ex.GetType().Name}");
+        }
+
+        if (maxSeekTime <= TimeSpan.Zero)
+        {
+            maxSeekTime = TimeSpan.MaxValue;
+        }
+
+        _seekBaselines.OnNext(new TimelineBaseline(position, DateTimeOffset.Now, maxSeekTime));
+        return true;
+    }
+
     public static async Task<ImageSource?> GetCurrentMediaAlbumArt(IRandomAccessStreamReference? imageStream)
     {
         if (imageStream is not null)
