@@ -9,11 +9,12 @@ using WinTabber.Interop;
 using WinTabber.UI.Media.Services;
 
 namespace WinTabberUI.Services;
-public partial class MediaControlsStateService(WinTabberEventManager eventManager, IInteropProxy interop)
+public partial class MediaControlsStateService(WinTabberEventManager eventManager, IInteropProxy interop, Func<bool> isFeatureEnabled)
     : IMediaControlsStateService
 {
     private readonly WinTabberEventManager _eventManager = eventManager;
     private readonly IInteropProxy _interop = interop;
+    private readonly Func<bool> _isFeatureEnabled = isFeatureEnabled;
     private readonly BehaviorSubject<bool> _visibilityEvents = new BehaviorSubject<bool>(false);
     private readonly CompositeDisposable _cleanUp = new CompositeDisposable();
 
@@ -44,7 +45,7 @@ public partial class MediaControlsStateService(WinTabberEventManager eventManage
     {
         _eventManager
             .CommandEvents.SubscribeOn(RxSchedulers.TaskpoolScheduler)
-            .Where(evt => evt.Type == EventType.CmdMediaWindow)
+            .Where(evt => evt.Type == EventType.CmdMediaWindow && _isFeatureEnabled())
             .Subscribe(
                 _ => ToggleView(),
                 ex => Debug.WriteLine($"media controls: hotkey stream failed: {ex}")

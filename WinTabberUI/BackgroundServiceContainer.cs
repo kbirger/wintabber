@@ -8,6 +8,7 @@ using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabberUI.Coordinators;
 using WinTabberUI.Infrastructure;
+using WinTabberUI.Models.Settings;
 using WinTabberUI.ViewModels;
 
 namespace WinTabberUI;
@@ -25,7 +26,13 @@ public class BackgroundServiceContainer : IDisposable
         ioc.GetRequiredService<AppCache>().Load();
         // Must happen before any suspend attempt; OpenProcess on another user's process needs it.
         ioc.GetRequiredService<IInteropProxy>().EnableDebugPrivilege();
-        ioc.GetRequiredService<InstalledApplicationRepository>();
+
+        // Installed-app enumeration is a media controls preload (app picker, launch icons). Skip
+        // it when the feature is off; the repository is otherwise built lazily on first use.
+        if (ioc.GetRequiredService<ApplicationSettings>().General.EnableMediaControls)
+        {
+            ioc.GetRequiredService<InstalledApplicationRepository>();
+        }
 
         _cleanup = new CompositeDisposable(
             ioc.GetRequiredService<StartupCoordinator>(),

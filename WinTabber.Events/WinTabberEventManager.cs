@@ -40,7 +40,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
     private readonly SwitcherCommitTracker _commitTracker = new();
     private ShortcutTriggerSource _triggerSource = null!;
 
-    private BehaviorSubject<bool> _enabled = new BehaviorSubject<bool>(false);
+    private BehaviorSubject<bool> _enabled = new BehaviorSubject<bool>(true);
 
     [MemberNotNull(
         nameof(CommandEvents),

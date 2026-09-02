@@ -22,32 +22,49 @@
         </ResourceDictionary>
     </Page.Resources>
     <Grid>
-        <HeaderedContentControl Margin="20" VerticalAlignment="Top" Foreground="White">
-            <HeaderedContentControl.Header>
-                <TextBlock FontSize="24">General</TextBlock>
-            </HeaderedContentControl.Header>
-            <StackPanel>
-                <ui:SettingsCard Header="Startup mode">
-                    <ui:SettingsCard.HeaderIcon>
-                        <ui:FontIcon Glyph="&#xe7f4;" />
-                    </ui:SettingsCard.HeaderIcon>
-                    <ComboBox MinWidth="220" x:Name="StartupList"
-                            VerticalAlignment="Center"
-                            FontSize="14"
-                            ItemsSource="{Binding StartupModes}"
-                            SelectedValue="{Binding Path=StarupMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
-                </ui:SettingsCard>
-                <ui:SettingsCard Header="Thumbnail resize mode" Margin="0,8,0,0"
-                        Description="What resizing a floating window thumbnail does">
-                    <ui:SettingsCard.HeaderIcon>
-                        <ui:FontIcon Glyph="&#xe740;" />
-                    </ui:SettingsCard.HeaderIcon>
-                    <ComboBox MinWidth="220" x:Name="ThumbnailResizeModeList"
-                            VerticalAlignment="Center"
-                            FontSize="14"
-                            ItemsSource="{Binding ThumbnailResizeModes}" />
-                </ui:SettingsCard>
-            </StackPanel>
-        </HeaderedContentControl>
+        <StackPanel Margin="20" VerticalAlignment="Top">
+            <HeaderedContentControl Foreground="White">
+                <HeaderedContentControl.Header>
+                    <TextBlock FontSize="24">General</TextBlock>
+                </HeaderedContentControl.Header>
+                <StackPanel>
+                    <ui:SettingsCard Header="Startup mode">
+                        <ui:SettingsCard.HeaderIcon>
+                            <ui:FontIcon Glyph="&#xe7f4;" />
+                        </ui:SettingsCard.HeaderIcon>
+                        <ComboBox MinWidth="220" x:Name="StartupList"
+                                VerticalAlignment="Center"
+                                FontSize="14"
+                                ItemsSource="{Binding StartupModes}"
+                                SelectedValue="{Binding Path=StarupMode, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </ui:SettingsCard>
+                    <ui:SettingsCard Header="Thumbnail resize mode" Margin="0,8,0,0"
+                            Description="What resizing a floating window thumbnail does">
+                        <ui:SettingsCard.HeaderIcon>
+                            <ui:FontIcon Glyph="&#xe740;" />
+                        </ui:SettingsCard.HeaderIcon>
+                        <ComboBox MinWidth="220" x:Name="ThumbnailResizeModeList"
+                                VerticalAlignment="Center"
+                                FontSize="14"
+                                ItemsSource="{Binding ThumbnailResizeModes}" />
+                    </ui:SettingsCard>
+                </StackPanel>
+            </HeaderedContentControl>
+            <HeaderedContentControl Margin="0,20,0,0" Foreground="White">
+                <HeaderedContentControl.Header>
+                    <TextBlock FontSize="24">Features</TextBlock>
+                </HeaderedContentControl.Header>
+                <StackPanel>
+                    <ui:SettingsCard Header="Window suspend"
+                            Description="The sleep button on a window tile, its shortcut, the suspended-windows shortcut, and the suspended-windows bar">
+                        <ui:ToggleSwitch IsOn="{Binding EnableWindowSuspension}" />
+                    </ui:SettingsCard>
+                    <ui:SettingsCard Header="Media controls" Margin="0,8,0,0"
+                            Description="The media controls shortcut and window, and the preload of installed apps and audio devices it uses">
+                        <ui:ToggleSwitch IsOn="{Binding EnableMediaControls}" />
+                    </ui:SettingsCard>
+                </StackPanel>
+            </HeaderedContentControl>
+        </StackPanel>
     </Grid>
 </rxwpf:ReactivePage>

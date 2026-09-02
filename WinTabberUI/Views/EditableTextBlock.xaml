@@ -61,7 +61,7 @@
                     Style="{StaticResource InlineButton}"
                     Command="{Binding SuspendCommand}"
                     ToolTip="Sleep this process"
-                    Visibility="{Binding Path=IsEditing, Converter={StaticResource InverseBoolToVisibilityConverter}}"
+                    Visibility="{Binding Path=IsSuspendButtonVisible, Converter={StaticResource BoolToVisibilityConverter}}"
                     >
                     <fa:IconBlock Icon="Moon"/>
                 </Button>

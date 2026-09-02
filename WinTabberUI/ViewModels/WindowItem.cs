@@ -5,6 +5,7 @@ using System.Reactive.Linq;
 using WinTabber.API;
 using WinTabber.API.Suspension;
 using WinTabber.API.Thumbnails;
+using WinTabberUI.Models.Settings;
 
 namespace WinTabberUI.ViewModels;
 
@@ -14,7 +15,8 @@ public class WindowItem : ReactiveObject, IDisposable
         WindowRef windowRef,
         IObservable<bool> canEdit,
         IProcessSuspensionService suspensionService,
-        IWindowThumbnailService thumbnailService)
+        IWindowThumbnailService thumbnailService,
+        GeneralSettings settings)
     {
         WindowRef = windowRef ?? throw new ArgumentNullException(nameof(windowRef));
         //Icon = WindowRef.GetIcon().ToImageSource();
@@ -44,6 +46,10 @@ public class WindowItem : ReactiveObject, IDisposable
             .DistinctUntilChanged();
 
         SuspendCommand = ReactiveCommand.Create(() => { suspensionService.Suspend(WindowRef); }, canSuspend);
+
+        _isSuspendButtonVisible = editingChanges
+            .Select(isEditing => !isEditing && settings.EnableWindowSuspension)
+            .ToProperty(this, x => x.IsSuspendButtonVisible);
 
         _isSuspended = suspensionService.Connect()
             .Select(_ => suspensionService.IsSuspended(pid))
@@ -87,6 +93,7 @@ public class WindowItem : ReactiveObject, IDisposable
             SuspendCommand,
             ThumbnailCommand,
             _canEdit,
+            _isSuspendButtonVisible,
             _isSuspended,
             _isThumbnailed);
     }
@@ -105,7 +112,10 @@ public class WindowItem : ReactiveObject, IDisposable
 
     public bool IsThumbnailed => _isThumbnailed.Value;
 
+    public bool IsSuspendButtonVisible => _isSuspendButtonVisible.Value;
+
     private readonly ObservableAsPropertyHelper<bool> _canEdit;
+    private readonly ObservableAsPropertyHelper<bool> _isSuspendButtonVisible;
     private readonly ObservableAsPropertyHelper<bool> _isSuspended;
     private readonly ObservableAsPropertyHelper<bool> _isThumbnailed;
     private readonly CompositeDisposable _cleanUp;

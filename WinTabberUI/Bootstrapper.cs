@@ -122,7 +122,10 @@ public static class Bootstrapper
     {
         return services
             .AddSingleton<IActiveWindowStateService, ActiveWindowStateService>()
-            .AddSingleton<IMediaControlsStateService, MediaControlsStateService>()
+            .AddSingleton<IMediaControlsStateService>(sp => new MediaControlsStateService(
+                sp.GetRequiredService<WinTabberEventManager>(),
+                sp.GetRequiredService<IInteropProxy>(),
+                () => sp.GetRequiredService<ApplicationSettings>().General.EnableMediaControls))
             .AddSingleton<MediaDebugStateService>();
     }
 

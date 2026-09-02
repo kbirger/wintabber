@@ -14,10 +14,14 @@ namespace WinTabberUI.ViewModels.Settings
             _settings = settings;
             StartupMode = settings.StartupMode;
             ThumbnailResizeMode = settings.ThumbnailResizeMode;
+            EnableWindowSuspension = settings.EnableWindowSuspension;
+            EnableMediaControls = settings.EnableMediaControls;
         }
 
         private StartupMode _startupMode;
         private ThumbnailResizeMode _thumbnailResizeMode;
+        private bool _enableWindowSuspension;
+        private bool _enableMediaControls;
         private GeneralSettings _settings;
 
         public StartupMode StartupMode
@@ -43,5 +47,25 @@ namespace WinTabberUI.ViewModels.Settings
         }
 
         public ThumbnailResizeMode[] ThumbnailResizeModes => Enum.GetValues<ThumbnailResizeMode>();
+
+        public bool EnableWindowSuspension
+        {
+            get => _enableWindowSuspension;
+            set
+            {
+                _settings.EnableWindowSuspension = value;
+                this.RaiseAndSetIfChanged(ref _enableWindowSuspension, value);
+            }
+        }
+
+        public bool EnableMediaControls
+        {
+            get => _enableMediaControls;
+            set
+            {
+                _settings.EnableMediaControls = value;
+                this.RaiseAndSetIfChanged(ref _enableMediaControls, value);
+            }
+        }
     }
 }
