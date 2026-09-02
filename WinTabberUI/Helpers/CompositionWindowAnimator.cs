@@ -79,10 +79,15 @@ internal sealed class CompositionWindowAnimator
         _root.Children.InsertAtTop(_overlay);
     }
 
+    // A hide animation hides the window in a completion callback. A show that starts before the
+    // callback runs increments this counter, and the stale callback then does nothing.
+    private int _hideGeneration;
+
     public void AnimateShow(Window window, double durationMs = 500)
     {
         Initialize(window);
 
+        _hideGeneration++;
         _overlay!.Opacity = 1f;
         window.Show();
 
@@ -97,12 +102,19 @@ internal sealed class CompositionWindowAnimator
     {
         Initialize(window);
 
+        var generation = ++_hideGeneration;
         var batch = _compositor!.CreateScopedBatch(CompositionBatchTypes.Animation);
 
         batch.Completed += (s, e) =>
         {
             window.Dispatcher.Invoke(() =>
             {
+                if (_hideGeneration != generation)
+                {
+                    // A show started during the hide animation. The window must stay visible.
+                    return;
+                }
+
                 window.Hide();
                 _overlay!.Opacity = 0f;
                 onComplete?.Invoke();

@@ -84,15 +84,17 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
 
     protected override void OnActivated(EventArgs e)
     {
-        //Focus();
-        //PlayPauseButton.Focus();
+        Debug.WriteLine("media controls: window activated");
         base.OnActivated(e);
     }
 
     protected override void OnDeactivated(EventArgs e)
     {
-        //_mediaControlsStateService.HideView();
-        //WindowHelper.Reset(this);
+        // The window hides when the user clicks or types outside of it. This covers the plain
+        // case. A dropdown takes the activation away from this window, and after that no further
+        // deactivation arrives, so MediaControlsStateService watches the foreground window too.
+        Debug.WriteLine("media controls: window deactivated - hiding");
+        _mediaControlsStateService.HideView();
         ViewModel?.Activator.Deactivate();
         base.OnDeactivated(e);
 

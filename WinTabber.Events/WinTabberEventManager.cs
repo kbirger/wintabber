@@ -42,7 +42,12 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
 
     private BehaviorSubject<bool> _enabled = new BehaviorSubject<bool>(false);
 
-    [MemberNotNull(nameof(CommandEvents), nameof(ApplicationChange), nameof(WindowChange))]
+    [MemberNotNull(
+        nameof(CommandEvents),
+        nameof(ApplicationChange),
+        nameof(WindowChange),
+        nameof(ForegroundWindowChanges)
+    )]
     internal WinTabberEventManager Init()
     {
         // One scheduler instance, threaded everywhere. GetScheduler() creates a *new* EventLoopScheduler
@@ -78,6 +83,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
                 .Subscribe(_ => _commitTracker.OnSwitcherClosed())
         );
 
+        ForegroundWindowChanges = CreateRawForegroundChanges(scheduler);
         WindowChange = CreateWindowChangeObservable(scheduler);
         ApplicationChange = CreateApplicaionChangeObservable(scheduler);
 
@@ -151,6 +157,31 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
     {
         return ObserveActiveWindowChange()
             .SubscribeOn(scheduler);
+    }
+
+    /// <summary>
+    /// The raw foreground-window handles from the hook, with no removal of repeated values.
+    /// <para>
+    /// <see cref="WindowChange" /> removes a handle that repeats the previous one. That is right
+    /// for a consumer that tracks which window is active, but it hides a real return to the window
+    /// the user came from: this process can take the foreground without the hook reporting it, so
+    /// the removal compares the return against a value that is out of date.
+    /// </para>
+    /// <para>
+    /// Both streams share one <c>Publish().RefCount()</c>, so there is still exactly one
+    /// <c>SetWinEventHook</c>. Subscription happens on the scheduler thread that pumps messages,
+    /// whichever of the two streams a consumer subscribes to first.
+    /// </para>
+    /// </summary>
+    private IObservable<int> CreateRawForegroundChanges(EventLoopScheduler scheduler)
+    {
+        return _interop
+            .ActiveWindowChangedEvents()
+            .Select(data => data.Handle)
+            .Where(handle => handle != 0)
+            .SubscribeOn(scheduler)
+            .Publish()
+            .RefCount();
     }
 
 
@@ -236,9 +267,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
     /// </summary>
     private IObservable<WinTabberEvent<int>> ObserveActiveWindowChange()
     {
-        var hookChanges = _interop
-            .ActiveWindowChangedEvents()
-            .Select(data => data.Handle)
+        var hookChanges = ForegroundWindowChanges
             .DistinctUntilChanged()
             .Where(handle => handle != 0)
             .Select(handle => new WinTabberEvent<int>(EventType.ActiveWindowChanged, handle))
@@ -265,6 +294,9 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
 
     public IObservable<WinTabberEvent> CommandEvents { get; private set; }
     public IObservable<WinTabberEvent<int>> WindowChange { get; private set; }
+
+    /// <inheritdoc cref="CreateRawForegroundChanges" />
+    public IObservable<int> ForegroundWindowChanges { get; private set; }
     public IObservable<WinTabberEvent<string>> ApplicationChange { get; private set; }
     /// <summary>
     /// The live trigger source. The shortcuts settings page needs it for

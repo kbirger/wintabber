@@ -16,7 +16,7 @@
     ShowActivated="False"
     Focusable="False"
     SizeToContent="WidthAndHeight"
-    MinWidth="320"
+    MinWidth="200"
     MinHeight="96"
     ResizeMode="NoResize"
     Background="#30000000"
@@ -81,7 +81,7 @@
                 </Style>
             </TextBlock.Style>
         </TextBlock>
-        <ItemsControl ItemsSource="{Binding Items}">
+        <ItemsControl ItemsSource="{Binding Items}" HorizontalAlignment="Center">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <StackPanel Orientation="Horizontal" />
