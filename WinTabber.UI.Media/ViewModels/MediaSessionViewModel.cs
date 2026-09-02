@@ -44,9 +44,11 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
         _sessionService = audioSessionService;
         _deviceService = audioDeviceService;
 
+        // Replay(1), not Replay(): an unbounded replay hands every late subscriber the whole
+        // history of sessions, and each one builds a monitor for every past session.
         SessionChanged = this.WhenAnyValue(vm => vm.Session)
             .Log(x => $"Session changed before distinct: {x?.Key} - {x?.NativeSession != null}")
-            .Replay()
+            .Replay(1)
             .RefCount();
 
         var scheduler = RxSchedulers.MainThreadScheduler;
@@ -56,9 +58,14 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
         // todo: this is incorrect. need device
         var device = SessionChanged.Select(session => audioDeviceService.WatchDevice(session?.NativeSession?.Device));
 
-        var monitors = SessionChanged.Select(session =>
-            session is null ? null : new SMTCSessionMonitor(session.MediaSession)
-        );
+        // Replay(1).RefCount() is required, not decoration. The projection builds a monitor, and
+        // five places subscribe to it. Without sharing, each subscriber built its own monitor, so
+        // every session change created five monitors with five sets of live event handlers and
+        // five one-second timers, and the view model drove only the last of them.
+        var monitors = SessionChanged
+            .Select(session => session is null ? null : new SMTCSessionMonitor(session.MediaSession))
+            .Replay(1)
+            .RefCount();
         _artistName = monitors
             .Select(monitor => monitor?.ArtistNameChanges)
             .OrDefault("")
