@@ -203,10 +203,29 @@ explicit mechanism (e.g. "no longer order-dependent: `MediaDebugWindowCoordinato
 New `WinTabber.Api.Media.Tests` project (TUnit, mirroring `WinTabber.Api.Windowing.Tests`'s
 shape: a `Fakes/` folder, direct project reference to `WinTabber.Api.Media`).
 
-**In scope**: `CoreAudioDeviceRepository`/`CoreAudioSessionRepository` business logic, tested
-against the *existing* `IMMDeviceEnumeratorWrapper` seam
-(`WinTabber.Api.Media/CoreAudio/IMMDeviceEnumeratorWrapper.cs`) via a new
-`FakeMMDeviceEnumeratorWrapper`. This seam already exists and is currently exercised by nothing.
+**Correction found while drafting the implementation plan**: `IMMDeviceEnumeratorWrapper`'s
+device-returning members (`GetDefaultAudioEndpoint`, `EnumerateAudioEndPoints`, `GetDevice`) all
+return NAudio's `MMDevice`, whose only constructor is `internal` and takes an `internal` COM
+interface (`IMMDevice`) — confirmed via reflection against `NAudio.Wasapi.dll` 2.3.0. No code
+outside NAudio's own assembly can construct an `MMDevice`, so a fake cannot implement those three
+members meaningfully; they can only ever throw or return `null`/`empty`, which tests nothing.
+
+**In scope**: only the seam's members that don't require producing an `MMDevice` —
+`HasDefaultAudioEndpoint(DataFlow, Role)` (returns `bool`) and
+`RegisterEndpointNotificationCallback`/`UnregisterEndpointNotificationCallback` (take
+`IMMNotificationClient`, a real interface, and return `void`). A `FakeMMDeviceEnumeratorWrapper`
+implementing just these lets `CoreAudioDeviceRepository.GetDefaultPlaybackDevice()`/
+`GetDefaultRecordingDevice()` be tested on their `false`-branch (`HasDefaultAudioEndpoint` returns
+false → method returns `null`) — real, if narrow, coverage. The `true`-branch (which would need a
+returned `MMDevice`) is not testable through this seam and is left untested, documented as such.
+
+**Deferred, tracked separately**: making the device-returning members testable requires a new
+abstraction over `MMDevice` itself (e.g. an `IAudioDevice` with `Id`/`FriendlyName`/`State`
+properties) that `IMMDeviceEnumeratorWrapper` would return instead, adapted from real `MMDevice`
+instances in `MMDeviceEnumeratorWrapper`. That ripples into `CoreAudioDeviceWrapper` and every
+other `MMDevice` consumer in `WinTabber.Api.Media` — real design work, not an "add a test
+project" task. Tracked as **T5.5** in `.cleanup/tasks.md`, to be planned separately like T5.1
+originally was.
 
 **Explicitly out of scope, and why** (mirrors the T3.1 testability-tracks-the-seam argument):
 

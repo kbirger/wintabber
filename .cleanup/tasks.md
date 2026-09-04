@@ -384,7 +384,20 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       over shared-subject + ordering. **Keep the existing comments.** *(F8)*
 - [ ] **T5.3** Add a test project for `WinTabber.Api.Media` (2,285 LOC — `IPolicyConfig` COM
       interop, WASAPI, STA scheduling; currently **zero** tests). *(F11)*
+      > ⚠️ **Scope correction (found while planning, 2026-09-04):** `IMMDeviceEnumeratorWrapper`'s
+      > device-returning members (`GetDefaultAudioEndpoint`, `EnumerateAudioEndPoints`,
+      > `GetDevice`) return NAudio's `MMDevice`, whose only constructor is `internal` — no test
+      > code can fake those members meaningfully. T5.3 covers only the seam's `bool`/`void`
+      > members (`HasDefaultAudioEndpoint`, the two `*EndpointNotificationCallback` methods). See
+      > `docs/superpowers/specs/2026-09-04-phase-5-design.md`'s T5.3 section. Making the
+      > device-returning members testable is out of scope here — tracked as T5.5.
 - [ ] **T5.4** Add test coverage for `WinTabber.Interop` (1,633 LOC, currently zero). *(F11)*
+- [ ] **T5.5** *(new, plan separately)* Design an abstraction over NAudio's `MMDevice` (e.g.
+      `IAudioDevice` with `Id`/`FriendlyName`/`State`) that `IMMDeviceEnumeratorWrapper` would
+      return instead of the real `MMDevice`, so `CoreAudioDeviceRepository`'s device-returning
+      logic becomes testable. Ripples into `CoreAudioDeviceWrapper` and every other `MMDevice`
+      consumer in `WinTabber.Api.Media` — real design work needing its own brainstorming pass,
+      not scoped here. Discovered as a T5.3 blocker, 2026-09-04.
 
 ---
 
