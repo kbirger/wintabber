@@ -1,4 +1,4 @@
-using System.Diagnostics;
+﻿using System.Diagnostics;
 using System.Windows.Interop;
 using System.Windows.Threading;
 using WinTabber.Interop;
@@ -10,9 +10,9 @@ namespace WinTabberUI.Coordinators
     public class MediaWindowViewCoordinator : ViewCoordinatorBase<MediaControlsWindow>
     {
         private ApplicationStateViewModel _vm;
-        private readonly CompositionWindowAnimator _animator = new();
+        private readonly WindowFadeAnimator _animator = new();
 
-        // AnimateHide keeps the window visible for the length of the animation. A hotkey press
+        // The hide animation keeps the window visible for the length of the fade. A hotkey press
         // during that time must show the window again, so the coordinator must not read
         // Window.IsVisible here.
         private bool _isShown;
