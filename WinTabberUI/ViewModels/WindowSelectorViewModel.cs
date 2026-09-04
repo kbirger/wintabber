@@ -5,9 +5,9 @@ using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Windows.Forms;
-using WinTabber.API;
-using WinTabber.API.Suspension;
-using WinTabber.API.Thumbnails;
+using WinTabber.Api.Windowing;
+using WinTabber.Api.Windowing.Suspension;
+using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Events;
 using WinTabberUI.Models.Settings;
 

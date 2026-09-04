@@ -487,7 +487,7 @@ controls bind to `ShortcutTrigger`.
 
 ### Phase 6 — New commands
 - `CmdThumbnailWindow` → toggle tracking on the foreground window via `IWindowThumbnailService`
-  (`WinTabber.API/Thumbnails/IWindowThumbnailService.cs`): `IsThumbnailed(handle)` ?
+  (`WinTabber.Api.Windowing/Thumbnails/IWindowThumbnailService.cs`): `IsThumbnailed(handle)` ?
   `StopThumbnail(handle)` : `CanThumbnail(window) && StartThumbnail(window)`. Note
   `StartThumbnail` takes a `WindowRef`, `StopThumbnail`/`IsThumbnailed` take an `int` handle — so
   the command handler needs the `WindowManager`/`ApplicationState` lookup, not just the HWND.

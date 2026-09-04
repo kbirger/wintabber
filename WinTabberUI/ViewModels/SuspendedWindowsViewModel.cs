@@ -3,7 +3,7 @@ using ReactiveUI;
 using System.Collections.ObjectModel;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using WinTabber.API.Suspension;
+using WinTabber.Api.Windowing.Suspension;
 using WinTabber.Events;
 
 namespace WinTabberUI.ViewModels;

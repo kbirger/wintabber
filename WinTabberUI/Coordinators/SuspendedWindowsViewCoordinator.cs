@@ -1,5 +1,5 @@
 using System.Reactive.Linq;
-using WinTabber.API.Suspension;
+using WinTabber.Api.Windowing.Suspension;
 using WinTabber.Events;
 using WinTabberUI.Models.Settings;
 using WinTabberUI.ViewModels;

@@ -2,8 +2,8 @@ using System.Diagnostics;
 using System.Reactive.Linq;
 using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
-using WinTabber.API;
-using WinTabber.API.Thumbnails;
+using WinTabber.Api.Windowing;
+using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Events;
 using WinTabber.Interop;
 

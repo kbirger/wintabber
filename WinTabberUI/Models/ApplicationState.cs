@@ -1,5 +1,5 @@
 ﻿using CommunityToolkit.Mvvm.ComponentModel;
-using WinTabber.API;
+using WinTabber.Api.Windowing;
 
 namespace WinTabberUI.Models;
 

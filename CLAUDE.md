@@ -17,7 +17,7 @@ dotnet test --solution WinTabber.slnx
 # Run specific test projects
 dotnet test WinTabber.Infrastructure.Tests/WinTabber.Infrastructure.Tests.csproj
 dotnet test WinTabber.Events.Tests/WinTabber.Events.Tests.csproj
-dotnet test WinTabber.Api.Tests/WinTabber.Api.Tests.csproj
+dotnet test WinTabber.Api.Windowing.Tests/WinTabber.Api.Windowing.Tests.csproj
 
 # Run specific test class
 dotnet test WinTabber.Infrastructure.Tests --filter TrieNodeTests
@@ -39,16 +39,21 @@ WinTabber is a Windows desktop application for window switching and media/audio 
 
 ```
 WinTabberUI            ← WPF app, MVVM ViewModels, DI bootstrap, window management
-  WinTabber.API        ← Core window registry (WindowManager, ApplicationRef, WindowRef)
+  WinTabber.Api.Windowing ← Window registry (WindowManager, ApplicationRef, WindowRef),
+                            process suspension, DWM thumbnail service
+  WinTabber.Api.Media  ← Audio (WASAPI/NAudio), SMTC, shell app discovery
   WinTabber.Events     ← Global keyboard/mouse input (SharpHook), event dispatch, HyperKey
   WinTabber.Interop    ← Windows API abstraction (IInteropProxy / InteropProxy via CsWin32)
-  WinTabber.Api.Media  ← Audio (WASAPI/NAudio), SMTC, shell app discovery
   WinTabber.Infrastructure ← Settings model + persistence, app icon/AUMID cache, hint trie/radix trie
   WinTabber.UI.Common  ← Shared XAML themes, converters, behaviors, hint system
   WinTabber.UI.Media   ← Media controls views and viewmodels
   WinTabber.Common.Util← Extension methods (Observable, Process, Debug, Object)
   WinTabber.Generators ← Roslyn source generator: [Lazy] attribute → lazy init code
 ```
+
+`WinTabber.Api.*` is a flat family of UI-less capability layers, not a hierarchy —
+`Api.Windowing` and `Api.Media` are siblings with no reference in either direction. A new
+capability layer with no WPF dependency belongs here; anything that needs WPF does not.
 
 ### Key Patterns
 
@@ -60,7 +65,7 @@ WinTabberUI            ← WPF app, MVVM ViewModels, DI bootstrap, window manage
   activation, placement, suspend/resume, elevation) goes through `IInteropProxy` (defined in
   `WinTabber.Interop/IInteropProxy.cs`). The concrete `InteropProxy` uses CsWin32 bindings from
   `WinTabber.Interop/NativeMethods.txt`. Do not call these directly from other projects — the
-  interface is the seam `WinTabber.Api.Tests/Fakes/FakeInteropProxy.cs` fakes.
+  interface is the seam `WinTabber.Api.Windowing.Tests/Fakes/FakeInteropProxy.cs` fakes.
 - Win32 that **affects the rendering of our own windows** (DWM composition, corner preference,
   cloak/peek, thumbnails, hit-test and resize messages) lives with the WPF code that owns the
   `HwndSource` — `WinTabber.UI.Common/Chrome/` and `WinTabberUI`, each with its own
@@ -89,5 +94,5 @@ fails outright on the .NET 10 SDK, which no longer supports the VSTest target.
 
 - `WinTabber.Events.Tests` — TUnit; shortcut model tests (trigger matching, conflict detection, commit tracking)
 - `WinTabber.Infrastructure.Tests` — TUnit; contains `TrieNodeTests`, settings persistence, and infrastructure-level tests. References `WinTabber.Infrastructure` directly (not `WinTabberUI`); no retry policy needed since it no longer drags in the WPF app.
-- `WinTabber.Api.Tests` — TUnit
-- `Wintabber.SessionsTest` — Console app for manual session/audio testing (not a test framework); currently disabled (`Program.cs` is a single placeholder line, no `WinTabberUI`/`WinTabber.API` references)
+- `WinTabber.Api.Windowing.Tests` — TUnit; process-suspension and suspended-window-store tests, using `Fakes/FakeInteropProxy.cs`
+- `Wintabber.SessionsTest` — Console app for manual session/audio testing (not a test framework); currently disabled (`Program.cs` is a single placeholder line, no `WinTabberUI`/`WinTabber.Api.Windowing` references)

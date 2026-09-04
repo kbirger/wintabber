@@ -5,7 +5,7 @@ using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Interop;
 using System.Windows.Media;
-using WinTabber.API;
+using WinTabber.Api.Windowing;
 using WinTabber.Interop;
 using WinTabberUI.ViewModels;
 using WinTabberUI.Windowing;

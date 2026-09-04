@@ -6,7 +6,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
 using CommunityToolkit.Mvvm.DependencyInjection;
-using WinTabber.API.Thumbnails;
+using WinTabber.Api.Windowing.Thumbnails;
 using WinTabberUI.Services;
 using WinTabberUI.ViewModels;
 using Windows.Win32;

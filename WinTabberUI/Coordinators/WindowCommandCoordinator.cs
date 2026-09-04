@@ -1,6 +1,6 @@
 using System.Reactive.Linq;
-using WinTabber.API;
-using WinTabber.API.Suspension;
+using WinTabber.Api.Windowing;
+using WinTabber.Api.Windowing.Suspension;
 using WinTabber.Events;
 using WinTabberUI.Models.Settings;
 

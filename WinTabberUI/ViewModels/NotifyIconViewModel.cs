@@ -1,7 +1,7 @@
 ﻿using ReactiveUI;
 using System.Reactive;
 using System.Windows;
-using WinTabber.API.Suspension;
+using WinTabber.Api.Windowing.Suspension;
 using WinTabber.Events;
 using WinTabberUI.Services;
 

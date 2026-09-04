@@ -1,9 +1,9 @@
 using System.Collections.ObjectModel;
 using System.Reactive.Linq;
 using ReactiveUI;
-using WinTabber.API;
-using WinTabber.API.Suspension;
-using WinTabber.API.Thumbnails;
+using WinTabber.Api.Windowing;
+using WinTabber.Api.Windowing.Suspension;
+using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Interop;
 using WinTabberUI.Models.Settings;
 

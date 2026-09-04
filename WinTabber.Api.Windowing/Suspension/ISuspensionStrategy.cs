@@ -1,0 +1,8 @@
+namespace WinTabber.Api.Windowing.Suspension;
+
+public interface ISuspensionStrategy
+{
+    string Name { get; }
+    void Suspend(int pid);
+    void Resume(int pid);
+}

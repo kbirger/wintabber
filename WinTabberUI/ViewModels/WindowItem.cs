@@ -2,9 +2,9 @@
 using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using WinTabber.API;
-using WinTabber.API.Suspension;
-using WinTabber.API.Thumbnails;
+using WinTabber.Api.Windowing;
+using WinTabber.Api.Windowing.Suspension;
+using WinTabber.Api.Windowing.Thumbnails;
 using WinTabberUI.Models.Settings;
 
 namespace WinTabberUI.ViewModels;

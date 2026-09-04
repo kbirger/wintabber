@@ -236,7 +236,7 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       |---|---|
       | `netstandard2.0` | `WinTabber.Generators` |
       | `net10.0` | `WinTabber.Common.Util` |
-      | `net10.0-windows` | `WinTabber.API`, `WinTabber.Api.Tests`, `WinTabber.Interop` |
+      | `net10.0-windows` | `WinTabber.Api.Windowing`, `WinTabber.Api.Windowing.Tests`, `WinTabber.Interop` |
       | `net10.0-windows10.0.26100.0` | the remaining 9 |
       ⚠️ **Four TFMs, not three** (the original entry missed `netstandard2.0`), and
       `WinTabber.Generators` **must stay on `netstandard2.0`** — Roslyn source generators require
@@ -247,10 +247,33 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       `WinTabber.Infrastructure`.
       Note `.csproj` indentation is inconsistent (tabs in some, spaces in others), so text-matching
       the same property across projects is unreliable.
-- [ ] **T4.5** Rename to remove the false parent/child implication between `WinTabber.API`
+- [x] **T4.5** Rename to remove the false parent/child implication between `WinTabber.API`
       (window registry) and `WinTabber.Api.Media` (audio/SMTC) — unrelated projects, no reference
       in either direction, inconsistent casing. Touches the `.slnx`, every `ProjectReference`, and
       every `using`. *(F14)*
+      **Resolved: `WinTabber.API` → `WinTabber.Api.Windowing`**, with
+      `WinTabber.Api.Tests` → `WinTabber.Api.Windowing.Tests` alongside it. Both directories and
+      `.csproj` files renamed via `git mv` (rename detection intact); namespaces
+      `WinTabber.API[.Suspension|.Thumbnails]` → `WinTabber.Api.Windowing[…]`.
+      65 + 9 occurrences across 46 + 7 files. Build 0 warnings, 81/81 tests pass.
+      - **Why keep the `Api` tier rather than drop it** (`WinTabber.Windowing` + `WinTabber.Media`):
+        the family is real — both are the UI-less capability layers the `WinTabber.UI.*`/`WinTabberUI`
+        projects consume. Making them genuine siblings is the honest fix, and it settles the
+        `.API`/`.Api` casing split for free. CLAUDE.md's layer diagram now states this explicitly.
+      - **Why `Windowing` and not `Windows`:** consumers are WPF files with `System.Windows` already
+        in scope, and the project exports `ApplicationRef`/`WindowRef` next to WPF's
+        `Application`/`Window`. `WinTabber.Api.Windows` is a live ambiguity, not a theoretical one.
+        `WindowManagement` stutters as `WindowManagement.WindowManager`; `Desktop` is vaguer at the
+        call site.
+      - ⚠️ **Known stretch:** `Suspension/` and `IProcessRepository` are process-level, not
+        window-level, so `Windowing` covers them only by way of "the app behind a window".
+        Revisit at **T5.1**, which already contemplates carving out `IProcessControl`.
+      - Also updated: `docs/process-suspension-plan.md` and `docs/configurable-shortcuts-plan.md`
+        path references. **Not** updated: `.cleanup/architecture-review.md`, which is a historical
+        record of the state at `af16e91` and should keep the old name.
+      - ⚠️ **Left alone, worth a decision:** `WinTabber.sln.bak` is a *tracked* leftover from the
+        pre-`.slnx` migration and still lists the old project name/path. It was deliberately
+        reverted out of this rename rather than updated — it looks like a deletion candidate.
 - [ ] **T4.6** Consider thinning the `WinTabberUI` root — 18 loose top-level files
       (`HoverSelect`, `SpatialNavigationListView`, `WindowTileGrid`, `WindowTileInfo`,
       `WindowThumbnail`, `SysColor.xaml`, …). Contributes to the 6/10 cohesion score. *(Scorecard)*

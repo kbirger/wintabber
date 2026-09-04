@@ -1,9 +1,9 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using System.Reactive.Disposables;
 using WinTabber.Api.Media.ShellApplications.Repositories;
-using WinTabber.API;
-using WinTabber.API.Suspension;
-using WinTabber.API.Thumbnails;
+using WinTabber.Api.Windowing;
+using WinTabber.Api.Windowing.Suspension;
+using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabberUI.Coordinators;

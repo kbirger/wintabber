@@ -1,5 +1,5 @@
 ﻿using System.Reactive.Linq;
-using WinTabber.API;
+using WinTabber.Api.Windowing;
 using WinTabber.Events;
 
 namespace WinTabberUI.Services;

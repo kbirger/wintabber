@@ -1,6 +1,6 @@
 using ReactiveUI;
 using System.Reactive;
-using WinTabber.API.Suspension;
+using WinTabber.Api.Windowing.Suspension;
 using WinTabber.Events;
 
 namespace WinTabberUI.ViewModels;

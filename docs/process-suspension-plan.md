@@ -40,7 +40,7 @@ Per CLAUDE.md, no P/Invoke outside this project. Add to `IInteropProxy` / `Inter
 - `EnableDebugPrivilege()` is called **once at startup** (`BackgroundServiceContainer` ctor), not from a
   manager constructor as in `ProcessSuspender`.
 
-## 2. Domain layer (`WinTabber.API/Suspension/`)
+## 2. Domain layer (`WinTabber.Api.Windowing/Suspension/`)
 
 Ported from `ProcessSuspender`, adapted to WinTabber's DI + reactive idiom.
 
@@ -193,7 +193,7 @@ The worst failure mode is a process left frozen *and* hidden with no UI to recov
 ## 7. Implementation order
 
 1. Interop members + `NativeMethods.txt` entries + ntdll `DllImport`s.
-2. `WinTabber.API/Suspension/` port (strategies, entry, state, state file) — no UI.
+2. `WinTabber.Api.Windowing/Suspension/` port (strategies, entry, state, state file) — no UI.
 3. `ProcessSuspensionService` + persistence + startup pruning + DI registration + tray "Resume all".
 4. `WindowItem.SuspendCommand` + `EditableTextBlock` button + both click-routing guards.
 5. In-place `IsSuspended` handling in the selector list.

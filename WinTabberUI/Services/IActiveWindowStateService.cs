@@ -1,4 +1,4 @@
-﻿using WinTabber.API;
+﻿using WinTabber.Api.Windowing;
 
 namespace WinTabberUI.Services;
 
