@@ -98,15 +98,38 @@ folded into T5.1 since it's the same interop-cleanup scope:
 
 | File | API(s) | CsWin32 metadata available? | Action |
 |---|---|---|---|
-| `WinTabber.Interop/NtNativeMethods.cs` | `NtSuspendProcess`, `NtResumeProcess` (`ntdll.dll`) | No — undocumented NT exports, file's own doc comment confirms this | Keep hand-written |
-| `WinTabber.Interop/PInvoke.cs:43` | `DwmpActivateLivePreview` (`dwmapi.dll`, ordinal `#113`) | No — unnamed ordinal export, no public documentation | Keep hand-written |
-| `WinTabber.UI.Common/Chrome/Interop.cs:7` | `SetWindowCompositionAttribute` (`user32.dll`) | No — undocumented (confirmed in T3.4) | Keep hand-written |
+| `WinTabber.Interop/NtNativeMethods.cs` | `NtSuspendProcess`, `NtResumeProcess` (`ntdll.dll`) | No — undocumented NT exports, file's own doc comment confirms this | Keep hand-written, already in `WinTabber.Interop` |
+| `WinTabber.Interop/PInvoke.cs:43` | `DwmpActivateLivePreview` (`dwmapi.dll`, ordinal `#113`) | No — unnamed ordinal export, no public documentation | Keep hand-written, already in `WinTabber.Interop` |
+| `WinTabber.UI.Common/Chrome/Interop.cs:7` | `SetWindowCompositionAttribute` (`user32.dll`) | No — undocumented (confirmed in T3.4) | Keep hand-written, but **relocate** to `WinTabber.Interop` — see below |
 | `WinTabber.Interop/UacHelper.cs:17,21` | `OpenProcessToken`, `GetTokenInformation` (`advapi32.dll`) | **Yes** — both are standard, documented Win32 APIs | **Migrate to CsWin32** — add both to `WinTabber.Interop/NativeMethods.txt`, switch to `PInvoke.OpenProcessToken`/`PInvoke.GetTokenInformation`. Note CsWin32's generated signatures use safe handles and the `Windows.Win32.Security.TOKEN_INFORMATION_CLASS`/`TOKEN_ELEVATION_TYPE` types rather than the hand-rolled `IntPtr`s and the private `TOKEN_INFORMATION_CLASS` enum this file currently declares — expect signature adaptation, not a drop-in rename. Verify with a build, per CLAUDE.md's "the build is the arbiter." `UacHelper.IsProcessElevated(int)` / `IsProcessElevated(Process)` are also near-verbatim duplicates of each other (T5.4 can cover the pure parts of this with a unit test once elevation-type interpretation is isolated from the token P/Invoke calls, but that split is not required for the CsWin32 migration itself). |
 | `WinTabber.Infrastructure/AppCache.cs:129` | `DeleteObject` (`gdi32.dll`) | **Yes** | Migrate as part of the T3.4 dedup above — the new shared helper uses `PInvoke.DeleteObject`. |
 | `WinTabber.Api.Media/.../InstalledApplicationRepository.cs:168` | `DeleteObject` (`gdi32.dll`) | **Yes** | Same — deleted in favor of the shared helper. |
 
 Net: 8 hand-written `DllImport`s → 3 (all confirmed to have no CsWin32 metadata), plus one new
 CsWin32 `NativeMethods.txt` entry in a project (`Common.Util`) that currently has none.
+
+**Policy correction: undocumented hand-written imports consolidate into `WinTabber.Interop`,
+even ones that affect our own window's rendering.** T3.1/CLAUDE.md's chrome carve-out
+("Win32 that affects the rendering of our own windows... lives with the WPF code that owns the
+`HwndSource`") was written with CsWin32-backed chrome APIs in mind (`DwmSetWindowAttribute`,
+`DWM_WINDOW_CORNER_PREFERENCE` — both still correctly live in
+`WinTabber.UI.Common/NativeMethods.txt` per T3.6, unaffected by this). It does not hold for a
+*hand-written, undocumented* import: there is no seam/testability argument against moving those,
+and scattering hand-rolled `DllImport`s across projects by what-they-act-on is worse than having
+exactly one place a reader checks for "undocumented Win32 we depend on." `SetWindowCompositionAttribute`
+therefore moves into `WinTabber.Interop` (e.g. alongside `NtNativeMethods.cs`, or its own file) as
+an internal static wrapper; `WindowCompositionAttributeData` and the `WindowCompositionAttribute`
+enum move with it since the signature depends on them. `WinTabber.UI.Common/Chrome/Interop.cs`'s
+higher-level `EnableBlur`/`SetAccentPolicy` (the `AccentPolicy`/`AccentState`/`AccentFlags`
+marshaling, which is chrome-specific, not a raw import) stays in `UI.Common/Chrome` and calls the
+relocated wrapper — this adds a new `WinTabber.UI.Common → WinTabber.Interop` project reference,
+which does not exist today.
+
+This narrows CLAUDE.md's **Windows Interop** rule: the own-window-rendering carve-out applies to
+CsWin32-backed chrome Win32 (kept local, each project's own `NativeMethods.txt`); *hand-written*
+declarations for undocumented APIs always live in `WinTabber.Interop`, regardless of what they
+act on. Update CLAUDE.md's Windows Interop section to state this narrower rule as part of
+implementing this task, the same way T3.5 updated it for the original policy.
 
 ### T3.1 revisit
 
