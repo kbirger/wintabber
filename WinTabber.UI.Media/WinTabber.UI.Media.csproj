@@ -8,12 +8,6 @@
     </PropertyGroup>
 
     <ItemGroup>
-        <Folder Include="Coordinators\" />
-        <Folder Include="Factories\" />
-        <Folder Include="Controls\" />
-    </ItemGroup>
-
-    <ItemGroup>
         <Compile Update="Views\MediaControlsWindow.xaml.cs">
             <SubType>Code</SubType>
         </Compile>

@@ -831,28 +831,4 @@ public class InteropProxy : IInteropProxy
         PInvoke.ShowWindow(hwnd, SHOW_WINDOW_CMD.SW_SHOWNOACTIVATE);
     }
 
-    public void SendInput2(ushort key, bool down)
-    {
-        INPUT input = new INPUT
-        {
-            type = INPUT_TYPE.INPUT_KEYBOARD,
-            Anonymous =
-            {
-               ki = new KEYBDINPUT
-               {
-                   dwFlags = down switch
-                   {
-                       true => 0,
-                       false => KEYBD_EVENT_FLAGS.KEYEVENTF_KEYUP
-                   },
-                   wVk = (VIRTUAL_KEY)key,
-                   dwExtraInfo = (nuint)PInvoke.GetMessageExtraInfo().Value,
-
-               }
-            }
-        };
-        Span<INPUT> inputs = new(ref input);
-        var ret = PInvoke.SendInput(inputs, Marshal.SizeOf(typeof(INPUT)));
-    }
-
 }

@@ -81,11 +81,4 @@
             <Generator>MSBuild:Compile</Generator>
         </Page>
     </ItemGroup>
-
-    <ItemGroup>
-        <Folder Include="Extensions\" />
-        <Folder Include="Infrastructure\NewFolder\" />
-        <Folder Include="Factories\" />
-        <Folder Include="ValueConverters\" />
-    </ItemGroup>
 </Project>

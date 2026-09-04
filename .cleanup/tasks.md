@@ -28,37 +28,38 @@ dotnet test --solution WinTabber.slnx
 No design decisions. One commit, or one per task. Removes ~1,700 lines.
 **Do T1.3 before Phase 3** — it removes 8 of the 11 stray `DllImport`s on its own.
 
-- [ ] **T1.1** Delete dead project `WinTabber/` (`Program.cs`, `Main.cs` — both 100% commented
+- [x] **T1.1** Delete dead project `WinTabber/` (`Program.cs`, `Main.cs` — both 100% commented
       out, 88 LOC). Not in `WinTabber.slnx`. *(F4)*
-- [ ] **T1.2** Delete dead project `WinTabber.GameBar/` — `.csproj` only, zero source files,
+- [x] **T1.2** Delete dead project `WinTabber.GameBar/` — `.csproj` only, zero source files,
       targets net9.0, pins `CsWinRT 2.2.0` / `System.Reactive 6.1.0` inline against
       `Directory.Packages.props`. *(F4)*
-- [ ] **T1.3** Delete orphan types — none referenced outside their own file: *(F6)*
-      - [ ] `WinTabberUI/WindowHelper2.cs` (289 LOC, **8 `DllImport`s**)
-      - [ ] `WinTabberUI/Infrastructure/AumidHelpers.cs` (223 LOC — all four static methods
+- [x] **T1.3** Delete orphan types — none referenced outside their own file: *(F6)*
+      - [x] `WinTabberUI/WindowHelper2.cs` (289 LOC, **8 `DllImport`s**)
+      - [x] `WinTabberUI/Infrastructure/AumidHelpers.cs` (223 LOC — all four static methods
             uncalled) ⟵ *not in the original F6 list; found during task breakdown*
-      - [ ] `WinTabber.UI.Media/ViewModels/MediaSessionVm.cs` (123 LOC, 82% commented)
-      - [ ] `WinTabber.UI.Common/Behaviors/ControlledWindowBehavior.cs` (77 LOC, 81% commented)
+      - [x] `WinTabber.UI.Media/ViewModels/MediaSessionVm.cs` (123 LOC, 82% commented)
+      - [x] `WinTabber.UI.Common/Behaviors/ControlledWindowBehavior.cs` (77 LOC, 81% commented)
             ⟵ *not in the original F6 list; found during task breakdown*
-      - [ ] `WinTabber.UI.Media/ViewModels/SelectionList.cs` + `ISelectable.cs` (48 LOC)
-      - [ ] `WinTabberUI/Interop/StaThreadHost.cs` (46 LOC)
-      - [ ] `WinTabberUI/Infrastructure/ViewLocator.cs` (45 LOC)
-      - [ ] `InteropProxy.SendInput2` — `WinTabber.Interop/InteropProxy.cs:834`; on the impl, not
+      - [x] `WinTabber.UI.Media/ViewModels/SelectionList.cs` + `ISelectable.cs` (48 LOC)
+      - [x] `WinTabberUI/Interop/StaThreadHost.cs` (46 LOC)
+      - [x] `WinTabberUI/Infrastructure/ViewLocator.cs` (45 LOC)
+      - [x] `InteropProxy.SendInput2` — `WinTabber.Interop/InteropProxy.cs:834`; on the impl, not
             on `IInteropProxy`, called nowhere
-- [ ] **T1.4** Delete the two fully-commented-out `ProcessMonitor.cs` files — two dead copies of
+- [x] **T1.4** Delete the two fully-commented-out `ProcessMonitor.cs` files — two dead copies of
       the same abandoned idea in different layers. Git has the history. *(F5)*
-      - [ ] `WinTabber.Events/ProcessMonitor.cs` (143 LOC, 90% commented)
-      - [ ] `WinTabber.API/ProcessMonitor.cs` (49 LOC, 81% commented)
-- [ ] **T1.5** Remove TUnit template scaffolding from `WinTabber.Infrastructure.Tests`: *(F10)*
-      - [ ] `Tests.cs`, `Tests2.cs`, `Tests3.cs`
-      - [ ] `Data/DataClass.cs`, `Data/DependencyInjectionClassConstructor.cs`
-      - [ ] `Data/DataSourceGenerator.cs` — referenced by nothing at all, not even the templates
-      - [ ] **Keep** `GlobalSetup.cs`'s `[assembly: Retry(3)]` — CLAUDE.md documents it as
+      - [x] `WinTabber.Events/ProcessMonitor.cs` (143 LOC, 90% commented)
+      - [x] `WinTabber.API/ProcessMonitor.cs` (49 LOC, 81% commented)
+- [x] **T1.5** Remove TUnit template scaffolding from `WinTabber.Infrastructure.Tests`: *(F10)*
+      - [x] `Tests.cs`, `Tests2.cs`, `Tests3.cs`
+      - [x] `Data/DataClass.cs`, `Data/DependencyInjectionClassConstructor.cs`
+      - [x] `Data/DataSourceGenerator.cs` — referenced by nothing at all, not even the templates
+      - [x] **Keep** `GlobalSetup.cs`'s `[assembly: Retry(3)]` — CLAUDE.md documents it as
             load-bearing. Strip only the template `Console.WriteLine` hook bodies.
-- [ ] **T1.6** Drop the dead `Microsoft.Windows.CsWin32` `PackageReference` from
+      - Test count dropped from 133 → 81 (52 template tests removed), as expected.
+- [x] **T1.6** Drop the dead `Microsoft.Windows.CsWin32` `PackageReference` from
       `WinTabber.Common.Util.csproj` — no `NativeMethods.txt`, no Win32 usage, generates nothing.
       Also the only CsWin32 ref in the repo missing `<PrivateAssets>all</PrivateAssets>`. *(F12)*
-- [ ] **T1.7** Remove the 10 empty `<Folder Include>` declarations: *(F15)*
+- [x] **T1.7** Remove the 10 empty `<Folder Include>` declarations: *(F15)*
       - `WinTabber.UI.Media/` — `Coordinators`, `Factories`, `Controls`
       - `WinTabberUI/` — `Extensions`, `Factories`, `ValueConverters`, `Infrastructure/NewFolder`
       - `WinTabber.Api.Media/` — `ShellApplications/Dtos`, `ShellApplications/Services`,
