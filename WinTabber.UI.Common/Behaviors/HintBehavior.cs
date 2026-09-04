@@ -179,7 +179,7 @@ namespace WinTabber.UI.Common.Behaviors
                 typeof(HintBehavior),
                 new PropertyMetadata(new List<FrameworkElement>())
             );
-        private IHintBehaviorKernel _kernel;
+        private IHintBehaviorKernel _kernel = null!;
 
         //public static string? HintText
         //{

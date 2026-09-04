@@ -1,4 +1,4 @@
-﻿namespace WinTabber.Generators;
+namespace WinTabber.Generators;
 
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -17,10 +17,14 @@ public class LazyMethodGenerator : IIncrementalGenerator
     private static readonly DiagnosticDescriptor MustBePartialRule = new(
         id: "LZ001",
         title: "Class must be partial",
-        messageFormat: "The class '{0}' must be declared partial to use the [Lazy] attribute.",
+        messageFormat: "The class '{0}' must be declared partial to use the [Lazy] attribute",
         category: "Usage",
         DiagnosticSeverity.Error,
         isEnabledByDefault: true);
+
+    private static readonly SymbolDisplayFormat NullableFullyQualifiedFormat = SymbolDisplayFormat.FullyQualifiedFormat
+        .WithMiscellaneousOptions(SymbolDisplayFormat.FullyQualifiedFormat.MiscellaneousOptions | SymbolDisplayMiscellaneousOptions.IncludeNullableReferenceTypeModifier);
+
     public void Initialize(IncrementalGeneratorInitializationContext context)
     {
         if (!Debugger.IsAttached)
@@ -79,7 +83,7 @@ public class LazyMethodGenerator : IIncrementalGenerator
         {
             var methodLookup = list.ToLookup(m => m!.IsSuccess);
             var successes = methodLookup[true].ToList();
-            var failures = methodLookup[false].SelectMany(f => f.ToDiagnostics());
+            var failures = methodLookup[false].SelectMany(f => f!.ToDiagnostics());
             var byClass = successes.GroupBy(m => m!.ContainingClass, SymbolEqualityComparer.Default);
 
             foreach (var failure in failures)
@@ -107,6 +111,7 @@ public class LazyMethodGenerator : IIncrementalGenerator
         //if (!Debugger.IsAttached) Debugger.Launch();
 
         var sb = new StringBuilder();
+        sb.AppendLine("#nullable enable");
         var currentNs = ns ?? string.Empty;
         var neededNamespaces = new HashSet<string>();
 
@@ -153,7 +158,7 @@ public class LazyMethodGenerator : IIncrementalGenerator
         foreach (var m in methods)
         {
             var methodInfo = m.ToMethodInfo();
-            var type = methodInfo.Method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            var type = methodInfo.Method.ReturnType.ToDisplayString(NullableFullyQualifiedFormat);
             var methodName = methodInfo.Method.Name;
             var (fieldName, _) = GetNames(methodName);
             sb.AppendLine($"    private {type}? {fieldName} = null!;");
@@ -165,7 +170,7 @@ public class LazyMethodGenerator : IIncrementalGenerator
         {
             var methodInfo = m.ToMethodInfo();
 
-            var type = methodInfo.Method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+            var type = methodInfo.Method.ReturnType.ToDisplayString(NullableFullyQualifiedFormat);
             
             //var containingType = returnType.ContainingType?.Name;
             //var extra = containingType is not null ? $"{containingType}."
@@ -196,7 +201,7 @@ public class LazyMethodGenerator : IIncrementalGenerator
         //sb.AppendLine("    {");
         //foreach (var m in methods)
         //{
-        //    var type = m.Method.ReturnType.ToDisplayString(SymbolDisplayFormat.FullyQualifiedFormat);
+        //    var type = m.Method.ReturnType.ToDisplayString(FullyQualifiedNullableFormat);
         //    var methodName = m.Method.Name;
         //    sb.AppendLine($"        _lazy{methodName} = new Lazy<{type}>(() => {methodName}());");
         //}
@@ -223,9 +228,6 @@ public class LazyMethodGenerator : IIncrementalGenerator
         }
         public INamedTypeSymbol ContainingClass { get; }
         public IMethodSymbol Method { get; }
-
-        public TypeSyntax ReturnType { get; }
-
     }
     private record ClassAnalysisResult
     {
@@ -241,7 +243,6 @@ public class LazyMethodGenerator : IIncrementalGenerator
         {
             Diagnostics = diagnostics;
             Method = null;
-            ReturnType = null;
             ContainingClass = null;
         }
 
@@ -265,7 +266,6 @@ public class LazyMethodGenerator : IIncrementalGenerator
         public Diagnostic[]? Diagnostics { get; private set; }
         public INamedTypeSymbol? ContainingClass { get; }
         public IMethodSymbol? Method { get; }
-        public TypeSyntax ReturnType { get; }
         public bool IsPrivate { get; }
     }
 }

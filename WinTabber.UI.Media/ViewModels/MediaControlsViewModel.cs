@@ -176,7 +176,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         set => this.RaiseAndSetIfChanged(ref _sessions, value);
     }
 
-    public SessionListItem SelectedSessionListItem
+    public SessionListItem? SelectedSessionListItem
     {
         get => field;
         set => this.RaiseAndSetIfChanged(ref field, value);

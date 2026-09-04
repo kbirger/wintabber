@@ -2,5 +2,5 @@
 
 public class SMTCSessionDto
 {
-    public string Aumid { get; init; }
+    public required string Aumid { get; init; }
 }

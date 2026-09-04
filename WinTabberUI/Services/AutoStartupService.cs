@@ -1,4 +1,4 @@
-﻿using Microsoft.Win32;
+using Microsoft.Win32;
 using Microsoft.Win32.TaskScheduler;
 using System.Security.Principal;
 
@@ -103,7 +103,7 @@ public class AutoStartupService
 
                 return true;
             }
-            catch (Exception e)
+            catch (Exception)
             {
                 ////App.API.LogError(ClassName, $"Failed to check logon task: {e}");
                 throw; // Throw exception so that App.AutoStartup can show error message
@@ -137,7 +137,7 @@ public class AutoStartupService
 
             return false;
         }
-        catch (Exception e)
+        catch (Exception)
         {
             //App.API.LogError(ClassName, $"Failed to check registry: {e}");
             throw; // Throw exception so that App.AutoStartup can show error message
@@ -207,7 +207,7 @@ public class AutoStartupService
             TaskService.Instance.RootFolder.RegisterTaskDefinition(LogonTaskName, td);
             return true;
         }
-        catch (Exception e)
+        catch (Exception)
         {
             //App.API.LogError(ClassName, $"Failed to schedule logon task: {e}");
             return false;
@@ -222,7 +222,7 @@ public class AutoStartupService
             taskService.RootFolder.DeleteTask(LogonTaskName);
             return true;
         }
-        catch (Exception e)
+        catch (Exception)
         {
             //App.API.LogError(ClassName, $"Failed to unschedule logon task: {e}");
             return false;

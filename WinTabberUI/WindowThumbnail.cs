@@ -171,7 +171,7 @@ public class WindowThumbnail : FrameworkElement
 
         if (IntPtr.Zero != _thumb)
         {
-            if (_target.RootVisual == null || !_target.RootVisual.IsAncestorOf(this))
+            if (_target == null || _target.RootVisual == null || !_target.RootVisual.IsAncestorOf(this))
             {
                 //we are no longer in the visual tree
                 ReleaseThumbnail();

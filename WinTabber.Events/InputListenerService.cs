@@ -31,8 +31,6 @@ public class InputListenerService
     {
         //public required IReadOnlyList<Combination> KeyChords { get; init; }
     }
-    private CompositeDisposable _cleanup;
-
     public InputListenerService()
     {
 

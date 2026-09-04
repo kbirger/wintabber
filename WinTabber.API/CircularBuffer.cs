@@ -236,7 +236,7 @@
             {
                 ThrowIfEmpty("Cannot take elements from an empty buffer.");
                 Decrement(ref _end);
-                _buffer[_end] = default(T);
+                _buffer[_end] = default!;
                 --_size;
             }
 
@@ -247,7 +247,7 @@
             public void PopFront()
             {
                 ThrowIfEmpty("Cannot take elements from an empty buffer.");
-                _buffer[_start] = default(T);
+                _buffer[_start] = default!;
                 Increment(ref _start);
                 --_size;
             }
@@ -278,7 +278,7 @@
                 var segments = ToArraySegments();
                 foreach (ArraySegment<T> segment in segments)
                 {
-                    Array.Copy(segment.Array, segment.Offset, newArray, newArrayOffset, segment.Count);
+                    Array.Copy(segment.Array!, segment.Offset, newArray, newArrayOffset, segment.Count);
                     newArrayOffset += segment.Count;
                 }
                 return newArray;
@@ -313,7 +313,7 @@
                 {
                     for (int i = 0; i < segment.Count; i++)
                     {
-                        yield return segment.Array[segment.Offset + i];
+                        yield return segment.Array![segment.Offset + i];
                     }
                 }
             }

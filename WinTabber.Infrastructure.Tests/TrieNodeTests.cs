@@ -78,7 +78,7 @@ public class TrieNodeTests
     {
         var p = new GeneratedHintsProvider();
 
-        IEnumerable<FrameworkElement> elements = Enumerable.Range(0, 20).Select(_ => (FrameworkElement)null);
+        IEnumerable<FrameworkElement> elements = Enumerable.Range(0, 20).Select(_ => (FrameworkElement)null!);
 
         var x = p.GetHints(elements).ToArray();
 

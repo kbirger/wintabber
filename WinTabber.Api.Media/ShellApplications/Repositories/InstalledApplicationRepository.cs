@@ -35,7 +35,6 @@ public partial class InstalledApplicationRepository : IDisposable
     private readonly SourceCache<InstalledApplicationInfo, string> _apps = new(static app =>
         app.AppUserModelId
     );
-    private CompositeDisposable? _cleanup;
     private readonly Subject<Unit> _refreshSubject = new Subject<Unit>();
 
     public void Refresh()
@@ -94,7 +93,8 @@ public partial class InstalledApplicationRepository : IDisposable
 
     public void Dispose()
     {
-        _cleanup?.Dispose();
+        ApplicationsByAumid.Dispose();
+        ApplicationsByPath.Dispose();
     }
 
     private static IObservable<

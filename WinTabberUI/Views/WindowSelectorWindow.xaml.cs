@@ -17,7 +17,6 @@ namespace WinTabberUI;
 public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewModel>
 {
     private List<IDisposable> _resources = new();
-    private WindowTileGrid? _tileGrid;
 
     /// <summary>Cached by <see cref="GetScreenBounds" />; cleared at the start of each open.</summary>
     private Rect? _screenBounds;
@@ -156,7 +155,6 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
         WindowData.EndPreview();
         WindowData.NotifySwitcherClosed();
         Hide();
-        _tileGrid = null;
     }
 
     /// <summary>
@@ -183,13 +181,11 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
                 e.Handled = true;
                 WindowData.CommitSelection();
                 Hide();
-                _tileGrid = null;
                 return;
             case Key.Escape:
                 e.Handled = true;
                 WindowData.CancelSelection();
                 Hide();
-                _tileGrid = null;
                 return;
         }
 

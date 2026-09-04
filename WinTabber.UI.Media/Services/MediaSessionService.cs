@@ -18,7 +18,6 @@ using WinTabber.UI.Media.Models;
 
 namespace WinTabber.UI.Media.Services;
 public partial class MediaSessionService(
-    CoreAudioDeviceRepository coreAudioDeviceRepository,
     AudioSessionService audioSessionService,
     SMTCSessionRepository mediaSessionRepository,
     InstalledApplicationRepository installedApplicationRepository,

@@ -57,7 +57,7 @@ public class WindowTileGrid
         };
     }
 
-    public WindowTileInfo[][] Items { get; init; }
+    public required WindowTileInfo[][] Items { get; init; }
     public int SelectedX { get; private set; }
     public int SelectedY { get; private set; }
     public WindowItem? SelectedItem => 

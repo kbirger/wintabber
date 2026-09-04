@@ -101,7 +101,6 @@ internal class WindowHelper2
     {
         var extendedStyle = PInvoke.GetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
         var ret = PInvoke.SetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE, extendedStyle & ~WS_EX_LAYERED);
-        BLENDFUNCTION b = new BLENDFUNCTION();
         //var ret2 = PInvoke.UpdateLayeredWindow(hwnd, HDC.Null, null, null, HDC.Null, null, new COLORREF(0xff), b, UPDATE_LAYERED_WINDOW_FLAGS.ULW_ALPHA);
         Redraw(hwnd);
     }

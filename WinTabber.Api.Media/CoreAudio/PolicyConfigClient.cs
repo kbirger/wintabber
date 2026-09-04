@@ -138,9 +138,9 @@ public interface IPolicyConfigClientWrapper
 
 public class PolicyConfigClient : IPolicyConfigClientWrapper
 {
-    private readonly IPolicyConfig _PolicyConfig;
-    private readonly IPolicyConfigVista _PolicyConfigVista;
-    private readonly IPolicyConfig10 _PolicyConfig10;
+    private readonly IPolicyConfig? _PolicyConfig;
+    private readonly IPolicyConfigVista? _PolicyConfigVista;
+    private readonly IPolicyConfig10? _PolicyConfig10;
 
     public PolicyConfigClient()
     {

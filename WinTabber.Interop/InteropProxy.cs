@@ -117,9 +117,10 @@ public class InteropProxy : IInteropProxy
             SHOW_WINDOW_CMD.SW_HIDE => WindowPlacement.WindowState.Hidden,
             _ when wp.showCmd == SHOW_WINDOW_CMD.SW_SHOWNORMAL || wp.showCmd == SHOW_WINDOW_CMD.SW_RESTORE || wp.showCmd == SHOW_WINDOW_CMD.SW_NORMAL => WindowPlacement.WindowState.Normal,
             _ when wp.showCmd == SHOW_WINDOW_CMD.SW_SHOWMINIMIZED || wp.showCmd == SHOW_WINDOW_CMD.SW_MINIMIZE => WindowPlacement.WindowState.Minimized,
-            _ when wp.showCmd == SHOW_WINDOW_CMD.SW_SHOWMAXIMIZED || wp.showCmd == SHOW_WINDOW_CMD.SW_MAXIMIZE => WindowPlacement.WindowState.Maximized
+            _ when wp.showCmd == SHOW_WINDOW_CMD.SW_SHOWMAXIMIZED || wp.showCmd == SHOW_WINDOW_CMD.SW_MAXIMIZE => WindowPlacement.WindowState.Maximized,
+            _ => throw new NotSupportedException($"Unhandled show command: {wp.showCmd}")
         };
-        var primaryScreen = Screen.PrimaryScreen.Bounds;
+        var primaryScreen = (Screen.PrimaryScreen ?? Screen.AllScreens[0]).Bounds;
         return new WindowPlacement
         {
             State = state,
@@ -128,7 +129,8 @@ public class InteropProxy : IInteropProxy
                 WindowState.Maximized => new Rectangle(wp.ptMaxPosition, primaryScreen.Size),
                 WindowState.Minimized => new Rectangle(wp.ptMinPosition, primaryScreen.Size),
                 WindowState.Normal => wp.rcNormalPosition,
-                WindowState.Hidden => wp.rcNormalPosition
+                WindowState.Hidden => wp.rcNormalPosition,
+                _ => throw new NotSupportedException($"Unhandled window state: {state}")
             },
             // Always the true restored geometry, independent of current show state (Windows tracks this
             // separately from Bounds above even while the window is maximized/minimized).

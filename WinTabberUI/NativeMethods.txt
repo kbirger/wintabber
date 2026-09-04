@@ -19,9 +19,6 @@ GetApplicationUserModelId
 
 GetProcessDpiAwareness
 
-IPolicyConfig
-PolicyConfigClient
-
 OpenProcess
 PROCESS_ACCESS_RIGHTS
 
@@ -41,7 +38,6 @@ GetLayeredWindowAttributes
 SetLayeredWindowAttributes
 SetWindowLong
 GetWindowLong
-WS_EX_LAYERED
 RedrawWindow
 UpdateLayeredWindow
 PrintWindow

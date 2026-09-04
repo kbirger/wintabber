@@ -5,7 +5,7 @@ IShellItemImageFactory
 SHCreateItemFromParsingName
 
 
-# not used?
+// not used?
 PKEY_AppUserModel_ID
 PKEY_Link_TargetParsingPath
 BHID_PropertyStore

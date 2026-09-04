@@ -45,7 +45,7 @@ public sealed class AcrylicChrome : WindowChrome
         obj.SetValue(AcrylicChromeProperty, value);
     }
 
-    public static object AcrylicChromeCoerceValue(DependencyObject d, object baseValue)
+    public static object? AcrylicChromeCoerceValue(DependencyObject d, object baseValue)
     {
 
         if (DesignerProperties.GetIsInDesignMode(d))
@@ -251,7 +251,7 @@ public sealed class AcrylicChrome : WindowChrome
 
     public void SetCornerPreference()
     {
-        CornerHelper.SetCornerPreference(HWndSource.Handle, (DWM_WINDOW_CORNER_PREFERENCE)CornerPreference);
+        CornerHelper.SetCornerPreference(HWndSource!.Handle, (DWM_WINDOW_CORNER_PREFERENCE)CornerPreference);
     }
 
     /// <summary>
@@ -259,7 +259,7 @@ public sealed class AcrylicChrome : WindowChrome
     /// </summary>
     /// <param name="sender"></param>
     /// <param name="e"></param>
-    private static void AccentStatePropertyChanged(object sender, EventArgs e)
+    private static void AccentStatePropertyChanged(object? sender, EventArgs e)
     {
         if (!(sender is Window w)) return;
 
@@ -296,7 +296,7 @@ public sealed class AcrylicChrome : WindowChrome
     public void EnableBlur()
     {
 
-        var hWnd = HWndSource.Handle;
+        var hWnd = HWndSource!.Handle;
 
         AccentHelper.EnableBlur(hWnd, AccentState, gbrColor);
         
@@ -304,7 +304,7 @@ public sealed class AcrylicChrome : WindowChrome
 
     public void HideFromPeek()
     {
-        PeekHelper.HideFromPeek(HWndSource.Handle);
+        PeekHelper.HideFromPeek(HWndSource!.Handle);
         PeekHelper.ExcludeFromPeek(HWndSource.Handle);
     }
 
@@ -320,7 +320,7 @@ public sealed class AcrylicChrome : WindowChrome
         //}
         #endregion
 
-        var hWnd = HWndSource.Handle;
+        var hWnd = HWndSource!.Handle;
         AccentHelper.DisableBlur(hWnd, gbrColor);
 
     }
@@ -328,12 +328,12 @@ public sealed class AcrylicChrome : WindowChrome
     /// <summary>
     /// Current wWindow object
     /// </summary>
-    public Window OwnerWindow { set; get; }
+    public Window? OwnerWindow { set; get; }
 
     /// <summary>
     /// Handle Source of current Window
     /// </summary>
-    public HwndSource HWndSource { set; get; }
+    public HwndSource? HWndSource { set; get; }
 
     public bool IsInitialized { set; get; }
 

@@ -11,7 +11,7 @@ namespace WinTabberUI.Coordinators
         {
             _serviceProvider = serviceProvider;
         }
-        private IDisposable _listener;
+        private IDisposable _listener = null!;
 
         private T? _instance;
         private IServiceProvider _serviceProvider;

@@ -8,8 +8,6 @@ namespace WinTabber.Api.Media.CoreAudio.Dtos;
 
 public class ObservableSessionDto : IObservableVolumeDto
 {
-    public ObservableSessionDto() { }
-
     public ObservableSessionDto(CoreAudioSessionWrapper? session)
     {
         if (session is null)

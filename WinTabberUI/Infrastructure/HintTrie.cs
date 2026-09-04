@@ -58,7 +58,7 @@ public class TrieNode<T>
 
     public bool TryAddValue(char ch, T? element, out TrieNode<T> next)
     {
-        if(!Children.TryGetValue(ch, out next))
+        if(!Children.TryGetValue(ch, out next!))
         {
             next = new TrieNode<T>(element);
             _children[ch] = next;

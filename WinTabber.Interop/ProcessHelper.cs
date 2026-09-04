@@ -119,7 +119,6 @@ public static class ProcessHelper
         if (result.SeverityCode > NTSTATUS.Severity.Informational)
         {
             return null;
-            Marshal.ThrowExceptionForHR((int)result);
         }
 
         sw.Stop();

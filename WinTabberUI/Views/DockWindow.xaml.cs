@@ -120,7 +120,7 @@ public partial class DockWindow : Window
             window._viewModel.ApplicationName = app;
     }
 
-    public string ApplicationName
+    public string? ApplicationName
     {
         get => _viewModel.ApplicationName;
         set => _viewModel.ApplicationName = value;

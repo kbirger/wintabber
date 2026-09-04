@@ -20,7 +20,8 @@ public class SMTCSessionService(SMTCSessionRepository sessionRepository)
     public IObservable<SMTCSessionDto> GetActiveSession()
     {
         return _sessionRepository.ActiveMediaSessionChanges
-            .Select(session => new SMTCSessionDto { Aumid = session.SourceAppUserModelId })
+            .Where(session => session is not null)
+            .Select(session => new SMTCSessionDto { Aumid = session!.SourceAppUserModelId })
             .Publish()
             .RefCount();
     }

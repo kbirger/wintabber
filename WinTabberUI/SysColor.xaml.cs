@@ -18,8 +18,8 @@ public partial class SysColor : Window
 
 public class SystemColorInfo
 {
-    public string Name { get; set; }
-    public Brush Color { get; set; }
+    public required string Name { get; set; }
+    public required Brush Color { get; set; }
 }
 
 public class SystemColorsViewModel
@@ -40,7 +40,7 @@ public class SystemColorsViewModel
         {
             if (property.Name.EndsWith("Brush"))
             {
-                Brush systemColor = (Brush)property.GetValue(null, null);
+                Brush systemColor = (Brush)property.GetValue(null, null)!;
                 //Brush brush = new SolidColorBrush(systemColor);
                 SystemColorsList.Add(new SystemColorInfo { Name = property.Name, Color = systemColor });
             }

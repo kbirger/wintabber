@@ -76,7 +76,7 @@ static class AumidHelpers
         return null;
     }
 
-    public unsafe static string GetProcessAumid(int processId)
+    public unsafe static string? GetProcessAumid(int processId)
     {
         // Open the process with the necessary access rights
         SafeHandle processHandle = PInvoke.OpenProcess_SafeHandle(
@@ -91,7 +91,7 @@ static class AumidHelpers
         }
 
         uint length = 0;
-        string aumid = null;
+        string? aumid = null;
 
         WIN32_ERROR result;
         Span<char> s = null;
@@ -133,7 +133,7 @@ static class AumidHelpers
         throw new Exception($"Failed to get AUMID for process {processId}. Error code: {result}");
     }
 
-    public static unsafe string GetAumidFromAppsFolder(string targetExePath)
+    public static unsafe string? GetAumidFromAppsFolder(string targetExePath)
     {
         // 1. Get the Shell Item for the Apps Folder (shell:AppsFolder)
         // GUID for FOLDERID_AppsFolder: {1e87508d-89c2-4272-827e-334ed09679a0}
@@ -202,7 +202,7 @@ static class AumidHelpers
         return null;
     }
 
-    private static unsafe string GetStringFromPropVariant(PROPVARIANT pv)
+    private static unsafe string? GetStringFromPropVariant(PROPVARIANT pv)
     {
         if (pv.Anonymous.Anonymous.vt == VARENUM.VT_LPWSTR)
         {
@@ -216,7 +216,7 @@ static class AumidHelpers
     {
         var processName = process.ProcessName;
         //var aumid = GetAumidFromWindow(process.MainWindowHandle);
-        var aumid = GetAumidFromAppsFolder(process?.MainModule.FileName ?? "");
+        var aumid = GetAumidFromAppsFolder(process?.MainModule?.FileName ?? "");
 
         return aumid;
         //return GetProcessAumid(process.Id);

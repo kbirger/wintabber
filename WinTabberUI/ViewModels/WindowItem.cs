@@ -157,7 +157,7 @@ public class WindowItem : ReactiveObject, IDisposable
         }
     }
 
-    private string _title;
+    private string _title = null!;
   
     public nint Handle => WindowRef.Handle;
 
