@@ -208,16 +208,17 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
 ## Phase 4 — Mechanical cleanup
 
 - [ ] **T4.1** Fix namespaces in library projects that declare the app's namespace — use
-      IDE/Serena rename so call sites follow: *(F3)*
+      Serena's `rename_symbol` so call sites follow: *(F3)*
       | File | Current | Should be |
       |---|---|---|
       | `WinTabber.UI.Media/Services/MediaControlsStateService.cs` | `WinTabberUI.Services` | `WinTabber.UI.Media.Services` |
-      | `WinTabber.UI.Media/ViewModels/DeviceItem.cs` | `WinTabberUI.ViewModels` | `WinTabber.UI.Media.ViewModels` |
-      | `WinTabber.UI.Media/ViewModels/DeviceSessionWatcher.cs` | `WinTabberUI.ViewModels` | `WinTabber.UI.Media.ViewModels` |
       | `WinTabber.UI.Media/Views/MediaControlsWindow.xaml.cs` | `WinTabberUI` | `WinTabber.UI.Media.Views` |
       | `WinTabber.UI.Common/Chrome/CaptionButtons.xaml.cs` | `WinTabberUI.Chrome` | `WinTabber.UI.Common.Chrome` |
-      *(`MediaSessionVm.cs` and `ControlledWindowBehavior.cs` are deleted in T1.3.)*
-      ⚠️ `.xaml.cs` namespace changes must be matched in the paired `.xaml` `x:Class`.
+      *(The original table also listed `DeviceItem.cs` and `DeviceSessionWatcher.cs`; both were
+      deleted in T1.8, as were `MediaSessionVm.cs` and `ControlledWindowBehavior.cs` in T1.3.
+      Table verified against disk 2026-09-04 — the three rows above are all that remain.)*
+      ⚠️ `.xaml.cs` namespace changes must be matched in the paired `.xaml` `x:Class`, **by hand** —
+      `rename_symbol` updates C# references but does not touch XAML.
 - [ ] **T4.2** Fix two within-project namespace mismatches: *(F3)*
       - `WinTabber.Api.Media/CoreAudio/Repositories/CoreAudioDeviceRepository.cs` —
         `WinTabber.Api.Media.Repositories` → `...Api.Media.CoreAudio.Repositories`
@@ -229,9 +230,23 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       discarded. Also handle the unused `startupService` local on the line above — either comment
       that it's resolved for its constructor side effect, or give it an explicit `.Init()`. *(F9)*
 - [ ] **T4.4** Add `Directory.Build.props` for the properties repeated in every `.csproj`
-      (`Nullable`, `ImplicitUsings`, `LangVersion`). Reconcile the three TFMs (`net10.0`,
-      `net10.0-windows`, `net10.0-windows10.0.26100.0`) and the `<Platform>x64</Platform>` that
-      is set in only 3 of 9 projects. *(F13)*
+      (`Nullable`, `ImplicitUsings`, `LangVersion`). *(F13)*
+      Current state, verified 2026-09-04 — **14 projects**, all present in `WinTabber.slnx`:
+      | TFM | Projects |
+      |---|---|
+      | `netstandard2.0` | `WinTabber.Generators` |
+      | `net10.0` | `WinTabber.Common.Util` |
+      | `net10.0-windows` | `WinTabber.API`, `WinTabber.Api.Tests`, `WinTabber.Interop` |
+      | `net10.0-windows10.0.26100.0` | the remaining 9 |
+      ⚠️ **Four TFMs, not three** (the original entry missed `netstandard2.0`), and
+      `WinTabber.Generators` **must stay on `netstandard2.0`** — Roslyn source generators require
+      it. A blanket `<TargetFramework>` in `Directory.Build.props` will break the build, so any
+      shared default needs a per-project override or a condition.
+      `<Platform>x64</Platform>` is set in **4 of 14** (`WinTabber.Infrastructure`,
+      `WinTabber.UI.Common`, `WinTabber.UI.Media`, `WinTabberUI`) — was 3 before Phase 2 added
+      `WinTabber.Infrastructure`.
+      Note `.csproj` indentation is inconsistent (tabs in some, spaces in others), so text-matching
+      the same property across projects is unreliable.
 - [ ] **T4.5** Rename to remove the false parent/child implication between `WinTabber.API`
       (window registry) and `WinTabber.Api.Media` (audio/SMTC) — unrelated projects, no reference
       in either direction, inconsistent casing. Touches the `.slnx`, every `ProjectReference`, and
