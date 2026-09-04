@@ -2,7 +2,7 @@
 using System.Windows.Controls;
 using System.Windows.Input;
 
-namespace WinTabberUI.Chrome
+namespace WinTabber.UI.Common.Chrome
 {
     /// <summary>
     /// Interaction logic for CaptionButtons.xaml

@@ -5,7 +5,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:chrome="clr-namespace:WinTabber.UI.Common.Chrome;assembly=WinTabber.UI.Common"
-    xmlns:local="clr-namespace:WinTabberUI"
+    xmlns:local="clr-namespace:WinTabberUI.Controls"
     mc:Ignorable="d"
     ScrollViewer.HorizontalScrollBarVisibility="Disabled"
     ScrollViewer.VerticalScrollBarVisibility="Hidden"

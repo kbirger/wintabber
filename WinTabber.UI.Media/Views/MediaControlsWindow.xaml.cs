@@ -10,7 +10,7 @@ using System.Windows.Media;
 using WinTabber.UI.Media.Services;
 using WinTabber.UI.Media.ViewModels;
 
-namespace WinTabberUI;
+namespace WinTabber.UI.Media.Views;
 
 /// <summary>
 /// Interaction logic for MediaControlsWindow.xaml

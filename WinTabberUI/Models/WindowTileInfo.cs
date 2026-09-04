@@ -2,7 +2,7 @@
 using System.Windows.Media;
 using WinTabberUI.ViewModels;
 
-namespace WinTabberUI;
+namespace WinTabberUI.Models;
 
 public class WindowTileInfo
 {

@@ -4,6 +4,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WinTabberUI"
+        xmlns:controls="clr-namespace:WinTabberUI.Controls"
         xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
         xmlns:rxui="http://reactiveui.net"
         
@@ -26,14 +27,14 @@
     <chrome:AcrylicChrome.AcrylicChrome>
         <chrome:AcrylicChrome AccentState="ACCENT_ENABLE_ACRYLICBLURBEHIND" CornerPreference="DWMWCP_ROUND" />
     </chrome:AcrylicChrome.AcrylicChrome>
-    <local:SpatialNavigationListView
+    <controls:SpatialNavigationListView
         x:Name="TabListView" 
         Style="{StaticResource WindowItemList}"
         SelectionMode="Single"
         ScrollViewer.HorizontalScrollBarVisibility="Disabled"
         ItemsSource="{Binding WindowItems}"
         SelectedItem="{Binding Mode=TwoWay, Path=SelectedItem}">
-        <local:SpatialNavigationListView.ItemsPanel>
+        <controls:SpatialNavigationListView.ItemsPanel>
             <ItemsPanelTemplate>
                 <WrapPanel 
                         Orientation="Horizontal" 
@@ -45,8 +46,8 @@
                         HorizontalAlignment="Center"
                         />
             </ItemsPanelTemplate>
-        </local:SpatialNavigationListView.ItemsPanel>
-        <local:SpatialNavigationListView.ItemTemplate>
+        </controls:SpatialNavigationListView.ItemsPanel>
+        <controls:SpatialNavigationListView.ItemTemplate>
             <DataTemplate>
                 <Grid Margin="0" Background="Transparent" IsHitTestVisible="True" MouseUp="Grid_MouseUp">
                     <!-- Dim the whole tile, not just the title strip: a suspended window is hidden,
@@ -71,10 +72,10 @@
                     </Grid.RowDefinitions>
                     <local:EditableTextBlock ViewModel="{Binding}"  />
                     <Viewbox Grid.Row="1"  HorizontalAlignment="Center" VerticalAlignment="Top" Stretch="Uniform" Margin="0 10 0 0">
-                        <local:WindowThumbnail Source="{Binding Path=Handle}" />
+                        <controls:WindowThumbnail Source="{Binding Path=Handle}" />
                     </Viewbox>
                 </Grid>
             </DataTemplate>
-        </local:SpatialNavigationListView.ItemTemplate>
-    </local:SpatialNavigationListView>
+        </controls:SpatialNavigationListView.ItemTemplate>
+    </controls:SpatialNavigationListView>
 </rxui:ReactiveWindow>

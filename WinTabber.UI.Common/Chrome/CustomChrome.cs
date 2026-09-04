@@ -1,6 +1,5 @@
 ﻿using System.Windows;
 using System.Windows.Shell;
-using WinTabberUI.Chrome;
 
 namespace WinTabber.UI.Common.Chrome
 {

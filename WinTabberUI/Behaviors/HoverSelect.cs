@@ -1,6 +1,6 @@
 using System.Windows;
 
-namespace WinTabberUI;
+namespace WinTabberUI.Behaviors;
 
 /// <summary>
 /// Gates the selector's hover-to-select behaviour on the pointer having actually moved.

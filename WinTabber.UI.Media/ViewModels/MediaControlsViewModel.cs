@@ -10,7 +10,6 @@ using WinTabber.Common.Util;
 using WinTabber.Events;
 using WinTabber.UI.Media.Services;
 using WinTabber.UI.Media.ViewModels.Factories;
-using WinTabberUI.Services;
 
 namespace WinTabber.UI.Media.ViewModels;
 

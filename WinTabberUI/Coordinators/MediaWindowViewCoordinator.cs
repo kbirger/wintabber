@@ -2,6 +2,7 @@
 using System.Windows.Interop;
 using System.Windows.Threading;
 using WinTabber.Interop;
+using WinTabber.UI.Media.Views;
 using WinTabberUI.Helpers;
 using WinTabberUI.ViewModels;
 

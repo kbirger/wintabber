@@ -7,7 +7,6 @@ using System.Reactive.Linq;
 using WinTabber.Api.Media.CoreAudio.Dtos;
 using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.CoreAudio.Repositories;
-using WinTabber.Api.Media.Repositories;
 using static Microsoft.WindowsAPICodePack.Shell.PropertySystem.SystemProperties.System;
 
 namespace WinTabber.Api.Media.CoreAudio.Services;

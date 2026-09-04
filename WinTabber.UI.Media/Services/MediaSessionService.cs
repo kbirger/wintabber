@@ -8,7 +8,6 @@ using Windows.Media.Control;
 using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Api.Media.CoreAudio.Services;
-using WinTabber.Api.Media.Repositories;
 using WinTabber.Api.Media.ShellApplications.Models;
 using WinTabber.Api.Media.ShellApplications.Repositories;
 using WinTabber.Api.Media.SMTC.Repositories;

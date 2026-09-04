@@ -6,9 +6,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using WinTabber.Events;
 using WinTabber.Interop;
-using WinTabber.UI.Media.Services;
-
-namespace WinTabberUI.Services;
+namespace WinTabber.UI.Media.Services;
 public partial class MediaControlsStateService(WinTabberEventManager eventManager, IInteropProxy interop, Func<bool> isFeatureEnabled)
     : IMediaControlsStateService
 {

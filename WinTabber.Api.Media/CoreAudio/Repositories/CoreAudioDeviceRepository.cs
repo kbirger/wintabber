@@ -12,7 +12,7 @@ using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Common.Util;
 
-namespace WinTabber.Api.Media.Repositories;
+namespace WinTabber.Api.Media.CoreAudio.Repositories;
 
 public partial class CoreAudioDeviceRepository : IDisposable
 {

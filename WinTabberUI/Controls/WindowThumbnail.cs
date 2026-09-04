@@ -5,7 +5,7 @@ using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Dwm;
 
-namespace WinTabberUI;
+namespace WinTabberUI.Controls;
 
 public class WindowThumbnail : FrameworkElement
 {

@@ -207,7 +207,7 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
 
 ## Phase 4 — Mechanical cleanup
 
-- [ ] **T4.1** Fix namespaces in library projects that declare the app's namespace — use
+- [x] **T4.1** Fix namespaces in library projects that declare the app's namespace — use
       Serena's `rename_symbol` so call sites follow: *(F3)*
       | File | Current | Should be |
       |---|---|---|
@@ -219,17 +219,48 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       Table verified against disk 2026-09-04 — the three rows above are all that remain.)*
       ⚠️ `.xaml.cs` namespace changes must be matched in the paired `.xaml` `x:Class`, **by hand** —
       `rename_symbol` updates C# references but does not touch XAML.
-- [ ] **T4.2** Fix two within-project namespace mismatches: *(F3)*
+      **Resolved as planned.** `rename_symbol` failed on the namespace symbols themselves ("no
+      rename edits" — the C# language server doesn't support renaming a `namespace` this way), so
+      each was done by hand: change the `namespace` line, update the paired `.xaml` `x:Class`, add
+      the new `using` to every consumer. Found while scoping: `MediaControlsViewModel.cs` and
+      `WindowSelectorResources.xaml`'s `using WinTabberUI.Services;`/`xmlns:local` resolved to the
+      very in-project `WinTabberUI`/`WinTabberUI.Services` namespaces being moved, not anything in
+      the `WinTabberUI` project — dangling once the move landed, removed. Also un-nested
+      `CaptionButtons.xaml`'s unused `xmlns:local="clr-namespace:WinTabberUI.Chrome"` (dead even
+      before the move — only `chrome:` was referenced) and dropped `CustomChrome.cs`'s now
+      self-referential `using WinTabberUI.Chrome;`. Build 0 warnings, 81/81 tests pass.
+- [x] **T4.2** Fix two within-project namespace mismatches: *(F3)*
       - `WinTabber.Api.Media/CoreAudio/Repositories/CoreAudioDeviceRepository.cs` —
         `WinTabber.Api.Media.Repositories` → `...Api.Media.CoreAudio.Repositories`
       - `WinTabber.Api.Media/ShellApplications/Models/ThumbnailOptions.cs` —
         `...ShellApplications.Repositories` → `...ShellApplications.Models`
-- [ ] **T4.3** `WinTabberUI/App.xaml.cs:57` — remove the redundant `ApplicationSettings.Load()`
+      **Resolved as planned**, with one correction: `ThumbnailOptions` was not a top-level type —
+      it was a `[Flags] enum` nested inside a `partial class InstalledApplicationRepository`
+      declaration, which forced it into the `Repositories` namespace (partial-class parts must
+      share a namespace to merge). Un-nested it into a plain top-level enum in `...Models` instead
+      of just changing the namespace line, since the enum has zero external consumers — confirmed
+      via `find_referencing_symbols` before un-nesting, not assumed. `CoreAudioDeviceRepository`'s
+      three consumers (`AudioDeviceService.cs`, `AudioSessionService.cs`, `Bootstrapper.cs`) all
+      already carried the correct `using WinTabber.Api.Media.CoreAudio.Repositories;` alongside the
+      stale one; `MediaSessionService.cs` had the same stale duplicate and needed the same fix
+      despite not appearing in the plan's consumer list. Build 0 warnings, 81/81 tests pass.
+- [x] **T4.3** `WinTabberUI/App.xaml.cs:57` — remove the redundant `ApplicationSettings.Load()`
       into an unused local. It contradicts the `Bootstrapper` comment that a second `Load()`
       "would silently diverge from what the user sees"; harmless today only because the result is
       discarded. Also handle the unused `startupService` local on the line above — either comment
       that it's resolved for its constructor side effect, or give it an explicit `.Init()`. *(F9)*
-- [ ] **T4.4** Add `Directory.Build.props` for the properties repeated in every `.csproj`
+      **Resolved by deletion, not comment or `.Init()`** — tracing the call chain showed
+      `startupService` has no side effect to document or trigger: `AutoStartupService` has no
+      constructor logic, and its real entry point (`EnsureStartupMode`) already fires via
+      `StartupCoordinator`, constructed one line earlier inside
+      `BackgroundServiceContainer` (`ioc.GetRequiredService<StartupCoordinator>()`), whose own
+      constructor subscribes to `SettingsViewModel`'s `WhenAnyValue(x => x.StartupMode)` — which
+      emits the current value immediately on subscribe. So resolving `AutoStartupService` again on
+      the next line was a fully redundant no-op DI lookup, not an intentional side-effecting
+      resolve; deleted both it and the `ApplicationSettings.Load()` line, plus the two `using`s
+      (`WinTabberUI.Models.Settings`, `WinTabberUI.Services`) that were now unused. Build 0
+      warnings, 81/81 tests pass.
+- [x] **T4.4** Add `Directory.Build.props` for the properties repeated in every `.csproj`
       (`Nullable`, `ImplicitUsings`, `LangVersion`). *(F13)*
       Current state, verified 2026-09-04 — **14 projects**, all present in `WinTabber.slnx`:
       | TFM | Projects |
@@ -247,6 +278,49 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       `WinTabber.Infrastructure`.
       Note `.csproj` indentation is inconsistent (tabs in some, spaces in others), so text-matching
       the same property across projects is unreliable.
+      **Resolved as planned.** `<TargetFramework>` was correctly left per-project (not hoisted).
+      `LangVersion` was previously explicit only in `WinTabber.Generators` (needed there because
+      `netstandard2.0`'s default `LangVersion` is C# 7.3, too old for the generator's syntax);
+      hoisting `latest` globally removes that one-off override and makes every project's language
+      version explicit and uniform instead of relying on each TFM's own SDK default. Verified with
+      a full `rm -rf */bin */obj` + rebuild from scratch (not just an incremental build) — 0
+      warnings, 0 errors, 81/81 tests pass. `<Platform>x64</Platform>` was left alone in the 4
+      projects that set it — out of scope for this task, not one of the three named properties.
+- [x] **T4.6** Consider thinning the `WinTabberUI` root — 18 loose top-level files
+      (`HoverSelect`, `SpatialNavigationListView`, `WindowTileGrid`, `WindowTileInfo`,
+      `WindowThumbnail`, `SysColor.xaml`, …). Contributes to the 6/10 cohesion score. *(Scorecard)*
+      **Resolved.** Verified against disk 2026-09-04: 17 loose files (not 18), of which 10 are
+      legitimate project-root scaffolding (`App.xaml`/`.cs`, `AssemblyInfo.cs`, `Bootstrapper.cs`,
+      `BackgroundServiceContainer.cs`, `App.config`, `app.manifest`, `NativeMethods.txt`,
+      `WinTabberUI.csproj`/`.user`) and stay put. Moved the other six, `git mv`'d to preserve
+      history, by architectural kind — the convention every other populated folder in the project
+      already follows (`Models/`, `Helpers/`, `Coordinators/`, …) — rather than inventing a
+      feature-folder scheme for just this one area:
+      | File | Destination | Namespace |
+      |---|---|---|
+      | `HoverSelect.cs` | `Behaviors/` | `WinTabberUI` → `WinTabberUI.Behaviors` |
+      | `SpatialNavigationListView.cs` | `Controls/` | `WinTabberUI` → `WinTabberUI.Controls` |
+      | `WindowThumbnail.cs` | `Controls/` | `WinTabberUI` → `WinTabberUI.Controls` |
+      | `WindowTileInfo.cs` | `Models/` | `WinTabberUI` → `WinTabberUI.Models` |
+      | `WindowTileGrid.cs` | `Models/` | `WinTabberUI` → `WinTabberUI.Models` |
+      | `SysColor.xaml`(`.cs`) | `Views/` | unchanged — `Views/` keeps flat `WinTabberUI` (see `EditableTextBlock.xaml`, already there) |
+      `Behaviors/`, `Controls/` are new folders — no prior local precedent in `WinTabberUI` for
+      either kind (the `Behaviors` precedent so far is only `WinTabber.UI.Common/Behaviors/`,
+      cross-project; see `.todos/window-selector-cleanup.md` item 4, which left `HoverSelect` at
+      root specifically because promoting it *there* implied reuse that doesn't exist — a local
+      `WinTabberUI/Behaviors/` doesn't carry that implication and doesn't contradict that note).
+      Consumers needing a fix, found individually per the HANDOFF.md warning against trusting a
+      combined-alternation grep: `WindowSelectorResources.xaml` (added `xmlns:behaviors=`,
+      repointed `l:HoverSelect` → `behaviors:HoverSelect`, keeping `l:` for `WindowSelectorWindow`
+      which stays in flat `WinTabberUI`), `WindowSelectorWindow.xaml` (added `xmlns:controls=`,
+      repointed `local:SpatialNavigationListView`/`local:WindowThumbnail` → `controls:…`, keeping
+      `local:` for `EditableTextBlock` which also stays flat), `ThumbnailWindow.xaml` and
+      `DockWindow.xaml` (repointed `xmlns:local` directly to `WinTabberUI.Controls` — each file's
+      only `local:` use was `WindowThumbnail`), `SpatialNavigationListView.cs` (added `using`s for
+      `WinTabberUI.Behaviors`/`WinTabberUI.Models`), and `WinTabberUI.csproj.user`'s
+      `<Compile Update="SysColor.xaml.cs">` path. Verified with a clean `rm -rf */bin */obj`
+      rebuild (WPF's generated `.g.cs` from `x:Class`/`xmlns` can mask a stale reference under an
+      incremental build) — 0 warnings, 0 errors, 81/81 tests pass.
 - [x] **T4.5** Rename to remove the false parent/child implication between `WinTabber.API`
       (window registry) and `WinTabber.Api.Media` (audio/SMTC) — unrelated projects, no reference
       in either direction, inconsistent casing. Touches the `.slnx`, every `ProjectReference`, and

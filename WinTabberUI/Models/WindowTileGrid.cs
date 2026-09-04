@@ -1,7 +1,7 @@
 ﻿using System.Diagnostics;
 using WinTabberUI.ViewModels;
 
-namespace WinTabberUI;
+namespace WinTabberUI.Models;
 
 public class WindowTileGrid
 {

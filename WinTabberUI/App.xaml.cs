@@ -3,8 +3,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Windows;
 using WinTabber.Events;
-using WinTabberUI.Models.Settings;
-using WinTabberUI.Services;
 
 namespace WinTabberUI;
 
@@ -53,14 +51,9 @@ public partial class App : Application
 
         _cleanUp = serviceProvider.GetRequiredService<BackgroundServiceContainer>();
         _eventManager = serviceProvider.GetRequiredService<WinTabberEventManager>();
-        var startupService = serviceProvider.GetRequiredService<AutoStartupService>();
-
-        var settings = ApplicationSettings.Load();
 
         base.OnStartup(e);
     }
-
-    
 
     protected override void OnExit(ExitEventArgs e)
     {
