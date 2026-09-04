@@ -77,25 +77,26 @@ throwing) to one 8-member fake (0 throwing). Without the `IWindowVisibility` spl
 would still need to stub all 28 `IWindowInterop` members (26 throwing) alongside
 `IProcessControl` — barely smaller than today — which is why the split exists.
 
-### T3.4 carryover — duplicated `DeleteObject`
+### T3.4 carryover — corrected: not a duplicate, one dead + one live
 
-`WinTabber.Infrastructure/AppCache.cs:129` and
-`WinTabber.Api.Media/ShellApplications/Repositories/InstalledApplicationRepository.cs:168` each
-hand-roll an identical `[DllImport("gdi32.dll")] DeleteObject` plus near-identical
-`Bitmap → BitmapSource` conversion (`Bitmap2BitmapImage`), differing only in whether a
-transparency-key color is passed to `GetHbitmap`. Neither `WinTabber.Infrastructure` nor
-`WinTabber.Api.Media` currently references `WinTabber.Interop`, and adding one solely for this
-would cut against the flat, sibling `WinTabber.Api.*` layout in CLAUDE.md.
+T3.4 described `WinTabber.Infrastructure/AppCache.cs:129` and
+`WinTabber.Api.Media/.../InstalledApplicationRepository.cs:168` as a verbatim-duplicate
+`DeleteObject` + `Bitmap2BitmapImage`. Re-checked while drafting the implementation plan: that's
+wrong. `InstalledApplicationRepository.Bitmap2BitmapImage` (private, static) has exactly two
+call sites in the file, both inside comments (`InstalledApplicationRepository.cs:198,294` —
+`//var zz = Bitmap2BitmapImage(bitmap);` / `//var image = Bitmap2BitmapImage(bitmap);`). It is
+dead code, same class of finding as Phase 1's T1.3/T1.8, not a live duplicate of
+`AppCache.Bitmap2BitmapImage`. There is nothing to deduplicate — only `AppCache.cs`'s copy runs.
 
-**Fix**: one shared extension method in `WinTabber.Common.Util` (already referenced by both
-projects) — e.g. `Bitmap.ToBitmapSource(Color? transparencyKey = null)` — owning the cleanup
-call. `DeleteObject` (`gdi32.dll`) is a standard, documented Win32 API with CsWin32 metadata, so
-this new call site should use CsWin32 (`PInvoke.DeleteObject`), not a third hand-written
-`DllImport` — that means re-adding a `NativeMethods.txt` (with `DeleteObject` listed) and the
-`Microsoft.Windows.CsWin32` package reference (**with** `<PrivateAssets>all</PrivateAssets>`,
-the omission T1.6 flagged) to `WinTabber.Common.Util`, which T1.6 removed for being unused —
-it's needed again now for a live call site. Both original call sites switch to the extension
-method; the two private methods and both hand-written `DllImport` declarations are deleted.
+**Fix**: delete `InstalledApplicationRepository.cs`'s `Bitmap2BitmapImage` method, its
+`[DllImport("gdi32.dll")] DeleteObject`, and the two dead comment lines referencing it. Migrate
+`AppCache.cs`'s `DeleteObject` in place to CsWin32 (`PInvoke.DeleteObject` from
+`Windows.Win32.Graphics.Gdi`, matching how `InstalledApplicationRepository.cs` already consumes
+CsWin32 in the same project family) — `WinTabber.Infrastructure` currently has no
+`NativeMethods.txt` and no `Microsoft.Windows.CsWin32` package reference, so both are added
+(with `<PrivateAssets>all</PrivateAssets>`, the omission T1.6 flagged elsewhere). No shared
+helper, no new project reference, no `WinTabber.Common.Util` involvement — a single live call
+site doesn't justify one (YAGNI).
 
 ### DllImport inventory — dedup and CsWin32 migration audit
 
@@ -111,11 +112,12 @@ folded into T5.1 since it's the same interop-cleanup scope:
 | `WinTabber.Interop/PInvoke.cs:43` | `DwmpActivateLivePreview` (`dwmapi.dll`, ordinal `#113`) | No — unnamed ordinal export, no public documentation | Keep hand-written, already in `WinTabber.Interop` |
 | `WinTabber.UI.Common/Chrome/Interop.cs:7` | `SetWindowCompositionAttribute` (`user32.dll`) | No — undocumented (confirmed in T3.4) | Keep hand-written, but **relocate** to `WinTabber.Interop` — see below |
 | `WinTabber.Interop/UacHelper.cs:17,21` | `OpenProcessToken`, `GetTokenInformation` (`advapi32.dll`) | **Yes** — both are standard, documented Win32 APIs | **Migrate to CsWin32** — add both to `WinTabber.Interop/NativeMethods.txt`, switch to `PInvoke.OpenProcessToken`/`PInvoke.GetTokenInformation`. Note CsWin32's generated signatures use safe handles and the `Windows.Win32.Security.TOKEN_INFORMATION_CLASS`/`TOKEN_ELEVATION_TYPE` types rather than the hand-rolled `IntPtr`s and the private `TOKEN_INFORMATION_CLASS` enum this file currently declares — expect signature adaptation, not a drop-in rename. Verify with a build, per CLAUDE.md's "the build is the arbiter." `UacHelper.IsProcessElevated(int)` / `IsProcessElevated(Process)` are also near-verbatim duplicates of each other (T5.4 can cover the pure parts of this with a unit test once elevation-type interpretation is isolated from the token P/Invoke calls, but that split is not required for the CsWin32 migration itself). |
-| `WinTabber.Infrastructure/AppCache.cs:129` | `DeleteObject` (`gdi32.dll`) | **Yes** | Migrate as part of the T3.4 dedup above — the new shared helper uses `PInvoke.DeleteObject`. |
-| `WinTabber.Api.Media/.../InstalledApplicationRepository.cs:168` | `DeleteObject` (`gdi32.dll`) | **Yes** | Same — deleted in favor of the shared helper. |
+| `WinTabber.Infrastructure/AppCache.cs:129` | `DeleteObject` (`gdi32.dll`) | **Yes** | Migrate in place to `PInvoke.DeleteObject` — see T3.4 correction above. |
+| `WinTabber.Api.Media/.../InstalledApplicationRepository.cs:168` | `DeleteObject` (`gdi32.dll`) | **Yes** | **Dead code** (see T3.4 correction) — delete the method and the `DllImport` entirely, no migration needed. |
 
-Net: 8 hand-written `DllImport`s → 3 (all confirmed to have no CsWin32 metadata), plus one new
-CsWin32 `NativeMethods.txt` entry in a project (`Common.Util`) that currently has none.
+Net: 8 hand-written `DllImport`s → 3 (all confirmed to have no CsWin32 metadata) plus 1 deleted
+as dead code, plus one new CsWin32 `NativeMethods.txt` entry in a project (`WinTabber.Infrastructure`)
+that currently has none.
 
 **Policy correction: undocumented hand-written imports consolidate into `WinTabber.Interop`,
 even ones that affect our own window's rendering.** T3.1/CLAUDE.md's chrome carve-out
