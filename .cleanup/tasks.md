@@ -79,6 +79,12 @@ No design decisions. One commit, or one per task. Removes ~1,700 lines.
       | `WinTabber.Events/InputListenerService.cs` | **Live.** Stripped five dead private methods and two dead properties left over from the pre-SharpHook `Gma.System.MouseKeyHook`-based implementation; kept the live `SharpHook`-based `GetEvents`/`GetScheduler`. |
       | `Wintabber.SessionsTest/Program.cs` | **Live** (manual test console, disabled). Stripped the abandoned experimental session-joining code; kept the single live `Console.WriteLine("disabled")` line. |
 
+      ⟵ *One file was missed here and pruned later, during Phase 3:*
+      `WinTabber.Interop/NativeMethods.cs` — commented-out `DwmpActivateLivePreview` and
+      `Dwm*Thumbnail*` `DllImport` stubs plus a fully commented `LivePreviewTrigger` enum
+      (~52 lines, everything after the class body). The live class
+      (`EnumerateProcessWindowHandles`, `ShouldIncludeWindow`, lazy `InvalidHwnds`) is untouched.
+
 ---
 
 ## Phase 2 — Extract `WinTabber.Infrastructure` *(F2 — highest leverage)*
@@ -127,25 +133,75 @@ Goal: `Infrastructure.Tests` stops referencing the WinExe.
 
 Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
 
-- [ ] **T3.1** **Decide the policy first** — everything below depends on it:
-      - **(a) Enforce** CLAUDE.md as written: all Win32 routes through `IInteropProxy`; delete
-        the three non-`Interop` `NativeMethods.txt`.
-      - **(b) Amend** CLAUDE.md: `Interop` owns process/window-manager Win32; presentation-layer
-        chrome owns its own. Still de-dupe the shared blocks.
-- [ ] **T3.2** De-dupe the DWM thumbnail set — currently generated **3×** into 3 assemblies as 3
-      incompatible types (`Interop`, `UI.Common`, `WinTabberUI`): `DwmRegisterThumbnail`,
-      `DwmUnregisterThumbnail`, `DwmUpdateThumbnailProperties`, `DWM_THUMBNAIL_PROPERTIES`,
-      `RECT`, the five `DWM_TNP_*` flags, `DwmQueryThumbnailSourceSize`.
-      *(Required under either policy.)*
-- [ ] **T3.3** De-dupe the Shell/AUMID set — generated 3× (`Api.Media`, `UI.Common`,
-      `WinTabberUI`): `SHGetKnownFolderItem`, `IShellItem`, `IPropertyStore`,
-      `PKEY_AppUserModel_ID`, `IShellItemImageFactory`, `SHCreateItemFromParsingName`, …
-      Note `Api.Media`'s copy has entries already marked `// not used?`.
-- [ ] **T3.4** Resolve the 3 remaining hand-written `DllImport`s:
-      - [ ] `WinTabber.UI.Common/Chrome/Interop.cs:7` (`user32`)
-      - [ ] `WinTabberUI/Infrastructure/AppCache.cs:129` (`gdi32`)
-      - [ ] `WinTabber.Api.Media/ShellApplications/Repositories/InstalledApplicationRepository.cs:168` (`gdi32`)
-- [ ] **T3.5** Update `CLAUDE.md` to match whatever T3.1 decided, so the doc and the code agree.
+- [x] **T3.1** **Resolved: (b) — amend CLAUDE.md**, with a sharper boundary than the original
+      framing. The rule is *what the call acts on*, not which layer it sits in: Win32 that
+      observes/mutates **another process's** windows or processes goes through `IInteropProxy`;
+      Win32 that affects the rendering of **our own** windows stays with the WPF code owning the
+      `HwndSource`. Rationale:
+      - **Testability.** The seam's value tracks the testability of the code behind it. The repo's
+        only fake is `WinTabber.Api.Tests/Fakes/FakeInteropProxy.cs`, used by the `Suspension`
+        tests — the process/window concern, exactly where the abstraction earns its keep. Zero
+        tests touch `CloakHelper`/`PeekHelper`/`CornerHelper`, and they never will: their callers
+        are WPF code-behind that needs a real `HwndSource` and message pump. An interface there
+        permits only mock-verifies-the-mock tests.
+      - **The thumbnail handle.** `DwmRegisterThumbnail` returns a handle whose lifetime is bound
+        to a WPF control's. Behind `IInteropProxy` you either hand out raw handles (indirection
+        with no encapsulation) or move control-lifecycle knowledge into `Interop`. Both worse than
+        letting `WindowThumbnail.cs` own it.
+      - **(a)'s real advantage, acknowledged:** it is mechanically enforceable (a banned-API
+        analyzer on "no P/Invoke outside `Interop`"), where (b) needs judgement per call site.
+        (b) can still be enforced with a two-entry directory allowlist. (a) would also become
+        much more attractive *after* T5.1 — see the note there.
+      - Not a portability seam: the app is pinned to `net10.0-windows10.0.26100.0` on WPF, so
+        neither cross-platform nor headless end-to-end testing is on the table anyway.
+- [x] **T3.2** Resolved by **deletion, not de-dup.** The DWM thumbnail set was generated 3× but
+      had only **one** live consumer: `WinTabberUI/WindowThumbnail.cs`. The `Interop` copy was
+      dead (referenced only by commented-out stubs) and the `UI.Common` copy had zero call sites —
+      removed both; `WinTabberUI` keeps the live one. ⚠️ `RECT` **kept** in `Interop`: it reads as
+      part of the thumbnail block but actually serves `GetWindowRect` / `Get`+`SetWindowPlacement` /
+      `MoveWindow`.
+- [x] **T3.3** Also resolved by **deletion, not de-dup.** Same shape as T3.2 — the only live
+      consumer is `Api.Media/ShellApplications/Repositories/InstalledApplicationRepository.cs`.
+      The `UI.Common` and `WinTabberUI` copies had zero call sites; removed both. Also removed the
+      six entries under `Api.Media`'s own `// not used?` marker (`PKEY_AppUserModel_ID`,
+      `PKEY_Link_TargetParsingPath`, `BHID_PropertyStore`, `PropVariantToString`,
+      `IEnumShellItems`, `BHID_EnumItems`) — the marker was right, all six are unreferenced.
+- [x] **T3.6** Delete dead generated Win32 surface **not named by T3.2/T3.3**, found while scoping
+      this phase. ⟵ *not in the original plan.*
+      | File | Removed | Lines |
+      |---|---|---:|
+      | `WinTabber.UI.Common/NativeMethods.txt` | Everything except `DwmSetWindowAttribute` + `DWM_WINDOW_CORNER_PREFERENCE` (used by `Chrome/CloakHelper`, `PeekHelper`, `CornerHelper`) | 45 → 2 |
+      | `WinTabberUI/NativeMethods.txt` | `GetApplicationUserModelId`, `SystemParametersInfoForDpi`, `GetProcessDpiAwareness`, `OpenProcess`, `PROCESS_ACCESS_RIGHTS`, `DwmSetWindowAttribute`, `DWM_WINDOW_CORNER_PREFERENCE`, plus the entire layered-window block (`Get`/`SetLayeredWindowAttributes`, `Get`/`SetWindowLong`, `RedrawWindow`, `UpdateLayeredWindow`, `PrintWindow`, `PRINT_WINDOW_FLAGS`, `PW_RENDERFULLCONTENT`) | 65 → 35 |
+      | `WinTabber.Interop/NativeMethods.txt` | thumbnail set only (see T3.2) | 84 → 73 |
+      Each layered-window symbol was checked **individually** — an earlier combined grep appeared
+      to show the block was live, but it only matched `Views/ThumbnailWindow.xaml.cs` via the
+      `WM_NCHITTEST` alternate in the same pattern. All nine are dead.
+      Kept in `WinTabberUI`: `DwmIsCompositionEnabled` (`WindowThumbnail.cs:27`),
+      `SystemParametersInfoA`+`W` (`Windowing/DesktopHelper.cs` calls `PInvoke.SystemParametersInfo`),
+      and the `WMSZ_*`/`HT*`/`WM_NCHITTEST`/`WM_SIZING`/`WM_EXITSIZEMOVE` block
+      (`Views/ThumbnailWindow.xaml.cs`).
+- [x] **T3.4** Re-scoped by T3.1's decision — 1 of 3 resolved, 2 deferred to T5.1 (**deliberately
+      left as-is for now**, they are not policy violations):
+      - [x] `WinTabber.UI.Common/Chrome/Interop.cs:7` (`user32`, `SetWindowCompositionAttribute`) —
+            **compliant under (b)**, no change needed. It affects our own window's rendering, and
+            it is undocumented so CsWin32 has no metadata for it; hand-written is the only option.
+      - [ ] `WinTabber.Infrastructure/AppCache.cs:129` (`gdi32`, `DeleteObject`) ⟵ *path corrected;
+            the file moved out of `WinTabberUI/Infrastructure/` in Phase 2.*
+      - [ ] `WinTabber.Api.Media/ShellApplications/Repositories/InstalledApplicationRepository.cs:168`
+            (`gdi32`, `DeleteObject`)
+      The last two are a **verbatim duplicate** — identical
+      `private static extern bool DeleteObject(IntPtr hObject)`, both freeing a GDI bitmap handle
+      after converting a shell icon. That is a shared-utility problem, not an interop-policy one:
+      the rule in T3.1 has no opinion on GDI resource cleanup, which acts on neither another
+      process's windows nor our own rendering. Folded into T5.1 rather than forced into `Interop`.
+      *(For the record, the hand-written `DllImport`s already inside `WinTabber.Interop` —
+      `NtNativeMethods.cs`, `PInvoke.cs`'s `DwmpActivateLivePreview`, `UacHelper.cs` — are fine
+      under either policy and were never in scope.)*
+- [x] **T3.5** `CLAUDE.md`'s **Windows Interop** section rewritten to state the T3.1 rule, name
+      which project owns which surface, legitimise hand-written `DllImport`s where CsWin32 has no
+      metadata, and warn against adding `NativeMethods.txt` entries with no call site (CsWin32
+      generates dependent types transitively, so explicit listings are usually unnecessary — the
+      lesson from T3.2/T3.3/T3.6).
 
 ---
 
@@ -192,6 +248,23 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       `IProcessControl` (suspend/resume/elevation/image path), `IWindowPlacement`, and
       `IWindowInterop` for the rest. `InteropProxy` keeps implementing all three; consumers
       narrow. Unblocks a much smaller `FakeInteropProxy`. **Do after Phase 2.** *(F7)*
+      > ⚠️ **Carries the two deferred items from T3.4.** When the split happens, resolve the
+      > duplicated `DeleteObject` (`gdi32`) hand-written in both
+      > `WinTabber.Infrastructure/AppCache.cs:129` and
+      > `WinTabber.Api.Media/.../InstalledApplicationRepository.cs:168` — identical signature, same
+      > purpose (freeing a GDI bitmap handle after a shell-icon conversion). It is GDI resource
+      > cleanup, so T3.1's rule doesn't classify it; it wants a shared home, not `IInteropProxy`.
+      > Both call sites do icon→bitmap conversion, so the natural fix is one small shared helper
+      > rather than a new interface member.
+      >
+      > Also revisit T3.1 here. The main argument against policy **(a)** was that routing chrome
+      > Win32 through `IInteropProxy` would grow an already-overloaded 39-member interface — an
+      > objection this task removes. If after the split you want the stronger, mechanically
+      > enforceable invariant ("no P/Invoke outside `Interop`", as a banned-API analyzer), this is
+      > the point at which (a) becomes cheap to adopt. The counter-argument that survives the
+      > split: an interface belongs **where its consumers are**, and the chrome consumers (plus
+      > their untestable WPF surroundings) live in `UI.Common`/`WinTabberUI` — so concern-splitting
+      > applied consistently still lands on (b)'s assembly layout.
 - [ ] **T5.2** Make `BackgroundServiceContainer`'s load-bearing ordering explicit. Today
       `MediaDebugWindowCoordinator` must follow `MediaWindowViewCoordinator`, and
       `EnableDebugPrivilege()` must precede any suspend — enforced only by comments. Reordering
@@ -228,9 +301,9 @@ description lives in that doc.
 | 0 — Prep | 3 | Trivial | None |
 | 1 — Deletion | 8 | Low | Low — T1.8 needs judgement |
 | 2 — Extract Infrastructure | 7 | Medium | Medium — T2.4 is the trap |
-| 3 — Interop policy | 5 | Medium | Medium — T3.1 gates the rest |
+| 3 — Interop policy | 6 | Medium | Medium — T3.1 gates the rest |
 | 4 — Mechanical | 6 | Low–Med | Low — T4.1/T4.5 are wide renames |
 | 5 — Design | 4 | Medium–High | Plan separately |
 | 6 — Tracked | 4 | Medium | Already scoped in `docs/` |
 
-**Total: 37 tasks.** Phases 1–2 deliver most of the value; 5–6 are genuine design work.
+**Total: 38 tasks.** Phases 1–2 deliver most of the value; 5–6 are genuine design work.

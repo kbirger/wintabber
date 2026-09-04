@@ -54,7 +54,25 @@ WinTabberUI            ← WPF app, MVVM ViewModels, DI bootstrap, window manage
 
 **DI Bootstrap** — `WinTabberUI/Bootstrapper.cs` registers all services, repos, viewmodels, and windows. This is the single place to wire new dependencies.
 
-**Windows Interop** — All Win32 calls go through `IInteropProxy` (defined in `WinTabber.Interop/IInteropProxy.cs`). The concrete `InteropProxy` uses CsWin32-generated bindings from `NativeMethods.txt`. Never call P/Invoke directly from other projects.
+**Windows Interop** — The boundary is *what the call acts on*, not which layer you happen to be in:
+
+- Win32 that **observes or mutates another process's windows or processes** (enumeration,
+  activation, placement, suspend/resume, elevation) goes through `IInteropProxy` (defined in
+  `WinTabber.Interop/IInteropProxy.cs`). The concrete `InteropProxy` uses CsWin32 bindings from
+  `WinTabber.Interop/NativeMethods.txt`. Do not call these directly from other projects — the
+  interface is the seam `WinTabber.Api.Tests/Fakes/FakeInteropProxy.cs` fakes.
+- Win32 that **affects the rendering of our own windows** (DWM composition, corner preference,
+  cloak/peek, thumbnails, hit-test and resize messages) lives with the WPF code that owns the
+  `HwndSource` — `WinTabber.UI.Common/Chrome/` and `WinTabberUI`, each with its own
+  `NativeMethods.txt`. It is not routed through `IInteropProxy`: the surrounding code is WPF and
+  untestable headlessly, so the seam would buy nothing.
+- `WinTabber.Api.Media` owns its Shell/AUMID bindings for the same reason.
+
+A hand-written `[DllImport]` is legitimate where CsWin32 has no metadata (undocumented APIs such
+as `SetWindowCompositionAttribute` and `DwmpActivateLivePreview`); it still follows the rule above
+for *where* it lives. Never add an entry to a `NativeMethods.txt` without a call site — every one
+of these files had accumulated dead surface, and CsWin32 generates dependent types transitively,
+so listing a type explicitly is usually unnecessary.
 
 **Event Flow** — `WinTabberEventManager` (Events project) broadcasts `EventType` commands triggered by global hotkeys from `InputListenerService`. UI layers subscribe to these observables.
 
