@@ -161,9 +161,6 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
         _mediaControlsStateService.HideView();
     }
 
-    //public AudioDeviceSelectorViewModel.DeviceItem[] PlaybackDevices => _playbackDevices?.Value ?? [];
-    //public DeviceItem[] RecordingDevices => _recordingDevices?.Value ?? [];
-
     public MediaSessionViewModel? ActiveSession
     {
         get => _activeSession;

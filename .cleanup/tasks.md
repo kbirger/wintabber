@@ -67,17 +67,17 @@ No design decisions. One commit, or one per task. Removes ~1,700 lines.
 
 ### Deferred from Phase 1 — needs judgement, not deletion
 
-- [ ] **T1.8** Prune commented-out blocks in files that are still **live**. These can't be
-      deleted wholesale; each block needs a read. *(F5)*
-      | File | Commented / total |
-      |---|---:|
-      | `WinTabber.UI.Media/ViewModels/DeviceItem.cs` | 179/220 (81%) |
-      | `WinTabber.UI.Media/ViewModels/DeviceSessionWatcher.cs` | 106/131 (80%) |
-      | `WinTabber.UI.Media/ViewModels/AudioSession.cs` | 185/242 (76%) |
-      | `WinTabber.UI.Media/UserControls/VolumeControls.xaml.cs` | 77/126 (61%) |
-      | `WinTabberUI/Services/HintService.cs` | 86/151 (56%) — **live**, used by `MediaControlsWindow.xaml.cs` |
-      | `WinTabber.Events/InputListenerService.cs` | 64/160 (40%) |
-      | `Wintabber.SessionsTest/Program.cs` | 115/140 (82%) |
+- [x] **T1.8** Prune commented-out blocks in files that are still **live**. Each block was
+      read individually before deciding delete-vs-strip. *(F5)*
+      | File | Resolution |
+      |---|---|
+      | `WinTabber.UI.Media/ViewModels/DeviceItem.cs` | **Deleted whole file.** The review's 179/220 count excluded blank lines — every substantive line was commented (0 live code), and the type is referenced nowhere except a dead comment in `MediaControlsViewModel.cs` (also removed). |
+      | `WinTabber.UI.Media/ViewModels/DeviceSessionWatcher.cs` | **Deleted whole file.** Same pattern — 100% dead once blank lines are excluded; unreferenced anywhere else. |
+      | `WinTabber.UI.Media/ViewModels/AudioSession.cs` | **Deleted whole file.** Same pattern — 100% dead; only referenced by the also-dead `DeviceSessionWatcher.cs`. |
+      | `WinTabber.UI.Media/UserControls/VolumeControls.xaml.cs` | **Live** (WPF code-behind). Stripped a block of 7 commented-out `DependencyProperty` declarations — confirmed dead by checking `VolumeControls.xaml`, which binds `Volume`/`IsMuted`/etc. straight to the `DataContext` (the ViewModel), not to properties on the control itself. |
+      | `WinTabberUI/Services/HintService.cs` | **Deleted whole file**, correcting the review: its only call site (`MediaControlsWindow.xaml.cs`) was itself commented out, so the class had zero live callers. Superseded by the `HintBehavior`/`IHintBehaviorKernel` system in `WinTabber.UI.Common`. Removed the dead call-site comment too. |
+      | `WinTabber.Events/InputListenerService.cs` | **Live.** Stripped five dead private methods and two dead properties left over from the pre-SharpHook `Gma.System.MouseKeyHook`-based implementation; kept the live `SharpHook`-based `GetEvents`/`GetScheduler`. |
+      | `Wintabber.SessionsTest/Program.cs` | **Live** (manual test console, disabled). Stripped the abandoned experimental session-joining code; kept the single live `Console.WriteLine("disabled")` line. |
 
 ---
 

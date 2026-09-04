@@ -17,7 +17,6 @@ public class InputListenerService
 
         public required IObservable<KeyboardHookEventArgs> KeyDownEvents { get; init; }
         public required IObservable<KeyboardHookEventArgs> KeyUpEvents { get; init; }
-        //public required IObservable<Combination> KeyChordEvents { get; init; }
 
         public required IObservable<MouseHookEventArgs> MouseChords { get; init; }
 
@@ -27,10 +26,8 @@ public class InputListenerService
         }
     }
 
-    public class InputListenerOptions
-    {
-        //public required IReadOnlyList<Combination> KeyChords { get; init; }
-    }
+    public class InputListenerOptions { }
+
     public InputListenerService()
     {
 
@@ -62,7 +59,7 @@ public class InputListenerService
 
             return disposer;
 
-        });//.SubscribeOn(scheduler).ObserveOn(scheduler);
+        });
     }
 
     private static EventLoopScheduler GetScheduler()
@@ -83,78 +80,4 @@ public class InputListenerService
             return thread;
         });
     }
-
-
-    //private static IObservable<IKeyboardMouseEvents> GetHook()
-    //{
-    //    return Observable.Using(
-    //        () => Hook.GlobalEvents(),
-    //        (hook) => Observable.Return(hook))
-    //        .Publish()
-    //        .RefCount();
-    //}
-
-    //private IObservable<MouseShortcut> ObserveMouseShortcuts(IKeyboardMouseEvents keyHook)
-    //{
-    //    return Observable.FromEvent<System.Windows.Forms.MouseEventHandler, MouseShortcut>(handler =>
-    //    {
-    //        System.Windows.Forms.MouseEventHandler rawHandler = (sender, e) =>
-    //        {
-    //            var pressed = new MouseShortcut(e.Button,
-    //                Keyboard.Modifiers.HasFlag(ModifierKeys.Alt),
-    //                Keyboard.Modifiers.HasFlag(ModifierKeys.Control),
-    //                Keyboard.Modifiers.HasFlag(ModifierKeys.Shift),
-    //                Keyboard.Modifiers.HasFlag(ModifierKeys.Windows));
-
-    //            handler(pressed);
-    //        };
-    //        return rawHandler;
-    //    },
-    //    handler => keyHook.MouseDown += handler,
-    //    handler => keyHook.MouseDown -= handler);
-    //}
-
-    //private IObservable<Combination> ObserveKeyChords(IKeyboardMouseEvents keyHook, IReadOnlyList<Combination> combinations)
-    //{
-    //    return Observable.Create<Combination>((observer) =>
-    //    {
-    //        var subscriptions = from combination in combinations
-    //                            select new KeyValuePair<Combination, Action>(combination, () => observer.OnNext(combination));
-    //        keyHook.OnCombination(subscriptions);
-
-    //        return Disposable.Empty;
-    //    });
-    //}
-
-    //private static IObservable<System.Windows.Forms.KeyEventArgs> ObserveKeyUp(IKeyboardMouseEvents keyHook)
-    //{
-    //    return Observable.FromEvent<System.Windows.Forms.KeyEventHandler, System.Windows.Forms.KeyEventArgs>(handler =>
-    //    {
-    //        System.Windows.Forms.KeyEventHandler rawHandler = (sender, e) =>
-    //        {
-    //            handler(e);
-    //        };
-
-
-    //        return rawHandler;
-    //    },
-    //    handler => keyHook.KeyUp += handler,
-    //    handler => keyHook.KeyUp -= handler);
-    //}
-
-    //private static IObservable<System.Windows.Forms.KeyEventArgs> ObserveKeyDown(IKeyboardMouseEvents keyHook)
-    //{
-    //    return Observable.FromEvent<System.Windows.Forms.KeyEventHandler, System.Windows.Forms.KeyEventArgs>(handler =>
-    //    {
-    //        System.Windows.Forms.KeyEventHandler rawHandler = (sender, e) =>
-    //        {
-    //            handler(e);
-    //        };
-
-
-    //        return rawHandler;
-    //    },
-    //    handler => keyHook.KeyDown += handler,
-    //    handler => keyHook.KeyDown -= handler);
-    //}
 }
