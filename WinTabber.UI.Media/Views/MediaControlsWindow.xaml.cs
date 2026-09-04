@@ -23,7 +23,6 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
         InitializeComponent();
         ViewModel = Ioc.Default.GetRequiredService<MediaControlsViewModel>();
         _mediaControlsStateService = Ioc.Default.GetRequiredService<IMediaControlsStateService>();
-        Loaded += OnLoaded;
         DataContext = ViewModel;
         this.WhenActivated((CompositeDisposable disposables) => 
         {
@@ -44,31 +43,6 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
         IsVisibleChanged += MediaControlsWindow_IsVisibleChanged;
     }
 
-    protected override Size MeasureOverride(Size availableSize)
-    {
-        //ApplyOpacity(30);
-
-        return base.MeasureOverride(availableSize);
-    }
-
-    protected override void OnPreviewMouseDown(MouseButtonEventArgs e)
-    {
-        base.OnPreviewMouseDown(e);
-        //ApplyOpacity(30);
-    }
-    
-
-    protected override void OnContentRendered(EventArgs e)
-    {
-        base.OnContentRendered(e);
-        //ApplyOpacity(30);
-    }
-
-    protected override void OnRender(DrawingContext drawingContext)
-    {
-        base.OnRender(drawingContext);
-        //ApplyOpacity(40);
-    }
     private void MediaControlsWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
     {
         if(IsVisible && IsLoaded)
@@ -98,11 +72,6 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
         ViewModel?.Activator.Deactivate();
         base.OnDeactivated(e);
 
-    }
-
-    protected override void OnLostFocus(RoutedEventArgs e)
-    {
-        base.OnLostFocus(e);
     }
 
     private void ListBox_SelectionChanged(object sender, SelectionChangedEventArgs e)
@@ -135,18 +104,4 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
         }
     }
 
-    void OnLoaded(object sender, RoutedEventArgs e)
-    {
-        //ApplyOpacity(100); // fully opaque initially
-    }
-
-    void OnSetOpacity(object sender, RoutedEventArgs e)
-    {
-        //ApplyOpacity(128); // 50%
-    }
-
-    private void VolumeControls_Loaded(object sender, RoutedEventArgs e)
-    {
-
-    }
 }

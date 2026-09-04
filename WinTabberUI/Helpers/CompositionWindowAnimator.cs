@@ -1,4 +1,4 @@
-using System.Numerics;
+﻿using System.Numerics;
 using System.Runtime.InteropServices;
 using System.Windows;
 using System.Windows.Interop;
@@ -13,7 +13,9 @@ namespace WinTabberUI.Helpers;
 [InterfaceType(ComInterfaceType.InterfaceIsIUnknown)]
 internal interface ICompositorDesktopInterop
 {
-    void CreateDesktopWindowTarget(IntPtr hwndTarget, bool isTopmost, out IntPtr result);
+    // isTopmost must be a 4 byte Win32 BOOL. A plain bool in a ComImport interface marshals as a
+    // 2 byte VARIANT_BOOL, and the two upper bytes then carry whatever was on the stack.
+    void CreateDesktopWindowTarget(IntPtr hwndTarget, [MarshalAs(UnmanagedType.Bool)] bool isTopmost, out IntPtr result);
     void EnsureOnThread(uint threadId);
 }
 

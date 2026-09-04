@@ -14,9 +14,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <Compile Update="Views\FadingWindow.xaml.cs">
-            <SubType>Code</SubType>
-        </Compile>
         <Compile Update="Views\MediaControlsWindow.xaml.cs">
             <SubType>Code</SubType>
         </Compile>
