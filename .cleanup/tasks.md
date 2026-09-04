@@ -14,11 +14,12 @@ dotnet test --solution WinTabber.slnx
 
 ## Phase 0 — Prep
 
-- [ ] **T0.1** Decide whether `.cleanup/` is committed or ignored. Not currently in `.gitignore`,
-      so it shows as untracked.
-- [ ] **T0.2** Branch off `dev` for the cleanup work.
-- [ ] **T0.3** Record the baseline test count before deleting anything, so T1.5's drop is
-      explainable: `dotnet test --solution WinTabber.slnx`
+- [x] **T0.1** Decide whether `.cleanup/` is committed or ignored. Resolved: `.cleanup/` is
+      already tracked and committed (`git status` is clean on it) — keep it committed.
+- [x] **T0.2** Branch off `dev` for the cleanup work. Created branch `cleanup` off `dev`.
+- [x] **T0.3** Record the baseline test count before deleting anything, so T1.5's drop is
+      explainable: `dotnet test --solution WinTabber.slnx` → **133 passed, 0 failed, 0 skipped**
+      (build: 0 warnings, 0 errors).
 
 ---
 
