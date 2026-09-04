@@ -44,29 +44,38 @@ Every member was traced to its actual callers via `Grep`/Serena before grouping:
 
 ### Design
 
-Three interfaces, all implemented by the unchanged `InteropProxy`:
+Four interfaces, all implemented by the unchanged `InteropProxy`:
 
 - **`IProcessControl`** (6 members) — `SuspendProcess`, `ResumeProcess`, `SuspendProcessThreads`,
   `ResumeProcessThreads`, `GetProcessImagePath`, `EnableDebugPrivilege`. Consumed by
   `Suspension/*` and `BackgroundServiceContainer`'s `EnableDebugPrivilege` call (T5.2 moves that
   call; see below).
+- **`IWindowVisibility`** (2 members) — `HideWindow`, `RestoreWindow`. These look
+  process-suspension-flavored (their only current caller is `ProcessSuspensionService`), but they
+  are generic window-visibility operations, not process operations, so they don't belong in
+  `IProcessControl` on the strength of a single caller. Split out as their own tiny interface
+  rather than folded into the catch-all so `ProcessSuspensionService` can depend on exactly what
+  it uses (see fake-sizing note below).
 - **`IWindowPlacement`** (5 members) — `MoveWindowOffScreen`, `RestoreWindowPosition`,
   `ResizeWindow`, `HideFromTaskbar`, `RestoreExtendedStyle`. Consumed only by
   `WindowThumbnailService`.
-- **`IWindowInterop`** (28 members) — everything else, including `HideWindow`/`RestoreWindow`.
-  These two look process-suspension-flavored (their only current caller is
-  `ProcessSuspensionService`), but they are generic window-visibility operations, not process
-  operations — they stay with the window-interop group rather than being pulled into
-  `IProcessControl` on the strength of a single caller. `ProcessSuspensionService` ends up
-  depending on both `IProcessControl` and `IWindowInterop`.
+- **`IWindowInterop : IWindowVisibility`** (26 own members + the 2 inherited = 28 total) —
+  everything else. Inherits `IWindowVisibility` so every existing consumer that needs
+  `HideWindow`/`RestoreWindow` conceptually as part of "window interop" still gets them from
+  `IWindowInterop` with no source change; the inheritance only matters to a consumer that wants
+  the narrower slice.
 
-`InteropProxy` implements all three; nothing about its internals changes. Consumers narrow
-their constructor dependency to whichever interface(s) they actually call.
+`InteropProxy` implements `IProcessControl`, `IWindowPlacement`, and `IWindowInterop` (which
+brings `IWindowVisibility` along transitively); nothing about its internals changes. Consumers
+narrow their constructor dependency to whichever interface(s) they actually call.
 
-**Effect on `FakeInteropProxy`**: split into `FakeProcessControl : IProcessControl` (all 6
-members implemented for real, zero throw-stubs) used together with a small `IWindowInterop`
-fake/stub covering just `HideWindow`/`RestoreWindow` for `ProcessSuspensionService`'s tests.
-Down from one 39-member fake (31 throwing) to two small, focused fakes.
+**Effect on `FakeInteropProxy`**: `ProcessSuspensionService` depends on `IProcessControl` +
+`IWindowVisibility` (8 members total, not the full `IWindowInterop`) — a single fake class
+implementing both, all 8 members real, zero throw-stubs. `NtProcessSuspensionStrategy`/
+`ThreadSuspensionStrategy` depend on `IProcessControl` alone. Down from one 39-member fake (31
+throwing) to one 8-member fake (0 throwing). Without the `IWindowVisibility` split, the fake
+would still need to stub all 28 `IWindowInterop` members (26 throwing) alongside
+`IProcessControl` — barely smaller than today — which is why the split exists.
 
 ### T3.4 carryover — duplicated `DeleteObject`
 
