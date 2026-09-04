@@ -118,4 +118,6 @@ public sealed class FakeInteropProxy : IInteropProxy
     public int HideFromTaskbar(int handle) => throw new NotSupportedException();
 
     public void RestoreExtendedStyle(int handle, int originalExStyle) => throw new NotSupportedException();
+
+    public void CloseWindow(int handle) => throw new NotSupportedException();
 }

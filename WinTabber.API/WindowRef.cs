@@ -97,6 +97,11 @@ public partial class WindowRef : IEquatable<WindowRef>
         Process.Manager.Interop.MinimizeWindow(Handle);
     }
 
+    public void Close()
+    {
+        Process.Manager.Interop.CloseWindow(Handle);
+    }
+
     //public WindowState State
     //{
     //    get

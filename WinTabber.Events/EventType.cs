@@ -21,4 +21,5 @@ public enum EventType
     CmdThumbnailWindow,
     CmdSuspendedWindows,
     CmdSuspendWindow,
+    CmdCloseApplicationWindows,
 }

@@ -623,6 +623,15 @@ public class InteropProxy : IInteropProxy
         }
     }
 
+    public void CloseWindow(int handle)
+    {
+        var hwnd = new HWND(handle);
+        if (handle != 0 && PInvoke.IsWindow(hwnd))
+        {
+            PInvoke.PostMessage(hwnd, PInvoke.WM_CLOSE, 0, 0);
+        }
+    }
+
     public string GetProcessImagePath(int pid)
     {
         using var hProcess = PInvoke.OpenProcess_SafeHandle(PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)pid);

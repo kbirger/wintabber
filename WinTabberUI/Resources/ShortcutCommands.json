@@ -64,5 +64,11 @@
     "description": "Suspends the active window and hides it",
     "group": "Window Management",
     "icon": "Sleep_24_Filled"
+  },
+  "CloseApplicationWindows": {
+    "displayName": "Close application windows",
+    "description": "Closes every window belonging to the current window's application",
+    "group": "Window Management",
+    "icon": "Dismiss_24_Filled"
   }
 }

@@ -22,6 +22,7 @@ public enum ShortcutCommand
     ThumbnailWindow,
     SuspendedWindows,
     SuspendWindow,
+    CloseApplicationWindows,
 }
 
 public static class ShortcutCommandExtensions
@@ -41,6 +42,7 @@ public static class ShortcutCommandExtensions
             ShortcutCommand.ThumbnailWindow => EventType.CmdThumbnailWindow,
             ShortcutCommand.SuspendedWindows => EventType.CmdSuspendedWindows,
             ShortcutCommand.SuspendWindow => EventType.CmdSuspendWindow,
+            ShortcutCommand.CloseApplicationWindows => EventType.CmdCloseApplicationWindows,
             _ => throw new ArgumentOutOfRangeException(nameof(command), command, "Unmapped shortcut command."),
         };
 
@@ -62,6 +64,7 @@ public static class ShortcutCommandExtensions
             ShortcutCommand.ThumbnailWindow => "ThumbnailWindow",
             ShortcutCommand.SuspendedWindows => "SuspendedWindows",
             ShortcutCommand.SuspendWindow => "SuspendWindow",
+            ShortcutCommand.CloseApplicationWindows => "CloseApplicationWindows",
             _ => throw new ArgumentOutOfRangeException(nameof(command), command, "Unmapped shortcut command."),
         };
 

@@ -102,4 +102,11 @@ public interface IInteropProxy
 
     /// <summary>Restores a previously-captured extended style (see <see cref="HideFromTaskbar"/>). Same off-screen-only caveat applies. No-op if the handle is not a window.</summary>
     void RestoreExtendedStyle(int handle, int originalExStyle);
+
+    /// <summary>
+    /// Asks the window to close (posts WM_CLOSE), the same request a click on its X button or Alt+F4
+    /// sends. The window's own message loop decides whether to close immediately, prompt to save, or
+    /// ignore the request. No-op if the handle is not a window.
+    /// </summary>
+    void CloseWindow(int handle);
 }

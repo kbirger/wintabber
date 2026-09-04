@@ -19,7 +19,14 @@ public class WindowCommandCoordinator : IDisposable
         _settings = settings.General;
         ArgumentNullException.ThrowIfNull(SynchronizationContext.Current);
         _subscription = eventManager.CommandEvents
-            .Where(evt => evt.Type.IsOneOf(EventType.CmdMinimizeWindow, EventType.CmdMaximizeWindow, EventType.CmdSuspendWindow))
+            .Where(evt =>
+                evt.Type.IsOneOf(
+                    EventType.CmdMinimizeWindow,
+                    EventType.CmdMaximizeWindow,
+                    EventType.CmdSuspendWindow,
+                    EventType.CmdCloseApplicationWindows
+                )
+            )
             .ObserveOn(SynchronizationContext.Current)
             .Subscribe(e =>
             {
@@ -43,6 +50,18 @@ public class WindowCommandCoordinator : IDisposable
                         if (window is not null)
                         {
                             suspensionService.Suspend(window);
+                        }
+                        break;
+                    case EventType.CmdCloseApplicationWindows:
+                        // Same grouping WindowSelector uses to decide which windows belong to one
+                        // app, so this closes exactly the set the switcher would show together.
+                        var currentWindow = windowManager.CurrentWindow();
+                        if (currentWindow is not null)
+                        {
+                            foreach (var appWindow in currentWindow.Process.Application.GetWindows())
+                            {
+                                appWindow.Close();
+                            }
                         }
                         break;
                 }
