@@ -13,8 +13,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ProjectReference Include="..\WinTabber.Api.Media\WinTabber.Api.Media.csproj" />
+    <ProjectReference Include="..\WinTabber.Events\WinTabber.Events.csproj" />
+    <ProjectReference Include="..\WinTabber.Infrastructure\WinTabber.Infrastructure.csproj" />
     <ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
-    <ProjectReference Include="..\WinTabberUI\WinTabberUI.csproj" />
   </ItemGroup>
 
 </Project>

@@ -29,7 +29,7 @@ public sealed class ShortcutCommandCatalogEntry
 
 public static class ShortcutCommandCatalog
 {
-    private const string ResourceName = "WinTabberUI.Resources.ShortcutCommands.json";
+    private const string ResourceName = "WinTabber.Infrastructure.ShortcutCommands.json";
 
     private static readonly Dictionary<string, ShortcutCommandCatalogEntry> Entries = Load();
 

@@ -1,0 +1,29 @@
+﻿<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+        <Nullable>enable</Nullable>
+        <ImplicitUsings>enable</ImplicitUsings>
+        <UseWPF>true</UseWPF>
+        <Platform>x64</Platform>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <None Remove="ShortcutCommands.json" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <EmbeddedResource Include="ShortcutCommands.json" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <PackageReference Include="iNKORE.UI.WPF.Modern" />
+        <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" />
+        <PackageReference Include="ReactiveUI" />
+        <PackageReference Include="System.Runtime.Caching" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\WinTabber.Api.Media\WinTabber.Api.Media.csproj" />
+        <ProjectReference Include="..\WinTabber.Events\WinTabber.Events.csproj" />
+    </ItemGroup>
+</Project>

@@ -22,7 +22,7 @@ dotnet test WinTabber.Api.Tests/WinTabber.Api.Tests.csproj
 # Run specific test class
 dotnet test WinTabber.Infrastructure.Tests --filter TrieNodeTests
 
-# Run the manual session test console app
+# Run the manual session test console app (currently disabled — see Testing section)
 dotnet run --project Wintabber.SessionsTest/Wintabber.SessionsTest.csproj
 
 # Watch mode
@@ -43,6 +43,7 @@ WinTabberUI            ← WPF app, MVVM ViewModels, DI bootstrap, window manage
   WinTabber.Events     ← Global keyboard/mouse input (SharpHook), event dispatch, HyperKey
   WinTabber.Interop    ← Windows API abstraction (IInteropProxy / InteropProxy via CsWin32)
   WinTabber.Api.Media  ← Audio (WASAPI/NAudio), SMTC, shell app discovery
+  WinTabber.Infrastructure ← Settings model + persistence, app icon/AUMID cache, hint trie/radix trie
   WinTabber.UI.Common  ← Shared XAML themes, converters, behaviors, hint system
   WinTabber.UI.Media   ← Media controls views and viewmodels
   WinTabber.Common.Util← Extension methods (Observable, Process, Debug, Object)
@@ -69,6 +70,6 @@ All test projects use TUnit. The `test` runner opt-in in `global.json` is requir
 fails outright on the .NET 10 SDK, which no longer supports the VSTest target.
 
 - `WinTabber.Events.Tests` — TUnit; shortcut model tests (trigger matching, conflict detection, commit tracking)
-- `WinTabber.Infrastructure.Tests` — TUnit with a 3x retry policy in `GlobalSetup.cs`; contains `TrieNodeTests`, settings persistence, and infrastructure-level tests
+- `WinTabber.Infrastructure.Tests` — TUnit; contains `TrieNodeTests`, settings persistence, and infrastructure-level tests. References `WinTabber.Infrastructure` directly (not `WinTabberUI`); no retry policy needed since it no longer drags in the WPF app.
 - `WinTabber.Api.Tests` — TUnit
-- `Wintabber.SessionsTest` — Console app for manual session/audio testing (not a test framework)
+- `Wintabber.SessionsTest` — Console app for manual session/audio testing (not a test framework); currently disabled (`Program.cs` is a single placeholder line, no `WinTabberUI`/`WinTabber.API` references)

@@ -274,7 +274,7 @@ public class AppCache
     }
 
 
-    internal void Load()
+    public void Load()
     {
         //_appFolder2 = _appFolder
         //    .ToDictionary(so => so.Properties.System.ParsingPath.Value);

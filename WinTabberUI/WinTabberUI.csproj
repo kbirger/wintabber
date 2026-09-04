@@ -16,11 +16,6 @@
         <None Remove="Images\logo-small.ico" />
         <None Remove="Images\logo.ico" />
         <None Remove="Images\logo.png" />
-        <None Remove="Resources\ShortcutCommands.json" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <EmbeddedResource Include="Resources\ShortcutCommands.json" />
     </ItemGroup>
 
     <ItemGroup>
@@ -72,6 +67,7 @@
     <ItemGroup>
         <ProjectReference Include="..\WinTabber.API\WinTabber.API.csproj" />
         <ProjectReference Include="..\WinTabber.Events\WinTabber.Events.csproj" />
+        <ProjectReference Include="..\WinTabber.Infrastructure\WinTabber.Infrastructure.csproj" />
         <ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
         <ProjectReference Include="..\WinTabber.UI.Media\WinTabber.UI.Media.csproj" />
     </ItemGroup>

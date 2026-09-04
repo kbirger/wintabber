@@ -85,33 +85,41 @@ No design decisions. One commit, or one per task. Removes ~1,700 lines.
 
 Goal: `Infrastructure.Tests` stops referencing the WinExe.
 
-- [ ] **T2.1** Create `WinTabber.Infrastructure` (`net10.0-windows10.0.26100.0`), add to
-      `WinTabber.slnx`.
-- [ ] **T2.2** Move from `WinTabberUI/Infrastructure/`: `RadixTrie.cs`, `RadixNode.cs`,
-      `HintTrie.cs`, `StringPool.cs`, `AppCache.cs`.
-      *(`AumidHelpers.cs` is deleted in T1.3, not moved.)*
-- [ ] **T2.3** Move from `WinTabberUI/Models/Settings/`: `ApplicationSettings.cs`,
+- [x] **T2.1** Created `WinTabber.Infrastructure` (`net10.0-windows10.0.26100.0`, `UseWPF`), added
+      to `WinTabber.slnx`.
+- [x] **T2.2** Moved from `WinTabberUI/Infrastructure/`: `RadixTrie.cs`, `RadixNode.cs`,
+      `HintTrie.cs`, `StringPool.cs`, `AppCache.cs` (namespaces left as `WinTabberUI.Infrastructure`
+      — only the assembly moved, no consumer outside `WinTabberUI` referenced these types, so no
+      call sites needed touching). Found during the move: `AppCache.Load()` was `internal`, which
+      broke `BackgroundServiceContainer`/`Bootstrapper` once `WinTabberUI` became a separate
+      assembly from the type — changed to `public`.
+- [x] **T2.3** Moved from `WinTabberUI/Models/Settings/`: `ApplicationSettings.cs`,
       `GeneralSettings.cs`, `AppearanceSettings.cs`, `ShortcutSettings.cs`,
-      `ShortcutCommandCatalog.cs` — plus `WinTabberUI/Paths.cs`, which `ApplicationSettings`
-      depends on.
-- [ ] **T2.4** ⚠️ **`ShortcutCommandCatalog` has two traps.** It reads the embedded resource
-      `"WinTabberUI.Resources.ShortcutCommands.json"` via `Assembly.GetExecutingAssembly()`, and
-      it depends on `FluentSystemIcons` (iNKORE) for `GetIcon`. Moving it requires:
-      - [ ] move `Resources/ShortcutCommands.json` + its `<EmbeddedResource>` item to the new project
-      - [ ] update the `ResourceName` constant to the new assembly's namespace
-      - [ ] add the `iNKORE.UI.WPF.Modern` package reference to the new project
-      - [ ] its `Get*` members are **extension methods on `ShortcutCommand`** — the type name
-            never appears at call sites, so a name-based search will wrongly report it as unused.
-            Callers: `ShortcutsSettingsViewModel`, `WindowItem`, `ShortcutChip`.
-- [ ] **T2.5** Repoint `WinTabber.Infrastructure.Tests` at the new project; **remove the
-      `WinTabberUI` `ProjectReference`**. The three real test files also need `WinTabber.Events`,
-      `WinTabber.UI.Common`, and `WinTabber.Api.Media` — keep/add those refs.
-- [ ] **T2.6** Re-evaluate the `[assembly: Retry(3)]` in `Infrastructure.Tests/GlobalSetup.cs`.
-      It exists because the suite drags in the whole WPF app; once decoupled, try removing it and
-      see whether the suite is stable.
-- [ ] **T2.7** Decide what to do with `Wintabber.SessionsTest` — the other `WinTabberUI`
-      consumer. Options: repoint at the new library, or delete (its `Program.cs` is 82%
-      commented out).
+      `ShortcutCommandCatalog.cs` — plus `WinTabberUI/Paths.cs`. Namespaces unchanged.
+      ⚠️ *Not in the original plan:* `GeneralSettings` depends on `StartupMode` and
+      `ThumbnailResizeMode` (both in `WinTabberUI/Services/`) — moved those two zero-dependency
+      enums to `WinTabber.Infrastructure/Settings/` as well (namespace kept as
+      `WinTabberUI.Services`) to avoid a circular reference back to `WinTabberUI`.
+- [x] **T2.4** `ShortcutCommandCatalog`'s two traps, both handled:
+      - [x] moved `ShortcutCommands.json` + its `<EmbeddedResource>` item to the new project
+      - [x] updated the `ResourceName` constant to `"WinTabber.Infrastructure.ShortcutCommands.json"`
+      - [x] added the `iNKORE.UI.WPF.Modern` package reference to the new project
+      - [x] verified the extension-method callers (`ShortcutsSettingsViewModel`, `WindowItem`,
+            `ShortcutChip`) all live in `WinTabberUI`/`WinTabber.UI.*`, unaffected by the move.
+      New project also needed `ReactiveUI`, `Microsoft-WindowsAPICodePack-Shell`, and
+      `System.Runtime.Caching` package refs, plus `ProjectReference`s to `WinTabber.Api.Media`
+      (for `InstalledApplicationInfo`, used by `AppCache`) and `WinTabber.Events` (for
+      `ShortcutCommand`, used by `ShortcutSettings`/`ShortcutCommandCatalog`).
+- [x] **T2.5** Repointed `WinTabber.Infrastructure.Tests` at `WinTabber.Infrastructure`; removed
+      the `WinTabberUI` `ProjectReference`. Added `WinTabber.Events` and `WinTabber.Api.Media`
+      alongside the existing `WinTabber.UI.Common` ref. Full suite: 81 passed, 0 failed.
+- [x] **T2.6** Removed `[assembly: Retry(3)]` from `Infrastructure.Tests/GlobalSetup.cs` and ran
+      the suite 5× standalone — stable every time (20/20). No longer needed now that the project
+      doesn't pull in the WPF app.
+- [x] **T2.7** `Wintabber.SessionsTest`: kept the project (a design doc,
+      `docs/configurable-shortcuts-plan.md:508`, names it as the intended home for a future manual
+      Hyperkey/capture test), but dropped its now-unused `WinTabberUI` and `WinTabber.API`
+      `ProjectReference`s — `Program.cs` is just `Console.WriteLine("disabled")` and used neither.
 
 ---
 
