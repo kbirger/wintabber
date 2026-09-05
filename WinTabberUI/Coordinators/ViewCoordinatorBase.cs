@@ -80,6 +80,7 @@ namespace WinTabberUI.Coordinators
             if (_instance is not null)
             {
                 _instance = null;
+                _shownChanges.OnNext(false);
             }
         }
 

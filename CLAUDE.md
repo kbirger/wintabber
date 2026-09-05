@@ -18,6 +18,8 @@ dotnet test --solution WinTabber.slnx
 dotnet test WinTabber.Infrastructure.Tests/WinTabber.Infrastructure.Tests.csproj
 dotnet test WinTabber.Events.Tests/WinTabber.Events.Tests.csproj
 dotnet test WinTabber.Api.Windowing.Tests/WinTabber.Api.Windowing.Tests.csproj
+dotnet test WinTabber.Api.Media.Tests/WinTabber.Api.Media.Tests.csproj
+dotnet test WinTabber.Interop.Tests/WinTabber.Interop.Tests.csproj
 
 # Run specific test class
 dotnet test WinTabber.Infrastructure.Tests --filter TrieNodeTests
@@ -110,4 +112,6 @@ fails outright on the .NET 10 SDK, which no longer supports the VSTest target.
 - `WinTabber.Events.Tests` — TUnit; shortcut model tests (trigger matching, conflict detection, commit tracking)
 - `WinTabber.Infrastructure.Tests` — TUnit; contains `TrieNodeTests`, settings persistence, and infrastructure-level tests. References `WinTabber.Infrastructure` directly (not `WinTabberUI`); no retry policy needed since it no longer drags in the WPF app.
 - `WinTabber.Api.Windowing.Tests` — TUnit; process-suspension and suspended-window-store tests, using `Fakes/FakeProcessControl.cs`
+- `WinTabber.Api.Media.Tests` — TUnit; deliberately narrow — covers `CoreAudioDeviceRepository`'s null-endpoint path and monitor callback wiring via `Fakes/FakeMMDeviceEnumeratorWrapper.cs`; see the project's own README.md for what's covered and why
+- `WinTabber.Interop.Tests` — TUnit; deliberately narrow — covers `ProcessHelper.IsSystemProcess`/`ClassifyNonSystemProcesses`, the only pure logic in the project not requiring a real Win32 call; see the project's own README.md for what's covered and why
 - `Wintabber.SessionsTest` — Console app for manual session/audio testing (not a test framework); currently disabled (`Program.cs` is a single placeholder line, no `WinTabberUI`/`WinTabber.Api.Windowing` references)

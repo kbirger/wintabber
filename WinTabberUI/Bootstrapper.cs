@@ -84,6 +84,7 @@ public static class Bootstrapper
             .AddSingleton<IProcessControl>(sp => sp.GetRequiredService<InteropProxy>())
             .AddSingleton<IWindowPlacement>(sp => sp.GetRequiredService<InteropProxy>())
             .AddSingleton<IWindowInterop>(sp => sp.GetRequiredService<InteropProxy>())
+            .AddSingleton<IWindowVisibility>(sp => sp.GetRequiredService<InteropProxy>())
             .AddSingleton<IProcessRepository, ProcessRepository>()
             .AddSingleton<WindowManager>()
             //.AddSingleton<IAudioDeviceManager, AudioDeviceManager>()
