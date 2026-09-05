@@ -126,9 +126,6 @@ public class AppCache
             .AutoConnect();
     }
 
-    [System.Runtime.InteropServices.DllImport("gdi32.dll")]
-    private static extern bool DeleteObject(IntPtr hObject);
-
     private BitmapSource Bitmap2BitmapImage(Bitmap bitmap)
     {
         IntPtr hBitmap = bitmap.GetHbitmap();
@@ -145,7 +142,7 @@ public class AppCache
         }
         finally
         {
-            DeleteObject(hBitmap);
+            Windows.Win32.PInvoke.DeleteObject(new Windows.Win32.Graphics.Gdi.HGDIOBJ(hBitmap));
         }
 
         return retval;

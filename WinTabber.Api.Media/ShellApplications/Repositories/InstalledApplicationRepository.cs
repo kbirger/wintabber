@@ -165,37 +165,10 @@ public partial class InstalledApplicationRepository : IDisposable
         };
     }
 
-    [System.Runtime.InteropServices.DllImport("gdi32.dll")]
-    private static extern bool DeleteObject(IntPtr hObject);
-
-    private static BitmapSource Bitmap2BitmapImage(Bitmap bitmap)
-    {
-        IntPtr hBitmap = bitmap.GetHbitmap(System.Drawing.Color.Red);
-        BitmapSource retval;
-
-        try
-        {
-            retval = Imaging.CreateBitmapSourceFromHBitmap(
-                hBitmap,
-                IntPtr.Zero,
-                Int32Rect.Empty,
-                BitmapSizeOptions.FromEmptyOptions()
-            );
-            retval.Freeze();
-        }
-        finally
-        {
-            DeleteObject(hBitmap);
-        }
-
-        return retval;
-    }
-
     private static IObservable<ImageSource> GetIcon(ShellObject shellObject, string path)
     {
         //var bitmap = shellObject.Thumbnail.LargeBitmap;
         //var z = () => shellObject.Thumbnail.LargeBitmapSource;
-        //var zz =  Bitmap2BitmapImage(bitmap);
         int width = (int)shellObject.Thumbnail.CurrentSize.Width;
         int height = (int)shellObject.Thumbnail.CurrentSize.Height;
         ThumbnailOptions options = ThumbnailOptions.None;
@@ -291,7 +264,6 @@ public partial class InstalledApplicationRepository : IDisposable
                         }
                         //PInvoke.sh
                         //var image = z;
-                        //var image = Bitmap2BitmapImage(bitmap);
 
                         //if (!image.IsFrozen && image.CanFreeze)
                         //{

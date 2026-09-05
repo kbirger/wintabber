@@ -18,6 +18,15 @@
         <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" />
         <PackageReference Include="ReactiveUI" />
         <PackageReference Include="System.Runtime.Caching" />
+        <PackageReference Include="Microsoft.Windows.CsWin32">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
+    </ItemGroup>
+
+    <ItemGroup>
+        <None Remove="NativeMethods.txt" />
+        <AdditionalFiles Include="NativeMethods.txt" />
     </ItemGroup>
 
     <ItemGroup>
