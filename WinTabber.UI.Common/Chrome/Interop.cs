@@ -1,16 +1,13 @@
 ﻿using System.Runtime.InteropServices;
+using WinTabber.Interop;
 
 namespace WinTabber.UI.Common.Chrome;
 
 internal class Interop
 {
-    [DllImport("user32.dll")]
-    public static extern int SetWindowCompositionAttribute(IntPtr hwnd, ref WindowCompositionAttributeData data);
-
-
     public static void EnableBlur(nint handle, AccentState accentState, uint color)
     {
-        
+
     }
 
     internal static void SetAccentPolicy(IntPtr hWnd, AccentState accentState, AccentFlags accentFlags, uint gradientColor)
@@ -35,11 +32,8 @@ internal class Interop
             Data = accentPtr
         };
 
-
-        SetWindowCompositionAttribute(hWnd, ref data);
+        ChromeInterop.SetWindowCompositionAttribute(hWnd, data);
 
         Marshal.FreeHGlobal(accentPtr);
     }
-
-
 }

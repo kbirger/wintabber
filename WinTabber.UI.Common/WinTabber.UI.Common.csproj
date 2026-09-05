@@ -27,5 +27,6 @@
       <!-- §2: the shortcut model must be usable from WPF. WinTabber.Events.Shortcuts is deliberately
            free of WPF and SharpHook types so this edge stays one-directional and cheap. -->
       <ProjectReference Include="..\WinTabber.Events\WinTabber.Events.csproj" />
+      <ProjectReference Include="..\WinTabber.Interop\WinTabber.Interop.csproj" />
     </ItemGroup>
 </Project>
