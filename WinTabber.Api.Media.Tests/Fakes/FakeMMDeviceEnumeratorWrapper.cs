@@ -37,12 +37,12 @@ public sealed class FakeMMDeviceEnumeratorWrapper : IMMDeviceEnumeratorWrapper
 
     // ── Cannot be faked: MMDevice has no accessible constructor ────────────
 
-    public MMDevice GetDefaultAudioEndpoint(DataFlow dataFlow, Role role) =>
+    public IAudioDevice GetDefaultAudioEndpoint(DataFlow dataFlow, Role role) =>
         throw new NotSupportedException("MMDevice cannot be constructed by test code (internal constructor).");
 
-    public IEnumerable<MMDevice> EnumerateAudioEndPoints(DataFlow dataFlow, DeviceState deviceState) =>
+    public IEnumerable<IAudioDevice> EnumerateAudioEndPoints(DataFlow dataFlow, DeviceState deviceState) =>
         throw new NotSupportedException("MMDevice cannot be constructed by test code (internal constructor).");
 
-    public MMDevice GetDevice(string id) =>
+    public IAudioDevice GetDevice(string id) =>
         throw new NotSupportedException("MMDevice cannot be constructed by test code (internal constructor).");
 }

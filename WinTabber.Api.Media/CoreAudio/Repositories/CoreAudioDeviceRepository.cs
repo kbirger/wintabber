@@ -84,7 +84,7 @@ public partial class CoreAudioDeviceRepository : IDisposable
         try
         {
             var device = _enumerator.GetDefaultAudioEndpoint(flow, role);
-            change = new DefaultDeviceChange(flow, role, device.ID);
+            change = new DefaultDeviceChange(flow, role, device.Id);
         }
         catch (COMException) { }
 
