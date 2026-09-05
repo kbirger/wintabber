@@ -80,7 +80,10 @@ public static class Bootstrapper
                 sp.GetRequiredService<ApplicationSettings>().Shortcuts.ToMap()))
             .AddSingleton<WinTabberEventManager>()
             .AddSingleton<ApplicationState>()
-            .AddSingleton<IInteropProxy, InteropProxy>()
+            .AddSingleton<InteropProxy>()
+            .AddSingleton<IProcessControl>(sp => sp.GetRequiredService<InteropProxy>())
+            .AddSingleton<IWindowPlacement>(sp => sp.GetRequiredService<InteropProxy>())
+            .AddSingleton<IWindowInterop>(sp => sp.GetRequiredService<InteropProxy>())
             .AddSingleton<IProcessRepository, ProcessRepository>()
             .AddSingleton<WindowManager>()
             //.AddSingleton<IAudioDeviceManager, AudioDeviceManager>()
@@ -124,7 +127,7 @@ public static class Bootstrapper
             .AddSingleton<IActiveWindowStateService, ActiveWindowStateService>()
             .AddSingleton<IMediaControlsStateService>(sp => new MediaControlsStateService(
                 sp.GetRequiredService<WinTabberEventManager>(),
-                sp.GetRequiredService<IInteropProxy>(),
+                sp.GetRequiredService<IWindowInterop>(),
                 () => sp.GetRequiredService<ApplicationSettings>().General.EnableMediaControls))
             .AddSingleton<MediaDebugStateService>();
     }

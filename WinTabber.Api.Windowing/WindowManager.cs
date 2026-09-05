@@ -5,13 +5,13 @@ namespace WinTabber.Api.Windowing;
 
 public class WindowManager : WindowOwner
 {
-    public WindowManager(IInteropProxy interop, IProcessRepository processRepository)
+    public WindowManager(IWindowInterop interop, IProcessRepository processRepository)
     {
         Interop = interop;
         ProcessRepository = processRepository;
     }
 
-    internal IInteropProxy Interop { get; }
+    internal IWindowInterop Interop { get; }
     internal IProcessRepository ProcessRepository { get; }
 
     internal WindowTitleStore TitleStore { get; } = new WindowTitleStore();
