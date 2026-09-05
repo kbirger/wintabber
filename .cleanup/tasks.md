@@ -398,6 +398,17 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       logic becomes testable. Ripples into `CoreAudioDeviceWrapper` and every other `MMDevice`
       consumer in `WinTabber.Api.Media` — real design work needing its own brainstorming pass,
       not scoped here. Discovered as a T5.3 blocker, 2026-09-04.
+- [ ] **T5.6** *(bug, not scoped here)* `UacHelper.IsProcessElevated(int processId)`
+      (`WinTabber.Interop/UacHelper.cs`) ignores its `processId` parameter and always queries
+      `Process.GetCurrentProcess()` — it reports WinTabber's own elevation, not the target
+      process's. `InteropProxy.BringWindowToFront` calls this overload with the *target* window's
+      process id, so it always branches on WinTabber's own elevation state instead of the target
+      window owner's. Discovered in the Phase 5A final whole-branch review, 2026-09-05 — the T5.1
+      CsWin32 migration correctly preserved this bug during a mechanical migration (the right call
+      for that task), but fixing the ignored parameter is a real behavior change to
+      `BringWindowToFront` that needs its own review and smoke test, not a dedup/test-coverage
+      task. See the corrected note in `docs/superpowers/specs/2026-09-04-phase-5-design.md`'s
+      DllImport inventory table.
 
 ---
 
