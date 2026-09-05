@@ -13,7 +13,8 @@ namespace WinTabber.Api.Windowing.Suspension;
 /// </summary>
 public sealed class ProcessSuspensionService : IProcessSuspensionService
 {
-    private readonly IInteropProxy _interop;
+    private readonly IProcessControl _processControl;
+    private readonly IWindowVisibility _windowVisibility;
     private readonly IProcessRepository _processRepository;
     private readonly ISuspendedWindowStore _store;
     private readonly IReadOnlyList<ISuspensionStrategy> _strategies;
@@ -21,13 +22,15 @@ public sealed class ProcessSuspensionService : IProcessSuspensionService
     private readonly SourceCache<SuspendedWindowEntry, int> _cache = new(e => e.ProcessId);
 
     public ProcessSuspensionService(
-        IInteropProxy interop,
+        IProcessControl processControl,
+        IWindowVisibility windowVisibility,
         IProcessRepository processRepository,
         ISuspendedWindowStore store,
         IEnumerable<ISuspensionStrategy> strategies
     )
     {
-        _interop = interop;
+        _processControl = processControl;
+        _windowVisibility = windowVisibility;
         _processRepository = processRepository;
         _store = store;
         _strategies = strategies as IReadOnlyList<ISuspensionStrategy> ?? strategies.ToList();
@@ -104,7 +107,7 @@ public sealed class ProcessSuspensionService : IProcessSuspensionService
             string path;
             try
             {
-                path = _interop.GetProcessImagePath(pid);
+                path = _processControl.GetProcessImagePath(pid);
             }
             catch (Exception ex)
             {
@@ -115,7 +118,7 @@ public sealed class ProcessSuspensionService : IProcessSuspensionService
 
             foreach (int handle in windowHandles)
             {
-                _interop.HideWindow(handle);
+                _windowVisibility.HideWindow(handle);
             }
 
             try
@@ -127,7 +130,7 @@ public sealed class ProcessSuspensionService : IProcessSuspensionService
                 Debug.WriteLine($"ProcessSuspensionService: suspend failed for pid {pid}: {ex}");
                 foreach (int handle in windowHandles)
                 {
-                    _interop.RestoreWindow(handle);
+                    _windowVisibility.RestoreWindow(handle);
                 }
                 return false;
             }
@@ -169,7 +172,7 @@ public sealed class ProcessSuspensionService : IProcessSuspensionService
 
             foreach (int handle in entry.WindowHandles)
             {
-                _interop.RestoreWindow(handle);
+                _windowVisibility.RestoreWindow(handle);
             }
 
             return true;
@@ -224,7 +227,7 @@ public sealed class ProcessSuspensionService : IProcessSuspensionService
     {
         try
         {
-            hash = HashPath(_interop.GetProcessImagePath(pid));
+            hash = HashPath(_processControl.GetProcessImagePath(pid));
             return true;
         }
         catch

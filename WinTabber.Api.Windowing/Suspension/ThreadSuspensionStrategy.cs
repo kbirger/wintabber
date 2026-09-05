@@ -6,7 +6,7 @@ namespace WinTabber.Api.Windowing.Suspension;
 /// Suspends/resumes a process by iterating its threads individually,
 /// matching the approach used by PsSuspend from Sysinternals.
 /// </summary>
-public sealed class ThreadSuspensionStrategy(IInteropProxy interop) : ISuspensionStrategy
+public sealed class ThreadSuspensionStrategy(IProcessControl interop) : ISuspensionStrategy
 {
     public string Name => "thread";
 

@@ -5,7 +5,7 @@ namespace WinTabber.Api.Windowing.Suspension;
 /// <summary>
 /// Suspends/resumes an entire process atomically using NtSuspendProcess / NtResumeProcess.
 /// </summary>
-public sealed class NtProcessSuspensionStrategy(IInteropProxy interop) : ISuspensionStrategy
+public sealed class NtProcessSuspensionStrategy(IProcessControl interop) : ISuspensionStrategy
 {
     public string Name => "process";
 

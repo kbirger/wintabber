@@ -20,14 +20,14 @@ public class ProcessSuspensionServiceTests
 
     private static (
         ProcessSuspensionService service,
-        FakeInteropProxy interop,
+        FakeProcessControl interop,
         FakeProcessRepository processRepository,
         InMemorySuspendedWindowStore store,
         NtProcessSuspensionStrategy processStrategy,
         ThreadSuspensionStrategy threadStrategy
-    ) CreateService(InMemorySuspendedWindowStore? store = null, Action<FakeInteropProxy>? configureInterop = null)
+    ) CreateService(InMemorySuspendedWindowStore? store = null, Action<FakeProcessControl>? configureInterop = null)
     {
-        var interop = new FakeInteropProxy();
+        var interop = new FakeProcessControl();
         configureInterop?.Invoke(interop);
         var processRepository = new FakeProcessRepository();
         store ??= new InMemorySuspendedWindowStore();
@@ -36,7 +36,7 @@ public class ProcessSuspensionServiceTests
 
         // Configuration (e.g. image paths) must be applied BEFORE construction: the ctor
         // performs startup pruning, which resolves each persisted entry's image path.
-        var service = new ProcessSuspensionService(interop, processRepository, store, [processStrategy, threadStrategy]);
+        var service = new ProcessSuspensionService(interop, interop, processRepository, store, [processStrategy, threadStrategy]);
 
         return (service, interop, processRepository, store, processStrategy, threadStrategy);
     }
@@ -198,13 +198,14 @@ public class ProcessSuspensionServiceTests
         var gone = new SuspendedWindowEntry(3, [3], liveHash, "gone", "Gone", "process");
         store.Seed(live, hashMismatch, gone);
 
-        var interop = new FakeInteropProxy();
+        var interop = new FakeProcessControl();
         interop.ImagePaths[1] = ImagePath; // matches liveHash -> kept
         interop.ImagePaths[2] = ImagePath; // hash differs from stored wrongHash -> dropped
         // pid 3 has no configured image path -> GetProcessImagePath throws -> dropped
 
         var processRepository = new FakeProcessRepository();
         var service = new ProcessSuspensionService(
+            interop,
             interop,
             processRepository,
             store,
