@@ -20,6 +20,7 @@
   <Project Path="WinTabber.Generators/WinTabber.Generators.csproj" />
   <Project Path="WinTabber.Infrastructure/WinTabber.Infrastructure.csproj" />
   <Project Path="WinTabber.Infrastructure.Tests/WinTabber.Infrastructure.Tests.csproj" />
+  <Project Path="WinTabber.Interop.Tests/WinTabber.Interop.Tests.csproj" />
   <Project Path="WinTabber.Interop/WinTabber.Interop.csproj" />
   <Project Path="Wintabber.SessionsTest/Wintabber.SessionsTest.csproj" />
   <Project Path="WinTabber.UI.Common/WinTabber.UI.Common.csproj" Id="6c62a599-abec-4e60-9041-31f6c3db7dd4" />
