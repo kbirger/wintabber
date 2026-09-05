@@ -44,56 +44,6 @@ internal static class UacHelper
         }
     }
 
-    public static bool IsCurrentProcessElevated
-    {
-        get
-        {
-            return IsProcessElevated(Process.GetCurrentProcess().Id);
-        }
-    }
-
-    public static unsafe bool IsProcessElevated(int processId)
-    {
-        if (IsUacEnabled)
-        {
-            using var currentProcess = Process.GetCurrentProcess();
-            if (!PInvoke.OpenProcessToken(currentProcess.SafeHandle, TOKEN_ACCESS_MASK.TOKEN_QUERY, out var tokenHandle))
-            {
-                throw new ApplicationException("Could not get process token.  Win32 Error Code: " + Marshal.GetLastWin32Error());
-            }
-
-            using (tokenHandle)
-            {
-                var tokenHandleNative = new HANDLE(tokenHandle.DangerousGetHandle());
-                TOKEN_ELEVATION_TYPE elevationResult = TOKEN_ELEVATION_TYPE.TokenElevationTypeDefault;
-                uint returnedSize = 0;
-
-                bool success = PInvoke.GetTokenInformation(
-                    tokenHandleNative,
-                    TOKEN_INFORMATION_CLASS.TokenElevationType,
-                    &elevationResult,
-                    (uint)sizeof(TOKEN_ELEVATION_TYPE),
-                    &returnedSize);
-
-                if (success)
-                {
-                    return elevationResult == TOKEN_ELEVATION_TYPE.TokenElevationTypeFull;
-                }
-                else
-                {
-                    throw new ApplicationException("Unable to determine the current elevation.");
-                }
-            }
-        }
-        else
-        {
-            WindowsIdentity identity = WindowsIdentity.GetCurrent();
-            WindowsPrincipal principal = new WindowsPrincipal(identity);
-            bool result = principal.IsInRole(WindowsBuiltInRole.Administrator);
-            return result;
-        }
-    }
-
     public static unsafe bool IsProcessElevated(Process process)
     {
         if (IsUacEnabled)

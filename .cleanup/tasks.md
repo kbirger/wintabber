@@ -348,9 +348,6 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       - ⚠️ **Left alone, worth a decision:** `WinTabber.sln.bak` is a *tracked* leftover from the
         pre-`.slnx` migration and still lists the old project name/path. It was deliberately
         reverted out of this rename rather than updated — it looks like a deletion candidate.
-- [ ] **T4.6** Consider thinning the `WinTabberUI` root — 18 loose top-level files
-      (`HoverSelect`, `SpatialNavigationListView`, `WindowTileGrid`, `WindowTileInfo`,
-      `WindowThumbnail`, `SysColor.xaml`, …). Contributes to the 6/10 cohesion score. *(Scorecard)*
 
 ---
 
@@ -411,7 +408,7 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       > **Resolved:** `IAudioDevice` added; see
       > `docs/superpowers/specs/2026-09-05-audio-device-abstraction-design.md` and
       > `docs/superpowers/plans/2026-09-05-audio-device-abstraction.md`.
-- [ ] **T5.6** *(bug, not scoped here)* `UacHelper.IsProcessElevated(int processId)`
+- [x] **T5.6** *(bug, not scoped here)* `UacHelper.IsProcessElevated(int processId)`
       (`WinTabber.Interop/UacHelper.cs`) ignores its `processId` parameter and always queries
       `Process.GetCurrentProcess()` — it reports WinTabber's own elevation, not the target
       process's. `InteropProxy.BringWindowToFront` calls this overload with the *target* window's
@@ -422,6 +419,16 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       `BringWindowToFront` that needs its own review and smoke test, not a dedup/test-coverage
       task. See the corrected note in `docs/superpowers/specs/2026-09-04-phase-5-design.md`'s
       DllImport inventory table.
+      > **Resolved:** `InteropProxy.BringWindowToFront` (`InteropProxy.cs:29`) now calls the
+      > already-correct `UacHelper.IsProcessElevated(Process process)` overload — it already had
+      > the target `Process` object in hand, it just wasn't using it. `IsProcessElevated(int
+      > processId)` (the buggy overload) and `IsCurrentProcessElevated` (dead, zero references
+      > anywhere in the solution — confirmed via reference search) were both deleted rather than
+      > fixed in place, so the bug can't resurface via a stray future call to that overload. Build
+      > 0 warnings, 98/98 tests pass. **No automated test added** —
+      > `WinTabber.Interop.Tests`'s README already scopes `UacHelper` out (needs a real Win32
+      > token call); needs a manual smoke test: bring an elevated window to front via the switcher
+      > and confirm it takes the elevated path.
 
 ---
 

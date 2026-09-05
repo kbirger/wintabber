@@ -26,7 +26,7 @@ public class InteropProxy : IProcessControl, IWindowPlacement, IWindowInterop
         {
             SwitchToDevenv(process, handle);
         }
-        else if (UacHelper.IsProcessElevated(process.Id))
+        else if (UacHelper.IsProcessElevated(process))
         {
             SwitchToWindowElevated(process, hwnd);
         }
