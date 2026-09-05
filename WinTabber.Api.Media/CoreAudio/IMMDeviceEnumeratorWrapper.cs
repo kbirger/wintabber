@@ -1,14 +1,15 @@
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
+using WinTabber.Api.Media.CoreAudio.Models;
 
 namespace WinTabber.Api.Media.CoreAudio;
 
 public interface IMMDeviceEnumeratorWrapper : IDisposable
 {
-    MMDevice GetDefaultAudioEndpoint(DataFlow dataFlow, Role role);
+    IAudioDevice GetDefaultAudioEndpoint(DataFlow dataFlow, Role role);
     bool HasDefaultAudioEndpoint(DataFlow dataFlow, Role role);
-    IEnumerable<MMDevice> EnumerateAudioEndPoints(DataFlow dataFlow, DeviceState deviceState);
-    MMDevice GetDevice(string id);
+    IEnumerable<IAudioDevice> EnumerateAudioEndPoints(DataFlow dataFlow, DeviceState deviceState);
+    IAudioDevice GetDevice(string id);
     void RegisterEndpointNotificationCallback(IMMNotificationClient client);
     void UnregisterEndpointNotificationCallback(IMMNotificationClient client);
 }

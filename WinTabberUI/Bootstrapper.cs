@@ -94,7 +94,8 @@ public static class Bootstrapper
             .AddSingleton<IProcessSuspensionService, ProcessSuspensionService>()
             .AddSingleton<IWindowThumbnailService, WindowThumbnailService>()
             .AddSingleton<AppCache>()
-            .AddSingleton<IMMDeviceEnumeratorWrapper, MMDeviceEnumeratorWrapper>()
+            .AddSingleton<IMMDeviceEnumeratorWrapper>(sp =>
+                new MMDeviceEnumeratorWrapper(sp.GetRequiredKeyedService<IScheduler>(STAScheduler.Key)))
             .AddSingleton<CoreAudioDeviceRepository>(sp =>
                 new CoreAudioDeviceRepository(
                     sp.GetRequiredKeyedService<IScheduler>(STAScheduler.Key),
