@@ -1,4 +1,4 @@
-﻿using System.Collections.ObjectModel;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Reactive.Linq;
 using DynamicData;
@@ -11,45 +11,6 @@ namespace WinTabber.UI.Media.ViewModels
 {
     public partial class AudioDeviceSelectorViewModel : ReactiveObject
     {
-        //public static (AudioDeviceSelectorViewModel Playback, AudioDeviceSelectorViewModel Recording) Create()
-        //{
-        //    var deviceEnum = new MMDeviceEnumerator(Guid.NewGuid());
-        //    var notif = new MMNotificationClient(deviceEnum);
-
-        //    var groupsObservable = GetDevicesObservable(deviceEnum)
-        //        //.SubscribeOn(Scheduler.Default)
-        //        .Select(devices => devices.ToLookup(device => device.DataFlow))
-        //        .Replay(1)
-        //        .RefCount();
-
-        //    groupsObservable.Subscribe(_ => { Debug.WriteLine("deviceees"); });
-
-        //    return (
-        //        new AudioDeviceSelectorViewModel(
-        //            groupsObservable.Select(groups => groups[DataFlow.Render])
-        //        ),
-        //        new AudioDeviceSelectorViewModel(
-        //            groupsObservable.Select(groups => groups[DataFlow.Capture]),
-        //            DataFlow.Capture,
-        //            deviceEnum.SetDefaultAudioEndpoint
-        //        )
-        //    );
-
-        //}
-
-        private static IObservable<MMDeviceCollection> GetDevicesObservable(MMDeviceEnumerator deviceEnum)
-        {
-            return Observable.Create<MMDeviceCollection>(observer =>
-            {
-                var devices = deviceEnum.EnumerateAudioEndPoints(DataFlow.All, DeviceState.Active);
-
-                observer.OnNext(devices);
-                observer.OnCompleted();
-
-                return () => { };
-            });
-        }
-
         public AudioDeviceSelectorViewModel(AudioDeviceService deviceService, DataFlow flow)
         {
             _deviceService = deviceService;
