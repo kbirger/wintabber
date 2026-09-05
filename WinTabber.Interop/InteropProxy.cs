@@ -15,7 +15,7 @@ using static WinTabber.Interop.WindowPlacement;
 
 namespace WinTabber.Interop;
 
-public class InteropProxy : IInteropProxy
+public class InteropProxy : IProcessControl, IWindowPlacement, IWindowInterop
 {
     public void BringWindowToFront(int handle)
     {
