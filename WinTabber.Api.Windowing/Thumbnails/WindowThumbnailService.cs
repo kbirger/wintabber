@@ -16,19 +16,21 @@ public sealed class WindowThumbnailService : IWindowThumbnailService
 {
     private static readonly TimeSpan WatchdogInterval = TimeSpan.FromSeconds(1);
 
-    private readonly IInteropProxy _interop;
+    private readonly IWindowInterop _windowInterop;
+    private readonly IWindowPlacement _windowPlacement;
     private readonly IProcessRepository _processRepository;
     private readonly SourceCache<ThumbnailEntry, int> _cache = new(e => e.Handle);
     private readonly IDisposable _watchdog;
 
-    public WindowThumbnailService(IInteropProxy interop, IProcessRepository processRepository)
+    public WindowThumbnailService(IWindowInterop windowInterop, IWindowPlacement windowPlacement, IProcessRepository processRepository)
     {
-        _interop = interop;
+        _windowInterop = windowInterop;
+        _windowPlacement = windowPlacement;
         _processRepository = processRepository;
 
         // Self-restore if a thumbnailed window's source is destroyed (app closed/crashed) while it was
-        // off-screen: there's no dedicated "window destroyed" event flowing through IInteropProxy, so this
-        // polls the handles we're actively tracking. The set is normally empty or tiny, so this is cheap.
+        // off-screen: there's no dedicated "window destroyed" event, so this polls the handles we're
+        // actively tracking. The set is normally empty or tiny, so this is cheap.
         _watchdog = Observable.Interval(WatchdogInterval).Subscribe(_ => PruneDestroyedWindows());
     }
 
@@ -51,7 +53,7 @@ public sealed class WindowThumbnailService : IWindowThumbnailService
     {
         try
         {
-            return _interop.GetWindowProcessId(handle) == _processRepository.GetCurrentProcessId();
+            return _windowInterop.GetWindowProcessId(handle) == _processRepository.GetCurrentProcessId();
         }
         catch (Exception ex)
         {
@@ -73,8 +75,8 @@ public sealed class WindowThumbnailService : IWindowThumbnailService
 
         try
         {
-            WindowPlacement placement = _interop.MoveWindowOffScreen(window.Handle);
-            int originalExStyle = _interop.HideFromTaskbar(window.Handle);
+            WindowPlacement placement = _windowPlacement.MoveWindowOffScreen(window.Handle);
+            int originalExStyle = _windowPlacement.HideFromTaskbar(window.Handle);
             _cache.AddOrUpdate(new ThumbnailEntry(window.Handle, placement, originalExStyle));
             return true;
         }
@@ -95,7 +97,7 @@ public sealed class WindowThumbnailService : IWindowThumbnailService
 
         try
         {
-            _interop.ResizeWindow(handle, width, height);
+            _windowPlacement.ResizeWindow(handle, width, height);
 
             // Keep the original off-screen position but remember the new size, so restoring later lands
             // the window at the size the user resized the preview to, not the size it had before thumbnailing.
@@ -129,9 +131,9 @@ public sealed class WindowThumbnailService : IWindowThumbnailService
             // Restore the taskbar-visibility style first, while the window is still off-screen: the
             // hide/show cycle that forces Explorer to refresh the taskbar button is only invisible to the
             // user if it happens before the window moves back into view.
-            _interop.RestoreExtendedStyle(handle, lookup.Value.OriginalExStyle);
-            _interop.RestoreWindowPosition(handle, lookup.Value.Placement);
-            _interop.BringWindowToFront(handle);
+            _windowPlacement.RestoreExtendedStyle(handle, lookup.Value.OriginalExStyle);
+            _windowPlacement.RestoreWindowPosition(handle, lookup.Value.Placement);
+            _windowInterop.BringWindowToFront(handle);
         }
         catch (Exception ex)
         {
@@ -162,7 +164,7 @@ public sealed class WindowThumbnailService : IWindowThumbnailService
         {
             try
             {
-                if (!_interop.IsWindow(entry.Handle))
+                if (!_windowInterop.IsWindow(entry.Handle))
                 {
                     // The source window is gone; there's nothing left to restore, just stop tracking it.
                     _cache.Remove(entry.Handle);
