@@ -356,7 +356,7 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
 
 ## Phase 5 — Design work (plan separately)
 
-- [ ] **T5.1** Split `IInteropProxy` — 39 members over 6 concerns. Suggested seams:
+- [x] **T5.1** Split `IInteropProxy` — 39 members over 6 concerns. Suggested seams:
       `IProcessControl` (suspend/resume/elevation/image path), `IWindowPlacement`, and
       `IWindowInterop` for the rest. `InteropProxy` keeps implementing all three; consumers
       narrow. Unblocks a much smaller `FakeInteropProxy`. **Do after Phase 2.** *(F7)*
@@ -377,12 +377,17 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       > split: an interface belongs **where its consumers are**, and the chrome consumers (plus
       > their untestable WPF surroundings) live in `UI.Common`/`WinTabberUI` — so concern-splitting
       > applied consistently still lands on (b)'s assembly layout.
-- [ ] **T5.2** Make `BackgroundServiceContainer`'s load-bearing ordering explicit. Today
+      > **Resolved:** see `docs/superpowers/specs/2026-09-04-phase-5-design.md` (T5.1 section)
+      > and `docs/superpowers/plans/2026-09-04-phase-5a-interop-split.md`.
+- [x] **T5.2** Make `BackgroundServiceContainer`'s load-bearing ordering explicit. Today
       `MediaDebugWindowCoordinator` must follow `MediaWindowViewCoordinator`, and
       `EnableDebugPrivilege()` must precede any suspend — enforced only by comments. Reordering
       two lines compiles, builds warning-free, and fails at runtime. Prefer constructor injection
       over shared-subject + ordering. **Keep the existing comments.** *(F8)*
-- [ ] **T5.3** Add a test project for `WinTabber.Api.Media` (2,285 LOC — `IPolicyConfig` COM
+      > **Resolved:** `ShownChanges` on `ViewCoordinatorBase<T>` and
+      > `ProcessSuspensionService`'s own-constructor `EnableDebugPrivilege()` call; see
+      > `docs/superpowers/plans/2026-09-04-phase-5a-interop-split.md` (Tasks 10-11).
+- [x] **T5.3** Add a test project for `WinTabber.Api.Media` (2,285 LOC — `IPolicyConfig` COM
       interop, WASAPI, STA scheduling; currently **zero** tests). *(F11)*
       > ⚠️ **Scope correction (found while planning, 2026-09-04):** `IMMDeviceEnumeratorWrapper`'s
       > device-returning members (`GetDefaultAudioEndpoint`, `EnumerateAudioEndPoints`,
@@ -391,7 +396,12 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       > members (`HasDefaultAudioEndpoint`, the two `*EndpointNotificationCallback` methods). See
       > `docs/superpowers/specs/2026-09-04-phase-5-design.md`'s T5.3 section. Making the
       > device-returning members testable is out of scope here — tracked as T5.5.
-- [ ] **T5.4** Add test coverage for `WinTabber.Interop` (1,633 LOC, currently zero). *(F11)*
+      > **Resolved:** `WinTabber.Api.Media.Tests` scaffolded per
+      > `docs/superpowers/plans/2026-09-04-phase-5b-test-coverage.md`; the device-returning-path
+      > gap this scope correction called out was then closed by T5.5.
+- [x] **T5.4** Add test coverage for `WinTabber.Interop` (1,633 LOC, currently zero). *(F11)*
+      > **Resolved:** `WinTabber.Interop.Tests` scaffolded per
+      > `docs/superpowers/plans/2026-09-04-phase-5b-test-coverage.md`.
 - [x] **T5.5** *(new, plan separately)* Design an abstraction over NAudio's `MMDevice` (e.g.
       `IAudioDevice` with `Id`/`FriendlyName`/`State`) that `IMMDeviceEnumeratorWrapper` would
       return instead of the real `MMDevice`, so `CoreAudioDeviceRepository`'s device-returning
