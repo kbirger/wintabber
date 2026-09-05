@@ -40,8 +40,9 @@ public class BackgroundServiceContainer : IDisposable
             ioc.GetRequiredService<WindowSelectorViewCoordinator>().Init(),
             ioc.GetRequiredService<MediaWindowViewCoordinator>().Init(),
             ioc.GetRequiredService<SuspendedWindowsViewCoordinator>().Init(),
-            // Must come after MediaWindowViewCoordinator: both react to the same visibility
-            // subject, and the debug window must not open before the window it observes.
+            // No longer order-dependent: MediaDebugWindowCoordinator observes
+            // MediaWindowViewCoordinator's own ShownChanges directly, not the same upstream
+            // subject, so its position in this list doesn't affect correctness.
             ioc.GetRequiredService<MediaDebugWindowCoordinator>().Init(),
             ioc.GetRequiredService<ThumbnailWindowCoordinator>().Init(),
             ioc.GetRequiredService<WindowCommandCoordinator>(),

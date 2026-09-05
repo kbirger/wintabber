@@ -1,6 +1,7 @@
 ﻿using Microsoft.Extensions.DependencyInjection;
 using System.Diagnostics.CodeAnalysis;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using System.Windows;
 
 namespace WinTabberUI.Coordinators
@@ -15,6 +16,16 @@ namespace WinTabberUI.Coordinators
 
         private T? _instance;
         private IServiceProvider _serviceProvider;
+        private readonly BehaviorSubject<bool> _shownChanges = new(false);
+
+        /// <summary>
+        /// Reflects this coordinator's actual shown/hidden state, updated after Show()/Close() run —
+        /// not the raw trigger from GetChangeEvents(). A dependent coordinator that needs "has this
+        /// coordinator actually shown its window" should observe this instead of independently
+        /// re-deriving the same condition from a shared upstream subject, which would make
+        /// correctness depend on subscribe order (see MediaDebugWindowCoordinator).
+        /// </summary>
+        public IObservable<bool> ShownChanges => _shownChanges.AsObservable();
 
 
         protected bool ReuseInstances { get; init; } = false;
@@ -77,7 +88,7 @@ namespace WinTabberUI.Coordinators
             if (IsShown)
             {
                 Close(_instance);
-
+                _shownChanges.OnNext(false);
             }
             if (!ReuseInstances)
             {
@@ -92,6 +103,7 @@ namespace WinTabberUI.Coordinators
                 _instance = GetInstance();
                 _instance.Closed += _instance_Closed;
                 Show(_instance);
+                _shownChanges.OnNext(true);
             }
         }
 
@@ -109,6 +121,7 @@ namespace WinTabberUI.Coordinators
         {
             _listener.Dispose();
             Release();
+            _shownChanges.Dispose();
         }
     }
 }
