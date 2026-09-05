@@ -43,7 +43,8 @@ WinTabberUI            ← WPF app, MVVM ViewModels, DI bootstrap, window manage
                             process suspension, DWM thumbnail service
   WinTabber.Api.Media  ← Audio (WASAPI/NAudio), SMTC, shell app discovery
   WinTabber.Events     ← Global keyboard/mouse input (SharpHook), event dispatch, HyperKey
-  WinTabber.Interop    ← Windows API abstraction (IInteropProxy / InteropProxy via CsWin32)
+  WinTabber.Interop    ← Windows API abstraction (IProcessControl, IWindowVisibility,
+                          IWindowPlacement, IWindowInterop / InteropProxy via CsWin32)
   WinTabber.Infrastructure ← Settings model + persistence, app icon/AUMID cache, hint trie/radix trie
   WinTabber.UI.Common  ← Shared XAML themes, converters, behaviors, hint system
   WinTabber.UI.Media   ← Media controls views and viewmodels
@@ -62,22 +63,36 @@ capability layer with no WPF dependency belongs here; anything that needs WPF do
 **Windows Interop** — The boundary is *what the call acts on*, not which layer you happen to be in:
 
 - Win32 that **observes or mutates another process's windows or processes** (enumeration,
-  activation, placement, suspend/resume, elevation) goes through `IInteropProxy` (defined in
-  `WinTabber.Interop/IInteropProxy.cs`). The concrete `InteropProxy` uses CsWin32 bindings from
-  `WinTabber.Interop/NativeMethods.txt`. Do not call these directly from other projects — the
-  interface is the seam `WinTabber.Api.Windowing.Tests/Fakes/FakeInteropProxy.cs` fakes.
-- Win32 that **affects the rendering of our own windows** (DWM composition, corner preference,
-  cloak/peek, thumbnails, hit-test and resize messages) lives with the WPF code that owns the
-  `HwndSource` — `WinTabber.UI.Common/Chrome/` and `WinTabberUI`, each with its own
-  `NativeMethods.txt`. It is not routed through `IInteropProxy`: the surrounding code is WPF and
-  untestable headlessly, so the seam would buy nothing.
+  activation, placement, suspend/resume, elevation) goes through four interfaces in
+  `WinTabber.Interop`, split so a consumer only depends on the surface it needs:
+  `IProcessControl` (suspend/resume, image path, debug privilege), `IWindowVisibility`
+  (hide/restore — the minimal surface process suspension needs), `IWindowPlacement` (off-screen
+  move/restore, resize, taskbar-button visibility, used for thumbnailing), and `IWindowInterop`
+  (the remaining window surface — activation, enumeration, styles, live preview, and more —
+  which extends `IWindowVisibility`). The concrete `InteropProxy` implements `IProcessControl`,
+  `IWindowPlacement`, and `IWindowInterop` (covering `IWindowVisibility` too) using CsWin32
+  bindings from `WinTabber.Interop/NativeMethods.txt`. Do not call these directly from other
+  projects — the interfaces are the seam `WinTabber.Api.Windowing.Tests/Fakes/FakeProcessControl.cs`
+  (which implements just `IProcessControl` + `IWindowVisibility`, the pair
+  `ProcessSuspensionService` depends on) fakes.
+- Win32 that **affects the rendering of our own windows** through **CsWin32-backed** APIs (DWM
+  composition, corner preference, cloak/peek, thumbnails, hit-test and resize messages) lives with
+  the WPF code that owns the `HwndSource` — `WinTabber.UI.Common/Chrome/` and `WinTabberUI`, each
+  with its own `NativeMethods.txt` (e.g. `DwmSetWindowAttribute`/`DWM_WINDOW_CORNER_PREFERENCE` in
+  `WinTabber.UI.Common/NativeMethods.txt`). It is not routed through the interfaces above: the
+  surrounding code is WPF and untestable headlessly, so the seam would buy nothing.
 - `WinTabber.Api.Media` owns its Shell/AUMID bindings for the same reason.
 
-A hand-written `[DllImport]` is legitimate where CsWin32 has no metadata (undocumented APIs such
-as `SetWindowCompositionAttribute` and `DwmpActivateLivePreview`); it still follows the rule above
-for *where* it lives. Never add an entry to a `NativeMethods.txt` without a call site — every one
-of these files had accumulated dead surface, and CsWin32 generates dependent types transitively,
-so listing a type explicitly is usually unnecessary.
+The own-window-rendering carve-out above applies only to **CsWin32-backed** Win32. A **hand-written**
+`[DllImport]` for an undocumented API — one CsWin32 has no metadata for — always lives in
+`WinTabber.Interop`, regardless of what it acts on: `NtNativeMethods.cs`
+(`NtSuspendProcess`/`NtResumeProcess`), `PInvoke.cs`'s `DwmpActivateLivePreview`, and
+`ChromeInterop.cs`'s `SetWindowCompositionAttribute` are all examples — the last of these acts on
+our own window's chrome (consumed by `WinTabber.UI.Common/Chrome/Interop.cs` for blur/accent) but
+still lives in `WinTabber.Interop` because it's hand-written, not CsWin32-generated. Never add an
+entry to a `NativeMethods.txt` without a call site — every one of these files had accumulated dead
+surface, and CsWin32 generates dependent types transitively, so listing a type explicitly is
+usually unnecessary.
 
 **Event Flow** — `WinTabberEventManager` (Events project) broadcasts `EventType` commands triggered by global hotkeys from `InputListenerService`. UI layers subscribe to these observables.
 
@@ -94,5 +109,5 @@ fails outright on the .NET 10 SDK, which no longer supports the VSTest target.
 
 - `WinTabber.Events.Tests` — TUnit; shortcut model tests (trigger matching, conflict detection, commit tracking)
 - `WinTabber.Infrastructure.Tests` — TUnit; contains `TrieNodeTests`, settings persistence, and infrastructure-level tests. References `WinTabber.Infrastructure` directly (not `WinTabberUI`); no retry policy needed since it no longer drags in the WPF app.
-- `WinTabber.Api.Windowing.Tests` — TUnit; process-suspension and suspended-window-store tests, using `Fakes/FakeInteropProxy.cs`
+- `WinTabber.Api.Windowing.Tests` — TUnit; process-suspension and suspended-window-store tests, using `Fakes/FakeProcessControl.cs`
 - `Wintabber.SessionsTest` — Console app for manual session/audio testing (not a test framework); currently disabled (`Program.cs` is a single placeholder line, no `WinTabberUI`/`WinTabber.Api.Windowing` references)
