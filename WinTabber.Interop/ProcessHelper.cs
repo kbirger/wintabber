@@ -132,8 +132,20 @@ public static class ProcessHelper
 
     public static IEnumerable<ProcessInfo> GetNonSystemProcesses()
     {
+        return ClassifyNonSystemProcesses(GetProcesses());
+    }
+
+    /// <summary>
+    /// Filters out system processes and every descendant of a system process. A process counts as
+    /// a system process if it's PID 0, has parent PID 0, is named "svchost", or its parent was
+    /// already classified as a system process — so this depends on <paramref name="processes"/>
+    /// yielding each process after its parent (true of <see cref="GetProcesses"/>'s toolhelp
+    /// snapshot order, but not enforced here).
+    /// </summary>
+    public static IEnumerable<ProcessInfo> ClassifyNonSystemProcesses(IEnumerable<ProcessInfo> processes)
+    {
         Dictionary<int, bool> processMap = new();
-        foreach (var process in GetProcesses())
+        foreach (var process in processes)
         {
             var isSelfSystem =
                 process.Id == 0
