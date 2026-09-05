@@ -24,8 +24,6 @@ public class BackgroundServiceContainer : IDisposable
         ioc.GetRequiredService<SettingsViewModel>();
         ioc.GetRequiredService<WindowManager>();
         ioc.GetRequiredService<AppCache>().Load();
-        // Must happen before any suspend attempt; OpenProcess on another user's process needs it.
-        ioc.GetRequiredService<IProcessControl>().EnableDebugPrivilege();
 
         // Installed-app enumeration is a media controls preload (app picker, launch icons). Skip
         // it when the feature is off; the repository is otherwise built lazily on first use.
@@ -49,8 +47,8 @@ public class BackgroundServiceContainer : IDisposable
             ioc.GetRequiredService<WinTabberEventManager>(),
             ioc.GetRequiredService<NotifyIconCoordinator>(),
             // Disposing this resumes every frozen process on exit. Order within the composite is
-            // insertion order and does not matter here: ResumeAll only touches IProcessControl and
-            // the state file, neither of which the composite owns.
+            // insertion order and does not matter here: ResumeAll only touches IProcessControl,
+            // IWindowVisibility, and the state file, none of which the composite owns.
             ioc.GetRequiredService<IProcessSuspensionService>(),
             // Same idea: disposing this moves every off-screen thumbnailed window back to its
             // original position on exit, so a killed/crashed app doesn't leave windows stranded.

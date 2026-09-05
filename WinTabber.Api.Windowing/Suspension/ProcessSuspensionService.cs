@@ -36,6 +36,11 @@ public sealed class ProcessSuspensionService : IProcessSuspensionService
         _strategies = strategies as IReadOnlyList<ISuspensionStrategy> ?? strategies.ToList();
         _defaultStrategy = _strategies[0];
 
+        // Must happen before any suspend attempt; OpenProcess on another user's process needs it.
+        // Established here (not by the DI container's construction order) so this precondition
+        // holds regardless of where this service is resolved from.
+        _processControl.EnableDebugPrivilege();
+
         // Startup pruning: drop entries whose PID no longer resolves or whose image-path hash
         // no longer matches (PID reused by an unrelated process).
         var pruned = new List<SuspendedWindowEntry>();
