@@ -94,7 +94,7 @@ public partial class CoreAudioDeviceRepository : IDisposable
         }
     }
 
-    public MMDevice? GetDefaultPlaybackDevice()
+    public IAudioDevice? GetDefaultPlaybackDevice()
     {
         if (_enumerator.HasDefaultAudioEndpoint(DataFlow.Render, Role.Multimedia))
         {
@@ -103,7 +103,7 @@ public partial class CoreAudioDeviceRepository : IDisposable
         return null;
     }
 
-    public MMDevice? GetDefaultRecordingDevice()
+    public IAudioDevice? GetDefaultRecordingDevice()
     {
         if (_enumerator.HasDefaultAudioEndpoint(DataFlow.Capture, Role.Multimedia))
         {
@@ -112,16 +112,16 @@ public partial class CoreAudioDeviceRepository : IDisposable
         return null;
     }
 
-    public DeviceEvents Watch(MMDevice device)
+    public DeviceEvents Watch(IAudioDevice device)
     {
         return _monitor.Watch(device);
     }
 
     [Lazy]
-    private IObservableCache<CoreAudioDeviceWrapper, string> GetDevices()
+    private IObservableCache<IAudioDevice, string> GetDevices()
     {
         return ObservableChangeSet
-            .Create<CoreAudioDeviceWrapper, string>(
+            .Create<IAudioDevice, string>(
                 cache =>
                 {
                     var dispose = new CompositeDisposable(
@@ -139,9 +139,7 @@ public partial class CoreAudioDeviceRepository : IDisposable
                                 Debug.WriteLine(
                                     $"Devices fetched on thread {Environment.CurrentManagedThreadId} - {Thread.CurrentThread.Name} - {Thread.CurrentThread.GetApartmentState()}"
                                 );
-                                cache.AddOrUpdate(
-                                    devices.Select(device => new CoreAudioDeviceWrapper(device, Scheduler))
-                                );
+                                cache.AddOrUpdate(devices);
 
                                 var removalSubscription = _monitor.DeviceRemovals.Subscribe(deviceId =>
                                 {
@@ -153,9 +151,8 @@ public partial class CoreAudioDeviceRepository : IDisposable
                                     var device = _enumerator.GetDevice(deviceId);
                                     if (device.State == DeviceState.Active)
                                     {
-                                        var wrapper = new CoreAudioDeviceWrapper(device, Scheduler);
-                                        cache.AddOrUpdate(wrapper);
-                                        cache.Refresh(wrapper);
+                                        cache.AddOrUpdate(device);
+                                        cache.Refresh(device);
                                     }
                                 });
                                 var defaultSubscription = _monitor.DefaultDeviceChanges.Subscribe(change =>
@@ -187,10 +184,8 @@ public partial class CoreAudioDeviceRepository : IDisposable
                                     else if (change.NewState == DeviceState.Active)
                                     {
                                         var device = _enumerator.GetDevice(change.DeviceId);
-
-                                        var wrapper = new CoreAudioDeviceWrapper(device, Scheduler);
-                                        cache.AddOrUpdate(wrapper);
-                                        cache.Refresh(wrapper);
+                                        cache.AddOrUpdate(device);
+                                        cache.Refresh(device);
                                     }
                                 });
 
@@ -204,7 +199,7 @@ public partial class CoreAudioDeviceRepository : IDisposable
                             .DisposeWith(dispose);
                     });
                 },
-                device => device.Device.ID
+                device => device.Id
             )
             .DisposeMany()
             .SubscribeOn(Scheduler)
@@ -213,10 +208,10 @@ public partial class CoreAudioDeviceRepository : IDisposable
     }
 
     [Lazy(IsPrivate = true)]
-    private IObservable<IReadOnlyList<MMDevice>> GetDevicesObservable()
+    private IObservable<IReadOnlyList<IAudioDevice>> GetDevicesObservable()
     {
         return Observable
-            .Start<IReadOnlyList<MMDevice>>(
+            .Start<IReadOnlyList<IAudioDevice>>(
                 () =>
                 {
                     var devices = _enumerator.EnumerateAudioEndPoints(DataFlow.All, DeviceState.Active).ToArray();
