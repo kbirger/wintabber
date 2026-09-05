@@ -19,7 +19,7 @@ public sealed class MMDeviceEnumeratorWrapper(IScheduler scheduler) : IMMDeviceE
     public IEnumerable<IAudioDevice> EnumerateAudioEndPoints(DataFlow dataFlow, DeviceState deviceState) =>
         _enumerator
             .EnumerateAudioEndPoints(dataFlow, deviceState)
-            .Select(device => (IAudioDevice)new CoreAudioDevice(device, _scheduler));
+            .Select(device => new CoreAudioDevice(device, _scheduler));
 
     public IAudioDevice GetDevice(string id) => new CoreAudioDevice(_enumerator.GetDevice(id), _scheduler);
 

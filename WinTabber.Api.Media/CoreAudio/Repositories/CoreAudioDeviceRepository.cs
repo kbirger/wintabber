@@ -86,6 +86,8 @@ public partial class CoreAudioDeviceRepository : IDisposable
             var device = _enumerator.GetDefaultAudioEndpoint(flow, role);
             change = new DefaultDeviceChange(flow, role, device.Id);
         }
+        // Also now catches COM failures from CoreAudioDevice's eager property reads (e.g. AudioEndpointVolume
+        // activation), not just a missing default endpoint — see "Known deviation" in the design spec.
         catch (COMException) { }
 
         if (change is not null)

@@ -139,6 +139,20 @@ belongs:
 After this change, `MMDevice` and `CoreAudioDeviceWrapper` no longer appear anywhere outside
 `MMDeviceEnumeratorWrapper.cs` and `CoreAudioDevice.cs`.
 
+### Known deviation: CreateDefaultDeviceChange
+
+`CoreAudioDeviceRepository.CreateDefaultDeviceChange` calls
+`_enumerator.GetDefaultAudioEndpoint(flow, role)`, which now eagerly constructs a full
+`CoreAudioDevice` — several COM property reads, including two `AudioEndpointVolume`
+activations (for the cached `CanSetVolume`/`CanMute` properties) — where the old code only read
+`MMDevice.ID`. `CreateDefaultDeviceChange`'s `catch (COMException) { }` therefore now silently
+swallows a broader class of failure than before: a default endpoint whose `AudioEndpointVolume`
+cannot be activated is now dropped from `GetDefaultDevices()`'s cache entirely, where before it
+would have still been recorded by ID. This is low probability, not exercised by any test, and is
+deliberately left as-is rather than changing the cached-vs-live contract to avoid it (making
+`CanSetVolume`/`CanMute` lazy would be a bigger change, and a real behavior change of its own).
+This narrows this document's earlier blanket "no behavior changes" claim for this one path.
+
 ### Cleanup folded in
 
 - Rename `CoreAudioDeviceWrapper` → `CoreAudioDevice` (file move

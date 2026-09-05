@@ -83,8 +83,22 @@ public class CoreAudioDeviceRepositoryTests
     public async Task Devices_PopulatesFromEnumerateAudioEndPoints()
     {
         var enumerator = new FakeMMDeviceEnumeratorWrapper();
-        enumerator.AddDevice(new FakeAudioDevice { Id = "device-1", DataFlow = DataFlow.Render, State = DeviceState.Active });
-        enumerator.AddDevice(new FakeAudioDevice { Id = "device-2", DataFlow = DataFlow.Capture, State = DeviceState.Active });
+        enumerator.AddDevice(
+            new FakeAudioDevice
+            {
+                Id = "device-1",
+                DataFlow = DataFlow.Render,
+                State = DeviceState.Active,
+            }
+        );
+        enumerator.AddDevice(
+            new FakeAudioDevice
+            {
+                Id = "device-2",
+                DataFlow = DataFlow.Capture,
+                State = DeviceState.Active,
+            }
+        );
         using var repository = new CoreAudioDeviceRepository(ImmediateScheduler.Instance, enumerator);
 
         var devices = repository.Devices.Items.ToList();
