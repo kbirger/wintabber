@@ -5,6 +5,7 @@ using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using WinTabber.Api.Media.CoreAudio;
 using static Microsoft.WindowsAPICodePack.Shell.PropertySystem.SystemProperties.System;
 
 namespace WinTabber.Api.Media.CoreAudio.Models;
@@ -15,7 +16,7 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
     private readonly IScheduler _scheduler;
 
 
-    public CoreAudioDeviceWrapper Device { get; }
+    public IAudioDevice Device { get; }
     public uint ProcessId { get; }
     public string Id { get; }
 
@@ -34,7 +35,7 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
     public IObservable<string> DisplayName => _displayName;
 
     public IObservable<AudioSessionState> StateChanges => _stateChanges;
-    public CoreAudioSessionWrapper(AudioSessionControl nativeSession, CoreAudioDeviceWrapper device, IScheduler scheduler)
+    public CoreAudioSessionWrapper(AudioSessionControl nativeSession, IAudioDevice device, IScheduler scheduler)
     {
         // Set internal Device property so that code inside this project can access directly
         // as it will already be running on correct thread

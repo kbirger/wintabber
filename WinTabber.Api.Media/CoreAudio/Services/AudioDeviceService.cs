@@ -15,12 +15,12 @@ public partial class AudioDeviceService(CoreAudioDeviceRepository repository)
 {
     private readonly CoreAudioDeviceRepository _repository = repository;
 
-    private IObservableCache<CoreAudioDeviceWrapper, string> _nativeDevices = repository.Devices;
+    private IObservableCache<IAudioDevice, string> _nativeDevices = repository.Devices;
     private IObservableCache<DefaultDeviceChange, DefaultDeviceKey> _defaultDevices = repository
         .GetDefaultDevices()
         .AsObservableCache();
 
-    public ObservableDeviceDto WatchDevice(CoreAudioDeviceWrapper? device)
+    public ObservableDeviceDto WatchDevice(IAudioDevice? device)
     {
         if (device == null)
         {
@@ -43,10 +43,9 @@ public partial class AudioDeviceService(CoreAudioDeviceRepository repository)
             };
         }
 
-        var deviceEvents = _repository.Watch(device.Device);
+        var deviceEvents = _repository.Watch(device);
         var canSetVolume = device.CanSetVolume;
         var canMute = canSetVolume || device.CanMute;
-        //var endpoint = device.Device.AudioEndpointVolume;
 
         return new ObservableDeviceDto
         {
@@ -79,17 +78,6 @@ public partial class AudioDeviceService(CoreAudioDeviceRepository repository)
         //.ObserveOn(DefaultScheduler.Instance);
     }
 
-    private bool CanSetVolume(MMDevice device)
-    {
-        var range = device.AudioEndpointVolume.VolumeRange;
-        return range.MaxDecibels > range.MinDecibels;
-    }
-
-    private bool CanMute(MMDevice device)
-    {
-        return device.AudioEndpointVolume.HardwareSupport.HasFlag(EEndpointHardwareSupport.Mute);
-    }
-
     [Lazy]
     private IObservableCache<DeviceDto, string> GetDevices()
     {
@@ -100,12 +88,11 @@ public partial class AudioDeviceService(CoreAudioDeviceRepository repository)
             .AsObservableCache();
     }
 
-    private static DeviceDto CreateItem(CoreAudioDeviceWrapper data)
+    private static DeviceDto CreateItem(IAudioDevice data)
     {
         return new DeviceDto
         {
             DeviceId = data.Id,
-            //IsSelected = isDefault.HasValue && isDefault.Value.DeviceId == data.ID,
             DeviceFriendlyName = data.DeviceFriendlyName,
             DeviceName = data.FriendlyName,
             DataFlow = data.DataFlow,

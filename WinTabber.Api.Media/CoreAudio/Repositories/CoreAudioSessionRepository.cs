@@ -4,6 +4,7 @@ using NAudio.CoreAudioApi.Interfaces;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using WinTabber.Api.Media.CoreAudio;
 using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Common.Util;
 
@@ -11,7 +12,7 @@ namespace WinTabber.Api.Media.CoreAudio.Repositories;
 
 public class CoreAudioSessionRepository : IDisposable
 {
-    public IObservable<IChangeSet<CoreAudioSessionWrapper, string>> Connect(CoreAudioDeviceWrapper device)
+    public IObservable<IChangeSet<CoreAudioSessionWrapper, string>> Connect(IAudioDevice device)
     {
         return Observable
             .Defer(() => GetDeviceSessions(device))
@@ -19,9 +20,9 @@ public class CoreAudioSessionRepository : IDisposable
             .ObserveOn(Scheduler);
     }
 
-    private IObservable<IChangeSet<CoreAudioSessionWrapper, string>> GetDeviceSessions(CoreAudioDeviceWrapper device)
+    private IObservable<IChangeSet<CoreAudioSessionWrapper, string>> GetDeviceSessions(IAudioDevice device)
     {
-        var manager = device.Device.AudioSessionManager;
+        var manager = device.AudioSessionManager;
         var changes = ObservableChangeSet.Create<CoreAudioSessionWrapper, string>(
                 (cache) =>
                 {
