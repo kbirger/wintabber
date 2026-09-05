@@ -18,11 +18,11 @@ namespace WinTabberUI.Coordinators
         // Window.IsVisible here.
         private bool _isShown;
 
-        private readonly IInteropProxy _interop;
+        private readonly IWindowInterop _interop;
 
         public MediaWindowViewCoordinator(
             ApplicationStateViewModel vm,
-            IInteropProxy interop,
+            IWindowInterop interop,
             IServiceProvider provider
         )
             : base(provider)

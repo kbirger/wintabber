@@ -19,7 +19,7 @@ namespace WinTabberUI.Coordinators;
 public class ThumbnailWindowCoordinator : IDisposable
 {
     private readonly IServiceProvider _serviceProvider;
-    private readonly IInteropProxy _interop;
+    private readonly IWindowInterop _interop;
     private readonly WindowManager _windowManager;
     private readonly IDisposable _subscription;
     private readonly IDisposable _commandSubscription;
@@ -29,7 +29,7 @@ public class ThumbnailWindowCoordinator : IDisposable
     public ThumbnailWindowCoordinator(
         IWindowThumbnailService thumbnailService,
         IServiceProvider serviceProvider,
-        IInteropProxy interop,
+        IWindowInterop interop,
         WindowManager windowManager,
         WinTabberEventManager eventManager)
     {

@@ -39,7 +39,7 @@ public partial class SuspendedWindowsWindow : Window
         // buttons — that keeps focus on WindowSelectorWindow regardless of show ordering between
         // the two coordinators.
         nint handle = new WindowInteropHelper(this).Handle;
-        Ioc.Default.GetRequiredService<IInteropProxy>().MakeWindowNonActivating(handle);
+        Ioc.Default.GetRequiredService<IWindowInterop>().MakeWindowNonActivating(handle);
 
         PositionWindow();
     }

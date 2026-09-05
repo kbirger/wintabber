@@ -7,11 +7,11 @@ using System.Reactive.Subjects;
 using WinTabber.Events;
 using WinTabber.Interop;
 namespace WinTabber.UI.Media.Services;
-public partial class MediaControlsStateService(WinTabberEventManager eventManager, IInteropProxy interop, Func<bool> isFeatureEnabled)
+public partial class MediaControlsStateService(WinTabberEventManager eventManager, IWindowInterop interop, Func<bool> isFeatureEnabled)
     : IMediaControlsStateService
 {
     private readonly WinTabberEventManager _eventManager = eventManager;
-    private readonly IInteropProxy _interop = interop;
+    private readonly IWindowInterop _interop = interop;
     private readonly Func<bool> _isFeatureEnabled = isFeatureEnabled;
     private readonly BehaviorSubject<bool> _visibilityEvents = new BehaviorSubject<bool>(false);
     private readonly CompositeDisposable _cleanUp = new CompositeDisposable();

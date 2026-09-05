@@ -12,7 +12,7 @@ public class WindowPlacement
     /// <summary>
     /// The window's restored (non-maximized, non-minimized) geometry — Win32's rcNormalPosition — captured
     /// regardless of the window's current <see cref="State"/>. Use this together with <see cref="State"/>
-    /// when you need to faithfully restore a window later (see IInteropProxy.RestoreWindowPosition).
+    /// when you need to faithfully restore a window later (see IWindowPlacement.RestoreWindowPosition).
     /// </summary>
     public Rectangle NormalBounds { get; init; }
 

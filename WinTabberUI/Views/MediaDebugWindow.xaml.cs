@@ -32,7 +32,7 @@ public partial class MediaDebugWindow : Window
         // MediaControlsWindow.OnDeactivated run, which deactivates the media controls view model.
         // The mouse wheel still scrolls a non-activating window.
         nint handle = new WindowInteropHelper(this).Handle;
-        Ioc.Default.GetRequiredService<IInteropProxy>().MakeWindowNonActivating(handle);
+        Ioc.Default.GetRequiredService<IWindowInterop>().MakeWindowNonActivating(handle);
     }
 
     protected override void OnClosed(EventArgs e)

@@ -18,12 +18,12 @@ namespace WinTabber.Events;
 
 public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotifyPropertyChanged
 {
-    private IInteropProxy _interop;
+    private IWindowInterop _interop;
     private readonly InputListenerService _inputListener;
     private readonly IShortcutMapProvider _mapProvider;
 
     public WinTabberEventManager(
-        IInteropProxy interop,
+        IWindowInterop interop,
         InputListenerService inputListener,
         IShortcutMapProvider mapProvider
     )

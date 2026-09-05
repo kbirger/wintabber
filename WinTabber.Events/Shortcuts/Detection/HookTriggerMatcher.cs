@@ -73,7 +73,7 @@ public sealed class HookTriggerMatcher
         //
         // IsEventSimulated derives from the OS-level "injected" flag (surfaced as the
         // EventMask.SimulatedEvent bit), so it is set for any SendInput-injected event regardless of
-        // which library produced it — including IInteropProxy.SendInput from HyperKeyState.
+        // which library produced it — including IWindowInterop.SendInput from HyperKeyState.
         // Windows-only mechanism, which is fine here. Note the failure shape: SharpHook once had a
         // bug where this always returned true; if that ever regresses, *no* hook trigger matches.
         if (e.IsEventSimulated)

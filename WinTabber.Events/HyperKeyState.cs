@@ -11,14 +11,14 @@ public class HyperKeyState(
     KeyCode hyperKey,
     IObservable<KeyboardHookEventArgs> keyDownEvents,
     IObservable<KeyboardHookEventArgs> keyUpEvents,
-    IInteropProxy interop,
+    IWindowInterop interop,
     IInputCaptureGate? captureGate = null)
 {
     public const int TapDelayMs = 200;
     private readonly KeyCode _hyperKey = hyperKey;
     private readonly IObservable<KeyboardHookEventArgs> _keyDownEvents = keyDownEvents;
     private readonly IObservable<KeyboardHookEventArgs> _keyUpEvents = keyUpEvents;
-    private readonly IInteropProxy _interop = interop;
+    private readonly IWindowInterop _interop = interop;
 
     /// <summary>
     /// While a shortcut capture session is open the hyperkey steps aside entirely (§3.4): it does
