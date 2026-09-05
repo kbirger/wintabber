@@ -392,12 +392,15 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       > `docs/superpowers/specs/2026-09-04-phase-5-design.md`'s T5.3 section. Making the
       > device-returning members testable is out of scope here — tracked as T5.5.
 - [ ] **T5.4** Add test coverage for `WinTabber.Interop` (1,633 LOC, currently zero). *(F11)*
-- [ ] **T5.5** *(new, plan separately)* Design an abstraction over NAudio's `MMDevice` (e.g.
+- [x] **T5.5** *(new, plan separately)* Design an abstraction over NAudio's `MMDevice` (e.g.
       `IAudioDevice` with `Id`/`FriendlyName`/`State`) that `IMMDeviceEnumeratorWrapper` would
       return instead of the real `MMDevice`, so `CoreAudioDeviceRepository`'s device-returning
       logic becomes testable. Ripples into `CoreAudioDeviceWrapper` and every other `MMDevice`
       consumer in `WinTabber.Api.Media` — real design work needing its own brainstorming pass,
       not scoped here. Discovered as a T5.3 blocker, 2026-09-04.
+      > **Resolved:** `IAudioDevice` added; see
+      > `docs/superpowers/specs/2026-09-05-audio-device-abstraction-design.md` and
+      > `docs/superpowers/plans/2026-09-05-audio-device-abstraction.md`.
 - [ ] **T5.6** *(bug, not scoped here)* `UacHelper.IsProcessElevated(int processId)`
       (`WinTabber.Interop/UacHelper.cs`) ignores its `processId` parameter and always queries
       `Process.GetCurrentProcess()` — it reports WinTabber's own elevation, not the target
