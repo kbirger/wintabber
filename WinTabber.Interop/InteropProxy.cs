@@ -58,8 +58,21 @@ public class InteropProxy : IProcessControl, IWindowPlacement, IWindowInterop
 
     private void SwitchToWindowElevated(Process pid, HWND handle)
     {
-        PInvoke.ShowWindowAsync(handle, SHOW_WINDOW_CMD.SW_RESTORE);
-        PInvoke.SendMessage(handle, PInvoke.WM_SYSCOMMAND, new WPARAM(PInvoke.SC_RESTORE), new LPARAM());
+        PInvoke.SetForegroundWindow(handle);
+
+        WINDOWPLACEMENT wp = new WINDOWPLACEMENT();
+        PInvoke.GetWindowPlacement(handle, ref wp);
+        var isMin = wp.showCmd == SHOW_WINDOW_CMD.SW_MINIMIZE || wp.showCmd == SHOW_WINDOW_CMD.SW_SHOWMINIMIZED;
+
+        if (PInvoke.GetForegroundWindow() != handle)
+        {
+            PInvoke.ShowWindowAsync(handle, SHOW_WINDOW_CMD.SW_SHOW);
+        }
+        if (isMin)
+        {
+            PInvoke.ShowWindowAsync(handle, SHOW_WINDOW_CMD.SW_RESTORE);
+            PInvoke.SendMessage(handle, PInvoke.WM_SYSCOMMAND, new WPARAM(PInvoke.SC_RESTORE), new LPARAM());
+        }
     }
 
     private void SwitchToDevenv(Process pid, int handle)

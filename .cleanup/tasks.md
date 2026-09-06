@@ -429,6 +429,22 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       > `WinTabber.Interop.Tests`'s README already scopes `UacHelper` out (needs a real Win32
       > token call); needs a manual smoke test: bring an elevated window to front via the switcher
       > and confirm it takes the elevated path.
+      >
+      > **Follow-up regression, found by manual smoke test:** correcting the elevation check
+      > exposed that `InteropProxy.SwitchToWindowElevated` (the branch elevated targets now
+      > actually reach) had *always* been too weak to bring an already-visible-but-behind window
+      > forward — it only called `ShowWindowAsync(SW_RESTORE)` + `WM_SYSCOMMAND`/`SC_RESTORE`,
+      > which is a no-op unless the window happens to be minimized. This was unreachable dead code
+      > in practice before this task (the T5.6 bug routed virtually every switch through
+      > `SwitchToWindowRegular` instead), so it was never exercised. Initial hypothesis was that
+      > `SetForegroundWindow` might be blocked cross-elevation by Windows UIPI — ruled out
+      > empirically: the user checked out the pre-T5.6-fix commit and confirmed
+      > `SwitchToWindowRegular`'s plain `SetForegroundWindow` call already worked fine against
+      > elevated targets on this machine. Fixed `SwitchToWindowElevated` to mirror
+      > `SwitchToWindowRegular`'s `SetForegroundWindow`/`ShowWindowAsync(SW_SHOW)` logic, keeping
+      > the original `SC_RESTORE`/`WM_SYSCOMMAND` calls as a defensive extra for the minimized
+      > case. Build 0 warnings, 98/98 tests pass; user-confirmed via manual smoke test (both
+      > already-visible and minimized elevated targets).
 
 ---
 
