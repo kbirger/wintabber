@@ -5,10 +5,10 @@ using WinTabber.UI.Media.ViewModels;
 namespace WinTabber.UI.Media.ViewModels.Factories;
 
 public class AudioDeviceSelectorViewModelFactory(
-    AudioDeviceService deviceService
+    IAudioDeviceService deviceService
 )
 {
-    private readonly AudioDeviceService _deviceService = deviceService;
+    private readonly IAudioDeviceService _deviceService = deviceService;
 
     public AudioDeviceSelectorViewModel Create(DataFlow flow)
     {       

@@ -14,7 +14,7 @@ using WinTabber.Common.Util;
 
 namespace WinTabber.Api.Media.CoreAudio.Repositories;
 
-public partial class CoreAudioDeviceRepository : IDisposable
+public partial class CoreAudioDeviceRepository : ICoreAudioDeviceRepository
 {
     private readonly IMMDeviceEnumeratorWrapper _enumerator;
     private readonly CoreAudioDevicesMonitor _monitor;

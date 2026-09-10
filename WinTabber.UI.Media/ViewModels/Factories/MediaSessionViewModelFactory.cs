@@ -5,11 +5,11 @@ using WinTabber.UI.Media.ViewModels;
 namespace WinTabber.UI.Media.ViewModels.Factories;
 
 public class MediaSessionViewModelFactory(
-    AudioSessionService audioSessionService,
-    AudioDeviceService audioDeviceService)
+    IAudioSessionService audioSessionService,
+    IAudioDeviceService audioDeviceService)
 {
-    private readonly AudioSessionService _audioSessionService = audioSessionService;
-    private readonly AudioDeviceService _audioDeviceService = audioDeviceService;
+    private readonly IAudioSessionService _audioSessionService = audioSessionService;
+    private readonly IAudioDeviceService _audioDeviceService = audioDeviceService;
 
     public MediaSessionViewModel Create()
     {

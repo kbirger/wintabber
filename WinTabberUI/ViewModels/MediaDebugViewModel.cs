@@ -30,11 +30,11 @@ namespace WinTabberUI.ViewModels;
 /// </remarks>
 public class MediaDebugViewModel : ReactiveObject
 {
-    private readonly AudioDeviceService _deviceService;
-    private readonly AudioSessionService _sessionService;
+    private readonly IAudioDeviceService _deviceService;
+    private readonly IAudioSessionService _sessionService;
     private readonly SMTCSessionRepository _smtcRepository;
-    private readonly InstalledApplicationRepository _appRepository;
-    private readonly MediaSessionService _mediaSessionService;
+    private readonly IInstalledApplicationRepository _appRepository;
+    private readonly IMediaSessionService _mediaSessionService;
     private readonly IScheduler _comScheduler;
 
     private CompositeDisposable? _cleanUp;
@@ -48,11 +48,11 @@ public class MediaDebugViewModel : ReactiveObject
     private string _status = "Detached.";
 
     public MediaDebugViewModel(
-        AudioDeviceService deviceService,
-        AudioSessionService sessionService,
+        IAudioDeviceService deviceService,
+        IAudioSessionService sessionService,
         SMTCSessionRepository smtcRepository,
-        InstalledApplicationRepository appRepository,
-        MediaSessionService mediaSessionService,
+        IInstalledApplicationRepository appRepository,
+        IMediaSessionService mediaSessionService,
         [FromKeyedServices(STAScheduler.Key)] IScheduler comScheduler
     )
     {

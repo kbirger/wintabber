@@ -23,8 +23,8 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
     private readonly ObservableAsPropertyHelper<string> _title;
     private readonly ObservableAsPropertyHelper<ImageSource?> _thumbnail;
 
-    private readonly AudioSessionService _sessionService;
-    private readonly AudioDeviceService _deviceService;
+    private readonly IAudioSessionService _sessionService;
+    private readonly IAudioDeviceService _deviceService;
 
     public IObservable<AggregateSession?> SessionChanged { get; }
 
@@ -39,7 +39,7 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
         set => this.RaiseAndSetIfChanged(ref field, value);
     }
 
-    public MediaSessionViewModel(AudioSessionService audioSessionService, AudioDeviceService audioDeviceService)
+    public MediaSessionViewModel(IAudioSessionService audioSessionService, IAudioDeviceService audioDeviceService)
     {
         _sessionService = audioSessionService;
         _deviceService = audioDeviceService;

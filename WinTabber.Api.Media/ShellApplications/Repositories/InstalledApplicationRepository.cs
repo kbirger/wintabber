@@ -21,7 +21,7 @@ using WinTabber.Api.Media.ShellApplications.Models;
 
 namespace WinTabber.Api.Media.ShellApplications.Repositories;
 
-public partial class InstalledApplicationRepository : IDisposable
+public partial class InstalledApplicationRepository : IInstalledApplicationRepository
 {
 
     private const string PackageInstallPath = "System.AppUserModel.PackageInstallPath";

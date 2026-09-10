@@ -17,11 +17,11 @@ using WinTabber.UI.Media.Models;
 
 namespace WinTabber.UI.Media.Services;
 public partial class MediaSessionService(
-    AudioSessionService audioSessionService,
+    IAudioSessionService audioSessionService,
     SMTCSessionRepository mediaSessionRepository,
-    InstalledApplicationRepository installedApplicationRepository,
+    IInstalledApplicationRepository installedApplicationRepository,
     [FromKeyedServices(STAScheduler.Key)] IScheduler staScheduler
-)
+) : IMediaSessionService
 {
     // todo: implement updates
     
@@ -43,9 +43,9 @@ public partial class MediaSessionService(
 
     record MediaSessionWithApp(GlobalSystemMediaTransportControlsSession Session, InstalledApplicationInfo App);
 
-    private readonly AudioSessionService _audioSessionService = audioSessionService;
+    private readonly IAudioSessionService _audioSessionService = audioSessionService;
     private readonly SMTCSessionRepository _mediaSessionRepository = mediaSessionRepository;
-    private readonly InstalledApplicationRepository _installedApplicationRepository = installedApplicationRepository;
+    private readonly IInstalledApplicationRepository _installedApplicationRepository = installedApplicationRepository;
 
     private IObservable<IChangeSet<MediaSessionWithApp, string>> GetSMTCSessionsByAumid()
     {

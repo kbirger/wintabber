@@ -10,7 +10,7 @@ using static Microsoft.WindowsAPICodePack.Shell.PropertySystem.SystemProperties.
 
 namespace WinTabber.Api.Media.CoreAudio.Services;
 
-public partial class AudioSessionService
+public partial class AudioSessionService : IAudioSessionService
 {
     private readonly CoreAudioSessionRepository _sessionRepository;
     private readonly CoreAudioDeviceRepository _deviceRepository;

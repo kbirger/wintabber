@@ -487,10 +487,31 @@ The canonical description lives in that doc. All four were originally verified o
 four are still genuinely open, but three of the four descriptions had drifted and are corrected
 below. This is the active phase, being worked on the `testability` branch.
 
-- [ ] **T6.1** Add interfaces for the 5 concrete media-service registrations in `Bootstrapper.cs`
+- [x] **T6.1** Add interfaces for the 5 concrete media-service registrations in `Bootstrapper.cs`
       (`CoreAudioDeviceRepository`, `AudioSessionService`, `AudioDeviceService`,
       `MediaSessionService`, `InstalledApplicationRepository`).
-      *Unchanged — all five are still registered as concrete types, `Bootstrapper.cs:99-109`.*
+      > **Resolved.** Each interface extracted **verbatim** from the type's existing public
+      > surface — narrowing to what consumers happen to use today is a separate judgement call,
+      > and doing both at once would have made the diff impossible to review. Three wrinkles the
+      > task description did not anticipate:
+      > - **`[Lazy]`-generated members are part of the surface.** `CoreAudioDeviceRepository
+      >   .Devices` and `AudioDeviceService.Devices` come from the source generator, not the
+      >   source file, so grepping for `public` misses them. `MediaSessionService` is the extreme
+      >   case: it declares **no** public members of its own, and its whole interface
+      >   (`MasterSessions`, `ActiveSession`) is generated.
+      > - **`CoreAudioDeviceRepository` keeps its concrete registration**, with
+      >   `ICoreAudioDeviceRepository` *forwarding* to it via
+      >   `sp => sp.GetRequiredService<CoreAudioDeviceRepository>()`. Its
+      >   `SetDefaultAudioEndpoint` is `internal`, and putting that on a public interface would
+      >   mean widening accessibility to satisfy the seam — backwards. Its only caller,
+      >   `AudioDeviceService`, is in the same assembly and keeps the concrete dependency.
+      >   Forwarding rather than re-registering matters: this type owns COM resources, so a
+      >   second instance would be a bug, not just waste.
+      > - **Statics cannot go on the interface.** `InstalledApplicationRepository.LoadingImage`
+      >   is static and stays reached through the class.
+      >
+      > Verified beyond the build: a compile-clean DI graph can still throw on first resolve, so
+      > the app was launched and ran 45s with no unhandled exception.
 - [ ] **T6.2** Restrict `Ioc.Default` to startup; use constructor injection.
       **16 call sites, not 17** — across 8 files: `Bootstrapper.cs` (the one legitimate startup
       use), six `WinTabberUI/Views/*.xaml.cs` (`DockWindow`, `MediaDebugWindow`, `SettingsWindow`,

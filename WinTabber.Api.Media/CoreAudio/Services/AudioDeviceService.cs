@@ -11,7 +11,7 @@ using static Microsoft.WindowsAPICodePack.Shell.PropertySystem.SystemProperties.
 
 namespace WinTabber.Api.Media.CoreAudio.Services;
 
-public partial class AudioDeviceService(CoreAudioDeviceRepository repository)
+public partial class AudioDeviceService(CoreAudioDeviceRepository repository) : IAudioDeviceService
 {
     private readonly CoreAudioDeviceRepository _repository = repository;
 

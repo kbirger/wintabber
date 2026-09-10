@@ -11,7 +11,7 @@ namespace WinTabber.UI.Media.ViewModels
 {
     public partial class AudioDeviceSelectorViewModel : ReactiveObject
     {
-        public AudioDeviceSelectorViewModel(AudioDeviceService deviceService, DataFlow flow)
+        public AudioDeviceSelectorViewModel(IAudioDeviceService deviceService, DataFlow flow)
         {
             _deviceService = deviceService;
             var devices = deviceService.Devices.Connect().Filter(device => device.DataFlow == flow);
@@ -71,6 +71,6 @@ namespace WinTabber.UI.Media.ViewModels
             }
         }
         private DeviceDto? _selectedDevice;
-        private readonly AudioDeviceService _deviceService;
+        private readonly IAudioDeviceService _deviceService;
     }
 }

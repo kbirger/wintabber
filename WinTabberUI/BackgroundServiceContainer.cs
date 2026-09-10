@@ -29,7 +29,7 @@ public class BackgroundServiceContainer : IDisposable
         // it when the feature is off; the repository is otherwise built lazily on first use.
         if (ioc.GetRequiredService<ApplicationSettings>().General.EnableMediaControls)
         {
-            ioc.GetRequiredService<InstalledApplicationRepository>();
+            ioc.GetRequiredService<IInstalledApplicationRepository>();
         }
 
         _cleanup = new CompositeDisposable(

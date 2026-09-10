@@ -18,7 +18,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     private ReadOnlyObservableCollection<SessionListItem> _sessions =
         new ReadOnlyObservableCollection<SessionListItem>([]);
     private MediaSessionViewModel? _activeSession;
-    private readonly MediaSessionService _mediaSessionService;
+    private readonly IMediaSessionService _mediaSessionService;
     private readonly IMediaControlsStateService _mediaControlsStateService;
     private readonly MediaSessionViewModelFactory _mediaSessionViewModelFactory;
     private readonly AudioDeviceSelectorViewModelFactory _deviceSelectorViewModelFactory;
@@ -47,7 +47,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
     //public ReactiveCommand<Unit, Unit> Mute { get; private set; }
 
     public MediaControlsViewModel(
-        MediaSessionService mediaSessionService,
+        IMediaSessionService mediaSessionService,
         IMediaControlsStateService mediaControlsStateService,
         MediaSessionViewModelFactory mediaSessionViewModelFactory,
         AudioDeviceSelectorViewModelFactory deviceSelectorViewModelFactory,

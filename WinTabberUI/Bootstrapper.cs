@@ -100,13 +100,18 @@ public static class Bootstrapper
                 new CoreAudioDeviceRepository(
                     sp.GetRequiredKeyedService<IScheduler>(STAScheduler.Key),
                     sp.GetRequiredService<IMMDeviceEnumeratorWrapper>()))
+            // Forwards to the concrete registration above rather than constructing again: this
+            // repository owns COM resources, so a second instance would be a real bug, not just
+            // waste. The concrete type stays registered because AudioDeviceService needs its
+            // internal SetDefaultAudioEndpoint, which is not on the interface by design.
+            .AddSingleton<ICoreAudioDeviceRepository>(sp => sp.GetRequiredService<CoreAudioDeviceRepository>())
             .AddSingleton<CoreAudioSessionRepository>(sp =>
                 new CoreAudioSessionRepository(sp.GetRequiredKeyedService<IScheduler>(STAScheduler.Key)))
             .AddSingleton<SMTCSessionRepository>()
-            .AddSingleton<MediaSessionService>()
-            .AddSingleton<AudioSessionService>()
-            .AddSingleton<AudioDeviceService>()
-            .AddSingleton<InstalledApplicationRepository>();
+            .AddSingleton<IMediaSessionService, MediaSessionService>()
+            .AddSingleton<IAudioSessionService, AudioSessionService>()
+            .AddSingleton<IAudioDeviceService, AudioDeviceService>()
+            .AddSingleton<IInstalledApplicationRepository, InstalledApplicationRepository>();
     }
     private static IServiceCollection AddCoordinators(this IServiceCollection services)
     {
