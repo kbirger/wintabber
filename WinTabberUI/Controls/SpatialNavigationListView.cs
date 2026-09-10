@@ -1,4 +1,5 @@
-﻿using System.Diagnostics.CodeAnalysis;
+﻿using System.Collections.Specialized;
+using System.Diagnostics.CodeAnalysis;
 using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Input;
@@ -18,6 +19,24 @@ public class SpatialNavigationListView : ListView
 
     /// <summary>Cursor position when hover selection was suppressed; null once it is re-armed.</summary>
     private System.Drawing.Point? _hoverAnchor;
+
+    /// <summary>
+    /// The selector window is reused across opens (see <c>ReuseInstances</c>), so this control -- and
+    /// any tile grid it has already built -- outlives a single open. Both the item list and the tile
+    /// positions change from one open to the next, so a grid built on the first open would steer
+    /// arrow-key navigation on every later one, off a stale window list at stale coordinates.
+    /// Dropping it here lets the next arrow press rebuild it against what is actually on screen.
+    /// </summary>
+    public SpatialNavigationListView()
+    {
+        IsVisibleChanged += (_, _) => _tileGrid = null;
+    }
+
+    protected override void OnItemsChanged(NotifyCollectionChangedEventArgs e)
+    {
+        _tileGrid = null;
+        base.OnItemsChanged(e);
+    }
 
     /// <summary>
     /// Ignore hover selection until the pointer actually moves. Called as the selector is shown;
@@ -62,7 +81,12 @@ public class SpatialNavigationListView : ListView
         {
             return;
         }
-        InitializeTileGrid();
+
+        if (!TryInitializeTileGrid())
+        {
+            return;
+        }
+
         var next = key switch
         {
             Key.Down => _tileGrid.MoveDown(),
@@ -79,25 +103,42 @@ public class SpatialNavigationListView : ListView
         }
     }
 
-    [MemberNotNull(nameof(_tileGrid))]
-    private void InitializeTileGrid()
+    /// <summary>
+    /// Builds the tile grid unless it is already built. Returns false when the containers have not
+    /// been realised yet: the grid is then left unbuilt so the next press retries, rather than being
+    /// cached in a half-built state. This matters now that the grid is invalidated on every open --
+    /// an arrow press can arrive before the regenerated containers exist.
+    /// </summary>
+    [MemberNotNullWhen(true, nameof(_tileGrid))]
+    private bool TryInitializeTileGrid()
     {
         if (_tileGrid is not null)
         {
-            return;
+            return true;
         }
+
         var infos = new List<WindowTileInfo>(Items.Count);
         for (int i = 0; i < Items.Count; i++)
         {
-            var tile = GetTile(i);
-            infos.Add(tile);
+            if (ItemContainerGenerator.ContainerFromIndex(i) is not Visual container)
+            {
+                return false;
+            }
+
+            infos.Add(GetTile(i, container));
         }
+
+        if (infos.Count == 0)
+        {
+            return false;
+        }
+
         _tileGrid = WindowTileGrid.Create(infos);
+        return true;
     }
 
-    private WindowTileInfo GetTile(int index)
+    private WindowTileInfo GetTile(int index, Visual container)
     {
-        var container = (Visual)ItemContainerGenerator.ContainerFromIndex(index);
         var item = (WindowItem)Items[index];
         var location = container.TransformToVisual(this).Transform(new Point(0, 0));
 

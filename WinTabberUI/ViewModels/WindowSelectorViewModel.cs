@@ -163,13 +163,32 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
 
     private void SelectPrevious()
     {
+        RefreshOnActivation();
+
         if (WindowItems.Length == 0) return;
         var index = SelectedIndex - 1;
         SelectedIndex = index < 0 ? WindowItems.Length - 1 : index;
     }
 
+    /// <summary>
+    /// A negative <see cref="SelectedIndex" /> means no switcher session is in progress, so this
+    /// command is opening one. That is the moment the tile list has to be correct -- both because it
+    /// is about to be shown, and because the index the caller is about to compute is only meaningful
+    /// against the right list. A repeat press mid-session must not refresh: the list is meant to hold
+    /// still while the user cycles through it.
+    /// </summary>
+    private void RefreshOnActivation()
+    {
+        if (SelectedIndex < 0)
+        {
+            RefreshFromForeground();
+        }
+    }
+
     private void SelectNext()
     {
+        RefreshOnActivation();
+
         if (WindowItems.Length == 0) return;
 
         // WindowItems is ordered most-recently-focused first, so index 0 is the window that
@@ -206,11 +225,102 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
 
     public void Update(IEnumerable<WindowRef> windows)
     {
+        var incoming = windows as WindowRef[] ?? windows.ToArray();
+
+        // A notification describing the tiles we are already showing carries no information.
+        // Rebuilding for it would throw away every WindowItem and construct a replacement set, which
+        // clears the selection and makes the ListView regenerate every container -- re-registering
+        // each tile's DWM thumbnail -- to arrive back where it started. This is now the common case:
+        // RefreshFromForeground() rebuilds as the switcher opens, and the notification it raced
+        // arrives a moment later saying the same thing.
+        if (IsSameAsCurrent(incoming))
+        {
+            return;
+        }
+
         SelectedIndex = -1;
-        WindowItems = windows
+        WindowItems = incoming
             .Select(w => new WindowItem(w, IsEditing.Select(x => !x), _suspensionService, _thumbnailService, _settings))
             .ToArray()
             ?? Array.Empty<WindowItem>();
+    }
+
+    /// <summary>
+    /// Whether <paramref name="windows" /> describes exactly the tiles currently on display.
+    /// <para>
+    /// Compares titles as well as handles and order, so this stays a pure redundancy check: a
+    /// <see cref="WindowItem" /> captures its title at construction, so a window that has been
+    /// renamed since must still force a rebuild even though the handles line up.
+    /// </para>
+    /// </summary>
+    private bool IsSameAsCurrent(WindowRef[] windows)
+    {
+        if (windows.Length != _windowItems.Length)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < windows.Length; i++)
+        {
+            if (windows[i].Handle != _windowItems[i].Handle || windows[i].Title != _windowItems[i].Title)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
+
+    /// <summary>
+    /// Rebuild <see cref="WindowItems" /> from the live foreground window, synchronously, as a
+    /// switcher session opens. Leaves the selection alone -- the caller owns that.
+    /// <para>
+    /// Tile order comes from <see cref="WindowManager" />'s activation history, and that history only
+    /// advances when a foreground-change notification is *delivered*. Delivery is marshalled twice --
+    /// the WinEvent hook raises on its own scheduler thread, <c>ActiveWindowStateService</c> posts to
+    /// the dispatcher, and this view model posts again -- while the hotkey that opens the switcher
+    /// reaches the same dispatcher by a shorter path. Open the switcher immediately after switching
+    /// windows and the hotkey wins that race: the tiles paint in the *previous* order, and the queued
+    /// rebuild lands a few tens of ms later and visibly reorders them in front of the user. (The
+    /// thumbnails look unaffected only because the discarded pass's DWM thumbnails never became
+    /// visible.) The stale list also corrupts the selection, since the index the caller computes is
+    /// taken modulo a length that may not even be right.
+    /// </para>
+    /// <para>
+    /// Reading the foreground directly here removes the race rather than narrowing it: what the
+    /// switcher shows becomes a function of the state at the moment it opens, not of whichever
+    /// notification happened to have been delivered by then.
+    /// </para>
+    /// </summary>
+    private void RefreshFromForeground()
+    {
+        if (WindowManager.CurrentWindow() is not { } window)
+        {
+            // Nothing resolvable in the foreground. Leave the tiles in place rather than blanking
+            // them, for the reason spelled out in Deactivate()'s remarks.
+            return;
+        }
+
+        // Our own switcher window can still hold the foreground across a close/open pair. Rebuilding
+        // from it would ask ApplicationRef for this process's own windows, which it deliberately
+        // excludes, and empty the switcher.
+        if (!window.Process.Application.IsValidProcess)
+        {
+            return;
+        }
+
+        // The history is advanced from the hook thread on delivery -- which is precisely what may not
+        // have happened yet. Record what is actually in front right now so the ordering below
+        // reflects it.
+        WindowManager.RegisterForegroundWindowChanged(window.Handle);
+
+        var windows = window.Process.Application.GetWindows();
+        if (windows.Length == 0)
+        {
+            return;
+        }
+
+        Update(windows);
     }
 
     /// <summary>

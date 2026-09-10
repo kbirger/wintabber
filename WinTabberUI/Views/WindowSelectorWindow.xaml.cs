@@ -110,6 +110,7 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
     {
         if (bool.Equals(e.NewValue, false))
         {
+            DisarmReveal();
             UpdateLayout();
 
         }
@@ -127,6 +128,62 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
 
     private void MainWindow_LayoutUpdated(object? sender, EventArgs e)
     {
+        CenterWindow();
+    }
+
+    /// <summary>True while this open is still parked off-screen waiting to be composed.</summary>
+    private bool _parked;
+
+    /// <summary>
+    /// Frames still to be composed before revealing. Two rather than one because
+    /// <see cref="System.Windows.Media.CompositionTarget.Rendering" /> is raised while a frame is
+    /// still being built, not after it has been presented -- so it takes two to know that a frame
+    /// carrying this open's content actually went out.
+    /// </summary>
+    private int _framesBeforeReveal;
+
+    private void ArmReveal()
+    {
+        _parked = true;
+        _framesBeforeReveal = 2;
+        System.Windows.Media.CompositionTarget.Rendering -= RevealWhenComposed;
+        System.Windows.Media.CompositionTarget.Rendering += RevealWhenComposed;
+
+        // Rendering only fires while WPF is actually composing, and is not guaranteed to fire at all
+        // -- measured: no Rendering event during a 68ms open. Gating solely on it can strand the
+        // window off-screen, i.e. the switcher silently fails to appear, which is far worse than the
+        // flicker being fixed. Render priority sits just under the layout/render pass but above
+        // input, so it lands after the frame without being starved by the Normal-priority coordinator
+        // events -- an Input-priority post here was starved by the close event on a fast open.
+        Dispatcher.BeginInvoke(System.Windows.Threading.DispatcherPriority.Render, new Action(RevealNow));
+    }
+
+    private void DisarmReveal()
+    {
+        _parked = false;
+        _framesBeforeReveal = 0;
+        System.Windows.Media.CompositionTarget.Rendering -= RevealWhenComposed;
+    }
+
+    private void RevealWhenComposed(object? sender, EventArgs e)
+    {
+        if (--_framesBeforeReveal > 0)
+        {
+            return;
+        }
+
+        RevealNow();
+    }
+
+    /// <summary>Unpark and centre. Safe to call more than once; later calls are no-ops.</summary>
+    private void RevealNow()
+    {
+        if (!_parked)
+        {
+            return;
+        }
+
+        DisarmReveal();
         CenterWindow();
     }
 
@@ -298,6 +355,13 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
     /// </summary>
     private void CenterWindow()
     {
+        if (_parked)
+        {
+            // Still parked: this open has not composed a frame yet. RevealNow() clears the flag and
+            // calls back in here once it has.
+            return;
+        }
+
         var bounds = GetScreenBounds();
 
         Left = bounds.Left + (bounds.Width - ActualWidth) / 2;
@@ -350,11 +414,19 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
         // window stays associated with it and doesn't pick up a neighbour's DPI on the way back.
         Left = bounds.Left;
         Top = bounds.Top - bounds.Height;
+
+        // Hold it there until WPF has actually composed a frame for *this* open. The window is
+        // reused (ReuseInstances), so Show() returns before any frame is composed and its layout is
+        // already valid -- which means LayoutUpdated fires inside Show() and CenterWindow() would
+        // put it on screen at once, presenting the surface left over from the previous open. Those
+        // stale pixels carry the previous tile order, which is what makes the titles appear to
+        // reshuffle a moment after the switcher appears. Only the very first open escaped it, and
+        // only because its cold layout kept Show() busy long enough to compose while still parked.
+        ArmReveal();
         Show();
-        // Show() on a reused window only invalidates measure; force the pass to completion so
-        // CenterWindow reads a settled ActualWidth/ActualHeight rather than the previous open's.
+        // Show() on a reused window only invalidates measure. Force the pass to completion here so
+        // the frame we are waiting on carries this open's tiles; the reveal below does the moving.
         UpdateLayout();
-        CenterWindow();
 
         Focus();
         Activate();
