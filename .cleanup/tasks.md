@@ -11,7 +11,10 @@ Baseline: `dev` @ `af16e91` — `dotnet build WinTabber.slnx` → 0 warnings, 0 
 Verified before tagging: 0 warnings, 98/98 tests in **both** Debug and Release, and a local dry
 run of the workflow's exact self-contained single-file publish command.
 
-**Phase 6 is the only phase still open**, and is being worked on the `testability` branch.
+**Phase 6 is done** (branch `testability`, unpushed), bar one follow-up it uncovered: **T6.6**,
+the missing disposal ownership that makes T6.3's `Dispose` methods unreachable. Phase 6 grew from
+4 tasks to 6 — T6.5 (a latent `NullReferenceException`) and T6.6 were both found while doing the
+others, not by the review.
 
 ⚠️ **Three manual smoke tests still have never been run** — no session has had an interactive
 display or real audio hardware. They shipped in `v0.2.0` unverified, a deliberate call:
@@ -629,12 +632,20 @@ below. This is the active phase, being worked on the `testability` branch.
 | 3 — Interop policy | 6 | Medium | Medium — T3.1 gates the rest | ✅ done |
 | 4 — Mechanical | 6 | Low–Med | Low — T4.1/T4.5 are wide renames | ✅ done |
 | 5 — Design | 6 | Medium–High | Plan separately | ✅ done (grew by T5.5, T5.6) |
-| 6 — Tracked | 4 | Medium | T6.2 needs a design call first | ⬜ open, on `testability` |
+| 6 — Tracked | 6 | Medium | T6.2 was far cheaper than recorded | ✅ 5 of 6; T6.6 open |
 
-**40 tasks, 36 done.** Phases 0–5 shipped in `v0.2.0`. Phase 6 is all that remains here; the
-two tasks the review never anticipated (T5.5's `IAudioDevice` abstraction and T5.6's elevation
-bug) were both discovered mid-execution, which is the usual shape — the review found the
-structural work, the execution found the defects.
+**42 tasks, 41 done** — only T6.6 is open. Phases 0–5 shipped in `v0.2.0`; Phase 6 landed after
+it on `testability`.
+
+Four of the 42 were never in the architecture review: T5.5 (`IAudioDevice`), T5.6 (the elevation
+bug), T6.5 (the hint `NullReferenceException`) and T6.6 (view-model disposal ownership). All four
+were found while executing something else. That is the consistent shape of this cleanup — the
+review found the structural work accurately, and every actual defect surfaced during execution.
+
+Phase 6 also corrected three claims that had been carried in this file as fact: that T6.2 needed
+a design decision (the windows were already container-built), that `HintBehavior` could not be
+tested (it can, and a spike proved it before any code was written), and that
+`MediaControlsViewModel` had adequate disposal (its `DisposeWith` calls were inert).
 
 Not tracked in this file, but open and adjacent:
 [`.todos/window-selector-cleanup.md`](../.todos/window-selector-cleanup.md) items 2–4 (item 1
