@@ -1,5 +1,4 @@
-﻿using CommunityToolkit.Mvvm.DependencyInjection;
-using System.Windows;
+﻿using System.Windows;
 using WinTabberUI.ViewModels;
 
 namespace WinTabberUI.Views
@@ -10,7 +9,7 @@ namespace WinTabberUI.Views
     public partial class SettingsWindow //ReactiveWindow<SettingsViewModel>
     {
 
-        public SettingsWindow()
+        public SettingsWindow(SettingsViewModel viewModel)
         {
             InitializeComponent();
             //this.WhenActivated(dispose =>
@@ -34,7 +33,7 @@ namespace WinTabberUI.Views
             //    ).DisposeWith(dispose);
             //});
 
-            DataContext = Ioc.Default.GetRequiredService<SettingsViewModel>();
+            DataContext = viewModel;
             DataContextChanged += OnDataContextChanged;
         }
 

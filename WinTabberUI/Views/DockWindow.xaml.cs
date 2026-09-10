@@ -1,5 +1,4 @@
-﻿using CommunityToolkit.Mvvm.DependencyInjection;
-using System.ComponentModel;
+﻿using System.ComponentModel;
 using System.Drawing;
 using System.Windows;
 using System.Windows.Forms;
@@ -20,12 +19,12 @@ public partial class DockWindow : Window
     public readonly DockWindowViewModel _viewModel;
     private WindowManager _windowManger;
     private Rectangle? _rect;
-    public DockWindow()
+    public DockWindow(WindowManager windowManager, DockWindowViewModel viewModel)
     {
         InitializeComponent();
         Resources.MergedDictionaries.Add(System.Windows.Application.Current.Resources);
-        _windowManger = Ioc.Default.GetRequiredService<WindowManager>();
-        _viewModel = Ioc.Default.GetRequiredService<DockWindowViewModel>();
+        _windowManger = windowManager;
+        _viewModel = viewModel;
         DataContext = _viewModel;            
         _viewModel.ApplicationName = ApplicationName;
         Top = 0;

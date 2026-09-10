@@ -512,11 +512,31 @@ below. This is the active phase, being worked on the `testability` branch.
       >
       > Verified beyond the build: a compile-clean DI graph can still throw on first resolve, so
       > the app was launched and ran 45s with no unhandled exception.
-- [ ] **T6.2** Restrict `Ioc.Default` to startup; use constructor injection.
+- [x] **T6.2** Restrict `Ioc.Default` to startup; use constructor injection.
       **16 call sites, not 17** — across 8 files: `Bootstrapper.cs` (the one legitimate startup
       use), six `WinTabberUI/Views/*.xaml.cs` (`DockWindow`, `MediaDebugWindow`, `SettingsWindow`,
       `SuspendedWindowsWindow`, `ThumbnailWindow`, `WindowSelectorWindow`) and
       `WinTabber.UI.Media/Views/MediaControlsWindow.xaml.cs`.
+      > **Resolved. 16 call sites → 1**, and the survivor is `Bootstrapper.cs:35`'s
+      > `Ioc ioc = Ioc.Default;` — the composition root, which is the point of the task rather
+      > than an exception to it. Each window's parameterless constructor was **replaced** (not
+      > overloaded — MS.DI's constructor selection is ambiguous with two public constructors) by
+      > one taking what it used to pull from the locator.
+      >
+      > Two `Ioc.Default` calls were not in constructors at all: `MediaDebugWindow` and
+      > `SuspendedWindowsWindow` each resolved `IWindowInterop` inside `OnSourceInitialized`.
+      > Those became injected fields.
+      >
+      > `WindowSelectorWindowFactory` **deleted**. Its entire body was `new WindowSelectorWindow()`
+      > plus one `DataContext` assignment — both of which a constructor parameter does directly,
+      > and it was the only hand-written `new` of a window in the solution. Its two registrations
+      > collapse to `.AddSingleton<WindowSelectorWindow>()`.
+      >
+      > Verification, because none of this is reachable from the test suite: the build catches a
+      > bad *signature* but not a missing *registration*, and the six transient windows resolve
+      > lazily when a coordinator first shows them — so a gap would surface only when a user
+      > opened that particular window. A temporary probe resolving all seven registered windows
+      > at startup was added, run (all seven `RESOLVE-OK`), and reverted.
 - [ ] **T6.3** Move constructor-time Rx subscriptions to `WhenActivated` / `Initialize()`.
       **Scope has shrunk to one class.** `MediaControlsViewModel` is now *fully* covered — all
       three of its subscriptions carry `.DisposeWith(_cleanUp)` (lines 75, 87→112, 132→142), so

@@ -173,8 +173,7 @@ public static class Bootstrapper
             .AddTransient<SuspendedWindowsWindow>()
             .AddTransient<MediaDebugWindow>()
             .AddTransient<ThumbnailWindow>()
-            .AddSingleton<WindowSelectorWindowFactory>()
-            .AddSingleton(sp => sp.GetRequiredService<WindowSelectorWindowFactory>().CreateWindowSelectorWindow());
+            .AddSingleton<WindowSelectorWindow>();
     }
 
 }

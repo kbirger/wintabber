@@ -5,7 +5,6 @@ using System.Windows.Input;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Animation;
-using CommunityToolkit.Mvvm.DependencyInjection;
 using WinTabber.Api.Windowing.Thumbnails;
 using WinTabberUI.Services;
 using WinTabberUI.ViewModels;
@@ -72,12 +71,15 @@ public partial class ThumbnailWindow : Window
     private int _originalWidth;
     private int _originalHeight;
 
-    public ThumbnailWindow()
+    public ThumbnailWindow(
+        IWindowThumbnailService thumbnailService,
+        SettingsViewModel settings,
+        ThumbnailWindowViewModel viewModel)
     {
         InitializeComponent();
-        _thumbnailService = Ioc.Default.GetRequiredService<IWindowThumbnailService>();
-        _settings = Ioc.Default.GetRequiredService<SettingsViewModel>();
-        DataContext = Ioc.Default.GetRequiredService<ThumbnailWindowViewModel>();
+        _thumbnailService = thumbnailService;
+        _settings = settings;
+        DataContext = viewModel;
         Closing += OnClosing;
     }
 

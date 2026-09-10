@@ -1,5 +1,4 @@
-﻿using CommunityToolkit.Mvvm.DependencyInjection;
-using ReactiveUI;
+﻿using ReactiveUI;
 using System.Diagnostics;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
@@ -18,11 +17,13 @@ namespace WinTabber.UI.Media.Views;
 public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IActivatableView
 {
     private IMediaControlsStateService _mediaControlsStateService;
-    public MediaControlsWindow()
+    public MediaControlsWindow(
+        MediaControlsViewModel viewModel,
+        IMediaControlsStateService mediaControlsStateService)
     {
         InitializeComponent();
-        ViewModel = Ioc.Default.GetRequiredService<MediaControlsViewModel>();
-        _mediaControlsStateService = Ioc.Default.GetRequiredService<IMediaControlsStateService>();
+        ViewModel = viewModel;
+        _mediaControlsStateService = mediaControlsStateService;
         DataContext = ViewModel;
         this.WhenActivated((CompositeDisposable disposables) => 
         {

@@ -1,5 +1,4 @@
-﻿using CommunityToolkit.Mvvm.DependencyInjection;
-using DynamicData.Binding;
+﻿using DynamicData.Binding;
 using iNKORE.UI.WPF.DragDrop.Utilities;
 using ReactiveUI;
 using System.Reactive.Linq;
@@ -53,9 +52,13 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
         }
     }
 
-    public WindowSelectorWindow()
+    public WindowSelectorWindow(
+        WinTabberEventManager eventManager,
+        SettingsViewModel settings,
+        WindowSelectorViewModel viewModel)
     {
         InitializeComponent();
+        DataContext = viewModel;
         _dpiScale = VisualTreeHelper.GetDpi(this);
 
         SizeChanged += MainWindow_SizeChanged;
@@ -64,9 +67,8 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
         DpiChanged += OnDpiChanged;
 
 
-        var mgr = Ioc.Default.GetRequiredService<WinTabberEventManager>();
-        _settings = Ioc.Default.GetRequiredService<SettingsViewModel>();
-        _resources.Add(mgr);
+        _settings = settings;
+        _resources.Add(eventManager);
 
         this.WhenActivated((dispose) =>
         {

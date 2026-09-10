@@ -1,4 +1,3 @@
-using CommunityToolkit.Mvvm.DependencyInjection;
 using iNKORE.UI.WPF.DragDrop.Utilities;
 using System.Windows;
 using System.Windows.Forms;
@@ -16,10 +15,13 @@ public partial class SuspendedWindowsWindow : Window
 {
     private const double BottomMargin = 24;
 
-    public SuspendedWindowsWindow()
+    private readonly IWindowInterop _windowInterop;
+
+    public SuspendedWindowsWindow(SuspendedWindowsViewModel viewModel, IWindowInterop windowInterop)
     {
         InitializeComponent();
-        DataContext = Ioc.Default.GetRequiredService<SuspendedWindowsViewModel>();
+        _windowInterop = windowInterop;
+        DataContext = viewModel;
 
         SizeChanged += (_, _) => PositionWindow();
         IsVisibleChanged += (_, e) =>
@@ -39,7 +41,7 @@ public partial class SuspendedWindowsWindow : Window
         // buttons — that keeps focus on WindowSelectorWindow regardless of show ordering between
         // the two coordinators.
         nint handle = new WindowInteropHelper(this).Handle;
-        Ioc.Default.GetRequiredService<IWindowInterop>().MakeWindowNonActivating(handle);
+        _windowInterop.MakeWindowNonActivating(handle);
 
         PositionWindow();
     }

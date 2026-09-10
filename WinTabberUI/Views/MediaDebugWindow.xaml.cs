@@ -1,6 +1,5 @@
 using System.Windows;
 using System.Windows.Interop;
-using CommunityToolkit.Mvvm.DependencyInjection;
 using WinTabber.Interop;
 using WinTabberUI.Services;
 using WinTabberUI.ViewModels;
@@ -13,12 +12,17 @@ namespace WinTabberUI.Views;
 public partial class MediaDebugWindow : Window
 {
     private readonly MediaDebugStateService _debugState;
+    private readonly IWindowInterop _windowInterop;
 
-    public MediaDebugWindow()
+    public MediaDebugWindow(
+        MediaDebugViewModel viewModel,
+        MediaDebugStateService debugState,
+        IWindowInterop windowInterop)
     {
         InitializeComponent();
-        ViewModel = Ioc.Default.GetRequiredService<MediaDebugViewModel>();
-        _debugState = Ioc.Default.GetRequiredService<MediaDebugStateService>();
+        ViewModel = viewModel;
+        _debugState = debugState;
+        _windowInterop = windowInterop;
         DataContext = ViewModel;
     }
 
@@ -32,7 +36,7 @@ public partial class MediaDebugWindow : Window
         // MediaControlsWindow.OnDeactivated run, which deactivates the media controls view model.
         // The mouse wheel still scrolls a non-activating window.
         nint handle = new WindowInteropHelper(this).Handle;
-        Ioc.Default.GetRequiredService<IWindowInterop>().MakeWindowNonActivating(handle);
+        _windowInterop.MakeWindowNonActivating(handle);
     }
 
     protected override void OnClosed(EventArgs e)
