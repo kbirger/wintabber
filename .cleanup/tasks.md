@@ -495,9 +495,7 @@ below. This is the active phase, being worked on the `testability` branch.
       **16 call sites, not 17** — across 8 files: `Bootstrapper.cs` (the one legitimate startup
       use), six `WinTabberUI/Views/*.xaml.cs` (`DockWindow`, `MediaDebugWindow`, `SettingsWindow`,
       `SuspendedWindowsWindow`, `ThumbnailWindow`, `WindowSelectorWindow`) and
-      `WinTabber.UI.Media/Views/MediaControlsWindow.xaml.cs`. Note the shape: outside
-      `Bootstrapper`, every single one is a **WPF window code-behind**, which is what makes this
-      awkward rather than mechanical — see the note below.
+      `WinTabber.UI.Media/Views/MediaControlsWindow.xaml.cs`.
 - [ ] **T6.3** Move constructor-time Rx subscriptions to `WhenActivated` / `Initialize()`.
       **Scope has shrunk to one class.** `MediaControlsViewModel` is now *fully* covered — all
       three of its subscriptions carry `.DisposeWith(_cleanUp)` (lines 75, 87→112, 132→142), so
@@ -510,13 +508,22 @@ below. This is the active phase, being worked on the `testability` branch.
       *Unchanged — still `static`, read/written at lines 106, 117-128 and 313.*
 
 > **Sequencing note (2026-09-10).** T6.1 is a prerequisite for T6.2, not a peer of it: you cannot
-> inject what has no interface. T6.4 is independent of all three and is the cheapest — a single
-> field's lifetime. T6.2 is the one that needs a design conversation before any code moves,
-> because 15 of its 16 call sites are WPF window code-behinds; those are constructed by WPF, not
-> by the container, so "use constructor injection instead" is not a local edit — it implies
-> routing window creation through the container (the `ViewCoordinatorBase`/`ReuseInstances`
-> machinery is already adjacent to this) or accepting a narrow, explicit composition-root seam.
-> Decide that before starting, or T6.2 turns into an open-ended refactor.
+> inject what has no interface. T6.4 is independent of all three.
+>
+> **T6.2 is far cheaper than it looks, and an earlier draft of this note got it wrong.** The
+> draft claimed the 15 view call sites are "constructed by WPF, not by the container", making
+> constructor injection a restructuring job. That is false. Every one of these windows is
+> already registered in the container (`Bootstrapper.cs:165-172`,
+> `AddTransient<DockWindow>()` and friends) and already resolved from it, via
+> `ViewCoordinatorBase.CreateInstance`'s `_serviceProvider.GetRequiredService<T>()`. Verified:
+> `App.xaml` has no `StartupUri`, no XAML constructs these windows (the only XAML mentions are
+> `TargetType` styles and titles), and the sole hand-`new` in the solution is
+> `WindowSelectorWindowFactory.CreateWindowSelectorWindow`.
+>
+> So the windows are container-built already, and each `Ioc.Default.GetRequiredService<X>()` in
+> a constructor can become a constructor parameter that the container fills. **Replace** the
+> parameterless constructor rather than adding an overload — MS.DI's constructor selection is
+> ambiguous with two public constructors, and unambiguous with one.
 
 ---
 
