@@ -29,8 +29,13 @@ jobs:
         with:
           global-json-file: global.json
 
+      # RequiresDesktop tests call Window.Show(), which needs a real presentation source. They
+      # pass locally; whether this runner tolerates them has not been verified, and finding out
+      # by breaking a release is the wrong trade. Drop the filter to let them run in CI.
       - name: Test
-        run: dotnet test --solution WinTabber.slnx -c Release
+        run: >
+          dotnet test --solution WinTabber.slnx -c Release
+          -- --treenode-filter "/*/*/*/*[Category!=RequiresDesktop]"
 
       - name: Publish
         run: >

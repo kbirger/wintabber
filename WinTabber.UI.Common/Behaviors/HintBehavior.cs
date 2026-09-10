@@ -103,29 +103,20 @@ namespace WinTabber.UI.Common.Behaviors
 
             var newElement = (d is HintBehavior b) ? b.AssociatedObject : null;
             var shown = true.Equals(e.NewValue) && newElement is not null;
-            var activeRoot = (_activeRootRef is not null && _activeRootRef.TryGetTarget(out var x)) ? x : null;
-
+            var activeRoot = ActivationScope.ActiveRoot;
 
             if (shown)
             {
-
                 if (activeRoot is not null)
                 {
                     HideHints(activeRoot);
                 }
 
-                if (_activeRootRef is not null)
-                {
-                    _activeRootRef.SetTarget(newElement!);
-                }
-                else
-                {
-                    _activeRootRef = new(newElement!);
-                }
+                ActivationScope.ActiveRoot = newElement;
             }
             else
             {
-                _activeRootRef = null;
+                ActivationScope.ActiveRoot = null;
             }
         }
 
@@ -140,7 +131,16 @@ namespace WinTabber.UI.Common.Behaviors
                 return;
             }
 
+            // Window.GetWindow returns null for an element not yet rooted in a Window. That
+            // happens whenever HintText is set before the element joins a window's tree, and
+            // GetHintBehavior would dereference the null inside Interaction.GetBehaviors. There
+            // is no behavior to register with until the element has a window, so bail out.
             var window = Window.GetWindow(d);
+            if (window is null)
+            {
+                return;
+            }
+
             var behavior = HintBehavior.GetHintBehavior(window);
             if (behavior is not null)
             {
@@ -158,7 +158,12 @@ namespace WinTabber.UI.Common.Behaviors
             }
         }
 
-        private static WeakReference<FrameworkElement>? _activeRootRef;
+        /// <summary>
+        /// Which root element currently owns the hint overlay. One arbiter, app-wide — see
+        /// <see cref="HintActivationScope"/> for why this is a replaceable object rather than the
+        /// bare static field it used to be.
+        /// </summary>
+        internal static HintActivationScope ActivationScope { get; set; } = new();
 
         private Dictionary<string, HintItem> _hints = new Dictionary<string, HintItem>();
 
@@ -309,9 +314,8 @@ namespace WinTabber.UI.Common.Behaviors
 
             if (e.Key == Key.LeftAlt || e.SystemKey == Key.LeftAlt)
             {
-                FrameworkElement? current = null;
-                var hasActive = _activeRootRef?.TryGetTarget(out current) ?? false;
-                if(hasActive && elem != current)
+                var current = ActivationScope.ActiveRoot;
+                if (current is not null && elem != current)
                 {
                     return;
                 }

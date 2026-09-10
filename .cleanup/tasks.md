@@ -503,9 +503,31 @@ below. This is the active phase, being worked on the `testability` branch.
       `AudioDeviceSelectorViewModel`, which has no `CompositeDisposable` at all and subscribes
       three times in its constructor — **lines 18, 22 and 61**, not the 57/61/100 recorded
       earlier (T5.5 rewrote this file).
-- [ ] **T6.4** Fix `static WeakReference<FrameworkElement>? _activeRootRef` at
+- [x] **T6.4** Fix `static WeakReference<FrameworkElement>? _activeRootRef` at
       `WinTabber.UI.Common/Behaviors/HintBehavior.cs:161` — shared across test runs.
-      *Unchanged — still `static`, read/written at lines 106, 117-128 and 313.*
+      > **Resolved.** The premise this task was nearly closed on — "nothing tests `HintBehavior`
+      > and nothing can" — was **false**, and a spike disproved it before any code was written.
+      > `HintBehavior` touches no `Application.Current`, no `Dispatcher`, no `PresentationSource`
+      > and no HWND; TUnit supplies the STA thread it does need via `[STAThreadExecutor]`. So the
+      > static was a live test-isolation hazard, not a theoretical one: a root activated by one
+      > test stays recorded for the whole process, and `OnTriggerKeyDown`'s
+      > `if (hasActive && elem != current) return;` then silently refuses to show hints for the
+      > next test's root — a pass-or-fail-by-order bug.
+      >
+      > Extracted `HintActivationScope` (`WinTabber.UI.Common/Behaviors/`), pointed at by
+      > `HintBehavior.ActivationScope`. The sharing is kept, because one app-wide arbiter is the
+      > correct runtime model; what changed is the *lifetime* — an object a test can replace
+      > instead of a process-lifetime field. Reference to the root stays weak, as before.
+      > Behaviour is preserved exactly, including the collected-target case (a dead weak target
+      > read as "no active root" before, and still does).
+- [x] **T6.5** *(new — found by T6.4's spike, 2026-09-10)* `HintBehavior.OnHintTextChanged`
+      threw `NullReferenceException` when `HintText` was set on an element with no `Window`
+      ancestor: `Window.GetWindow(d)` returns null there and the null went straight into
+      `Interaction.GetBehaviors`, one step ahead of the `if (behavior is not null)` guard.
+      Latent rather than live — XAML sets these on trees already rooted at the window — but it is
+      a one-line guard and it made the first natural regression test for the file.
+      > **Resolved.** Bail out when there is no window ancestor; there is no behavior to register
+      > with until the element has one.
 
 > **Sequencing note (2026-09-10).** T6.1 is a prerequisite for T6.2, not a peer of it: you cannot
 > inject what has no interface. T6.4 is independent of all three.

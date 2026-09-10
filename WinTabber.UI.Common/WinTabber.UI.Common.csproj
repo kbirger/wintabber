@@ -29,4 +29,8 @@
       <ProjectReference Include="..\WinTabber.Events\WinTabber.Events.csproj" />
       <ProjectReference Include="..\WinTabber.Interop\WinTabber.Interop.csproj" />
     </ItemGroup>
+  <ItemGroup>
+    <InternalsVisibleTo Include="WinTabber.UI.Common.Tests" />
+  </ItemGroup>
+
 </Project>
