@@ -1,5 +1,7 @@
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.Reactive.Disposables;
+using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using DynamicData;
 using NAudio.CoreAudioApi;
@@ -9,20 +11,23 @@ using WinTabber.Api.Media.CoreAudio.Services;
 
 namespace WinTabber.UI.Media.ViewModels
 {
-    public partial class AudioDeviceSelectorViewModel : ReactiveObject
+    public partial class AudioDeviceSelectorViewModel : ReactiveObject, IDisposable
     {
         public AudioDeviceSelectorViewModel(IAudioDeviceService deviceService, DataFlow flow)
         {
             _deviceService = deviceService;
             var devices = deviceService.Devices.Connect().Filter(device => device.DataFlow == flow);
-            devices.ObserveOn(RxApp.MainThreadScheduler).Bind(out _devices).Subscribe();
+            devices.ObserveOn(RxApp.MainThreadScheduler).Bind(out _devices).Subscribe().DisposeWith(_cleanUp);
 
             deviceService
                 .GetDefaultDevice(flow)
                 .Subscribe(defaultDevice =>
                 {
                     SelectedDevice = defaultDevice;
-                });
+                })
+                .DisposeWith(_cleanUp);
+
+            _pendingEndpointChange.DisposeWith(_cleanUp);
             //_dataFlow = dataFlow;
             //_activateFunction = activateFunction;
             //var deviceItems = devicesObservable
@@ -55,8 +60,13 @@ namespace WinTabber.UI.Media.ViewModels
                     _selectedDevice = value;
                     if (_selectedDevice is not null)
                     {
+                        // A SerialDisposable, not _cleanUp: this fires once per selection change,
+                        // so adding each subscription to the composite would grow it without
+                        // bound for the life of the view model. Assigning here also disposes the
+                        // previous one, which is the behaviour we want anyway — a newer endpoint
+                        // change supersedes one still in flight.
                         // todo: catch errors
-                        _deviceService
+                        _pendingEndpointChange.Disposable = _deviceService
                             .SetDefaultAudioEndpoint(_selectedDevice.DeviceId)
                             .Subscribe(
                                 (_) => { },
@@ -72,5 +82,12 @@ namespace WinTabber.UI.Media.ViewModels
         }
         private DeviceDto? _selectedDevice;
         private readonly IAudioDeviceService _deviceService;
+        private readonly CompositeDisposable _cleanUp = new();
+        private readonly SerialDisposable _pendingEndpointChange = new();
+
+        public void Dispose()
+        {
+            _cleanUp.Dispose();
+        }
     }
 }

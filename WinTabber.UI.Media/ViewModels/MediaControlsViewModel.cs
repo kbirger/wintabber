@@ -13,7 +13,7 @@ using WinTabber.UI.Media.ViewModels.Factories;
 
 namespace WinTabber.UI.Media.ViewModels;
 
-public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
+public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDisposable
 {
     private ReadOnlyObservableCollection<SessionListItem> _sessions =
         new ReadOnlyObservableCollection<SessionListItem>([]);
@@ -145,6 +145,30 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel
             _recording = deviceSelectorViewModelFactory.Create(DataFlow.Capture);
             // END
         }
+    }
+
+    /// <summary>
+    /// Disposes the subscriptions collected in <c>_cleanUp</c> and the two device selectors this
+    /// view model constructs.
+    /// </summary>
+    /// <remarks>
+    /// Before this existed, every <c>.DisposeWith(_cleanUp)</c> in the constructor was inert:
+    /// the composite had no owner, so nothing it collected was ever disposed. The selectors were
+    /// in the same position — created here, referenced nowhere else, never released.
+    ///
+    /// Note this only fixes the ownership *chain*. Nothing currently disposes this view model
+    /// either: it is a DI singleton, and <c>App.OnExit</c> disposes only
+    /// <c>BackgroundServiceContainer</c>, never the <c>ServiceProvider</c>. Disposing the
+    /// provider at shutdown, and restoring the commented-out <c>WhenActivated</c> above so these
+    /// subscriptions are scoped to activation rather than construction, are the two changes that
+    /// would make this method actually run — both are behaviour changes and neither is in scope
+    /// for T6.3.
+    /// </remarks>
+    public void Dispose()
+    {
+        _cleanUp.Dispose();
+        _playback?.Dispose();
+        _recording?.Dispose();
     }
 
     private void MediaControlsViewModel_PropertyChanged(

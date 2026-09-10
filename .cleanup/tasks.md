@@ -537,13 +537,42 @@ below. This is the active phase, being worked on the `testability` branch.
       > lazily when a coordinator first shows them — so a gap would surface only when a user
       > opened that particular window. A temporary probe resolving all seven registered windows
       > at startup was added, run (all seven `RESOLVE-OK`), and reverted.
-- [ ] **T6.3** Move constructor-time Rx subscriptions to `WhenActivated` / `Initialize()`.
-      **Scope has shrunk to one class.** `MediaControlsViewModel` is now *fully* covered — all
-      three of its subscriptions carry `.DisposeWith(_cleanUp)` (lines 75, 87→112, 132→142), so
-      the "partially adopted" note no longer applies. The remaining gap is
-      `AudioDeviceSelectorViewModel`, which has no `CompositeDisposable` at all and subscribes
-      three times in its constructor — **lines 18, 22 and 61**, not the 57/61/100 recorded
-      earlier (T5.5 rewrote this file).
+- [x] **T6.3** Move constructor-time Rx subscriptions to `WhenActivated` / `Initialize()`.
+      > **Resolved for the disposal half; the `WhenActivated` half is deliberately left open —
+      > see below.** Two corrections to the description this task carried:
+      >
+      > **`MediaControlsViewModel` was never "partially adopted".** An earlier pass counted its
+      > `.DisposeWith(_cleanUp)` calls, found four against three subscriptions, and recorded it as
+      > covered. That counted the wrong thing. Its `this.WhenActivated(` is **commented out**
+      > (`MediaControlsViewModel.cs:66`), leaving a bare block, and nothing disposed `_cleanUp` —
+      > the class had no `Dispose` and did not implement `IDisposable`. Every `.DisposeWith` there
+      > was inert: disposables collected into a bag with no owner, which reads as handled and is
+      > not.
+      >
+      > **The worst leak was not in the constructor at all.** `AudioDeviceSelectorViewModel`'s
+      > third subscription is in the `SelectedDevice` **setter**, so it fired once per selection
+      > change with nothing disposing any of them. A `CompositeDisposable` would have been the
+      > wrong fix — it would grow one entry per change. It now uses a `SerialDisposable`, so each
+      > assignment disposes the previous subscription, which is also the right semantics: a newer
+      > endpoint change supersedes one still in flight. The two genuine constructor subscriptions
+      > go to `_cleanUp`.
+      >
+      > Ownership chain: `AudioDeviceSelectorViewModel` and `MediaControlsViewModel` both
+      > implement `IDisposable`, and `MediaControlsViewModel` disposes the two selectors it
+      > constructs.
+      >
+      > Covered by `WinTabber.UI.Media.Tests` — a project that could not have existed before T6.1,
+      > since the view model's only possible dependency was the COM-reaching concrete service.
+      > The two leak tests were confirmed to go **red** against the unfixed code before being kept.
+- [ ] **T6.6** *(new — found while doing T6.3, 2026-09-10)* Nothing disposes the view models, so
+      T6.3's `Dispose` methods never actually run. `MediaControlsViewModel` is a DI singleton and
+      `App.OnExit` disposes only `BackgroundServiceContainer`, never the `ServiceProvider`. Two
+      changes would close this, both real behaviour changes and neither in T6.3's scope:
+      dispose the provider at shutdown, and restore `MediaControlsViewModel`'s commented-out
+      `WhenActivated` so its subscriptions are scoped to activation rather than construction.
+      The second is the other half of T6.3's original title. Disposing the provider means
+      disposing every singleton — COM audio objects, input hooks — at exit, so it wants its own
+      smoke test.
 - [x] **T6.4** Fix `static WeakReference<FrameworkElement>? _activeRootRef` at
       `WinTabber.UI.Common/Behaviors/HintBehavior.cs:161` — shared across test runs.
       > **Resolved.** The premise this task was nearly closed on — "nothing tests `HintBehavior`
