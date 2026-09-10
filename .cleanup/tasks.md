@@ -3,6 +3,28 @@
 Derived from [`architecture-review.md`](./architecture-review.md).
 Baseline: `dev` @ `af16e91` — `dotnet build WinTabber.slnx` → 0 warnings, 0 errors.
 
+## Status — 2026-09-10
+
+**Phases 0-5 are done, merged and released.** The `cleanup` branch was fast-forwarded onto
+`master` at `c80fb55` (55 commits, no divergence — `master`'s history stays linear) and tagged
+**`v0.2.0`**, which triggers `.github/workflows/release.yml` and publishes a GitHub Release.
+Verified before tagging: 0 warnings, 98/98 tests in **both** Debug and Release, and a local dry
+run of the workflow's exact self-contained single-file publish command.
+
+**Phase 6 is the only phase still open**, and is being worked on the `testability` branch.
+
+⚠️ **Three manual smoke tests still have never been run** — no session has had an interactive
+display or real audio hardware. They shipped in `v0.2.0` unverified, a deliberate call:
+1. **Window blur/chrome** — `SetWindowCompositionAttribute` moved to
+   `WinTabber.Interop/ChromeInterop.cs` in Phase 5A. Confirm blur-behind chrome still renders.
+2. **Media/debug window show ordering** — with the tray toggle on, confirm the debug window still
+   appears correctly alongside the media controls window regardless of coordinator `.Init()` order.
+3. **Default audio device switching + volume/mute** — `CoreAudioDeviceRepository
+   .CreateDefaultDeviceChange` now eagerly builds a full `CoreAudioDevice` (two
+   `AudioEndpointVolume` COM activations) where it once touched only `MMDevice.ID`. See that
+   method's comment and the "Known deviation" section of
+   [`2026-09-05-audio-device-abstraction-design.md`](../docs/superpowers/specs/2026-09-05-audio-device-abstraction-design.md).
+
 **Rule for every phase:** finish with a clean build *and* a green test run.
 
 ```bash
@@ -185,9 +207,9 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       - [x] `WinTabber.UI.Common/Chrome/Interop.cs:7` (`user32`, `SetWindowCompositionAttribute`) —
             **compliant under (b)**, no change needed. It affects our own window's rendering, and
             it is undocumented so CsWin32 has no metadata for it; hand-written is the only option.
-      - [ ] `WinTabber.Infrastructure/AppCache.cs:129` (`gdi32`, `DeleteObject`) ⟵ *path corrected;
+      - [x] `WinTabber.Infrastructure/AppCache.cs:129` (`gdi32`, `DeleteObject`) ⟵ *path corrected;
             the file moved out of `WinTabberUI/Infrastructure/` in Phase 2.*
-      - [ ] `WinTabber.Api.Media/ShellApplications/Repositories/InstalledApplicationRepository.cs:168`
+      - [x] `WinTabber.Api.Media/ShellApplications/Repositories/InstalledApplicationRepository.cs:168`
             (`gdi32`, `DeleteObject`)
       The last two are a **verbatim duplicate** — identical
       `private static extern bool DeleteObject(IntPtr hObject)`, both freeing a GDI bitmap handle
@@ -197,6 +219,16 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
       *(For the record, the hand-written `DllImport`s already inside `WinTabber.Interop` —
       `NtNativeMethods.cs`, `PInvoke.cs`'s `DwmpActivateLivePreview`, `UacHelper.cs` — are fine
       under either policy and were never in scope.)*
+      > **Resolved in Phase 5A** (`78aeaad`, "delete dead `DeleteObject`/`Bitmap2BitmapImage`,
+      > migrate the live copy to CsWin32") — checkboxes were left stale until the post-merge
+      > bookkeeping pass on 2026-09-10. No shared helper was needed, because the premise that
+      > these were two live duplicates turned out to be wrong: the
+      > `InstalledApplicationRepository` copy was **dead** and was deleted outright (along with
+      > `Bitmap2BitmapImage`), leaving one live call site. That one, in `AppCache.cs`, was
+      > migrated from the hand-written `DllImport` to CsWin32 — `Windows.Win32.PInvoke
+      > .DeleteObject(new HGDIOBJ(hBitmap))` at `AppCache.cs:145`, with `DeleteObject` added to
+      > `WinTabber.Infrastructure/NativeMethods.txt`. `DeleteObject` now appears in exactly those
+      > two places in the whole solution.
 - [x] **T3.5** `CLAUDE.md`'s **Windows Interop** section rewritten to state the T3.1 rule, name
       which project owns which surface, legitimise hand-written `DllImport`s where CsWin32 has no
       metadata, and warn against adding `NativeMethods.txt` entries with no call site (CsWin32
@@ -450,32 +482,61 @@ Run **after** T1.3, which already removes 8 of the 11 stray `DllImport`s.
 
 ## Phase 6 — Already tracked in `docs/testability-future-work.md`
 
-All four verified still open at `af16e91`. Listed here for completeness — the canonical
-description lives in that doc.
+The canonical description lives in that doc. All four were originally verified open at `af16e91`;
+**re-verified against `c80fb55` on 2026-09-10**, since Phases 2-5 moved a lot of this code. All
+four are still genuinely open, but three of the four descriptions had drifted and are corrected
+below. This is the active phase, being worked on the `testability` branch.
 
 - [ ] **T6.1** Add interfaces for the 5 concrete media-service registrations in `Bootstrapper.cs`
       (`CoreAudioDeviceRepository`, `AudioSessionService`, `AudioDeviceService`,
       `MediaSessionService`, `InstalledApplicationRepository`).
-- [ ] **T6.2** Restrict `Ioc.Default` to startup; use constructor injection. **17 call sites**
-      across `WinTabberUI` and `WinTabber.UI.Media`.
+      *Unchanged — all five are still registered as concrete types, `Bootstrapper.cs:99-109`.*
+- [ ] **T6.2** Restrict `Ioc.Default` to startup; use constructor injection.
+      **16 call sites, not 17** — across 8 files: `Bootstrapper.cs` (the one legitimate startup
+      use), six `WinTabberUI/Views/*.xaml.cs` (`DockWindow`, `MediaDebugWindow`, `SettingsWindow`,
+      `SuspendedWindowsWindow`, `ThumbnailWindow`, `WindowSelectorWindow`) and
+      `WinTabber.UI.Media/Views/MediaControlsWindow.xaml.cs`. Note the shape: outside
+      `Bootstrapper`, every single one is a **WPF window code-behind**, which is what makes this
+      awkward rather than mechanical — see the note below.
 - [ ] **T6.3** Move constructor-time Rx subscriptions to `WhenActivated` / `Initialize()`.
-      `AudioDeviceSelectorViewModel` lines 57/61/100 still subscribe in the constructor with no
-      `CompositeDisposable`; `MediaControlsViewModel` has partially adopted `.DisposeWith(_cleanUp)`.
+      **Scope has shrunk to one class.** `MediaControlsViewModel` is now *fully* covered — all
+      three of its subscriptions carry `.DisposeWith(_cleanUp)` (lines 75, 87→112, 132→142), so
+      the "partially adopted" note no longer applies. The remaining gap is
+      `AudioDeviceSelectorViewModel`, which has no `CompositeDisposable` at all and subscribes
+      three times in its constructor — **lines 18, 22 and 61**, not the 57/61/100 recorded
+      earlier (T5.5 rewrote this file).
 - [ ] **T6.4** Fix `static WeakReference<FrameworkElement>? _activeRootRef` at
       `WinTabber.UI.Common/Behaviors/HintBehavior.cs:161` — shared across test runs.
+      *Unchanged — still `static`, read/written at lines 106, 117-128 and 313.*
+
+> **Sequencing note (2026-09-10).** T6.1 is a prerequisite for T6.2, not a peer of it: you cannot
+> inject what has no interface. T6.4 is independent of all three and is the cheapest — a single
+> field's lifetime. T6.2 is the one that needs a design conversation before any code moves,
+> because 15 of its 16 call sites are WPF window code-behinds; those are constructed by WPF, not
+> by the container, so "use constructor injection instead" is not a local edit — it implies
+> routing window creation through the container (the `ViewCoordinatorBase`/`ReuseInstances`
+> machinery is already adjacent to this) or accepting a narrow, explicit composition-root seam.
+> Decide that before starting, or T6.2 turns into an open-ended refactor.
 
 ---
 
 ## Summary
 
-| Phase | Tasks | Effort | Risk |
-|---|---:|---|---|
-| 0 — Prep | 3 | Trivial | None |
-| 1 — Deletion | 8 | Low | Low — T1.8 needs judgement |
-| 2 — Extract Infrastructure | 7 | Medium | Medium — T2.4 is the trap |
-| 3 — Interop policy | 6 | Medium | Medium — T3.1 gates the rest |
-| 4 — Mechanical | 6 | Low–Med | Low — T4.1/T4.5 are wide renames |
-| 5 — Design | 4 | Medium–High | Plan separately |
-| 6 — Tracked | 4 | Medium | Already scoped in `docs/` |
+| Phase | Tasks | Effort | Risk | Status |
+|---|---:|---|---|---|
+| 0 — Prep | 3 | Trivial | None | ✅ done |
+| 1 — Deletion | 8 | Low | Low — T1.8 needs judgement | ✅ done |
+| 2 — Extract Infrastructure | 7 | Medium | Medium — T2.4 is the trap | ✅ done |
+| 3 — Interop policy | 6 | Medium | Medium — T3.1 gates the rest | ✅ done |
+| 4 — Mechanical | 6 | Low–Med | Low — T4.1/T4.5 are wide renames | ✅ done |
+| 5 — Design | 6 | Medium–High | Plan separately | ✅ done (grew by T5.5, T5.6) |
+| 6 — Tracked | 4 | Medium | T6.2 needs a design call first | ⬜ open, on `testability` |
 
-**Total: 38 tasks.** Phases 1–2 deliver most of the value; 5–6 are genuine design work.
+**40 tasks, 36 done.** Phases 0–5 shipped in `v0.2.0`. Phase 6 is all that remains here; the
+two tasks the review never anticipated (T5.5's `IAudioDevice` abstraction and T5.6's elevation
+bug) were both discovered mid-execution, which is the usual shape — the review found the
+structural work, the execution found the defects.
+
+Not tracked in this file, but open and adjacent:
+[`.todos/window-selector-cleanup.md`](../.todos/window-selector-cleanup.md) items 2–4 (item 1
+was fixed in `c80fb55`) and [`docs/testability-future-work.md`](../docs/testability-future-work.md).

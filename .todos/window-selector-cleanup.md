@@ -4,7 +4,18 @@ Four findings from the `/simplify` review of the selection-jump fix (2026-08-27,
 `audio`). All were deliberately skipped as out of scope for that change; each is
 independently actionable.
 
-## 1. `SpatialNavigationListView._tileGrid` is never invalidated
+## 1. ~~`SpatialNavigationListView._tileGrid` is never invalidated~~ — FIXED in `c80fb55`
+
+> **Resolved 2026-09-10.** Note the trap this section fell into: `f0f9c98`'s commit message
+> *claimed* to have done exactly this ("reset `_tileGrid` in `SpatialNavigationListView` on
+> `IsVisibleChanged` and on items change") but its diff never did — it only added
+> `SuppressHoverUntilPointerMoves` and `OnPreviewMouseMove`. `c80fb55` actually invalidates on
+> both `IsVisibleChanged` and `OnItemsChanged`, and replaces `InitializeTileGrid` with
+> `TryInitializeTileGrid`, which bails out rather than caching a half-built grid when an arrow
+> press arrives before the regenerated containers exist. The window's three dead
+> `_tileGrid = null` assignments described below were removed with it.
+>
+> Original description follows.
 
 `WinTabberUI/SpatialNavigationListView.cs` — `InitializeTileGrid()` builds `_tileGrid` on the
 first arrow-key press and the field is never reset, so spatial navigation on every open after
