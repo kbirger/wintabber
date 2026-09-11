@@ -18,5 +18,13 @@ public interface IInstalledApplicationRepository : IDisposable
 
     IObservableCache<InstalledApplicationInfo, string> ApplicationsByPath { get; }
 
+    /// <summary>
+    /// Emits an exception each time shell acquisition fails. <see cref="ApplicationsByAumid"/> and
+    /// <see cref="ApplicationsByPath"/> never surface this themselves — DynamicData's
+    /// <c>Or()</c> combinator they're built on silently drops an upstream <c>OnError</c> — so this
+    /// is the only signal a failure reaches a consumer through.
+    /// </summary>
+    IObservable<Exception> AcquisitionErrors { get; }
+
     void Refresh();
 }

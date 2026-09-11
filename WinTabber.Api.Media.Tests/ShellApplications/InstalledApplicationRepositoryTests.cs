@@ -6,45 +6,38 @@ namespace WinTabber.Api.Media.Tests.ShellApplications;
 
 public class InstalledApplicationRepositoryTests
 {
-    // The original design for this test subscribed to `ApplicationsByAumid.Connect()` and expected
-    // the fake source's thrown exception to surface as `OnError` on that subscription. It does not:
-    // empirically (see task-2-report.md), DynamicData's `Or()` combinator — used to combine
-    // `primaryAumidCache` with `partialAumidCache` in the repository's constructor — silently
-    // swallows an error raised by an asynchronously-scheduled source (this repository's acquisition
-    // runs on `TaskPoolScheduler`) when that source has more than one subscriber, which is the case
-    // here (`primaryAumidCache` is subscribed via both `Or()` directly and via the
-    // `partialAumidCache` derived from it). A reduced repro without a single production line changed
-    // (`Or()` over a `TaskPoolScheduler`-scheduled `Observable.Start` source with two subscribers)
-    // reproduces the same silent hang; the same repro without `Or()` propagates `OnError` correctly
-    // and instantly. This is a pre-existing characteristic of the repository's reactive composition,
-    // unrelated to the `IShellApplicationSource` seam this test exercises, and out of scope to fix
-    // here — so this test proves the seam works (the injected source is actually invoked, and its
-    // failure keeps bad data out of the cache) rather than asserting on `OnError` propagation that
-    // the production pipeline does not deliver.
+    // A prior version of this test subscribed to `ApplicationsByAumid.Connect()` and expected the
+    // fake source's thrown exception to surface as `OnError` there. It never did: DynamicData's
+    // `Or()` combinator — used to build `ApplicationsByAumid`/`ApplicationsByPath` — silently drops
+    // an upstream `OnError`, confirmed with a reduced repro independent of this class's own
+    // composition (not an artifact of subscribing to the same cold source multiple times; sharing
+    // one execution via `Publish().RefCount()` did not change the outcome). The repository now
+    // catches acquisition failures itself, before they reach `Or()`, and reports them on
+    // `AcquisitionErrors` instead — this test asserts that signal, plus that the caches stay empty
+    // and never themselves error.
     [Test]
-    public async Task ApplicationsByAumid_StaysEmpty_WhenAppsFolderAcquisitionFails()
+    public async Task AcquisitionErrors_Emits_WhenAppsFolderAcquisitionFails()
     {
-        var invoked = new TaskCompletionSource();
         var source = new FakeShellApplicationSource(() =>
-        {
-            invoked.TrySetResult();
-            throw new InvalidOperationException("Shell unavailable");
-        });
+            throw new InvalidOperationException("Shell unavailable")
+        );
         using var repository = new InstalledApplicationRepository(source);
 
+        var errorTcs = new TaskCompletionSource<Exception>();
+        using var errorSubscription = repository.AcquisitionErrors.Subscribe(ex =>
+            errorTcs.TrySetResult(ex)
+        );
+
         var receivedCount = 0;
+        var cacheErrored = false;
         using var subscription = repository.ApplicationsByAumid.Connect()
-            .Subscribe(changes => receivedCount += changes.Count);
+            .Subscribe(changes => receivedCount += changes.Count, _ => cacheErrored = true);
 
-        // Proves the repository actually reaches through the injected seam (not the real Windows
-        // shell) to acquire applications.
-        await invoked.Task.WaitAsync(TimeSpan.FromSeconds(5));
+        var error = await errorTcs.Task.WaitAsync(TimeSpan.FromSeconds(5));
 
-        // Give the (failed) background acquisition a moment to settle before asserting nothing
-        // landed in the cache.
-        await Task.Delay(TimeSpan.FromMilliseconds(200));
-
+        await Assert.That(error).IsTypeOf<InvalidOperationException>();
         await Assert.That(receivedCount).IsEqualTo(0);
+        await Assert.That(cacheErrored).IsFalse();
         await Assert.That(repository.ApplicationsByAumid.Count).IsEqualTo(0);
     }
 }

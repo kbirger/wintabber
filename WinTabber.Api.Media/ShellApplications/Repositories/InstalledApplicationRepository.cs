@@ -32,6 +32,10 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         app.AppUserModelId
     );
     private readonly Subject<Unit> _refreshSubject = new Subject<Unit>();
+    // ReplaySubject(1), not Subject: AsObservableCache() below subscribes eagerly in this
+    // constructor, so background acquisition can fail and emit here before any consumer has had a
+    // chance to subscribe — a plain Subject would drop that notification on the floor.
+    private readonly ReplaySubject<Exception> _acquisitionErrors = new ReplaySubject<Exception>(1);
 
     public void Refresh()
     {
@@ -44,11 +48,29 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         //var primaryAumidCache = GetRefreshEvents()
         //    .StartWith(Unit.Default)
         //    .ExhaustMap(_ => GetInstalledApplicationsObservable())
+        // DynamicData's Or() combinator (used below to merge this cache with its derived
+        // partial/package/target caches) silently drops an OnError from its source instead of
+        // propagating it to Connect() subscribers — confirmed with a reduced repro independent of
+        // this class's own composition, not just an artifact of subscribing to the same cold
+        // source multiple times. So a failure is caught here, before it ever reaches Or(), and
+        // reported on AcquisitionErrors instead; the changeset itself completes as if acquisition
+        // returned an empty list, keeping Or()/AutoRefreshOnObservable on their normal path.
+        // Publish().RefCount() then shares that one execution across every downstream subscriber
+        // (Or() directly, AutoRefreshOnObservable, and the partial/package/target caches derived
+        // from it) so a failure is reported once, not once per subscriber. Proven by
+        // InstalledApplicationRepositoryTests.AcquisitionErrors_Emits_WhenAppsFolderAcquisitionFails.
         var primaryAumidCache = GetInstalledApplicationsObservable()
+            .Catch<IReadOnlyList<InstalledApplicationInfo>, Exception>(ex =>
+            {
+                _acquisitionErrors.OnNext(ex);
+                return Observable.Return<IReadOnlyList<InstalledApplicationInfo>>([]);
+            })
             .ToObservableChangeSet(
                 keySelector: app => app.AppUserModelId,
                 expireAfter: item => TimeSpan.FromDays(1)
-            );
+            )
+            .Publish()
+            .RefCount();
 
         var partialAumidCache = primaryAumidCache
             .Filter(app => app.AppUserModelId.Contains(@"\"))
@@ -70,13 +92,6 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
             .Filter(app => app.TargetPath!.Contains(@"\"))
             .ChangeKey(app => Path.GetFileName(app.TargetPath!));
 
-        // NOTE: if GetInstalledApplicationsObservable()'s underlying Observable.Start factory
-        // throws (e.g. real shell acquisition fails), DynamicData's Or() below silently drops the
-        // error rather than propagating OnError to Connect() subscribers, because primaryAumidCache
-        // has multiple subscribers here (Or() directly, plus the partial/package/target caches
-        // derived from it). In production this means a shell-acquisition failure just leaves the
-        // app list empty forever, with no signal to anyone. Proven (not just asserted) by
-        // InstalledApplicationRepositoryTests.ApplicationsByAumid_StaysEmpty_WhenAppsFolderAcquisitionFails.
         ApplicationsByAumid = primaryAumidCache.Or(partialAumidCache).AutoRefreshOnObservable(_ => primaryAumidCache).AsObservableCache();
 
         ApplicationsByPath = partialAumidCache
@@ -99,6 +114,7 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
     {
         ApplicationsByAumid.Dispose();
         ApplicationsByPath.Dispose();
+        _acquisitionErrors.Dispose();
     }
 
     private IObservable<IReadOnlyList<InstalledApplicationInfo>> GetInstalledApplicationsObservable()
@@ -254,6 +270,7 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
     public static IObservable<ImageSource> LoadingImage { get; } = GetLoadingImage();
     public IObservableCache<InstalledApplicationInfo, string> ApplicationsByAumid { get; }
     public IObservableCache<InstalledApplicationInfo, string> ApplicationsByPath { get; }
+    public IObservable<Exception> AcquisitionErrors => _acquisitionErrors;
 
     private static IObservable<ImageSource> GetLoadingImage()
     {

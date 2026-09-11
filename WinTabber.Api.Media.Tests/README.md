@@ -10,11 +10,11 @@ Deliberately narrow. Covered:
   replaced `MMDevice` as the enumerator's return type specifically to make this possible.
 - `SMTCSessionRepository`'s acquisition-failure propagation — via `Fakes/FakeSmtcSessionSource.cs`;
   a failed `RequestAsync` correctly surfaces as `OnError` on `ActiveMediaSessionChanges`.
-- `InstalledApplicationRepository`'s acquisition-failure containment — via
+- `InstalledApplicationRepository`'s acquisition-failure signaling — via
   `Fakes/FakeShellApplicationSource.cs`; a failed `GetAppsFolder` reaches the seam (proven via the
-  fake) but does NOT propagate as `OnError` — `ApplicationsByAumid`/`ApplicationsByPath` just stay
-  empty. DynamicData's `Or()` combinator swallows the async error; see
-  `InstalledApplicationRepository.cs`'s `.Or(...)` call sites and
+  fake), keeps `ApplicationsByAumid`/`ApplicationsByPath` empty (rather than erroring — DynamicData's
+  `Or()` combinator they're built on silently drops an upstream `OnError`), and is reported on the
+  repository's `AcquisitionErrors` observable instead. See
   `ShellApplications/InstalledApplicationRepositoryTests.cs` for the full explanation.
 
 **Not covered, and why:**
