@@ -131,7 +131,7 @@ public class SMTCSessionRepositoryTests
 
 - [ ] **Step 4: Run the test to verify it fails**
 
-Run: `dotnet test WinTabber.Api.Media.Tests --filter SMTCSessionRepositoryTests`
+Run: `dotnet test WinTabber.Api.Media.Tests -- --treenode-filter "/*/*/SMTCSessionRepositoryTests/*"`
 Expected: FAIL to build — `SMTCSessionRepository` has no constructor accepting `ISmtcSessionSource`
 yet (its current constructor is the implicit parameterless one).
 
@@ -205,7 +205,7 @@ constructor's parameters from the container):
 
 - [ ] **Step 8: Run the test to verify it passes**
 
-Run: `dotnet test WinTabber.Api.Media.Tests --filter SMTCSessionRepositoryTests`
+Run: `dotnet test WinTabber.Api.Media.Tests -- --treenode-filter "/*/*/SMTCSessionRepositoryTests/*"`
 Expected: PASS
 
 - [ ] **Step 9: Run the full build and test suite**
@@ -320,7 +320,7 @@ public class InstalledApplicationRepositoryTests
 
 - [ ] **Step 4: Run the test to verify it fails**
 
-Run: `dotnet test WinTabber.Api.Media.Tests --filter InstalledApplicationRepositoryTests`
+Run: `dotnet test WinTabber.Api.Media.Tests -- --treenode-filter "/*/*/InstalledApplicationRepositoryTests/*"`
 Expected: FAIL to build — `InstalledApplicationRepository`'s constructor is currently
 parameterless.
 
@@ -576,7 +576,7 @@ Add the registration immediately before the existing `IInstalledApplicationRepos
 
 - [ ] **Step 8: Run the test to verify it passes**
 
-Run: `dotnet test WinTabber.Api.Media.Tests --filter InstalledApplicationRepositoryTests`
+Run: `dotnet test WinTabber.Api.Media.Tests -- --treenode-filter "/*/*/InstalledApplicationRepositoryTests/*"`
 Expected: PASS
 
 - [ ] **Step 9: Run the full build and test suite**

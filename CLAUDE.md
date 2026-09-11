@@ -21,8 +21,9 @@ dotnet test WinTabber.Api.Windowing.Tests/WinTabber.Api.Windowing.Tests.csproj
 dotnet test WinTabber.Api.Media.Tests/WinTabber.Api.Media.Tests.csproj
 dotnet test WinTabber.Interop.Tests/WinTabber.Interop.Tests.csproj
 
-# Run specific test class
-dotnet test WinTabber.Infrastructure.Tests --filter TrieNodeTests
+# Run specific test class (this repo's runner is Microsoft.Testing.Platform, not VSTest —
+# --filter does not work; use --treenode-filter instead)
+dotnet test WinTabber.Infrastructure.Tests -- --treenode-filter "/*/*/TrieNodeTests/*"
 
 # Run the manual session test console app (currently disabled — see Testing section)
 dotnet run --project Wintabber.SessionsTest/Wintabber.SessionsTest.csproj
