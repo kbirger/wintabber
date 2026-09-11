@@ -1,38 +1,11 @@
 # Window selector — deferred items
 
-Four findings from the `/simplify` review of the selection-jump fix (2026-08-27, branch
+Three findings from the `/simplify` review of the selection-jump fix (2026-08-27, branch
 `audio`). All were deliberately skipped as out of scope for that change; each is
-independently actionable.
+independently actionable. (A fourth finding, `SpatialNavigationListView._tileGrid` never being
+invalidated, was fixed in `c80fb55` and removed from this list 2026-09-11.)
 
-## 1. ~~`SpatialNavigationListView._tileGrid` is never invalidated~~ — FIXED in `c80fb55`
-
-> **Resolved 2026-09-10.** Note the trap this section fell into: `f0f9c98`'s commit message
-> *claimed* to have done exactly this ("reset `_tileGrid` in `SpatialNavigationListView` on
-> `IsVisibleChanged` and on items change") but its diff never did — it only added
-> `SuppressHoverUntilPointerMoves` and `OnPreviewMouseMove`. `c80fb55` actually invalidates on
-> both `IsVisibleChanged` and `OnItemsChanged`, and replaces `InitializeTileGrid` with
-> `TryInitializeTileGrid`, which bails out rather than caching a half-built grid when an arrow
-> press arrives before the regenerated containers exist. The window's three dead
-> `_tileGrid = null` assignments described below were removed with it.
->
-> Original description follows.
-
-`WinTabberUI/SpatialNavigationListView.cs` — `InitializeTileGrid()` builds `_tileGrid` on the
-first arrow-key press and the field is never reset, so spatial navigation on every open after
-the first works off a grid captured from a stale window list at stale tile positions.
-
-Compounding it: `WindowSelectorWindow._tileGrid` is set to `null` in three places
-(`SwitchWindowAndClose`, and both branches of `OnPreviewKeyDown`) but is *never* assigned
-non-null — the window's own `InitializeTileGrid` is commented out. Those three lines look like
-invalidation and do nothing.
-
-Fix: delete the window's field and its three assignments; reset `_tileGrid = null` in
-`SpatialNavigationListView` on `IsVisibleChanged` and on items change.
-
-**This is a correctness bug, not a cleanup** — it was excluded because `/simplify` does not
-hunt for bugs, not because it is low value.
-
-## 2. `OnActivated` re-runs the sizing that `ShowWindowSelector` just did
+## 1. `OnActivated` re-runs the sizing that `ShowWindowSelector` just did
 
 `WinTabberUI/Views/WindowSelectorWindow.xaml.cs` — `ShowWindowSelector()` calls `Activate()`,
 which raises `OnActivated`, which calls `ScaleTiles()` and `CenterWindow()` again. The whole
@@ -43,7 +16,7 @@ Idempotent today, so nothing reflows. Skipped because removing them changes beha
 re-activation paths outside the reviewed diff — verify what else depends on re-centering when
 the user clicks back onto an already-open selector before deleting.
 
-## 3. ~~Duplicate "centre on the cursor's screen" logic~~ — DPI half fixed in `<pending>`
+## 2. ~~Duplicate "centre on the cursor's screen" logic~~ — DPI half fixed in `<pending>`
 
 > **Resolved 2026-09-10 (partial).** The DPI-acquisition half of the duplication is gone:
 > `WinTabberUI/Windowing/DesktopHelper.cs` now has a `ToLogicalBounds(this Visual, Rectangle)`
@@ -74,7 +47,7 @@ was the only remaining option.
 The `Screen.Bounds` vs `Screen.WorkingArea` merge itself is **still open** — not touched by the
 DPI fix above; kept as two separate per-window behaviors by explicit choice.
 
-## 4. `HoverSelect` placement
+## 3. `HoverSelect` placement
 
 `WinTabberUI/HoverSelect.cs` sits loose in the project root. The established home for attached
 -property behaviours is `WinTabber.UI.Common/Behaviors/` (see `HintBehavior.cs`, same
