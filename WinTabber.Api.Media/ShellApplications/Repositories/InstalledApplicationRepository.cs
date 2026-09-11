@@ -13,10 +13,10 @@ using System.Windows;
 using System.Windows.Interop;
 using System.Windows.Media;
 using System.Windows.Media.Imaging;
-using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Gdi;
 using Windows.Win32.UI.Shell;
+using WinTabber.Api.Media.ShellApplications;
 using WinTabber.Api.Media.ShellApplications.Models;
 
 namespace WinTabber.Api.Media.ShellApplications.Repositories;
@@ -25,13 +25,10 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
 {
 
     private const string PackageInstallPath = "System.AppUserModel.PackageInstallPath";
-    private static readonly Guid FOLDERID_AppsFolder = new Guid(
-        "{1e87508d-89c2-42f0-8a7e-645a0f50ca58}"
-    );
-    private static readonly Guid GUID_IShellItem = typeof(IShellItem).GUID;
     private static readonly HRESULT S_EXTRACTIONFAILED = (HRESULT)0x8004B200;
 
     private static readonly HRESULT S_PATHNOTFOUND = (HRESULT)0x8004B205;
+    private readonly IShellApplicationSource _shellSource;
     private readonly SourceCache<InstalledApplicationInfo, string> _apps = new(static app =>
         app.AppUserModelId
     );
@@ -42,8 +39,9 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         _refreshSubject.OnNext(Unit.Default);
     }
 
-    public InstalledApplicationRepository()
+    public InstalledApplicationRepository(IShellApplicationSource shellSource)
     {
+        _shellSource = shellSource;
         //var primaryAumidCache = GetRefreshEvents()
         //    .StartWith(Unit.Default)
         //    .ExhaustMap(_ => GetInstalledApplicationsObservable())
@@ -97,9 +95,7 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         ApplicationsByPath.Dispose();
     }
 
-    private static IObservable<
-        IReadOnlyList<InstalledApplicationInfo>
-    > GetInstalledApplicationsObservable()
+    private IObservable<IReadOnlyList<InstalledApplicationInfo>> GetInstalledApplicationsObservable()
     {
         return Observable.Start<IReadOnlyList<InstalledApplicationInfo>>(
             () =>
@@ -113,14 +109,9 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         );
     }
 
-    private static IKnownFolder GetAppImageFolder()
-    {
-        IKnownFolder appsFolder = KnownFolderHelper.FromKnownFolderId(FOLDERID_AppsFolder);
+    private IKnownFolder GetAppImageFolder() => _shellSource.GetAppsFolder();
 
-        return appsFolder;
-    }
-
-    private static IEnumerable<InstalledApplicationInfo> GetInstalledApplicationsBlocking()
+    private IEnumerable<InstalledApplicationInfo> GetInstalledApplicationsBlocking()
     {
         Stopwatch sw = Stopwatch.StartNew();
         using var folder = GetAppImageFolder();
@@ -147,7 +138,7 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
             && !string.IsNullOrWhiteSpace(shellObject.ParsingName);
     }
 
-    private static InstalledApplicationInfo CreateItem(ShellObject shellObject)
+    private InstalledApplicationInfo CreateItem(ShellObject shellObject)
     {
         string? targetParsingPath = shellObject.Properties.System.Link.TargetParsingPath.Value;
         string? packageInstallPath = shellObject
@@ -165,10 +156,8 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         };
     }
 
-    private static IObservable<ImageSource> GetIcon(ShellObject shellObject, string path)
+    private IObservable<ImageSource> GetIcon(ShellObject shellObject, string path)
     {
-        //var bitmap = shellObject.Thumbnail.LargeBitmap;
-        //var z = () => shellObject.Thumbnail.LargeBitmapSource;
         int width = (int)shellObject.Thumbnail.CurrentSize.Width;
         int height = (int)shellObject.Thumbnail.CurrentSize.Height;
         ThumbnailOptions options = ThumbnailOptions.None;
@@ -179,23 +168,7 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
                     {
                         unsafe
                         {
-                            PInvoke
-                                .SHCreateItemFromParsingName(
-                                    path,
-                                    null,
-                                    GUID_IShellItem,
-                                    out var nativeShellItem
-                                )
-                                .ThrowOnFailure();
-
-                            if (nativeShellItem is not IShellItemImageFactory imageFactory)
-                            {
-                                Marshal.ReleaseComObject(nativeShellItem);
-                                nativeShellItem = null;
-                                throw new InvalidOperationException(
-                                    "Failed to get IShellItemImageFactory"
-                                );
-                            }
+                            var imageFactory = _shellSource.CreateShellItemImageFactory(path);
 
                             SIZE size = new SIZE { cx = width, cy = height };
 
@@ -214,7 +187,6 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
                                         )
                                     )
                                 {
-                                    // Fallback to IconOnly if extraction fails or files cannot be found
                                     imageFactory.GetImage(
                                         size,
                                         (SIIGBF)ThumbnailOptions.IconOnly,
@@ -224,7 +196,6 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
                                 catch (FileNotFoundException)
                                     when (options == ThumbnailOptions.ThumbnailOnly)
                                 {
-                                    // Fallback to IconOnly if files cannot be found
                                     imageFactory.GetImage(
                                         size,
                                         (SIIGBF)ThumbnailOptions.IconOnly,
@@ -233,20 +204,15 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
                                 }
                                 catch (System.Exception ex)
                                 {
-                                    // Handle other exceptions
                                     throw new InvalidOperationException(
                                         "Failed to get thumbnail",
                                         ex
                                     );
                                 }
-
                             }
                             finally
                             {
-                                if (nativeShellItem != null)
-                                {
-                                    Marshal.ReleaseComObject(nativeShellItem);
-                                }
+                                Marshal.ReleaseComObject(imageFactory);
                             }
 
                             var image = Imaging.CreateBitmapSourceFromHBitmap(
@@ -262,15 +228,6 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
 
                             return image;
                         }
-                        //PInvoke.sh
-                        //var image = z;
-
-                        //if (!image.IsFrozen && image.CanFreeze)
-                        //{
-                        //image.Freeze();
-                        //}
-
-                        //return image;
                     },
                     Scheduler.CurrentThread
                 )

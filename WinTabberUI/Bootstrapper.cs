@@ -4,6 +4,7 @@ using System.Windows;
 using WinTabber.Api.Media.CoreAudio;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Api.Media.CoreAudio.Services;
+using WinTabber.Api.Media.ShellApplications;
 using WinTabber.Api.Media.ShellApplications.Repositories;
 using WinTabber.Api.Media.SMTC;
 using WinTabber.Api.Media.SMTC.Repositories;
@@ -108,6 +109,7 @@ public static class Bootstrapper
             .AddSingleton<IMediaSessionService, MediaSessionService>()
             .AddSingleton<IAudioSessionService, AudioSessionService>()
             .AddSingleton<IAudioDeviceService, AudioDeviceService>()
+            .AddSingleton<IShellApplicationSource, WindowsShellApplicationSource>()
             .AddSingleton<IInstalledApplicationRepository, InstalledApplicationRepository>();
     }
     private static IServiceCollection AddCoordinators(this IServiceCollection services)
