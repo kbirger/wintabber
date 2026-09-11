@@ -27,9 +27,9 @@ $ErrorActionPreference = 'Stop'
 $running = Get-Process -Name 'WinTabberUI' -ErrorAction SilentlyContinue
 if ($running) {
     $ids = ($running | ForEach-Object { $_.Id }) -join ', '
-    Write-Host "WinTabberUI is already running (PID $ids)." -ForegroundColor Red
-    Write-Host "Close it first - its lock on bin/ makes the build fail on the copy step." -ForegroundColor Red
-    exit 1
+    Write-Host "WinTabberUI is already running (PID $ids) - killing it so the build can lock bin/." -ForegroundColor Yellow
+    $running | Stop-Process -Force
+    $running | Wait-Process -ErrorAction SilentlyContinue
 }
 
 $sha = (git rev-parse HEAD).Trim()
