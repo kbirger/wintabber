@@ -11,10 +11,12 @@ Baseline: `dev` @ `af16e91` — `dotnet build WinTabber.slnx` → 0 warnings, 0 
 Verified before tagging: 0 warnings, 98/98 tests in **both** Debug and Release, and a local dry
 run of the workflow's exact self-contained single-file publish command.
 
-**Phase 6 is done** (branch `testability`, unpushed), bar one follow-up it uncovered: **T6.6**,
-the missing disposal ownership that makes T6.3's `Dispose` methods unreachable. Phase 6 grew from
-4 tasks to 6 — T6.5 (a latent `NullReferenceException`) and T6.6 were both found while doing the
-others, not by the review.
+**Phase 6 is done** (branch `testability`, unpushed) — all 6 tasks, including **T6.6**, the
+disposal-ownership follow-up T6.3 uncovered. Phase 6 grew from 4 tasks to 6 — T6.5 (a latent
+`NullReferenceException`) and T6.6 were both found while doing the others, not by the review.
+T6.6 itself grew in scope while being implemented: restoring `MediaControlsViewModel`'s
+`WhenActivated` as originally described would have been a regression (see T6.6's resolution
+note), so the fix also covers `MediaControlsWindow`'s activation wiring.
 
 ⚠️ **Three manual smoke tests still have never been run** — no session has had an interactive
 display or real audio hardware. They shipped in `v0.2.0` unverified, a deliberate call:
@@ -567,7 +569,7 @@ below. This is the active phase, being worked on the `testability` branch.
       > Covered by `WinTabber.UI.Media.Tests` — a project that could not have existed before T6.1,
       > since the view model's only possible dependency was the COM-reaching concrete service.
       > The two leak tests were confirmed to go **red** against the unfixed code before being kept.
-- [ ] **T6.6** *(new — found while doing T6.3, 2026-09-10)* Nothing disposes the view models, so
+- [x] **T6.6** *(new — found while doing T6.3, 2026-09-10)* Nothing disposes the view models, so
       T6.3's `Dispose` methods never actually run. `MediaControlsViewModel` is a DI singleton and
       `App.OnExit` disposes only `BackgroundServiceContainer`, never the `ServiceProvider`. Two
       changes would close this, both real behaviour changes and neither in T6.3's scope:
@@ -576,6 +578,54 @@ below. This is the active phase, being worked on the `testability` branch.
       The second is the other half of T6.3's original title. Disposing the provider means
       disposing every singleton — COM audio objects, input hooks — at exit, so it wants its own
       smoke test.
+      > **Resolved, with a scope correction found while implementing the second half.**
+      > `App.OnExit` (`App.xaml.cs`) now disposes `_serviceProvider` after `_cleanUp`
+      > (`BackgroundServiceContainer`) — the latter runs deliberate shutdown behaviour (resume
+      > suspended processes, restore thumbnailed windows) the provider's own disposal, which just
+      > walks every remaining singleton in registration order, doesn't know about, so it must go
+      > first. `Bootstrapper.Init` now returns the concrete `ServiceProvider` (was `IServiceProvider`)
+      > so `App` has something to call `.Dispose()` on.
+      >
+      > **Restoring `WhenActivated` bare, as the task described, would have been a regression, not
+      > a fix.** `MediaControlsWindow.OnDeactivated` already called `ViewModel?.Activator
+      > .Deactivate()` on every hide, but nothing called the matching `Activate()` on show — WPF's
+      > own `Loaded`-driven view activation fires once per window instance, not once per show, and
+      > this window is reused (`MediaWindowViewCoordinator.ReuseInstances = true`). Restoring the
+      > wrapper unchanged would have made the whole session/device pipeline go dead after the
+      > first hide, for real: nothing in the surrounding code reactivates it. Caught by asking
+      > before implementing, not by a test.
+      >
+      > Fixed both halves: `OnActivated` now calls `ViewModel?.Activator.Activate()`, mirroring
+      > `OnDeactivated`'s `Deactivate()` — ReactiveUI's `ViewModelActivator` ref-counts, so
+      > redundant `Activate()` calls are harmless. That makes the window's show/hide cycle a real
+      > repeated activation/deactivation, which exposed a second latent bug in the restored block:
+      > every `.DisposeWith(_cleanUp)` used the view model's permanent field, not the
+      > `disposables` bag `WhenActivated` hands out per activation, and the `Playback`/`Recording`
+      > selectors plus `ActiveSession` were assigned straight to backing fields, not through their
+      > properties. Left as originally written, a second activation would have stacked a second
+      > set of session subscriptions and device selectors on top of a first set nothing tore down,
+      > and neither the XAML bindings (`Playback.Devices`, `ActiveSession.Playback...`) nor
+      > anything else would have been notified of the replacement — the UI would keep acting on
+      > stale, eventually-disposed objects. Fixed by disposing into `disposables` instead of
+      > `_cleanUp` (which is now gone — nothing populated it once everything moved), assigning
+      > `Playback`/`Recording` through their properties, and disposing the activation's device
+      > selectors and `ActiveSession` when `disposables` tears down. `MediaControlsViewModel
+      > .Dispose()` is now a safety net only, for the case the process exits while still
+      > activated.
+      >
+      > Verified beyond the build: `WinTabber.UI.Media.Tests/ViewModels
+      > /MediaControlsViewModelTests.cs` (new) asserts nothing is created at construction, that
+      > `Activate()` creates it, and that a deactivate/reactivate cycle does not stack a second set
+      > on top of the first — written and confirmed red against the pre-fix code before the fix
+      > landed. `FakeAudioDeviceService` gained a fourth supported member (`WatchDevice`) since
+      > `MediaSessionViewModel` — reachable here for the first time — depends on it; see
+      > `WinTabber.UI.Media.Tests/README.md`. The provider-disposal half has no automated test (a
+      > DI container wasn't reachable from any suite before this, and still isn't for the real
+      > production graph): verified with the same temporary-probe technique as T6.1/T6.2 — an
+      > auto-`Shutdown()` timer added to `App.OnStartup`, run against the real `Bootstrapper.Init`
+      > graph with real COM audio/SMTC/input-hook singletons live, confirmed a clean exit with no
+      > exception and no new crash dump, then reverted. Full suite: 112/112 passed (was 109),
+      > build 0 warnings.
 - [x] **T6.4** Fix `static WeakReference<FrameworkElement>? _activeRootRef` at
       `WinTabber.UI.Common/Behaviors/HintBehavior.cs:161` — shared across test runs.
       > **Resolved.** The premise this task was nearly closed on — "nothing tests `HintBehavior`
@@ -632,10 +682,9 @@ below. This is the active phase, being worked on the `testability` branch.
 | 3 — Interop policy | 6 | Medium | Medium — T3.1 gates the rest | ✅ done |
 | 4 — Mechanical | 6 | Low–Med | Low — T4.1/T4.5 are wide renames | ✅ done |
 | 5 — Design | 6 | Medium–High | Plan separately | ✅ done (grew by T5.5, T5.6) |
-| 6 — Tracked | 6 | Medium | T6.2 was far cheaper than recorded | ✅ 5 of 6; T6.6 open |
+| 6 — Tracked | 6 | Medium | T6.2 was far cheaper than recorded | ✅ done |
 
-**42 tasks, 41 done** — only T6.6 is open. Phases 0–5 shipped in `v0.2.0`; Phase 6 landed after
-it on `testability`.
+**42 of 42 tasks done.** Phases 0–5 shipped in `v0.2.0`; Phase 6 landed after it on `testability`.
 
 Four of the 42 were never in the architecture review: T5.5 (`IAudioDevice`), T5.6 (the elevation
 bug), T6.5 (the hint `NullReferenceException`) and T6.6 (view-model disposal ownership). All four
