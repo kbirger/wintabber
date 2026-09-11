@@ -133,20 +133,28 @@ Static constructors in `ApplicationRef` and `WindowProcessRef` capture real PIDs
 
 ---
 
-### 9. Extract `IShellApplicationSource` for `InstalledApplicationRepository`
+### 9. ~~Extract `IShellApplicationSource` for `InstalledApplicationRepository`~~ — DONE
 `KnownFolderHelper.FromKnownFolderId()`, `PInvoke.SHCreateItemFromParsingName()`, and related static Shell API calls are untestable without a real Windows shell.
 
-- [ ] Define `IShellApplicationSource` interface
-- [ ] Implement `WindowsShellApplicationSource` wrapping the current static calls
-- [ ] Inject into `InstalledApplicationRepository`
+> **Resolved 2026-09-11.** See `docs/superpowers/plans/2026-09-11-shell-smtc-source-abstraction.md`.
+> `ShellObject` itself still has no accessible test constructor, so this makes the *acquisition*
+> step substitutable, not full shell-item processing — see
+> `WinTabber.Api.Media.Tests/README.md` for what that does and doesn't unlock.
+
+- [x] Define `IShellApplicationSource` interface
+- [x] Implement `WindowsShellApplicationSource` wrapping the current static calls
+- [x] Inject into `InstalledApplicationRepository`
 
 ---
 
-### 10. Extract `ISmtcSessionSource` for `SMTCSessionRepository`
+### 10. ~~Extract `ISmtcSessionSource` for `SMTCSessionRepository`~~ — DONE
 `GlobalSystemMediaTransportControlsSessionManager.RequestAsync()` requires Windows 10 SMTC subsystem.
 
-- [ ] Define `ISmtcSessionSource` interface
-- [ ] Inject into `SMTCSessionRepository`
+> **Resolved 2026-09-11.** See `docs/superpowers/plans/2026-09-11-shell-smtc-source-abstraction.md`.
+> Same caveat as item 9: makes acquisition substitutable, not full session processing.
+
+- [x] Define `ISmtcSessionSource` interface
+- [x] Inject into `SMTCSessionRepository`
 
 ---
 

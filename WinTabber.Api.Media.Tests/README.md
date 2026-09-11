@@ -8,6 +8,8 @@ Deliberately narrow. Covered:
   observables — all via `Fakes/FakeMMDeviceEnumeratorWrapper.cs` and `Fakes/FakeAudioDevice.cs`.
   `IAudioDevice` (see `docs/superpowers/specs/2026-09-05-audio-device-abstraction-design.md`)
   replaced `MMDevice` as the enumerator's return type specifically to make this possible.
+- `SMTCSessionRepository`'s and `InstalledApplicationRepository`'s acquisition-failure propagation
+  — via `Fakes/FakeSmtcSessionSource.cs` and `Fakes/FakeShellApplicationSource.cs`.
 
 **Not covered, and why:**
 
@@ -20,9 +22,14 @@ Deliberately narrow. Covered:
   behind an interface just to verify "creates a thread." A consumer that needs to be testable
   should accept an `IScheduler` via constructor (as `CoreAudioDeviceRepository` already does) so
   a test can substitute `ImmediateScheduler`/`TestScheduler`.
-- SMTC (`SMTCSessionRepository`/`SMTCSessionMonitor`/`SMTCSessionService`) and ShellApplications
-  (`InstalledApplicationRepository`)'s WinRT/COM glue — no existing seam. Not manufactured
-  speculatively (YAGNI) — a future task that wants coverage here needs its own design pass.
+- SMTC (`SMTCSessionMonitor`/`SMTCSessionService`) and ShellApplications' actual session/shell-item
+  *processing* logic — `GlobalSystemMediaTransportControlsSession` and `ShellObject` are WinRT/COM
+  types with no accessible test constructor, so `ISmtcSessionSource`/`IShellApplicationSource`
+  (see `Fakes/FakeSmtcSessionSource.cs`, `Fakes/FakeShellApplicationSource.cs`) only make the
+  *acquisition* step substitutable — covered by `SMTC/SMTCSessionRepositoryTests.cs` and
+  `ShellApplications/InstalledApplicationRepositoryTests.cs`, both exercising only the
+  acquisition-failure path. Full session/shell-item processing coverage would need its own design
+  pass, the same way `IAudioDevice` was needed for `CoreAudioDeviceRepository`.
 
 See `docs/superpowers/specs/2026-09-05-audio-device-abstraction-design.md` for the full reasoning
 behind the `IAudioDevice` abstraction, and `docs/superpowers/specs/2026-09-04-phase-5-design.md`'s
