@@ -5,6 +5,7 @@ using WinTabber.Api.Media.CoreAudio;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Api.Media.CoreAudio.Services;
 using WinTabber.Api.Media.ShellApplications.Repositories;
+using WinTabber.Api.Media.SMTC;
 using WinTabber.Api.Media.SMTC.Repositories;
 using WinTabber.Api.Windowing;
 using WinTabber.Api.Windowing.Suspension;
@@ -102,6 +103,7 @@ public static class Bootstrapper
             .AddSingleton<ICoreAudioDeviceRepository>(sp => sp.GetRequiredService<CoreAudioDeviceRepository>())
             .AddSingleton<CoreAudioSessionRepository>(sp =>
                 new CoreAudioSessionRepository(sp.GetRequiredKeyedService<IScheduler>(STAScheduler.Key)))
+            .AddSingleton<ISmtcSessionSource, SmtcSessionSource>()
             .AddSingleton<SMTCSessionRepository>()
             .AddSingleton<IMediaSessionService, MediaSessionService>()
             .AddSingleton<IAudioSessionService, AudioSessionService>()

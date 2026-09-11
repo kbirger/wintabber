@@ -3,16 +3,17 @@ using System.Reactive;
 using System.Reactive.Linq;
 using DynamicData;
 using Windows.Media.Control;
+using WinTabber.Api.Media.SMTC;
 
 namespace WinTabber.Api.Media.SMTC.Repositories;
 
-public partial class SMTCSessionRepository
+public partial class SMTCSessionRepository(ISmtcSessionSource sessionSource)
 {
     [Lazy(IsPrivate = true)]
     private IObservable<GlobalSystemMediaTransportControlsSessionManager> GetSessionManagerObservable()
     {
         return Observable
-            .StartAsync(async () => await GlobalSystemMediaTransportControlsSessionManager.RequestAsync())
+            .StartAsync(async () => await sessionSource.RequestAsync())
             .Replay(1)
             .RefCount();
     }
