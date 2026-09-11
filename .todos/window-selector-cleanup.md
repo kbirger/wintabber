@@ -64,11 +64,15 @@ is a behaviour decision for both windows, so this is a merge rather than a clean
 
 Natural home if done: `WinTabberUI/Windowing/DesktopHelper.cs`.
 
-Related: `WinTabberUI/Services/UIScalingService.cs` already has `GetCursorScreen`,
-`GetDeviceCenterScreen`, `GetCurrentScreenSize(Window)` — but it is registered nowhere, has zero
-references, and its `Dispose` throws `NotImplementedException`. Either it becomes the shared
-helper here or it should be deleted; leaving it dead next to hand-rolled equivalents is the
-worst of both. **Still open** — not touched by the DPI fix above.
+~~Related: `WinTabberUI/Services/UIScalingService.cs`...~~ — **deleted 2026-09-10.** Verified zero
+references anywhere in the tree (Serena `find_referencing_symbols` on the class, not just grep);
+it was never registered in `Bootstrapper.cs` and its `Dispose()` threw `NotImplementedException`.
+The "become the shared helper or get deleted" choice resolved itself: `DesktopHelper` became the
+shared helper for the DPI half of this item without needing anything from this class, so deletion
+was the only remaining option.
+
+The `Screen.Bounds` vs `Screen.WorkingArea` merge itself is **still open** — not touched by the
+DPI fix above; kept as two separate per-window behaviors by explicit choice.
 
 ## 4. `HoverSelect` placement
 
