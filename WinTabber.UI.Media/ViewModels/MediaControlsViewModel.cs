@@ -24,7 +24,6 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
     private readonly AudioDeviceSelectorViewModelFactory _deviceSelectorViewModelFactory;
 
     //private readonly IAudioDeviceManager _audioDeviceManager;
-    private readonly CompositeDisposable _cleanUp;
     private AudioDeviceSelectorViewModel? _playback;
     private AudioDeviceSelectorViewModel? _recording;
 
@@ -59,11 +58,10 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
         _mediaControlsStateService = mediaControlsStateService;
         _mediaSessionViewModelFactory = mediaSessionViewModelFactory;
         _deviceSelectorViewModelFactory = deviceSelectorViewModelFactory;
-        _cleanUp = new CompositeDisposable();
         var scheduler = RxSchedulers.MainThreadScheduler;
 
         Debug.WriteLine("Created");
-        //this.WhenActivated((disposables) =>
+        this.WhenActivated((disposables) =>
         {
             Debug.WriteLine("Activated");
             ActiveSession = null;
@@ -72,7 +70,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
                 .MasterSessions.Connect()
                 .Transform(session => new SessionListItem(session));
 
-            sessions.ObserveOn(RxSchedulers.MainThreadScheduler).Bind(out _sessions).Subscribe().DisposeWith(_cleanUp);
+            sessions.ObserveOn(RxSchedulers.MainThreadScheduler).Bind(out _sessions).Subscribe().DisposeWith(disposables);
             _sessions
                 .ActOnEveryObject(
                     (x) =>
@@ -84,7 +82,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
                         Debug.WriteLine("remove");
                     }
                 )
-                .DisposeWith(_cleanUp);
+                .DisposeWith(disposables);
             // Watch for SMTC session changes and match against known sessions.
             var activeSessionChanges = _mediaSessionService
                 .ActiveSession.Select(session =>
@@ -109,26 +107,17 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
                         Debug.WriteLine("Error in ActiveSession pipeline: {0}", ex);
                     }
                 )
-                .DisposeWith(_cleanUp);
+                .DisposeWith(disposables);
 
             // Create or dispose session view model when active session changes
             // or when user selects a different session from the list
-            ActiveSession = _mediaSessionViewModelFactory.Create();
+            var activeSession = _mediaSessionViewModelFactory.Create();
+            ActiveSession = activeSession;
             this.WhenAnyValue(vm => vm.SelectedSessionListItem)
                 .Merge(activeSessionChanges)
                 .Throttle(TimeSpan.FromMilliseconds(250))
                 .DistinctUntilChanged(session => session?.Session.Key)
                 .ObserveOn(scheduler)
-                //.Select(changedSession =>
-                //    changedSession is not null
-                //        ? Observable.Using(
-                //            () => _mediaSessionViewModelFactory.Create(changedSession.Session),
-                //            sessionViewModel =>
-                //                Observable.Return(sessionViewModel).Concat(Observable.Never<MediaSessionViewModel>())
-                //        )
-                //        : Observable.Empty<MediaSessionViewModel>()
-                //)
-                //.Switch()
                 .Subscribe(
                     viewModel =>
                     {
@@ -139,34 +128,40 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
                         Debug.WriteLine("Error in ActiveSession pipeline2: {0}", ex);
                     }
                 )
-                .DisposeWith(_cleanUp);
+                .DisposeWith(disposables);
 
-            _playback = deviceSelectorViewModelFactory.Create(DataFlow.Render);
-            _recording = deviceSelectorViewModelFactory.Create(DataFlow.Capture);
-            // END
-        }
+            var playback = deviceSelectorViewModelFactory.Create(DataFlow.Render);
+            var recording = deviceSelectorViewModelFactory.Create(DataFlow.Capture);
+            // Through the properties, not the backing fields: XAML binds Playback/Recording
+            // directly, and a reactivation must notify the view of the new instance.
+            Playback = playback;
+            Recording = recording;
+
+            // Deactivation must release what this activation created: without this, a second
+            // activation (the window is shown again) would build a second pair of device
+            // selectors and a second ActiveSession on top of ones nothing ever disposed.
+            Disposable
+                .Create(() =>
+                {
+                    playback.Dispose();
+                    recording.Dispose();
+                    activeSession.Dispose();
+                    Playback = null;
+                    Recording = null;
+                    ActiveSession = null;
+                })
+                .DisposeWith(disposables);
+        });
     }
 
     /// <summary>
-    /// Disposes the subscriptions collected in <c>_cleanUp</c> and the two device selectors this
-    /// view model constructs.
+    /// Safety net for the case this view model is disposed while still activated — e.g. the
+    /// process exits without the window ever hiding. The ordinary path disposes
+    /// <c>_playback</c>/<c>_recording</c> on deactivation (see the <c>WhenActivated</c> block
+    /// above); this makes double-disposing them, here, harmless if that path never ran.
     /// </summary>
-    /// <remarks>
-    /// Before this existed, every <c>.DisposeWith(_cleanUp)</c> in the constructor was inert:
-    /// the composite had no owner, so nothing it collected was ever disposed. The selectors were
-    /// in the same position — created here, referenced nowhere else, never released.
-    ///
-    /// Note this only fixes the ownership *chain*. Nothing currently disposes this view model
-    /// either: it is a DI singleton, and <c>App.OnExit</c> disposes only
-    /// <c>BackgroundServiceContainer</c>, never the <c>ServiceProvider</c>. Disposing the
-    /// provider at shutdown, and restoring the commented-out <c>WhenActivated</c> above so these
-    /// subscriptions are scoped to activation rather than construction, are the two changes that
-    /// would make this method actually run — both are behaviour changes and neither is in scope
-    /// for T6.3.
-    /// </remarks>
     public void Dispose()
     {
-        _cleanUp.Dispose();
         _playback?.Dispose();
         _recording?.Dispose();
     }

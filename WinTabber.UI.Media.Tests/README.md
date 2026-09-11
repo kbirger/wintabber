@@ -1,7 +1,7 @@
 # WinTabber.UI.Media.Tests
 
-TUnit. Currently one class: `AudioDeviceSelectorViewModelTests`, covering subscription
-lifetime.
+TUnit. Two classes: `AudioDeviceSelectorViewModelTests` and `MediaControlsViewModelTests`, both
+covering subscription lifetime.
 
 ## Why it can exist now
 
@@ -20,9 +20,26 @@ fails loudly here rather than quietly receiving a default.
 - `[NotInParallel]`: `RxApp.MainThreadScheduler` is global state and the view model observes on
   it. Tests set it to `CurrentThreadScheduler` since there is no dispatcher.
 
+## MediaControlsViewModelTests
+
+Added by T6.6, once `MediaControlsViewModel`'s commented-out `WhenActivated` was restored (see
+`.cleanup/tasks.md`). Before that fix, everything in the constructor ran eagerly at construction;
+these tests assert the opposite — nothing observable happens until `Activator.Activate()`, and
+deactivation actually releases what activation created (`Playback`/`Recording`/`ActiveSession`),
+rather than leaking on every reactivation. That last point matters because `MediaControlsWindow`
+now activates the view model on every show and deactivates it on every hide (T6.6 also fixed the
+window, which previously only ever deactivated), so the reactivation path is a real one, not a
+hypothetical.
+
+`FakeAudioDeviceService` gained a fourth supported member, `WatchDevice(IAudioDevice?)`, for
+`MediaSessionViewModel` (constructed here via the real `MediaSessionViewModelFactory` — that
+factory isn't behind an interface, so there's no seam to fake it out from under). Everything
+`MediaSessionViewModel` actually reads from its `Session` is unset in these tests (no
+`AggregateSession` is ever added — its own constructor takes a real WinRT session type this test
+project cannot build), so the DTO the fake returns is inert by construction, not selectively
+stubbed.
+
 ## Not covered
 
-`MediaControlsViewModel` and `MediaSessionViewModel`. Both are constructible now that their
-dependencies are interfaces, but neither is disposed by anything at runtime (see the remarks on
-`MediaControlsViewModel.Dispose`), so a lifetime test would assert behaviour the application
-never reaches. Worth revisiting together with that ownership fix.
+`MediaSessionViewModel` on its own — only indirectly, via `MediaControlsViewModel`. It has no
+disposal or lifetime test of its own.

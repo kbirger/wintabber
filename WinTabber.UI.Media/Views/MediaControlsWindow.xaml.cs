@@ -57,6 +57,11 @@ public partial class MediaControlsWindow : IViewFor<MediaControlsViewModel>, IAc
     protected override void OnActivated(EventArgs e)
     {
         Debug.WriteLine("media controls: window activated");
+        // The counterpart to OnDeactivated's Activator.Deactivate() below. Without this, the
+        // view model's WhenActivated block would run once ever (on the window's first Loaded)
+        // instead of once per show, and every session/device subscription would go dead after
+        // the first hide.
+        ViewModel?.Activator.Activate();
         base.OnActivated(e);
     }
 

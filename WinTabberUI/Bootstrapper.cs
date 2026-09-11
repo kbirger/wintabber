@@ -29,7 +29,7 @@ namespace WinTabberUI;
 
 public static class Bootstrapper
 {
-    public static IServiceProvider Init(Application application)
+    public static ServiceProvider Init(Application application)
     {
         var serviceProvider = ConfigureServices(application);
         Ioc ioc = Ioc.Default;

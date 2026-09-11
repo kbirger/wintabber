@@ -13,6 +13,7 @@ public partial class App : Application
 {
     private WinTabberEventManager? _eventManager;
     private IDisposable? _cleanUp;
+    private ServiceProvider? _serviceProvider;
 
     protected override void OnActivated(EventArgs e)
     {
@@ -47,16 +48,20 @@ public partial class App : Application
     protected override void OnStartup(StartupEventArgs e)
     {
         AttachTraceLog();
-        IServiceProvider serviceProvider = Bootstrapper.Init(this);
+        _serviceProvider = Bootstrapper.Init(this);
 
-        _cleanUp = serviceProvider.GetRequiredService<BackgroundServiceContainer>();
-        _eventManager = serviceProvider.GetRequiredService<WinTabberEventManager>();
+        _cleanUp = _serviceProvider.GetRequiredService<BackgroundServiceContainer>();
+        _eventManager = _serviceProvider.GetRequiredService<WinTabberEventManager>();
 
         base.OnStartup(e);
     }
 
     protected override void OnExit(ExitEventArgs e)
     {
+        // BackgroundServiceContainer first: its Dispose() runs deliberate shutdown behaviour
+        // (resume suspended processes, restore thumbnailed windows) that the ServiceProvider's
+        // own disposal — every remaining singleton, in registration order — doesn't know about.
         _cleanUp?.Dispose();
+        _serviceProvider?.Dispose();
     }
 }
