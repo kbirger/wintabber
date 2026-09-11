@@ -1,10 +1,9 @@
-using iNKORE.UI.WPF.DragDrop.Utilities;
 using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Interop;
-using System.Windows.Media;
 using WinTabber.Interop;
 using WinTabberUI.ViewModels;
+using WinTabberUI.Windowing;
 
 namespace WinTabberUI;
 
@@ -49,10 +48,7 @@ public partial class SuspendedWindowsWindow : Window
     private void PositionWindow()
     {
         var workingArea = Screen.FromPoint(Control.MousePosition).WorkingArea;
-        var screenRect = new Rect(workingArea.Left, workingArea.Top, workingArea.Width, workingArea.Height);
-
-        var dpiScale = VisualTreeHelper.GetDpi(this);
-        var bounds = DpiHelper.DeviceRectToLogical(screenRect, dpiScale.DpiScaleX, dpiScale.DpiScaleY);
+        var bounds = this.ToLogicalBounds(workingArea);
 
         Left = bounds.Left + (bounds.Width - ActualWidth) / 2;
         Top = bounds.Bottom - ActualHeight - BottomMargin;

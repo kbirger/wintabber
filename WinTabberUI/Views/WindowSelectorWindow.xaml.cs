@@ -1,5 +1,4 @@
 ﻿using DynamicData.Binding;
-using iNKORE.UI.WPF.DragDrop.Utilities;
 using ReactiveUI;
 using System.Reactive.Linq;
 using System.Windows;
@@ -7,6 +6,7 @@ using System.Windows.Input;
 using System.Windows.Media;
 using WinTabber.Events;
 using WinTabberUI.ViewModels;
+using WinTabberUI.Windowing;
 
 namespace WinTabberUI;
 
@@ -19,8 +19,6 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
 
     /// <summary>Cached by <see cref="GetScreenBounds" />; cleared at the start of each open.</summary>
     private Rect? _screenBounds;
-
-    private DpiScale _dpiScale;
 
     public static DependencyProperty MaxItemHeightProperty = DependencyProperty.Register(
         "MaxItemHeight",
@@ -59,7 +57,6 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
     {
         InitializeComponent();
         DataContext = viewModel;
-        _dpiScale = VisualTreeHelper.GetDpi(this);
 
         SizeChanged += MainWindow_SizeChanged;
         LayoutUpdated += MainWindow_LayoutUpdated;
@@ -121,7 +118,6 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
 
     private void OnDpiChanged(object sender, System.Windows.DpiChangedEventArgs e)
     {
-        _dpiScale = e.NewDpi;
         // The logical bounds are derived from the DPI that just changed, so the cache is stale.
         _screenBounds = null;
         ScaleTiles();
@@ -323,11 +319,7 @@ public partial class WindowSelectorWindow : ReactiveWindow<WindowSelectorViewMod
             return cached;
         }
 
-        var screen = WindowData.CursorScreen.Bounds;
-        var logical = DpiHelper.DeviceRectToLogical(
-            new Rect(screen.Left, screen.Top, screen.Width, screen.Height),
-            _dpiScale.DpiScaleX,
-            _dpiScale.DpiScaleY);
+        var logical = this.ToLogicalBounds(WindowData.CursorScreen.Bounds);
 
         _screenBounds = logical;
         return logical;

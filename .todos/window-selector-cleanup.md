@@ -43,7 +43,16 @@ Idempotent today, so nothing reflows. Skipped because removing them changes beha
 re-activation paths outside the reviewed diff — verify what else depends on re-centering when
 the user clicks back onto an already-open selector before deleting.
 
-## 3. Duplicate "centre on the cursor's screen" logic
+## 3. ~~Duplicate "centre on the cursor's screen" logic~~ — DPI half fixed in `<pending>`
+
+> **Resolved 2026-09-10 (partial).** The DPI-acquisition half of the duplication is gone:
+> `WinTabberUI/Windowing/DesktopHelper.cs` now has a `ToLogicalBounds(this Visual, Rectangle)`
+> extension that both windows call, always querying `VisualTreeHelper.GetDpi` live rather than
+> `WindowSelectorWindow` caching it in `_dpiScale`. Deliberately **not** unified: `Screen.Bounds`
+> vs `Screen.WorkingArea` — that's a real behaviour difference (can the selector overlap the
+> taskbar?) the user chose to keep as two separate per-window decisions, not merge.
+>
+> Original description follows.
 
 `WindowSelectorWindow.GetScreenBounds()` / `CenterWindow()` duplicate
 `WinTabberUI/Views/SuspendedWindowsWindow.xaml.cs` (`PositionWindow`, ~line 49). The centering
@@ -59,7 +68,7 @@ Related: `WinTabberUI/Services/UIScalingService.cs` already has `GetCursorScreen
 `GetDeviceCenterScreen`, `GetCurrentScreenSize(Window)` — but it is registered nowhere, has zero
 references, and its `Dispose` throws `NotImplementedException`. Either it becomes the shared
 helper here or it should be deleted; leaving it dead next to hand-rolled equivalents is the
-worst of both.
+worst of both. **Still open** — not touched by the DPI fix above.
 
 ## 4. `HoverSelect` placement
 

@@ -1,4 +1,6 @@
 ﻿using System.Windows;
+using System.Windows.Media;
+using iNKORE.UI.WPF.DragDrop.Utilities;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 using Windows.Win32.UI.WindowsAndMessaging;
@@ -6,6 +8,18 @@ namespace WinTabberUI.Windowing;
 
 internal static class DesktopHelper
 {
+    /// <summary>
+    /// Converts a device-pixel screen rectangle to WPF logical units using the DPI in effect for
+    /// <paramref name="visual"/> right now. Queried live rather than cached, so centering is always
+    /// correct even if the window's own DPI bookkeeping is stale.
+    /// </summary>
+    public static Rect ToLogicalBounds(this Visual visual, System.Drawing.Rectangle deviceRect)
+    {
+        var screenRect = new Rect(deviceRect.Left, deviceRect.Top, deviceRect.Width, deviceRect.Height);
+        var dpi = VisualTreeHelper.GetDpi(visual);
+        return DpiHelper.DeviceRectToLogical(screenRect, dpi.DpiScaleX, dpi.DpiScaleY);
+    }
+
     public static unsafe Rect GetDesktopArea()
     {
         //PInvoke.SystemParametersInfoForDpi()

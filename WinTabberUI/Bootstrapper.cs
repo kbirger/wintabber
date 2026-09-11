@@ -1,5 +1,4 @@
-﻿using CommunityToolkit.Mvvm.DependencyInjection;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Microsoft.Extensions.DependencyInjection;
 using System.Reactive.Concurrency;
 using System.Windows;
 using WinTabber.Api.Media.CoreAudio;
@@ -31,11 +30,7 @@ public static class Bootstrapper
 {
     public static ServiceProvider Init(Application application)
     {
-        var serviceProvider = ConfigureServices(application);
-        Ioc ioc = Ioc.Default;
-        ioc.ConfigureServices(serviceProvider);
-
-        return serviceProvider;
+        return ConfigureServices(application);
     }
 
     private static ServiceProvider ConfigureServices(Application application)
