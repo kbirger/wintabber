@@ -16,7 +16,6 @@ using System.Windows.Media.Imaging;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Gdi;
 using Windows.Win32.UI.Shell;
-using WinTabber.Api.Media.ShellApplications;
 using WinTabber.Api.Media.ShellApplications.Models;
 
 namespace WinTabber.Api.Media.ShellApplications.Repositories;
@@ -71,6 +70,13 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
             .Filter(app => app.TargetPath!.Contains(@"\"))
             .ChangeKey(app => Path.GetFileName(app.TargetPath!));
 
+        // NOTE: if GetInstalledApplicationsObservable()'s underlying Observable.Start factory
+        // throws (e.g. real shell acquisition fails), DynamicData's Or() below silently drops the
+        // error rather than propagating OnError to Connect() subscribers, because primaryAumidCache
+        // has multiple subscribers here (Or() directly, plus the partial/package/target caches
+        // derived from it). In production this means a shell-acquisition failure just leaves the
+        // app list empty forever, with no signal to anyone. Proven (not just asserted) by
+        // InstalledApplicationRepositoryTests.ApplicationsByAumid_StaysEmpty_WhenAppsFolderAcquisitionFails.
         ApplicationsByAumid = primaryAumidCache.Or(partialAumidCache).AutoRefreshOnObservable(_ => primaryAumidCache).AsObservableCache();
 
         ApplicationsByPath = partialAumidCache

@@ -172,5 +172,7 @@ Static constructors in `ApplicationRef` and `WindowProcessRef` capture real PIDs
 
 - `IInteropProxy` / `InteropProxy` in `WinTabber.Interop` — extend this model to audio
 - `IMediaControlsStateService` / `IActiveWindowStateService` — follow for all services
-- TUnit + retry policy in `WinTabber.Infrastructure.Tests` — solid foundation
-- `WinTabber.Events.Tests` exists but is empty — ready for event dispatch tests once the scheduler is injectable
+- `WinTabber.Infrastructure.Tests` — TUnit, references `WinTabber.Infrastructure` directly (not
+  `WinTabberUI`); no retry policy needed since it no longer drags in the WPF app
+- `WinTabber.Events.Tests` — real test classes (`SharpHookAdaptersTests`, `ShortcutKeyRoundTripTests`,
+  `ShortcutMapTests`, `SwitcherCommitTrackerTests`) covering shortcut model logic and event dispatch

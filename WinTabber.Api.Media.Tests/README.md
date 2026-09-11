@@ -8,8 +8,14 @@ Deliberately narrow. Covered:
   observables — all via `Fakes/FakeMMDeviceEnumeratorWrapper.cs` and `Fakes/FakeAudioDevice.cs`.
   `IAudioDevice` (see `docs/superpowers/specs/2026-09-05-audio-device-abstraction-design.md`)
   replaced `MMDevice` as the enumerator's return type specifically to make this possible.
-- `SMTCSessionRepository`'s and `InstalledApplicationRepository`'s acquisition-failure propagation
-  — via `Fakes/FakeSmtcSessionSource.cs` and `Fakes/FakeShellApplicationSource.cs`.
+- `SMTCSessionRepository`'s acquisition-failure propagation — via `Fakes/FakeSmtcSessionSource.cs`;
+  a failed `RequestAsync` correctly surfaces as `OnError` on `ActiveMediaSessionChanges`.
+- `InstalledApplicationRepository`'s acquisition-failure containment — via
+  `Fakes/FakeShellApplicationSource.cs`; a failed `GetAppsFolder` reaches the seam (proven via the
+  fake) but does NOT propagate as `OnError` — `ApplicationsByAumid`/`ApplicationsByPath` just stay
+  empty. DynamicData's `Or()` combinator swallows the async error; see
+  `InstalledApplicationRepository.cs`'s `.Or(...)` call sites and
+  `ShellApplications/InstalledApplicationRepositoryTests.cs` for the full explanation.
 
 **Not covered, and why:**
 

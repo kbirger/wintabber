@@ -3,7 +3,6 @@ using System.Reactive;
 using System.Reactive.Linq;
 using DynamicData;
 using Windows.Media.Control;
-using WinTabber.Api.Media.SMTC;
 
 namespace WinTabber.Api.Media.SMTC.Repositories;
 

@@ -1,5 +1,3 @@
-SHGetKnownFolderItem
 IShellItem
-IPropertyStore
 IShellItemImageFactory
 SHCreateItemFromParsingName
