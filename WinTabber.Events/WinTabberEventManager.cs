@@ -69,10 +69,18 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
         // §5: commit is derived from the trigger that actually fired, never bound and never
         // recomputed from the map. The tracker closes itself on commit, so the only external
         // closes to report are the other ways a switcher ends.
+        //
+        // The held-modifier snapshot travels on the event itself rather than being re-read later
+        // via HeldModifiers: this Subscribe runs on the hook thread at the exact instant the
+        // commit decision is made, which is the only point where `held` is authoritative. A
+        // consumer reading HeldModifiers after the async hop to the UI thread could see a value
+        // already mutated by further key-up events.
         _resources.Add(
             _triggerSource
                 .HeldModifiers.Where(held => _commitTracker.OnHeldModifiersChanged(held))
-                .Subscribe(_ => _commitSubject.OnNext(new WinTabberEvent(EventType.CmdCommitSelection)))
+                .Subscribe(held =>
+                    _commitSubject.OnNext(new WinTabberEvent<ShortcutModifiers>(EventType.CmdCommitSelection, held))
+                )
         );
 
         CommandEvents = Observable.Merge(activations, _commitSubject, _subject).Publish().RefCount();

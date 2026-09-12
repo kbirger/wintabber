@@ -82,7 +82,7 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
             .WithLatestFrom(IsSwitcherActiveChanges)
             .Where(state => state.Second)
             .ObserveOn(scheduler)
-            .Subscribe(_ => SelectAndClose());
+            .Subscribe(state => SelectAndClose((state.First as WinTabberEvent<ShortcutModifiers>)?.Arg));
 
         var canCloseApplication = this.WhenAnyValue(vm => vm.WindowItems)
             .Select(items => items.Length > 0 && _settings.EnableCloseApplicationWindows);
@@ -208,14 +208,19 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
         SelectedIndex = index % WindowItems.Length;
     }
 
-    private void SelectAndClose()
+    private void SelectAndClose(ShortcutModifiers? heldModifiers = null)
     {
         if (SelectedItem is not null && !SelectedItem.IsEditing)
         {
             var selected = SelectedItem;
             selected.Activate();
 
-            if (_settings.EnableFocusSelect && _eventManager.HeldModifiers.HasFlag(_settings.FocusSelectModifier))
+            var modifiers = heldModifiers ?? _eventManager.HeldModifiers;
+            if (
+                _settings.EnableFocusSelect
+                && _settings.FocusSelectModifier != ShortcutModifiers.None
+                && modifiers.HasFlag(_settings.FocusSelectModifier)
+            )
             {
                 MinimizeOthers(selected);
             }
@@ -262,7 +267,7 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
             application.CloseAllWindows(WindowItems.Select(item => item.WindowRef));
         }
 
-        Deactivate();
+        CancelSelection();
     }
 
     public ReactiveCommand<Unit, Unit> CloseApplicationCommand { get; }

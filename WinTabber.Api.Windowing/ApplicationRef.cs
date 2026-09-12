@@ -105,6 +105,8 @@ public partial class ApplicationRef : WindowOwner
 
         foreach (var window in windows)
         {
+            AssertOwnsWindow(window);
+
             if (window.Process.IsProcessElevated)
             {
                 elevatedHandles.Add(window.Handle);
