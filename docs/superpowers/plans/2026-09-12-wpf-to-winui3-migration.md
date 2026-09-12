@@ -1578,6 +1578,36 @@ there too.
 project, not `WinTabber.UI.Common` — read them when writing Phase 3/4, not
 Phase 2b.
 
+**Ported in Phase 2 but dead by design in the winui3 tree:**
+`WindowStateToVisibilityConverter` (Task 2.1) and `WindowCommands`/
+`MinimizeCommand`/`RestoreMaximizeCommand` (Task 2.2) were ported for
+structural parity, following this plan's Task 0.2 precedent for
+`WindowRenameViewModel`. Unlike that precedent, though, these have no live
+consumer in the winui3 tree by design: the converter's only WPF consumer is
+`WinTabber.UI.Common/Chrome/CaptionButtons.xaml` (its `RestoreButtonVisibilityConverter`/
+`MaximizeButtonVisibilityConverter` resources), and the design spec deletes
+the entire `Chrome/` folder — `CaptionButtons` named explicitly — because
+`SystemBackdrop` and the default WinUI 3 window frame replace it; the
+`WindowCommands` set was already dead code in WPF per Task 2.2's own grep,
+and is doubly obsolete once the default window frame provides minimize/
+maximize natively.
+
+Controller's ruling: keep this ported code as-is for now rather than
+deleting it or adding speculative tests — `WindowRenameViewModel` is
+plausibly reusable, but these artifacts' only consumer is permanently gone
+by design, so there is nothing to test against. Flag them for removal
+alongside `Chrome/CaptionButtons` when that deletion actually happens in
+the window-conversion phases (3–4).
+
+Also note for any future consumer: `OverlappedPresenterState` (the WinUI 3
+analog these artifacts use for window state) has no direct binding source
+the way WPF's `Window.WindowState` `DependencyProperty` did —
+`AppWindow.Presenter.State` is a plain property with no change notification
+a XAML binding could observe directly. A future consumer of
+`WindowStateToVisibilityConverter` needs a ViewModel-level property that
+mirrors this state (e.g. by hooking `AppWindow.Changed`'s
+`DidSizeChange`), not a direct binding to the presenter.
+
 Phases 3 through 7 (converting all six windows, tray icon and bootstrap
 parity, the icon-mapping pass, and final verification) remain **not detailed
 task-by-task in this document**, for the same reason as before: producing
