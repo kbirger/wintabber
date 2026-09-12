@@ -32,5 +32,6 @@
     <ItemGroup>
         <ProjectReference Include="..\WinTabber.Api.Media\WinTabber.Api.Media.csproj" />
         <ProjectReference Include="..\WinTabber.Events\WinTabber.Events.csproj" />
+        <ProjectReference Include="..\WinTabber.Interop\WinTabber.Interop.csproj" />
     </ItemGroup>
 </Project>

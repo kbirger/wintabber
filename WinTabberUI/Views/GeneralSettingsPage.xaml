@@ -87,6 +87,14 @@
                                 ItemsSource="{Binding FocusSelectScopes}"
                                 SelectedValue="{Binding Path=FocusSelectScope, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
                     </ui:SettingsCard>
+                    <ui:SettingsCard Header="Elevation backend" Margin="0,8,0,0"
+                            Description="How WinTabber closes or minimizes windows belonging to an elevated (admin) process">
+                        <ComboBox MinWidth="220" x:Name="ElevationBackendList"
+                                VerticalAlignment="Center"
+                                FontSize="14"
+                                ItemsSource="{Binding ElevationBackends}"
+                                SelectedValue="{Binding Path=ElevationBackend, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </ui:SettingsCard>
                 </StackPanel>
             </HeaderedContentControl>
         </StackPanel>

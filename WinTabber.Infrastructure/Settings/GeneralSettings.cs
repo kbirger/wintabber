@@ -1,4 +1,5 @@
 ﻿using WinTabber.Events.Shortcuts;
+using WinTabber.Interop;
 using WinTabberUI.Services;
 
 namespace WinTabberUI.Models.Settings
@@ -39,5 +40,8 @@ namespace WinTabberUI.Models.Settings
 
         /// <summary>Which windows Focus Select minimizes.</summary>
         public FocusSelectScope FocusSelectScope { get; set; } = FocusSelectScope.SwitcherWindows;
+
+        /// <summary>Which backend closes/minimizes windows belonging to an elevated process.</summary>
+        public ElevationBackend ElevationBackend { get; set; } = ElevationBackend.BuiltIn;
     }
 }

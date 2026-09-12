@@ -78,7 +78,12 @@ public static class Bootstrapper
             .AddSingleton<WinTabberEventManager>()
             .AddSingleton<ApplicationState>()
             .AddSingleton<BuiltInElevationLauncher>()
-            .AddSingleton<IElevationLauncher>(sp => sp.GetRequiredService<BuiltInElevationLauncher>())
+            .AddSingleton<GsudoElevationLauncher>()
+            .AddSingleton<IElevationBackendProvider, GeneralSettingsElevationBackendProvider>()
+            .AddSingleton<IElevationLauncher>(sp => new ElevationLauncherResolver(
+                sp.GetRequiredService<BuiltInElevationLauncher>(),
+                sp.GetRequiredService<GsudoElevationLauncher>(),
+                sp.GetRequiredService<IElevationBackendProvider>()))
             .AddSingleton<InteropProxy>()
             .AddSingleton<IProcessControl>(sp => sp.GetRequiredService<InteropProxy>())
             .AddSingleton<IWindowPlacement>(sp => sp.GetRequiredService<InteropProxy>())

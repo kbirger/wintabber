@@ -1,6 +1,7 @@
 ﻿using iNKORE.UI.WPF.Modern.Common.IconKeys;
 using ReactiveUI;
 using WinTabber.Events.Shortcuts;
+using WinTabber.Interop;
 using WinTabberUI.Models.Settings;
 using WinTabberUI.Services;
 
@@ -21,6 +22,7 @@ namespace WinTabberUI.ViewModels.Settings
             EnableFocusSelect = settings.EnableFocusSelect;
             FocusSelectModifier = settings.FocusSelectModifier;
             FocusSelectScope = settings.FocusSelectScope;
+            ElevationBackend = settings.ElevationBackend;
         }
 
         private StartupMode _startupMode;
@@ -31,6 +33,7 @@ namespace WinTabberUI.ViewModels.Settings
         private bool _enableFocusSelect;
         private ShortcutModifiers _focusSelectModifier;
         private FocusSelectScope _focusSelectScope;
+        private ElevationBackend _elevationBackend;
         private GeneralSettings _settings;
 
         public StartupMode StartupMode
@@ -127,5 +130,17 @@ namespace WinTabberUI.ViewModels.Settings
         }
 
         public FocusSelectScope[] FocusSelectScopes => Enum.GetValues<FocusSelectScope>();
+
+        public ElevationBackend ElevationBackend
+        {
+            get => _elevationBackend;
+            set
+            {
+                _settings.ElevationBackend = value;
+                this.RaiseAndSetIfChanged(ref _elevationBackend, value);
+            }
+        }
+
+        public ElevationBackend[] ElevationBackends => Enum.GetValues<ElevationBackend>();
     }
 }
