@@ -1,5 +1,6 @@
 ﻿using System.Diagnostics;
 using System.Reactive.Linq;
+using WinTabber.Interop;
 
 namespace WinTabber.Api.Windowing;
 
@@ -119,7 +120,7 @@ public partial class ApplicationRef : WindowOwner
 
         if (elevatedHandles.Count > 0)
         {
-            Manager.Interop.CloseElevatedWindows(elevatedHandles);
+            Manager.Interop.RunElevatedAction(ElevatedWindowAction.Close, elevatedHandles);
         }
     }
 }

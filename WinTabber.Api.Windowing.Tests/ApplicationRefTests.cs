@@ -1,5 +1,6 @@
 using System.Diagnostics;
 using WinTabber.Api.Windowing.Tests.Fakes;
+using WinTabber.Interop;
 
 namespace WinTabber.Api.Windowing.Tests;
 
@@ -30,14 +31,15 @@ public class ApplicationRefTests
 
         await Assert.That(interop.ClosedHandles.Count).IsEqualTo(1);
         await Assert.That(interop.ClosedHandles).Contains(201);
-        await Assert.That(interop.ElevatedCloseCalls.Count).IsEqualTo(1);
-        await Assert.That(interop.ElevatedCloseCalls[0].Count).IsEqualTo(2);
-        await Assert.That(interop.ElevatedCloseCalls[0]).Contains(101);
-        await Assert.That(interop.ElevatedCloseCalls[0]).Contains(102);
+        await Assert.That(interop.ElevatedActionCalls.Count).IsEqualTo(1);
+        await Assert.That(interop.ElevatedActionCalls[0].Action).IsEqualTo(ElevatedWindowAction.Close);
+        await Assert.That(interop.ElevatedActionCalls[0].Handles.Count).IsEqualTo(2);
+        await Assert.That(interop.ElevatedActionCalls[0].Handles).Contains(101);
+        await Assert.That(interop.ElevatedActionCalls[0].Handles).Contains(102);
     }
 
     [Test]
-    public async Task CloseAllWindows_NoElevatedWindows_NeverCallsCloseElevatedWindows()
+    public async Task CloseAllWindows_NoElevatedWindows_NeverCallsRunElevatedAction()
     {
         var interop = new FakeWindowInterop();
         var manager = new WindowManager(interop, new FakeProcessRepository());
@@ -49,6 +51,6 @@ public class ApplicationRefTests
         application.CloseAllWindows([window]);
 
         await Assert.That(interop.ClosedHandles).Contains(301);
-        await Assert.That(interop.ElevatedCloseCalls.Count).IsEqualTo(0);
+        await Assert.That(interop.ElevatedActionCalls.Count).IsEqualTo(0);
     }
 }

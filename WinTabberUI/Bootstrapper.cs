@@ -77,6 +77,8 @@ public static class Bootstrapper
                 sp.GetRequiredService<ApplicationSettings>().Shortcuts.ToMap()))
             .AddSingleton<WinTabberEventManager>()
             .AddSingleton<ApplicationState>()
+            .AddSingleton<BuiltInElevationLauncher>()
+            .AddSingleton<IElevationLauncher>(sp => sp.GetRequiredService<BuiltInElevationLauncher>())
             .AddSingleton<InteropProxy>()
             .AddSingleton<IProcessControl>(sp => sp.GetRequiredService<InteropProxy>())
             .AddSingleton<IWindowPlacement>(sp => sp.GetRequiredService<InteropProxy>())

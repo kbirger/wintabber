@@ -19,14 +19,14 @@ public sealed class FakeWindowInterop : IWindowInterop
     public HashSet<Process> ElevatedProcesses { get; } = [];
 
     public List<int> ClosedHandles { get; } = [];
-    public List<IReadOnlyList<int>> ElevatedCloseCalls { get; } = [];
+    public List<(ElevatedWindowAction Action, IReadOnlyList<int> Handles)> ElevatedActionCalls { get; } = [];
 
     public bool IsProcessElevated(Process process) => ElevatedProcesses.Contains(process);
 
     public void CloseWindow(int handle) => ClosedHandles.Add(handle);
 
-    public void CloseElevatedWindows(IEnumerable<int> handles) =>
-        ElevatedCloseCalls.Add(handles.ToList());
+    public void RunElevatedAction(ElevatedWindowAction action, IEnumerable<int> handles) =>
+        ElevatedActionCalls.Add((action, handles.ToList()));
 
     public void BringWindowToFront(int handle) => throw new NotSupportedException();
 
