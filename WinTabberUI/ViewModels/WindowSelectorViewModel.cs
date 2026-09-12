@@ -230,7 +230,11 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
         }
     }
 
-    /// <summary>Minimizes everything except <paramref name="selected" />, per Focus Select's scope setting.</summary>
+    /// <summary>
+    /// Minimizes everything except <paramref name="selected" />, per Focus Select's scope setting.
+    /// Elevation-aware via <see cref="WindowManager.MinimizeWindows" /> — an elevated window can't
+    /// be minimized by a direct call any more than it can be closed directly (UIPI).
+    /// </summary>
     private void MinimizeOthers(WindowItem selected)
     {
         if (_settings.FocusSelectScope == FocusSelectScope.AllWindows)
@@ -240,23 +244,12 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
             // Win+Home was tried here first, but the modifier that triggers Focus Select is by
             // definition still held when this runs, so the OS saw e.g. Ctrl+Win+Home and never
             // fired its own "minimize all but active" gesture.
-            foreach (var window in WindowManager.GetWindows())
-            {
-                if (window.Handle != selected.Handle)
-                {
-                    window.Minimize();
-                }
-            }
+            WindowManager.MinimizeWindows(
+                WindowManager.GetWindows().Where(window => window.Handle != selected.Handle));
             return;
         }
 
-        foreach (var item in WindowItems)
-        {
-            if (item != selected)
-            {
-                item.WindowRef.Minimize();
-            }
-        }
+        WindowManager.MinimizeWindows(WindowItems.Where(item => item != selected).Select(item => item.WindowRef));
     }
 
     private void CloseApplication()
