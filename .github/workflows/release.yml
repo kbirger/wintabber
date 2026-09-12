@@ -61,3 +61,14 @@ jobs:
         with:
           files: WinTabber-${{ steps.version.outputs.version }}-win-x64.zip
           generate_release_notes: true
+
+  winget:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Publish to Windows Package Manager Community Repository
+        uses: vedantmgoyal9/winget-releaser@v2
+        with:
+          identifier: kbirger.WinTabber
+          installers-regex: '\.zip$'
+          token: ${{ secrets.WINGET_TOKEN }}

@@ -6,6 +6,14 @@
 
         <OutputType>WinExe</OutputType>
         <ApplicationManifest>app.manifest</ApplicationManifest>
+
+        <Product>WinTabber</Product>
+        <Company>Kirill Birger</Company>
+        <Description>A Windows desktop utility for window switching and window management.</Description>
+        <Copyright>Copyright (c) 2026 Kirill Birger</Copyright>
+        <PackageProjectUrl>https://github.com/kbirger/wintabber</PackageProjectUrl>
+        <RepositoryUrl>https://github.com/kbirger/wintabber</RepositoryUrl>
+        <PackageLicenseExpression>MIT</PackageLicenseExpression>
     </PropertyGroup>
 
     <ItemGroup>
