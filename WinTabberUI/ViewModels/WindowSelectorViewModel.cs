@@ -256,9 +256,10 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
 
     private void CloseApplication()
     {
-        foreach (var item in WindowItems)
+        if (WindowItems.Length > 0)
         {
-            item.WindowRef.Close();
+            var application = WindowItems[0].WindowRef.Process.Application;
+            application.CloseAllWindows(WindowItems.Select(item => item.WindowRef));
         }
 
         Deactivate();

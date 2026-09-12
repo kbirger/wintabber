@@ -62,10 +62,8 @@ public class WindowCommandCoordinator : IDisposable
                         var currentWindow = windowManager.CurrentWindow();
                         if (currentWindow is not null)
                         {
-                            foreach (var appWindow in currentWindow.Process.Application.GetWindows())
-                            {
-                                appWindow.Close();
-                            }
+                            var application = currentWindow.Process.Application;
+                            application.CloseAllWindows(application.GetWindows());
                         }
                         break;
                 }
