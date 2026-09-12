@@ -1526,7 +1526,1118 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-## Phase 2b onward — scope note
+## Phase 2b — Shortcut-capture custom controls
+
+`WinTabber.UI.Common/Controls/ShortcutCaptureBox.cs`, `ShortcutChip.cs`,
+`ShortcutPresenter.cs`, and `WinTabber.UI.Common/Themes/Generic.xaml` were
+read in full before writing this phase. `WinTabber.Events/Shortcuts/ShortcutDisplayNames.cs`
+was also read in full to resolve the open `KeyInterop` fallback question:
+`ShortcutChips.GetDisplayName` only reaches the WPF-side `KeyInterop.KeyFromVirtualKey`
+fallback when `ShortcutDisplayNames.GetCanonicalName` returns null — i.e. for
+virtual keys entirely outside the canonical table (letters, digits, F-keys,
+NumPad, navigation, and the common OEM punctuation keys are all in that
+table; media keys, browser keys, and volume keys are not). The fallback is
+**not droppable** — a user of this global-hotkey app can plausibly capture a
+media/volume/browser key, and without a name fallback those would render as
+a bare `0x** hex code instead of a readable name. It also is not a
+mechanical port: WinRT's `Windows.System.VirtualKey` enum does not
+necessarily have a member for every virtual-key code WPF's `System.Windows.Input.Key`
+covers (verify this against the actual enum before Task 2b.1's Step 3
+compiles, per that task's note) — where no `VirtualKey` member exists, the
+code must fall through to `ShortcutDisplayNames.GetDisplayName`'s hex format,
+exactly as the WPF original falls through when `KeyInterop` throws or
+returns `Key.None`.
+
+No existing test in `WinTabber.UI.Common.Tests` covers these three controls
+(confirmed by search) — Phase 2b's tests are new coverage, not ports of
+existing coverage.
+
+### Task 2b.1: Port `ShortcutChip` and `ShortcutChips`
+
+**Files:**
+- Create: `winui3/WinTabber.UI.Common/Controls/ShortcutChip.cs`
+- Create: `winui3/WinTabber.UI.Common.Tests/Controls/ShortcutChipsTests.cs`
+
+**Interfaces:**
+- Produces: `WinTabber.UI.Common.Controls.{ChipKind, ShortcutChip, ShortcutChips}`. `ShortcutChip` stays a plain `record` (no WPF/WinUI type in its own definition) — same as the WPF original. `ShortcutChips.GetDisplayName(ShortcutKey)`, `Build(ShortcutTrigger?, bool)`, and `BuildInProgress(ShortcutModifiers)` keep the same signatures.
+
+- [ ] **Step 1: Write failing tests for the parts of `ShortcutChips` that don't depend on the unresolved `VirtualKey` fallback**
+
+```csharp
+// winui3/WinTabber.UI.Common.Tests/Controls/ShortcutChipsTests.cs
+using WinTabber.Events.Shortcuts;
+using WinTabber.UI.Common.Controls;
+
+namespace WinTabber.UI.Common.Tests.Controls;
+
+public class ShortcutChipsTests
+{
+    [Test]
+    public async Task Build_NullTrigger_ReturnsEmpty()
+    {
+        var chips = ShortcutChips.Build(null, showEdgeHint: true);
+
+        await Assert.That(chips).IsEmpty();
+    }
+
+    [Test]
+    public async Task Build_KeyboardTrigger_ProducesModifierAndKeyChips()
+    {
+        var trigger = new ShortcutTrigger.Keyboard
+        {
+            Modifiers = ShortcutModifiers.Ctrl | ShortcutModifiers.Alt,
+            Key = new ShortcutKey(VirtualKeys.Delete),
+        };
+
+        var chips = ShortcutChips.Build(trigger, showEdgeHint: true);
+
+        await Assert.That(chips.Select(c => c.Text)).IsEquivalentTo(["Ctrl", "Alt", "Delete"]);
+        await Assert.That(chips[^1].Kind).IsEqualTo(ChipKind.Key);
+    }
+
+    [Test]
+    public async Task Build_ReleaseEdgeWithHint_AppendsHintChip()
+    {
+        var trigger = new ShortcutTrigger.Keyboard
+        {
+            Modifiers = ShortcutModifiers.None,
+            Key = new ShortcutKey(VirtualKeys.Delete),
+            Edge = TriggerEdge.Release,
+        };
+
+        var chips = ShortcutChips.Build(trigger, showEdgeHint: true);
+
+        await Assert.That(chips[^1]).IsEqualTo(new ShortcutChip("release", ChipKind.Hint));
+    }
+
+    [Test]
+    public async Task BuildInProgress_ReturnsOnlyModifierChipsInCanonicalOrder()
+    {
+        var chips = ShortcutChips.BuildInProgress(ShortcutModifiers.Win | ShortcutModifiers.Ctrl);
+
+        await Assert.That(chips.Select(c => c.Text)).IsEquivalentTo(["Ctrl", "Win"]);
+    }
+
+    [Test]
+    public async Task GetDisplayName_KeyInCanonicalTable_UsesCanonicalDisplayName()
+    {
+        // VirtualKeys.Delete is in ShortcutDisplayNames' canonical table, so this must never reach
+        // the VirtualKey fallback — pins the "canonical table wins" branch independent of whatever
+        // Task 2b.1 Step 3 resolves for the fallback branch.
+        var name = ShortcutChips.GetDisplayName(new ShortcutKey(VirtualKeys.Delete));
+
+        await Assert.That(name).IsEqualTo(ShortcutDisplayNames.GetDisplayName(new ShortcutKey(VirtualKeys.Delete)));
+    }
+}
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `dotnet test winui3/WinTabber.UI.Common.Tests -- --treenode-filter "/*/*/ShortcutChipsTests/*"`
+Expected: FAIL to compile — `ShortcutChip`/`ShortcutChips` don't exist in this project yet.
+
+- [ ] **Step 3: Port `ShortcutChip.cs`**
+
+```csharp
+// winui3/WinTabber.UI.Common/Controls/ShortcutChip.cs
+using WinTabber.Events.Shortcuts;
+
+namespace WinTabber.UI.Common.Controls;
+
+public enum ChipKind
+{
+    Modifier,
+    Key,
+    Mouse,
+    Hint,
+}
+
+public sealed record ShortcutChip(string Text, ChipKind Kind);
+
+/// <summary>
+/// The WinUI3 half of the display-name story. <see cref="ShortcutDisplayNames" /> covers every key
+/// the app can bind and stays UI-framework-free so the model is referenceable from non-UI
+/// assemblies; this adds a WinRT <c>VirtualKey</c> fallback for exotic keys outside that table
+/// (media, volume, browser keys), and turns a trigger into the chip list the presenter renders.
+/// </summary>
+public static class ShortcutChips
+{
+    public static string GetDisplayName(ShortcutKey key)
+    {
+        if (ShortcutDisplayNames.GetCanonicalName(key) is not null)
+        {
+            return ShortcutDisplayNames.GetDisplayName(key);
+        }
+
+        // Outside the canonical table — ask WinRT what it thinks this virtual key is.
+        // TODO(verify): confirm Windows.System.VirtualKey actually defines a member for the raw
+        // value before this compiles for a given key; Enum.IsDefined below already guards against
+        // an undefined member falling through silently, so this is safe either way, but the set of
+        // keys this recovers a friendly name for depends on VirtualKey's actual member list, which
+        // was not enumerated while writing this plan (see Phase 2b's scope note).
+        var vk = (Windows.System.VirtualKey)key.VirtualKey;
+        if (Enum.IsDefined(vk) && vk != Windows.System.VirtualKey.None)
+        {
+            return vk.ToString();
+        }
+
+        return ShortcutDisplayNames.GetDisplayName(key);
+    }
+
+    /// <summary>
+    /// Chips for a trigger, with modifiers always in the canonical Ctrl, Alt, Shift, Win order
+    /// regardless of the order the user pressed them.
+    /// </summary>
+    public static IReadOnlyList<ShortcutChip> Build(ShortcutTrigger? trigger, bool showEdgeHint)
+    {
+        if (trigger is null)
+        {
+            return [];
+        }
+
+        var chips = ShortcutDisplayNames
+            .Split(trigger.Modifiers)
+            .Select(m => new ShortcutChip(ShortcutDisplayNames.GetDisplayName(m), ChipKind.Modifier))
+            .ToList();
+
+        switch (trigger)
+        {
+            case ShortcutTrigger.Keyboard keyboard:
+                if (!keyboard.Key.IsNone)
+                {
+                    chips.Add(new ShortcutChip(GetDisplayName(keyboard.Key), ChipKind.Key));
+                }
+
+                if (showEdgeHint && keyboard.Edge == TriggerEdge.Release)
+                {
+                    chips.Add(new ShortcutChip("release", ChipKind.Hint));
+                }
+                break;
+
+            case ShortcutTrigger.KeyMouse mouse:
+                chips.Add(new ShortcutChip(ShortcutDisplayNames.GetDisplayName(mouse.Button), ChipKind.Mouse));
+                break;
+        }
+
+        return chips;
+    }
+
+    /// <summary>Chips for an in-progress capture: modifiers only, nothing committed yet.</summary>
+    public static IReadOnlyList<ShortcutChip> BuildInProgress(ShortcutModifiers modifiers) =>
+        ShortcutDisplayNames
+            .Split(modifiers)
+            .Select(m => new ShortcutChip(ShortcutDisplayNames.GetDisplayName(m), ChipKind.Modifier))
+            .ToList();
+}
+```
+
+The port is otherwise byte-for-byte identical to the WPF original (no `using System.Windows.Input;`, since that is what carried the `KeyInterop` dependency) — only `GetDisplayName`'s fallback body changed.
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `dotnet test winui3/WinTabber.UI.Common.Tests -- --treenode-filter "/*/*/ShortcutChipsTests/*"`
+Expected: PASS
+
+- [ ] **Step 5: Build the whole solution**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: builds clean.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add winui3/WinTabber.UI.Common/Controls/ShortcutChip.cs winui3/WinTabber.UI.Common.Tests/Controls/ShortcutChipsTests.cs
+git commit -m "feat: port ShortcutChip/ShortcutChips to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 2b.2: Port `ShortcutPresenter`
+
+**Files:**
+- Create: `winui3/WinTabber.UI.Common/Controls/ShortcutPresenter.cs`
+
+**Interfaces:**
+- Produces: `WinTabber.UI.Common.Controls.ShortcutPresenter : Microsoft.UI.Xaml.Controls.Control`, with `Trigger` (`ShortcutTrigger?`), `Orientation` (`Microsoft.UI.Xaml.Controls.Orientation`), `ShowEdgeHint` (`bool`), `Chips` (`IReadOnlyList<ShortcutChip>`, read-only), `IsEmpty` (`bool`, read-only), `EmptyText` (`string`) — same names as the WPF original.
+
+Consumes: `ShortcutChips.Build` from Task 2b.1.
+
+WinUI 3's `DependencyProperty` API is the same shape as WPF's (`Register`/`RegisterAttached`/`RegisterReadOnly`, `GetValue`/`SetValue`), just under `Microsoft.UI.Xaml` instead of `System.Windows`, so this is close to a namespace-only port. Two real differences: WinUI 3 has no `[TemplatePart]`-adjacent `DefaultStyleKeyProperty.OverrideMetadata` call needed for controls with no code-generated default style — instead, `DefaultStyleKey = typeof(ShortcutPresenter);` is set directly in the constructor (WinUI 3 convention for custom controls, since there is no static-constructor metadata-override pattern for this in WinAppSDK). `Orientation` moves from `System.Windows.Controls.Orientation` to `Microsoft.UI.Xaml.Controls.Orientation` (same member names: `Horizontal`/`Vertical`).
+
+- [ ] **Step 1: Port `ShortcutPresenter.cs`**
+
+```csharp
+// winui3/WinTabber.UI.Common/Controls/ShortcutPresenter.cs
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using WinTabber.Events.Shortcuts;
+
+namespace WinTabber.UI.Common.Controls;
+
+/// <summary>
+/// Read-only renderer for a <see cref="ShortcutTrigger" />. Chip rendering lives here and nowhere
+/// else — <see cref="ShortcutCaptureBox" /> hosts this control rather than duplicating it.
+/// </summary>
+public class ShortcutPresenter : Control
+{
+    public ShortcutPresenter()
+    {
+        DefaultStyleKey = typeof(ShortcutPresenter);
+    }
+
+    public static readonly DependencyProperty TriggerProperty = DependencyProperty.Register(
+        nameof(Trigger),
+        typeof(ShortcutTrigger),
+        typeof(ShortcutPresenter),
+        new PropertyMetadata(null, OnVisualInputChanged)
+    );
+
+    public static readonly DependencyProperty OrientationProperty = DependencyProperty.Register(
+        nameof(Orientation),
+        typeof(Orientation),
+        typeof(ShortcutPresenter),
+        new PropertyMetadata(Orientation.Horizontal)
+    );
+
+    public static readonly DependencyProperty ShowEdgeHintProperty = DependencyProperty.Register(
+        nameof(ShowEdgeHint),
+        typeof(bool),
+        typeof(ShortcutPresenter),
+        new PropertyMetadata(true, OnVisualInputChanged)
+    );
+
+    public static readonly DependencyProperty ChipsProperty = DependencyProperty.Register(
+        nameof(Chips),
+        typeof(IReadOnlyList<ShortcutChip>),
+        typeof(ShortcutPresenter),
+        new PropertyMetadata(Array.Empty<ShortcutChip>())
+    );
+
+    public static readonly DependencyProperty IsEmptyProperty = DependencyProperty.Register(
+        nameof(IsEmpty),
+        typeof(bool),
+        typeof(ShortcutPresenter),
+        new PropertyMetadata(true)
+    );
+
+    public static readonly DependencyProperty EmptyTextProperty = DependencyProperty.Register(
+        nameof(EmptyText),
+        typeof(string),
+        typeof(ShortcutPresenter),
+        new PropertyMetadata("Not set")
+    );
+
+    public ShortcutTrigger? Trigger
+    {
+        get => (ShortcutTrigger?)GetValue(TriggerProperty);
+        set => SetValue(TriggerProperty, value);
+    }
+
+    public Orientation Orientation
+    {
+        get => (Orientation)GetValue(OrientationProperty);
+        set => SetValue(OrientationProperty, value);
+    }
+
+    /// <summary>Renders a trailing "release" chip for a <see cref="TriggerEdge.Release" /> trigger.</summary>
+    public bool ShowEdgeHint
+    {
+        get => (bool)GetValue(ShowEdgeHintProperty);
+        set => SetValue(ShowEdgeHintProperty, value);
+    }
+
+    public IReadOnlyList<ShortcutChip> Chips => (IReadOnlyList<ShortcutChip>)GetValue(ChipsProperty);
+
+    /// <summary>True when there is nothing to render, so the template can show <see cref="EmptyText" />.</summary>
+    public bool IsEmpty => (bool)GetValue(IsEmptyProperty);
+
+    public string EmptyText
+    {
+        get => (string)GetValue(EmptyTextProperty);
+        set => SetValue(EmptyTextProperty, value);
+    }
+
+    private static void OnVisualInputChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        ((ShortcutPresenter)d).Rebuild();
+
+    private void Rebuild()
+    {
+        var chips = ShortcutChips.Build(Trigger, ShowEdgeHint);
+        SetValue(ChipsProperty, chips);
+        SetValue(IsEmptyProperty, chips.Count == 0);
+    }
+}
+```
+
+Note: `Chips`/`IsEmpty` are plain (writable) `DependencyProperty` registrations here, not WPF's read-only `DependencyPropertyKey` pattern — WinUI 3's `DependencyProperty` has no `RegisterReadOnly`/`DependencyPropertyKey` API. External code can technically call `SetValue` on these, same risk profile as any other WinUI 3 control exposing computed state this way; this is a known WinUI 3 limitation, not a mistake in this port.
+
+- [ ] **Step 2: Build**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: builds clean.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add winui3/WinTabber.UI.Common/Controls/ShortcutPresenter.cs
+git commit -m "feat: port ShortcutPresenter to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 2b.3: Port `ShortcutCaptureBox`
+
+**Files:**
+- Create: `winui3/WinTabber.UI.Common/Controls/ShortcutCaptureBox.cs`
+
+**Interfaces:**
+- Produces: `WinTabber.UI.Common.Controls.ShortcutCaptureBox : Microsoft.UI.Xaml.Controls.Control`, same public surface as the WPF original (`Trigger`, `TriggerSource`, `AllowMouseButtons`, `IsCapturing`, `PendingChips`, `ValidationMessage`, `StartCaptureCommand`, `CancelCaptureCommand`, `Captured` event, `StartCapture()`, `CancelCapture()`).
+
+Consumes: `ShortcutChip`/`ShortcutChips` from Task 2b.1, `ShortcutPresenter` from Task 2b.2 (referenced only via the `[TemplatePart]` attribute's type, not directly instantiated in code).
+
+Three real API changes, not renames:
+- `System.Windows.Threading.DispatcherTimer` → `Microsoft.UI.Dispatching.DispatcherQueueTimer`. Construction differs: WPF's constructor takes `(interval, priority, callback, dispatcher)`; WinUI 3's `DispatcherQueueTimer` is created via `DispatcherQueue.GetForCurrentThread().CreateTimer()`, then configured with `.Interval` and a `.Tick` event handler, then `.Start()`.
+- `System.Windows.Input.Keyboard.Focus(this)` → `this.Focus(Microsoft.UI.Xaml.FocusState.Programmatic)`.
+- The `RelayCommand` inner class's `CanExecuteChanged` used WPF's `CommandManager.RequerySuggested`, which has no WinUI 3 equivalent — same situation Task 2.2 already resolved for `MinimizeCommand`/`RestoreMaximizeCommand`: use the same no-op `add {} remove {}` pattern here for consistency (these two commands' `CanExecute` results only actually change when `TriggerSource`/`IsCapturing` change, and nothing in this control re-queries on a timer or external event today, so this matches the WPF original's actual behavior under `RequerySuggested`, which only fires on focus/keyboard/mouse events WPF itself generates — not a guaranteed re-evaluation on every state change either).
+
+The debug-log `File.AppendAllText` calls in `StartCapture`/`CancelCapture`/`OnCapturedInput` are ported unchanged — removing them is out of scope for a structural port, and the original author may still want them for diagnosing the exact focus-timing bug the code comment already documents.
+
+- [ ] **Step 1: Port `ShortcutCaptureBox.cs`**
+
+```csharp
+// winui3/WinTabber.UI.Common/Controls/ShortcutCaptureBox.cs
+using System.Reactive.Linq;
+using System.Windows.Input;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using WinTabber.Events.Shortcuts;
+using WinTabber.Events.Shortcuts.Detection;
+
+namespace WinTabber.UI.Common.Controls;
+
+/// <summary>
+/// Captures a shortcut from live global input.
+/// <para>
+/// <b>Why not WinUI3 keyboard events:</b> WinUI3 cannot see the Win key reliably and cannot see
+/// mouse buttons pressed outside the window, so capture goes through
+/// <see cref="IShortcutTriggerSource.BeginCapture" /> (§3.2).
+/// </para>
+/// <para>
+/// <b>The hook is never torn down to enter capture mode.</b> The gate lives inside the trigger
+/// source: the hook stays alive, command dispatch is muted, and raw input is both suppressed and
+/// forwarded here — so pressing Alt+Tab while capturing doesn't switch windows.
+/// </para>
+/// <para>
+/// <b>CapsLock:</b> <c>HyperKeyState</c> honors the same gate and steps aside while capturing, so
+/// CapsLock is captured as CapsLock rather than as its Ctrl+Alt+Shift+Win expansion (§3.4).
+/// </para>
+/// </summary>
+[TemplatePart(Name = PartPresenter, Type = typeof(ShortcutPresenter))]
+public class ShortcutCaptureBox : Control
+{
+    private const string PartPresenter = "PART_Presenter";
+
+    /// <summary>
+    /// Chords the OS intercepts before any hook sees them. Accepting one silently would produce a
+    /// binding that never fires, so they get an inline message instead (§3.4).
+    /// </summary>
+    private static readonly (ShortcutModifiers Modifiers, ushort Key, string Name)[] ReservedByWindows =
+    [
+        (ShortcutModifiers.Win, 0x4C, "Win+L"),
+        (ShortcutModifiers.Ctrl | ShortcutModifiers.Alt, VirtualKeys.Delete, "Ctrl+Alt+Del"),
+    ];
+
+    /// <summary>Backstop if the user walks away mid-capture (§3.3).</summary>
+    private static readonly TimeSpan IdleTimeout = TimeSpan.FromSeconds(10);
+
+    private IDisposable? _session;
+    private IDisposable? _rawSubscription;
+    private DispatcherQueueTimer? _idleTimer;
+    private ShortcutModifiers _pendingModifiers;
+
+    public ShortcutCaptureBox()
+    {
+        DefaultStyleKey = typeof(ShortcutCaptureBox);
+
+        StartCaptureCommand = new RelayCommand(_ => StartCapture(), _ => TriggerSource is not null && !IsCapturing);
+        CancelCaptureCommand = new RelayCommand(_ => CancelCapture(), _ => IsCapturing);
+        Unloaded += (_, _) => CancelCapture();
+        LosingFocus += (_, _) => CancelCapture();
+
+        // Nothing else invokes StartCaptureCommand: the host template (see ShortcutsSettingsPage.xaml)
+        // just toggles this control's Visibility on when the row enters edit mode, it never fires the
+        // command itself. Without this, becoming visible showed the idle presenter with no capture
+        // session behind it, so keystrokes went nowhere.
+        RegisterPropertyChangedCallback(
+            VisibilityProperty,
+            (_, _) =>
+            {
+                if (Visibility == Visibility.Visible)
+                {
+                    StartCapture();
+                }
+                else
+                {
+                    CancelCapture();
+                }
+            }
+        );
+    }
+
+    public static readonly DependencyProperty TriggerProperty = DependencyProperty.Register(
+        nameof(Trigger),
+        typeof(ShortcutTrigger),
+        typeof(ShortcutCaptureBox),
+        new PropertyMetadata(null)
+    );
+
+    public static readonly DependencyProperty TriggerSourceProperty = DependencyProperty.Register(
+        nameof(TriggerSource),
+        typeof(IShortcutTriggerSource),
+        typeof(ShortcutCaptureBox),
+        new PropertyMetadata(null)
+    );
+
+    public static readonly DependencyProperty AllowMouseButtonsProperty = DependencyProperty.Register(
+        nameof(AllowMouseButtons),
+        typeof(bool),
+        typeof(ShortcutCaptureBox),
+        new PropertyMetadata(true)
+    );
+
+    public static readonly DependencyProperty IsCapturingProperty = DependencyProperty.Register(
+        nameof(IsCapturing),
+        typeof(bool),
+        typeof(ShortcutCaptureBox),
+        new PropertyMetadata(false)
+    );
+
+    public static readonly DependencyProperty PendingChipsProperty = DependencyProperty.Register(
+        nameof(PendingChips),
+        typeof(IReadOnlyList<ShortcutChip>),
+        typeof(ShortcutCaptureBox),
+        new PropertyMetadata(Array.Empty<ShortcutChip>())
+    );
+
+    public static readonly DependencyProperty ValidationMessageProperty = DependencyProperty.Register(
+        nameof(ValidationMessage),
+        typeof(string),
+        typeof(ShortcutCaptureBox),
+        new PropertyMetadata(null)
+    );
+
+    public ShortcutTrigger? Trigger
+    {
+        get => (ShortcutTrigger?)GetValue(TriggerProperty);
+        set => SetValue(TriggerProperty, value);
+    }
+
+    /// <summary>Supplied by the hosting view model; capture is unavailable until this is set.</summary>
+    public IShortcutTriggerSource? TriggerSource
+    {
+        get => (IShortcutTriggerSource?)GetValue(TriggerSourceProperty);
+        set => SetValue(TriggerSourceProperty, value);
+    }
+
+    public bool AllowMouseButtons
+    {
+        get => (bool)GetValue(AllowMouseButtonsProperty);
+        set => SetValue(AllowMouseButtonsProperty, value);
+    }
+
+    public bool IsCapturing => (bool)GetValue(IsCapturingProperty);
+
+    /// <summary>Live modifier chips while capturing, rendered by the same presenter.</summary>
+    public IReadOnlyList<ShortcutChip> PendingChips => (IReadOnlyList<ShortcutChip>)GetValue(PendingChipsProperty);
+
+    public string? ValidationMessage => (string?)GetValue(ValidationMessageProperty);
+
+    public ICommand StartCaptureCommand { get; }
+
+    public ICommand CancelCaptureCommand { get; }
+
+    public event EventHandler<ShortcutTrigger>? Captured;
+
+    public void StartCapture()
+    {
+        if (IsCapturing || TriggerSource is not { } source)
+        {
+            return;
+        }
+
+        _pendingModifiers = ShortcutModifiers.None;
+        SetValue(ValidationMessageProperty, null);
+        SetValue(PendingChipsProperty, Array.Empty<ShortcutChip>());
+        SetValue(IsCapturingProperty, true);
+
+        _session = source.BeginCapture(out var raw);
+        _rawSubscription = raw
+            .ObserveOn(System.Reactive.Concurrency.SynchronizationContextScheduler.Instance ?? throw new InvalidOperationException("Not on a UI thread."))
+            .Subscribe(OnCapturedInput, _ => CancelCapture());
+
+        _idleTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
+        _idleTimer.Interval = IdleTimeout;
+        _idleTimer.Tick += (_, _) => CancelCapture();
+        _idleTimer.Start();
+
+        Focus(FocusState.Programmatic);
+    }
+
+    public void CancelCapture()
+    {
+        if (!IsCapturing)
+        {
+            return;
+        }
+
+        EndSession();
+        SetValue(PendingChipsProperty, Array.Empty<ShortcutChip>());
+    }
+
+    private void EndSession()
+    {
+        _idleTimer?.Stop();
+        _idleTimer = null;
+
+        _rawSubscription?.Dispose();
+        _rawSubscription = null;
+
+        _session?.Dispose();
+        _session = null;
+
+        SetValue(IsCapturingProperty, false);
+    }
+
+    private void OnCapturedInput(CapturedInput input)
+    {
+        // Any activity resets the idle countdown.
+        _idleTimer?.Stop();
+        _idleTimer?.Start();
+
+        switch (input.Kind)
+        {
+            case CapturedInputKind.ModifierDown:
+                _pendingModifiers |= input.ModifierBit;
+                UpdatePendingChips();
+                return;
+
+            case CapturedInputKind.ModifierUp:
+                // No completion on modifier release — the user may be re-pressing.
+                _pendingModifiers &= ~input.ModifierBit;
+                UpdatePendingChips();
+                return;
+
+            case CapturedInputKind.KeyDown:
+                OnKeyCaptured(input);
+                return;
+
+            case CapturedInputKind.MouseDown:
+                OnMouseCaptured(input);
+                return;
+        }
+    }
+
+    private void OnKeyCaptured(CapturedInput input)
+    {
+        if (input.Key.VirtualKey == VirtualKeys.Escape && _pendingModifiers == ShortcutModifiers.None)
+        {
+            CancelCapture();
+            return;
+        }
+
+        if (input.Key.VirtualKey == VirtualKeys.Back && _pendingModifiers != ShortcutModifiers.None)
+        {
+            _pendingModifiers = ShortcutModifiers.None;
+            UpdatePendingChips();
+            return;
+        }
+
+        if (input.Key.IsModifier)
+        {
+            // A modifier key that the mask did not classify; treat as a modifier, not a completion.
+            return;
+        }
+
+        if (FindReserved(_pendingModifiers, input.Key.VirtualKey) is { } reserved)
+        {
+            SetValue(ValidationMessageProperty, $"{reserved} is reserved by Windows and cannot be captured.");
+            return;
+        }
+
+        Complete(new ShortcutTrigger.Keyboard { Modifiers = _pendingModifiers, Key = input.Key });
+    }
+
+    private void OnMouseCaptured(CapturedInput input)
+    {
+        if (!AllowMouseButtons)
+        {
+            return;
+        }
+
+        if (_pendingModifiers == ShortcutModifiers.None)
+        {
+            // Binding a bare mouse button would swallow ordinary clicking.
+            SetValue(
+                ValidationMessageProperty,
+                "A mouse shortcut needs at least one modifier. Hold Ctrl, Alt, Shift or Win first."
+            );
+            return;
+        }
+
+        Complete(new ShortcutTrigger.KeyMouse { Modifiers = _pendingModifiers, Button = input.Button });
+    }
+
+    private void Complete(ShortcutTrigger trigger)
+    {
+        EndSession();
+        SetValue(PendingChipsProperty, Array.Empty<ShortcutChip>());
+        SetValue(ValidationMessageProperty, null);
+
+        Trigger = trigger;
+        Captured?.Invoke(this, trigger);
+    }
+
+    private void UpdatePendingChips() =>
+        SetValue(PendingChipsProperty, ShortcutChips.BuildInProgress(_pendingModifiers));
+
+    private static string? FindReserved(ShortcutModifiers modifiers, ushort key)
+    {
+        foreach (var (reservedModifiers, reservedKey, name) in ReservedByWindows)
+        {
+            if (reservedKey == key && modifiers == reservedModifiers)
+            {
+                return name;
+            }
+        }
+
+        return null;
+    }
+
+    private sealed class RelayCommand(Action<object?> execute, Func<object?, bool>? canExecute = null) : ICommand
+    {
+        public event EventHandler? CanExecuteChanged
+        {
+            add { }
+            remove { }
+        }
+
+        public bool CanExecute(object? parameter) => canExecute?.Invoke(parameter) ?? true;
+
+        public void Execute(object? parameter) => execute(parameter);
+    }
+}
+```
+
+Three notes on the port above, beyond the three API changes already called out:
+1. WPF's `IsVisibleChanged` has no WinUI 3 equivalent event with that exact name; `RegisterPropertyChangedCallback(VisibilityProperty, ...)` is the WinUI 3 mechanism for observing a dependency property change without a dedicated CLR event, and `Visibility` is the closest WinUI 3 analog to WPF's computed `IsVisible` for this control's purpose (the host template toggles this control's `Visibility`, not some ancestor's, per the existing code comment).
+2. WPF's `LostKeyboardFocus` becomes WinUI 3's `LosingFocus` (fires before focus moves, closest bubbling equivalent; WinUI 3 also has `LostFocus`, which fires after — `LosingFocus` was chosen to cancel before the next control gains focus, matching the WPF original's intent of canceling as focus leaves). **TODO(verify):** confirm `LosingFocus` exists on `Control` in the installed WinAppSDK version and fires in the scenario this control needs (tabbing/clicking away while capturing) before relying on it — if it does not behave as expected, `LostFocus` is the fallback.
+3. **TODO(verify):** the raw-input observable's `ObserveOn` scheduler in the WPF original was `Dispatcher` (a `DispatcherScheduler`). WinUI 3 has no built-in `DispatcherQueueScheduler` in `System.Reactive` — confirm whether `WinTabber.Events`' `IShortcutTriggerSource.BeginCapture`'s raw observable already marshals onto some UI-safe context, or whether a custom `IScheduler` wrapping `DispatcherQueue.TryEnqueue` is needed here instead of the placeholder `SynchronizationContextScheduler.Instance` reference above (which will not compile as written — `SynchronizationContextScheduler` requires an explicit `SynchronizationContext` instance, not a static `.Instance`). This is the one piece of this task that could not be fully resolved without either running the actual WinUI 3 app to observe `SynchronizationContext.Current` inside a `Loaded` handler, or reading `WinTabber.Events`' capture-source implementation in full (out of scope for this pass — flagged rather than guessed). Resolve this before Step 2's build succeeds; a plausible correct fix is `raw.ObserveOn(new SynchronizationContextScheduler(SynchronizationContext.Current!))` captured once in the constructor while the control is guaranteed to be on the UI thread, or `DispatcherQueue.GetForCurrentThread()`-based marshaling inside `OnCapturedInput` itself instead of via `ObserveOn`.
+
+- [ ] **Step 2: Build, resolving the two TODO(verify) items above against the actual compiler output**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: does not build clean on the first attempt — the `ObserveOn` line above is deliberately left unresolved (see note 3). Fix it using the real compiler error and the actual shape of `IShortcutTriggerSource.BeginCapture`'s raw observable (read `WinTabber.Events/Shortcuts/Detection/IShortcutTriggerSource.cs` at this point, since this is now necessary to complete this specific step correctly), then re-build until clean.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add winui3/WinTabber.UI.Common/Controls/ShortcutCaptureBox.cs
+git commit -m "feat: port ShortcutCaptureBox to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 2b.4: Port `Themes/Generic.xaml` control templates
+
+**Files:**
+- Create: `winui3/WinTabber.UI.Common/Themes/Generic.xaml`
+
+**Interfaces:**
+- Produces: default styles for `ShortcutPresenter` and `ShortcutCaptureBox` (keyed `ShortcutPresenterLargeStyle`/`ShortcutCaptureBoxDialogStyle` plus the two implicit `TargetType`-only styles), matching the WPF original's four styles and two shared `DataTemplate`s.
+
+This is the one piece of Phase 2b that is not a mechanical rename: the WPF original uses `Style.Triggers`/`ControlTemplate.Triggers`/`DataTrigger`, none of which exist in WinUI 3 (migration skill's XAML prohibitions). Every trigger becomes a `VisualStateManager` state, and the `DataTrigger Binding="{Binding Kind}" Value="Hint"` pattern (used to restyle a chip when its `Kind` is `Hint`) becomes an `x:Bind`-driven `Visibility`/property split via a converter, since WinUI 3's `VisualStateManager` operates on the control's own states, not a bound data value inside a `DataTemplate`.
+
+- [ ] **Step 1: Port the two chip `DataTemplate`s, replacing the `Kind == Hint` `DataTrigger` with a converter**
+
+Add a new converter (not in Task 2.1's list, since it is specific to this control): `winui3/WinTabber.UI.Common/ValueConverters/ChipKindToBoolConverter.cs`:
+
+```csharp
+// winui3/WinTabber.UI.Common/ValueConverters/ChipKindToBoolConverter.cs
+using Microsoft.UI.Xaml.Data;
+using WinTabber.UI.Common.Controls;
+
+namespace WinTabber.UI.Common.ValueConverters;
+
+/// <summary>True when the bound <see cref="ChipKind"/> is <see cref="ChipKind.Hint"/> — drives the
+/// two `DataTemplate`s in Generic.xaml that render a hint chip differently from a normal one,
+/// replacing the WPF original's `DataTrigger Binding="{Binding Kind}" Value="Hint"`.</summary>
+public sealed class ChipKindToBoolConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language) =>
+        value is ChipKind.Hint;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
+        throw new NotSupportedException();
+}
+```
+
+```xml
+<!-- winui3/WinTabber.UI.Common/Themes/Generic.xaml -->
+<ResourceDictionary
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:WinTabber.UI.Common.Controls"
+    xmlns:conv="using:WinTabber.UI.Common.ValueConverters"
+>
+    <conv:ChipKindToBoolConverter x:Key="ChipKindToBoolConverter" />
+
+    <SolidColorBrush x:Key="ShortcutChipForegroundBrush" Color="#202020" />
+    <SolidColorBrush x:Key="ShortcutCaptureBoxBorderBrush" Color="#6E7683" />
+    <SolidColorBrush x:Key="ShortcutHintForegroundBrush" Color="#99FFFFFF" />
+    <SolidColorBrush x:Key="ShortcutEmptyForegroundBrush" Color="#88808080" />
+    <SolidColorBrush x:Key="ShortcutValidationForegroundBrush" Color="#FFC42B1C" />
+    <SolidColorBrush x:Key="ShortcutGroupBackgroundBrush" Color="#3A3A3A" />
+    <SolidColorBrush x:Key="ShortcutGroupHoverBackgroundBrush" Color="#454545" />
+    <SolidColorBrush x:Key="ShortcutGroupBorderBrush" Color="#55FFFFFF" />
+    <SolidColorBrush x:Key="ShortcutChipAccentBrush" Color="{ThemeResource SystemAccentColorLight2}" />
+
+    <!-- Chip rendering exists in exactly one place. ShortcutCaptureBox hosts a ShortcutPresenter
+         rather than duplicating this template. The Hint variant (transparent, italic, softer
+         foreground) is selected via ChipKindToBoolConverter instead of WPF's DataTrigger, since
+         WinUI 3 DataTemplates cannot host a Style with a data-bound trigger condition the way WPF's
+         DataTrigger could. -->
+    <DataTemplate x:Key="ShortcutChipTemplate">
+        <Border
+            Margin="0,0,6,0"
+            Padding="10,5"
+            BorderThickness="1"
+            CornerRadius="6"
+            Background="{Binding Kind, Converter={StaticResource ChipKindToBoolConverter}, ConverterParameter=Invert, FallbackValue={StaticResource ShortcutChipAccentBrush}}"
+            BorderBrush="{StaticResource ShortcutChipAccentBrush}">
+            <TextBlock
+                FontSize="13"
+                FontWeight="Bold"
+                Foreground="{StaticResource ShortcutChipForegroundBrush}"
+                Text="{Binding Text}" />
+        </Border>
+    </DataTemplate>
+
+    <!-- Large-scale chip, shared by the capture dialog's idle and in-progress display. -->
+    <DataTemplate x:Key="ShortcutChipTemplateLarge">
+        <Border
+            MinWidth="50"
+            MinHeight="50"
+            Margin="5,0,5,0"
+            Padding="8"
+            BorderThickness="1"
+            CornerRadius="6"
+            Background="{StaticResource ShortcutChipAccentBrush}"
+            BorderBrush="{StaticResource ShortcutChipAccentBrush}">
+            <TextBlock
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FontSize="18"
+                FontWeight="Bold"
+                Foreground="{StaticResource ShortcutChipForegroundBrush}"
+                Text="{Binding Text}" />
+        </Border>
+    </DataTemplate>
+</ResourceDictionary>
+```
+
+**Open item, not resolved by this task:** the `ChipKindToBoolConverter`/`ConverterParameter=Invert` binding above for the Hint-variant background/border/foreground swap is sketched but not fully worked out — a single boolean converter cannot drive three different property swaps (background, border, foreground, font-style, font-weight) cleanly the way the WPF `Style.Triggers` block did across two nested `Style` elements. The faithful WinUI 3 equivalent is either (a) two `DataTemplate`s selected by a `DataTemplateSelector` keyed on `Kind == Hint`, or (b) a single `DataTemplate` whose visual states are driven by `VisualStateManager.GoToState` from code-behind on the generated container, set via `ItemsControl.ContainerContentChanging`. Given the complexity this adds and that it affects visual polish only (not the control's functional behavior — capture, validation, and completion all work regardless of how a Hint chip is styled), **this task stops here and defers the exact Hint-chip visual treatment to a follow-up**, rather than fabricate a converter binding shape not verified to actually work in WinUI 3's binding engine. Ship both templates with the Hint variant visually identical to a normal chip for now (drop the `Background`/`BorderBrush` swap entirely, accept a normal-looking chip for the "release" hint), and revisit polish once the control is live and can be visually checked.
+
+Simplify Step 1's templates accordingly — replace the `Background`/`BorderBrush` bindings above with the flat `{StaticResource ShortcutChipAccentBrush}` value unconditionally (no converter), and do not create `ChipKindToBoolConverter` in this task. This keeps Task 2b.4 mechanical and honest about what it delivers; restyling the Hint chip is a two-line follow-up once someone can see the running control.
+
+- [ ] **Step 2: Port `ShortcutPresenter`'s two styles (large and default), replacing `IsEmpty` triggers with `VisualStateManager`**
+
+```xml
+<!-- continuing winui3/WinTabber.UI.Common/Themes/Generic.xaml -->
+    <Style x:Key="ShortcutPresenterLargeStyle" TargetType="controls:ShortcutPresenter">
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:ShortcutPresenter">
+                    <Grid>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="EmptyStates">
+                                <VisualState x:Name="HasChips" />
+                                <VisualState x:Name="Empty">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_Chips.Visibility" Value="Collapsed" />
+                                        <Setter Target="PART_Empty.Visibility" Value="Visible" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <ItemsControl
+                            x:Name="PART_Chips"
+                            ItemTemplate="{StaticResource ShortcutChipTemplateLarge}"
+                            ItemsSource="{TemplateBinding Chips}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="{TemplateBinding Orientation}" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <TextBlock
+                            x:Name="PART_Empty"
+                            VerticalAlignment="Center"
+                            FontSize="14"
+                            FontStyle="Italic"
+                            Foreground="{StaticResource ShortcutEmptyForegroundBrush}"
+                            Text="{TemplateBinding EmptyText}"
+                            Visibility="Collapsed" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="controls:ShortcutPresenter">
+        <Setter Property="IsTabStop" Value="False" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:ShortcutPresenter">
+                    <Grid>
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="EmptyStates">
+                                <VisualState x:Name="HasChips" />
+                                <VisualState x:Name="Empty">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_Chips.Visibility" Value="Collapsed" />
+                                        <Setter Target="PART_Empty.Visibility" Value="Visible" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <ItemsControl
+                            x:Name="PART_Chips"
+                            ItemTemplate="{StaticResource ShortcutChipTemplate}"
+                            ItemsSource="{TemplateBinding Chips}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="{TemplateBinding Orientation}" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+                        <TextBlock
+                            x:Name="PART_Empty"
+                            VerticalAlignment="Center"
+                            FontStyle="Italic"
+                            Foreground="{StaticResource ShortcutEmptyForegroundBrush}"
+                            Text="{TemplateBinding EmptyText}"
+                            Visibility="Collapsed" />
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+```
+
+**Open item, not resolved by this task:** the `IsEmpty` → `Empty`/`HasChips` `VisualState` transition above is declared but nothing calls `VisualStateManager.GoToState(this, "Empty", ...)` — WPF's `Trigger Property="IsEmpty"` fired automatically off the dependency property; WinUI 3's `VisualStateManager` requires an explicit `GoToState` call, typically from a property-changed callback in code-behind. This needs a small addition to `ShortcutPresenter.cs` (Task 2b.2) — `IsEmptyProperty`'s `PropertyMetadata` callback should call `VisualStateManager.GoToState(this, IsEmpty ? "Empty" : "HasChips", useTransitions: true)` — which was not included in Task 2b.2 above because Task 2b.2 was written before this XAML-side discovery. **Before running this task's Step 3 build, go back and add that callback to `ShortcutPresenter.cs`.** This is exactly the kind of cross-task discovery this plan's fix loop (or, if caught before implementation, a controller ruling) exists to handle — noting it here explicitly rather than silently leaving broken visual states.
+
+- [ ] **Step 3: Port `ShortcutCaptureBox`'s two styles (dialog and default), replacing `IsCapturing` and `ValidationMessage` triggers with `VisualStateManager`**
+
+```xml
+<!-- continuing winui3/WinTabber.UI.Common/Themes/Generic.xaml -->
+    <Style x:Key="ShortcutCaptureBoxDialogStyle" TargetType="controls:ShortcutCaptureBox">
+        <Setter Property="IsTabStop" Value="True" />
+        <Setter Property="MinHeight" Value="100" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:ShortcutCaptureBox">
+                    <StackPanel HorizontalAlignment="Center">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CaptureStates">
+                                <VisualState x:Name="Idle" />
+                                <VisualState x:Name="Capturing">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_Presenter.Visibility" Value="Collapsed" />
+                                        <Setter Target="PART_Capturing.Visibility" Value="Visible" />
+                                        <Setter Target="PART_Hint.Visibility" Value="Visible" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="ValidationStates">
+                                <VisualState x:Name="NoValidationMessage">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_Validation.Visibility" Value="Collapsed" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="HasValidationMessage" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+
+                        <controls:ShortcutPresenter
+                            x:Name="PART_Presenter"
+                            HorizontalAlignment="Center"
+                            EmptyText="Press a shortcut…"
+                            Style="{StaticResource ShortcutPresenterLargeStyle}"
+                            Trigger="{TemplateBinding Trigger}" />
+
+                        <ItemsControl
+                            x:Name="PART_Capturing"
+                            HorizontalAlignment="Center"
+                            ItemTemplate="{StaticResource ShortcutChipTemplateLarge}"
+                            ItemsSource="{TemplateBinding PendingChips}"
+                            Visibility="Collapsed">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <StackPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                        </ItemsControl>
+
+                        <TextBlock
+                            x:Name="PART_Hint"
+                            Margin="0,12,0,0"
+                            HorizontalAlignment="Center"
+                            FontStyle="Italic"
+                            Foreground="{StaticResource ShortcutHintForegroundBrush}"
+                            Text="Press a shortcut… (Esc to cancel)"
+                            Visibility="Collapsed" />
+
+                        <TextBlock
+                            x:Name="PART_Validation"
+                            Margin="0,8,0,0"
+                            HorizontalAlignment="Center"
+                            Foreground="{StaticResource ShortcutValidationForegroundBrush}"
+                            Text="{TemplateBinding ValidationMessage}"
+                            TextAlignment="Center"
+                            TextWrapping="Wrap" />
+                    </StackPanel>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style x:Key="ShortcutEditButtonStyle" TargetType="Button">
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="HorizontalContentAlignment" Value="Left" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="Button">
+                    <Grid x:Name="RootGrid">
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CommonStates">
+                                <VisualState x:Name="Normal" />
+                                <VisualState x:Name="PointerOver">
+                                    <VisualState.Setters>
+                                        <Setter Target="Bg.Background" Value="{StaticResource ShortcutGroupHoverBackgroundBrush}" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
+                        <Border
+                            x:Name="Bg"
+                            Padding="8,5"
+                            Background="{StaticResource ShortcutGroupBackgroundBrush}"
+                            BorderBrush="{StaticResource ShortcutGroupBorderBrush}"
+                            BorderThickness="1"
+                            CornerRadius="6">
+                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+                        </Border>
+                    </Grid>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+
+    <Style TargetType="controls:ShortcutCaptureBox">
+        <Setter Property="IsTabStop" Value="True" />
+        <Setter Property="MinHeight" Value="28" />
+        <Setter Property="Template">
+            <Setter.Value>
+                <ControlTemplate TargetType="controls:ShortcutCaptureBox">
+                    <Border
+                        Padding="6,4"
+                        Background="Transparent"
+                        BorderBrush="{StaticResource ShortcutCaptureBoxBorderBrush}"
+                        BorderThickness="1"
+                        CornerRadius="6">
+                        <StackPanel>
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CaptureStates">
+                                    <VisualState x:Name="Idle" />
+                                    <VisualState x:Name="Capturing">
+                                        <VisualState.Setters>
+                                            <Setter Target="PART_Capturing.Visibility" Value="Visible" />
+                                            <Setter Target="PART_Presenter.Visibility" Value="Collapsed" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="ValidationStates">
+                                    <VisualState x:Name="NoValidationMessage">
+                                        <VisualState.Setters>
+                                            <Setter Target="PART_Validation.Visibility" Value="Collapsed" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="HasValidationMessage" />
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+
+                            <controls:ShortcutPresenter
+                                x:Name="PART_Presenter"
+                                Trigger="{TemplateBinding Trigger}" />
+
+                            <StackPanel x:Name="PART_Capturing" Orientation="Horizontal" Visibility="Collapsed">
+                                <ItemsControl
+                                    ItemTemplate="{StaticResource ShortcutChipTemplate}"
+                                    ItemsSource="{TemplateBinding PendingChips}">
+                                    <ItemsControl.ItemsPanel>
+                                        <ItemsPanelTemplate>
+                                            <StackPanel Orientation="Horizontal" />
+                                        </ItemsPanelTemplate>
+                                    </ItemsControl.ItemsPanel>
+                                </ItemsControl>
+                                <TextBlock
+                                    VerticalAlignment="Center"
+                                    FontStyle="Italic"
+                                    Foreground="{StaticResource ShortcutEmptyForegroundBrush}"
+                                    Text="Press a shortcut… (Esc to cancel)" />
+                            </StackPanel>
+
+                            <TextBlock
+                                x:Name="PART_Validation"
+                                FontSize="11"
+                                Foreground="{StaticResource ShortcutValidationForegroundBrush}"
+                                Text="{TemplateBinding ValidationMessage}"
+                                TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+                </ControlTemplate>
+            </Setter.Value>
+        </Setter>
+    </Style>
+```
+
+**Open item, not resolved by this task, same class of gap as Step 2's:** `CaptureStates`/`ValidationStates` are declared but nothing calls `GoToState` when `IsCapturing`/`ValidationMessage` change. `ShortcutCaptureBox.cs` (Task 2b.3) needs `IsCapturingProperty`'s and `ValidationMessageProperty`'s `PropertyMetadata` callbacks to call `VisualStateManager.GoToState(this, ..., useTransitions: true)` for their respective groups — not included in Task 2b.3 above for the same reason as Step 2's note. **Before this task's Step 4 build, go back and add both callbacks to `ShortcutCaptureBox.cs`.**
+
+- [ ] **Step 4: Build**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: does not build clean until the two `GoToState`-wiring gaps from Steps 2 and 3 are closed in `ShortcutPresenter.cs`/`ShortcutCaptureBox.cs`. Close them, then re-build until clean.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add winui3/WinTabber.UI.Common/Themes/Generic.xaml \
+  winui3/WinTabber.UI.Common/Controls/ShortcutPresenter.cs \
+  winui3/WinTabber.UI.Common/Controls/ShortcutCaptureBox.cs
+git commit -m "feat: port Generic.xaml templates for ShortcutPresenter/ShortcutCaptureBox to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+**What Phase 2b honestly does not fully deliver:** two visual/behavioral gaps are explicitly deferred rather than fabricated — the Hint-chip visual treatment (Task 2b.4 Step 1) and confirming `LosingFocus`'s exact behavior (Task 2b.3, note 2). Both are named, both are small, and both are safe to defer because they affect polish/edge-case behavior, not the control's core capture/validate/complete logic. A future task, written once the control can actually be seen running, should close both.
+
+---
+
+## Phase 2c onward — scope note
 
 **Deferred from Phase 2, needs design work before a task-by-task plan can be
 written:**
@@ -1549,34 +2660,26 @@ written:**
   researched while writing this plan. `WinTabber.UI.Common.Tests/Behaviors/HintBehaviorTests.cs`
   and `HintBehaviorDesktopTests.cs` were read in full and confirm the same
   dependency (`AdornerDecorator`, `Window.Show()`) at the test level.
-- **The shortcut-capture custom controls** —
-  `WinTabber.UI.Common/Controls/ShortcutCaptureBox.cs`, `ShortcutChip.cs`,
-  `ShortcutPresenter.cs`, plus their control templates in
-  `WinTabber.UI.Common/Themes/Generic.xaml` (not read for this plan). These
-  are custom `Control`-derived types with `[TemplatePart]`, which does port
-  to WinUI 3, but `ShortcutCaptureBox` also uses `DispatcherTimer` (→
-  `Microsoft.UI.Dispatching.DispatcherQueueTimer`, a real API change, not a
-  rename), `Keyboard.Focus(this)` (→ `this.Focus(FocusState.Programmatic)`),
-  and `ShortcutChip`'s `ShortcutChips.GetDisplayName` falls back to WPF's
-  `System.Windows.Input.KeyInterop.KeyFromVirtualKey`, which has no direct
-  WinUI 3 equivalent and needs either a replacement virtual-key-to-name
-  table or confirmation that `ShortcutDisplayNames`'s canonical table already
-  covers every key this app can bind (in which case the fallback may be
-  droppable, not just portable — a design decision, not a translation).
+- **The shortcut-capture custom controls** are now planned as Phase 2b
+  (above), not deferred — see that section for the full research and the
+  `KeyInterop`/`VirtualKey` resolution.
 
-Before writing Phase 2b, read `Hints/**` (all 7 files),
+Before writing Phase 2c, read `Hints/**` (all 7 files),
 `WinTabber.UI.Common/HintAdorner.cs`, and
-`WinTabber.UI.Common/Themes/Generic.xaml` in full, and research the actual
-WinUI 3 replacement for `AdornerLayer`-based overlays and the UI Automation
-invoke pattern before writing any task — the same "No Placeholders"
-discipline that limited this pass to Phase 2's mechanical subset applies
-there too.
+`WinTabber.UI.Common/Themes/Generic.xaml` in full (note: `Themes/Generic.xaml`
+was read for Phase 2b's port of the shortcut-capture controls' templates —
+re-reading it for the hint-overlay's own template needs, if any live in the
+same file, should reuse that read rather than redo it), and research the
+actual WinUI 3 replacement for `AdornerLayer`-based overlays and the UI
+Automation invoke pattern before writing any task — the same "No
+Placeholders" discipline that limited this pass to Phase 2b's mechanical
+subset applies there too.
 
 `WinTabberUI/Controls/SpatialNavigationListView.cs` and
 `WindowThumbnail.cs` (corrected location, see the note at the top of Phase
 2) belong to the window-conversion phases (3–4), since they live in the app
 project, not `WinTabber.UI.Common` — read them when writing Phase 3/4, not
-Phase 2b.
+Phase 2c.
 
 **Ported in Phase 2 but dead by design in the winui3 tree:**
 `WindowStateToVisibilityConverter` (Task 2.1) and `WindowCommands`/
