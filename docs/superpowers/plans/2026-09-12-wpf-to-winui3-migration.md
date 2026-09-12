@@ -1034,10 +1034,574 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-## Phase 2 onward — scope note
+## Phase 2 — Port `WinTabber.UI.Common`'s converters and window commands off WPF
 
-Phases 2 through 7 (porting `WinTabber.UI.Common`'s behaviors/controls, converting all six windows, tray icon and bootstrap parity, the icon-mapping pass, and final verification) are **not detailed task-by-task in this document**. Producing bite-sized, no-placeholder tasks with real, verified code for that work requires reading several files in full that were not read while writing this plan — most importantly `WinTabber.UI.Common/Controls/SpatialNavigationListView.cs`, `WindowThumbnail.cs`, `ShortcutCaptureBox.cs`, `ShortcutPresenter.cs`, and `WinTabber.UI.Common/Behaviors/HintBehavior.cs`, all of which the switcher, dock, and media-controls windows depend on directly. Writing conversion code against these without having read them would violate this skill's "No Placeholders" rule in substance even if not in form — it would be fabricated, unverified code presented as ready to commit.
+Every file currently under `WinTabber.UI.Common` (excluding `Chrome/`, which is
+deleted per the design spec, not ported) was read in full before writing this
+phase. Two groups of files port cleanly with mechanical, verified changes
+(Tasks 2.1–2.3, below). A third group — the hint-overlay system
+(`Behaviors/HintBehavior.cs`, its kernels, `Hints/**`, `HintAdorner.cs`,
+`HintPosition.cs`) and the shortcut-capture custom controls
+(`Controls/ShortcutCaptureBox.cs`, `ShortcutChip.cs`, `ShortcutPresenter.cs`,
+plus their `Themes/Generic.xaml` templates) — is **deferred to Phase 2b**,
+detailed in the scope note at the end of this section, because porting them
+requires real design decisions this plan has not made, not just translation.
 
-**Before continuing past Phase 1**, read those files in full, then write Phases 2–7 as a continuation of this plan (or a follow-on plan document), using the same task structure established above. The design spec (`docs/superpowers/specs/2026-09-12-wpf-to-winui3-migration-design.md`) already fixes the phase boundaries, the backdrop-per-window table, and the control-mapping rules — that scoping work does not need to be redone, only the file-level task breakdown for Phases 2–7.
+Note on file locations, corrected from an earlier assumption in this
+document: `SpatialNavigationListView.cs` and `WindowThumbnail.cs` live in
+`WinTabberUI/Controls/` (the app project), not `WinTabber.UI.Common`. They
+are in scope for the window-conversion phases (3–4), not Phase 2.
 
-**Architecture gap found during final review, unaddressed by Phases 0–1:** `WinTabber.Api.Media` and `WinTabber.Infrastructure` are not actually fully UI-framework-agnostic, despite this plan's Architecture section describing them that way. `WinTabber.Api.Media/ShellApplications/Models/InstalledApplicationInfo.cs:11` declares `public required IObservable<ImageSource> Icon { get; init; }` using WPF's `System.Windows.Media.ImageSource`, and `WinTabber.Infrastructure/AppCache.cs` uses `System.Windows.Media.Imaging` types directly, which is why `WinTabber.Infrastructure.csproj` still carries `<UseWPF>true</UseWPF>`. Because `AggregateSession` (moved into `WinTabber.ViewModels` by Task 1.2) exposes a public `InstalledApplicationInfo App` property, a WPF type is reachable through `WinTabber.ViewModels`'s public surface today — it only compiles clean because `winui3/WinTabberUI` has no real code yet exercising that path. Phase 2 should open with a task to de-WPF `InstalledApplicationInfo.Icon` (e.g. to `IObservable<Stream>` or a new per-UI-framework `IIconSource` abstraction) and `AppCache`'s imaging code, before any winui3 media-related conversion work begins.
+### Task 2.1: Port `ValueConverters.cs`
+
+**Files:**
+- Create: `winui3/WinTabber.UI.Common/ValueConverters/ValueConverters.cs`
+- Create: `winui3/WinTabber.UI.Common.Tests/ValueConverters/ValueConvertersTests.cs`
+- Delete: `winui3/WinTabber.UI.Common.Tests/PlaceholderTests.cs` (added in the final-review fix wave only to keep this project's test count above zero for CI — this task's real tests supersede it)
+
+**Interfaces:**
+- Produces: `WinTabber.UI.Common.ValueConverters.{BoolToThicknessConverter, BoolToBrushConverter, InverseBoolConverter, BoolToVisibilityConverter, InverseBoolToVisibilityConverter, WindowStateToVisibilityConverter, NullToVisibilityConverter, EnumToStringConverter, StringToEnumConverter, EnumValuesConverter, TimeSpanToFloatConverter, TimeSpanToStringConverter, FloatToPercentageConverter, BoolToContentConverter}`, each `: Microsoft.UI.Xaml.Data.IValueConverter`. Same type and member names as the WPF originals; `IconKeyToFontIconDataConverter` is NOT ported here — its WinUI mapping is built in Phase 6 (Global Constraints), not now.
+
+The WinUI 3 `IValueConverter` signature differs from WPF's in one place: the
+last parameter is `string language` (a language tag), not
+`System.Globalization.CultureInfo culture` — none of these converters use
+that parameter, so it is a rename with no logic change.
+
+`BoolToBrushConverter`'s `EditBrush`/`ViewBrush` properties default to
+`Brushes.White`/`Brushes.Transparent` in WPF. WinUI 3 has no static `Brushes`
+helper class — construct `new SolidColorBrush(Colors.White)` /
+`new SolidColorBrush(Colors.Transparent)` instead. `WindowStateToVisibilityConverter`'s
+`TargetState`/`WindowState` type needs `Microsoft.UI.Xaml.WindowState` (the
+`Normal`/`Minimized`/`Maximized` enum WinAppSDK added for windowing) — before
+writing Step 3, confirm this type and its member names against the actual
+installed `Microsoft.WindowsAppSDK` package (via IntelliSense or the SDK's
+reference docs), since this plan was written without access to browse that
+package's API surface directly; if it does not exist or is named
+differently, use whatever the installed package's real windowing-state type
+is instead, and note the substitution in the commit message.
+
+- [ ] **Step 1: Write failing tests for the converters that have real branching logic**
+
+Not every converter needs a test — several are one-line pass-throughs
+(`InverseBoolConverter`, `BoolToVisibilityConverter`) where a test would just
+restate the implementation. Cover the ones with a decision or a format:
+
+```csharp
+// winui3/WinTabber.UI.Common.Tests/ValueConverters/ValueConvertersTests.cs
+using Microsoft.UI.Xaml;
+using WinTabber.UI.Common.ValueConverters;
+
+namespace WinTabber.UI.Common.Tests.ValueConverters;
+
+public class ValueConvertersTests
+{
+    [Test]
+    public async Task BoolToThicknessConverter_True_ReturnsOneUnitThickness()
+    {
+        var converter = new BoolToThicknessConverter();
+
+        var result = (Thickness)converter.Convert(true, typeof(Thickness), null!, "en-US");
+
+        await Assert.That(result.Left).IsEqualTo(1d);
+        await Assert.That(result.Top).IsEqualTo(1d);
+    }
+
+    [Test]
+    public async Task BoolToThicknessConverter_False_ReturnsZeroThickness()
+    {
+        var converter = new BoolToThicknessConverter();
+
+        var result = (Thickness)converter.Convert(false, typeof(Thickness), null!, "en-US");
+
+        await Assert.That(result.Left).IsEqualTo(0d);
+    }
+
+    [Test]
+    public async Task TimeSpanToFloatConverter_RoundTrips()
+    {
+        var converter = new TimeSpanToFloatConverter();
+        var span = TimeSpan.FromSeconds(90);
+
+        var seconds = converter.Convert(span, typeof(double), null!, "en-US");
+        var back = converter.ConvertBack(seconds, typeof(TimeSpan), null!, "en-US");
+
+        await Assert.That(seconds).IsEqualTo(90d);
+        await Assert.That(back).IsEqualTo(span);
+    }
+
+    [Test]
+    public async Task TimeSpanToStringConverter_UnderOneHour_FormatsAsMinutesSeconds()
+    {
+        var converter = new TimeSpanToStringConverter();
+
+        var result = converter.Convert(TimeSpan.FromSeconds(65), typeof(string), null!, "en-US");
+
+        await Assert.That(result).IsEqualTo("01:05");
+    }
+
+    [Test]
+    public async Task FloatToPercentageConverter_ConvertsFractionToPercent()
+    {
+        var converter = new FloatToPercentageConverter();
+
+        var result = converter.Convert(0.5f, typeof(double), null!, "en-US");
+
+        await Assert.That(result).IsEqualTo(50f);
+    }
+}
+```
+
+- [ ] **Step 2: Run the tests to verify they fail**
+
+Run: `dotnet test winui3/WinTabber.UI.Common.Tests -- --treenode-filter "/*/*/ValueConvertersTests/*"`
+Expected: FAIL to compile — the converters don't exist in this project yet.
+
+- [ ] **Step 3: Port every converter**
+
+```csharp
+// winui3/WinTabber.UI.Common/ValueConverters/ValueConverters.cs
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Data;
+using Microsoft.UI.Xaml.Media;
+using Windows.UI;
+
+namespace WinTabber.UI.Common.ValueConverters;
+
+public class BoolToThicknessConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => (bool)value ? new Thickness(1) : new Thickness(0);
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotImplementedException();
+}
+
+public class BoolToBrushConverter : IValueConverter
+{
+    public Brush EditBrush { get; set; } = new SolidColorBrush(Colors.White);
+    public Brush ViewBrush { get; set; } = new SolidColorBrush(Colors.Transparent);
+
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => (bool)value ? EditBrush : ViewBrush;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotImplementedException();
+}
+
+public class InverseBoolConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => !(bool)value;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => !(bool)value;
+}
+
+public class BoolToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => (bool)value ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => (Visibility)value == Visibility.Visible;
+}
+
+public class InverseBoolToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => (bool)value ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => (Visibility)value != Visibility.Visible;
+}
+
+public class WindowStateToVisibilityConverter : IValueConverter
+{
+    // TODO(verify): confirm Microsoft.UI.Xaml.WindowState is the correct type for the installed
+    // Microsoft.WindowsAppSDK version before this compiles — see Task 2.1's Interfaces note.
+    public WindowState TargetState { get; set; } = WindowState.Normal;
+
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => (WindowState)value == TargetState ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => (Visibility)value == Visibility.Visible ? TargetState : WindowState.Normal;
+}
+
+public class NullToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => value == null ? Visibility.Collapsed : Visibility.Visible;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotImplementedException();
+}
+
+public class EnumToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => value?.ToString() ?? (object)0;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => Enum.Parse(targetType, (string)value);
+}
+
+public class StringToEnumConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => Enum.Parse(targetType, (string)value);
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotImplementedException();
+}
+
+public class EnumValuesConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => Enum.GetNames(value.GetType());
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotImplementedException();
+}
+
+public class TimeSpanToFloatConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => ((TimeSpan)value).TotalSeconds;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => TimeSpan.FromSeconds((double)value);
+}
+
+public class TimeSpanToStringConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+    {
+        var ts = (TimeSpan)value;
+        if (ts.TotalHours > 1)
+        {
+            return ts.ToString(@"dd\:hh\:mm\:ss");
+        }
+        if (ts.TotalHours > 1)
+        {
+            return ts.ToString(@"hh\:mm\:ss");
+        }
+
+        return ts.ToString(@"mm\:ss");
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotImplementedException();
+}
+
+public class FloatToPercentageConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => (float)value * 100;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => (double)value / 100;
+}
+
+public class BoolToContentConverter : IValueConverter
+{
+    public required FrameworkElement TrueContent { get; set; }
+    public required FrameworkElement FalseContent { get; set; }
+
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => (bool)value ? TrueContent : FalseContent;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotSupportedException();
+}
+```
+
+The `TimeSpanToStringConverter.Convert` body above preserves the original's
+duplicated `ts.TotalHours > 1` condition verbatim (the second branch is
+unreachable dead code in the WPF original — this is a pre-existing bug, not
+introduced by porting). Do not fix it in this task; port faithfully and note
+it as a follow-up, consistent with how this plan has handled other
+pre-existing issues found during migration rather than silently fixing scope
+outside the current task.
+
+- [ ] **Step 4: Run the tests to verify they pass**
+
+Run: `dotnet test winui3/WinTabber.UI.Common.Tests -- --treenode-filter "/*/*/ValueConvertersTests/*"`
+Expected: PASS
+
+- [ ] **Step 5: Build the whole solution**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: builds clean. If `WindowState`/`Colors` do not resolve, apply the substitution noted in Step 3's comment and re-build.
+
+- [ ] **Step 6: Remove the now-redundant placeholder test**
+
+```bash
+git rm winui3/WinTabber.UI.Common.Tests/PlaceholderTests.cs
+dotnet test winui3/WinTabber.UI.Common.Tests
+```
+
+Expected: still passes — the real `ValueConvertersTests` from this task keep the project's test count above zero.
+
+- [ ] **Step 7: Commit**
+
+```bash
+git add winui3/WinTabber.UI.Common/ValueConverters/ValueConverters.cs \
+  winui3/WinTabber.UI.Common.Tests/ValueConverters/ValueConvertersTests.cs \
+  winui3/WinTabber.UI.Common.Tests/PlaceholderTests.cs
+git commit -m "feat: port WinTabber.UI.Common's ValueConverters to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 2.2: Port the window-state commands (dead code, ported for parity)
+
+**Files:**
+- Create: `winui3/WinTabber.UI.Common/Commands/WindowCommands.cs`
+- Create: `winui3/WinTabber.UI.Common/Commands/MinimizeCommand.cs`
+- Create: `winui3/WinTabber.UI.Common/Commands/RestoreMaximizeCommand.cs`
+
+**Interfaces:**
+- Produces: `WinTabber.UI.Common.Commands.WindowCommands` (static, `Maximize`/`Minimize` properties), `MinimizeCommand : System.Windows.Input.ICommand`, `RestoreMaximizeCommand : System.Windows.Input.ICommand`.
+
+A repo-wide search (`grep -rn "WindowCommands\.\|MinimizeCommand\|RestoreMaximizeCommand"`)
+found these three classes are not referenced anywhere else in the WPF app —
+the same situation Task 0.2 found with `WindowRenameViewModel`. Port them
+faithfully for structural parity with the source project (this phase's job
+is porting `WinTabber.UI.Common`, not pruning it), but do not expect to
+exercise them through any real UI path; there is none today.
+
+`System.Windows.Input.ICommand` is a BCL interface (not a WPF-specific
+type — it lives in `System.ObjectModel`/`System.Windows` contracts shared
+across UI frameworks), so it is unchanged. The only real port work is the
+`Window`/`WindowState` parameter type each command's `Execute` inspects.
+
+- [ ] **Step 1: Port `WindowCommands`, `MinimizeCommand`, `RestoreMaximizeCommand`**
+
+```csharp
+// winui3/WinTabber.UI.Common/Commands/WindowCommands.cs
+using System.Windows.Input;
+
+namespace WinTabber.UI.Common.Commands;
+
+public static class WindowCommands
+{
+    public static ICommand Maximize { get; } = new RestoreMaximizeCommand();
+    public static ICommand Minimize { get; } = new MinimizeCommand();
+}
+```
+
+```csharp
+// winui3/WinTabber.UI.Common/Commands/MinimizeCommand.cs
+using System.Windows.Input;
+using Microsoft.UI.Xaml;
+
+namespace WinTabber.UI.Common.Commands;
+
+public class MinimizeCommand : ICommand
+{
+    // WPF's CommandManager.RequerySuggested has no WinUI3 equivalent; these commands' CanExecute
+    // is always true and never changes, so the event is a legal no-op add/remove rather than a
+    // real subscription. If a future caller needs CanExecute to actually vary, raise this event
+    // manually from Execute or a property setter instead of reaching for RequerySuggested.
+    public event EventHandler? CanExecuteChanged
+    {
+        add { }
+        remove { }
+    }
+
+    public bool CanExecute(object? parameter) => true;
+
+    public void Execute(object? parameter)
+    {
+        // TODO(verify): confirm WindowEx (WinUIEx) exposes a settable WindowState property with
+        // this name/enum before this compiles — see Task 2.1's Interfaces note on WindowState.
+        if (parameter is Window window)
+        {
+            window.WindowState = WindowState.Minimized;
+        }
+    }
+}
+```
+
+```csharp
+// winui3/WinTabber.UI.Common/Commands/RestoreMaximizeCommand.cs
+using System.Windows.Input;
+using Microsoft.UI.Xaml;
+
+namespace WinTabber.UI.Common.Commands;
+
+public class RestoreMaximizeCommand : ICommand
+{
+    public event EventHandler? CanExecuteChanged
+    {
+        add { }
+        remove { }
+    }
+
+    public bool CanExecute(object? parameter) => true;
+
+    public void Execute(object? parameter)
+    {
+        if (parameter is Window window)
+        {
+            window.WindowState = window.WindowState == WindowState.Maximized
+                ? WindowState.Normal
+                : WindowState.Maximized;
+        }
+    }
+}
+```
+
+- [ ] **Step 2: Build**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: builds clean once the `WindowState` question from Task 2.1 is resolved (both tasks share the same open verification point — resolve it once, apply the same answer to both).
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add winui3/WinTabber.UI.Common/Commands
+git commit -m "feat: port WinTabber.UI.Common's window-state commands to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 2.3: Register converters as WinUI3 resources, mirroring `ValueConvertersResources.xaml`
+
+**Files:**
+- Create: `winui3/WinTabber.UI.Common/Resources/ValueConvertersResources.xaml`
+- Create: `winui3/WinTabber.UI.Common/Resources/ValueConvertersResources.xaml.cs` (WinUI 3 XAML resource dictionaries need a code-behind partial class the way WPF's do not strictly require one for a bare `ResourceDictionary`, but WinUI 3's XAML compiler generates one regardless — an empty partial class matching the file is the minimal, correct shape)
+
+**Interfaces:**
+- Produces: a mergeable `ResourceDictionary` exposing the same keys as the WPF file, minus `IconKeyToFontIconDataConverter` (Phase 6, per Global Constraints).
+
+- [ ] **Step 1: Create the resource dictionary**
+
+```xml
+<!-- winui3/WinTabber.UI.Common/Resources/ValueConvertersResources.xaml -->
+<ResourceDictionary
+    x:Class="WinTabber.UI.Common.Resources.ValueConvertersResources"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:c="using:WinTabber.UI.Common.ValueConverters"
+>
+    <c:BoolToThicknessConverter x:Key="BoolToThicknessConverter" />
+    <c:BoolToBrushConverter x:Key="BoolToBrushConverter" />
+    <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    <c:InverseBoolConverter x:Key="InverseBoolConverter" />
+    <c:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+    <c:TimeSpanToFloatConverter x:Key="TimeSpanToFloatConverter" />
+    <c:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter" />
+    <c:FloatToPercentageConverter x:Key="FloatToPercentageConverter" />
+</ResourceDictionary>
+```
+
+```csharp
+// winui3/WinTabber.UI.Common/Resources/ValueConvertersResources.xaml.cs
+namespace WinTabber.UI.Common.Resources;
+
+public sealed partial class ValueConvertersResources
+{
+    public ValueConvertersResources()
+    {
+        InitializeComponent();
+    }
+}
+```
+
+- [ ] **Step 2: Build**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: builds clean.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add winui3/WinTabber.UI.Common/Resources
+git commit -m "feat: add winui3 ValueConvertersResources resource dictionary
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+---
+
+## Phase 2b onward — scope note
+
+**Deferred from Phase 2, needs design work before a task-by-task plan can be
+written:**
+
+- **The hint-overlay system** — `WinTabber.UI.Common/Behaviors/HintBehavior.cs`
+  (755 lines) plus `IHintBehaviorKernel.cs`, `DefaultHintBehaviorKernel.cs`,
+  `ItemsControlHintBehaviorKernel.cs`, `HintActivationScope.cs`,
+  `HintAdorner.cs`, `HintPosition.cs`, and everything under `Hints/**` (7
+  files, read enough to know they are the hint-text data model and were not
+  read in full for this plan). This is not a mechanical port: `HintBehavior`
+  derives from `Microsoft.Xaml.Behaviors.Behavior<FrameworkElement>` (needs
+  `Microsoft.Xaml.Behaviors.WinUI.Managed`, per the migration skill's NuGet
+  table), renders hints through WPF's `AdornerLayer`/`AdornerDecorator`
+  (no WinUI 3 equivalent — needs a `Popup`- or `Canvas`-based overlay
+  redesign), listens on `PreviewKeyDown` (a tunneling event WinUI 3 does not
+  have — needs the bubbling `KeyDown` + `Handled`/`AddHandler` pattern), and
+  activates elements through WPF UI Automation peer interfaces
+  (`IInvokeProvider`, `IExpandCollapseProvider`, `IToggleProvider` via
+  `FrameworkElementAutomationPeer`) whose WinUI 3 equivalents were not
+  researched while writing this plan. `WinTabber.UI.Common.Tests/Behaviors/HintBehaviorTests.cs`
+  and `HintBehaviorDesktopTests.cs` were read in full and confirm the same
+  dependency (`AdornerDecorator`, `Window.Show()`) at the test level.
+- **The shortcut-capture custom controls** —
+  `WinTabber.UI.Common/Controls/ShortcutCaptureBox.cs`, `ShortcutChip.cs`,
+  `ShortcutPresenter.cs`, plus their control templates in
+  `WinTabber.UI.Common/Themes/Generic.xaml` (not read for this plan). These
+  are custom `Control`-derived types with `[TemplatePart]`, which does port
+  to WinUI 3, but `ShortcutCaptureBox` also uses `DispatcherTimer` (→
+  `Microsoft.UI.Dispatching.DispatcherQueueTimer`, a real API change, not a
+  rename), `Keyboard.Focus(this)` (→ `this.Focus(FocusState.Programmatic)`),
+  and `ShortcutChip`'s `ShortcutChips.GetDisplayName` falls back to WPF's
+  `System.Windows.Input.KeyInterop.KeyFromVirtualKey`, which has no direct
+  WinUI 3 equivalent and needs either a replacement virtual-key-to-name
+  table or confirmation that `ShortcutDisplayNames`'s canonical table already
+  covers every key this app can bind (in which case the fallback may be
+  droppable, not just portable — a design decision, not a translation).
+
+Before writing Phase 2b, read `Hints/**` (all 7 files),
+`WinTabber.UI.Common/HintAdorner.cs`, and
+`WinTabber.UI.Common/Themes/Generic.xaml` in full, and research the actual
+WinUI 3 replacement for `AdornerLayer`-based overlays and the UI Automation
+invoke pattern before writing any task — the same "No Placeholders"
+discipline that limited this pass to Phase 2's mechanical subset applies
+there too.
+
+`WinTabberUI/Controls/SpatialNavigationListView.cs` and
+`WindowThumbnail.cs` (corrected location, see the note at the top of Phase
+2) belong to the window-conversion phases (3–4), since they live in the app
+project, not `WinTabber.UI.Common` — read them when writing Phase 3/4, not
+Phase 2b.
+
+Phases 3 through 7 (converting all six windows, tray icon and bootstrap
+parity, the icon-mapping pass, and final verification) remain **not detailed
+task-by-task in this document**, for the same reason as before: producing
+real, verified code for them requires reading files not yet read. The design
+spec (`docs/superpowers/specs/2026-09-12-wpf-to-winui3-migration-design.md`)
+already fixes the phase boundaries, the backdrop-per-window table, and the
+control-mapping rules — that scoping work does not need to be redone, only
+the file-level task breakdown for Phase 2b and Phases 3–7.
+
+**Architecture gap found during final review, unaddressed by Phases 0–2:**
+`WinTabber.Api.Media` and `WinTabber.Infrastructure` are not actually fully
+UI-framework-agnostic, despite this plan's Architecture section describing
+them that way. `WinTabber.Api.Media/ShellApplications/Models/InstalledApplicationInfo.cs:11`
+declares `public required IObservable<ImageSource> Icon { get; init; }`
+using WPF's `System.Windows.Media.ImageSource`, and
+`WinTabber.Infrastructure/AppCache.cs` uses `System.Windows.Media.Imaging`
+types directly, which is why `WinTabber.Infrastructure.csproj` still carries
+`<UseWPF>true</UseWPF>`. Because `AggregateSession` (moved into
+`WinTabber.ViewModels` by Task 1.2) exposes a public
+`InstalledApplicationInfo App` property, a WPF type is reachable through
+`WinTabber.ViewModels`'s public surface today — it only compiles clean
+because `winui3/WinTabberUI` has no real code yet exercising that path.
+Phase 2b (or Phase 3, whichever starts first) should open with a task to
+de-WPF `InstalledApplicationInfo.Icon` (e.g. to `IObservable<Stream>` or a
+new per-UI-framework `IIconSource` abstraction) and `AppCache`'s imaging
+code, before any winui3 media-related conversion work begins. Still
+unaddressed as of Phase 2.
