@@ -1,0 +1,40 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+        <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+        <UseWinUI>true</UseWinUI>
+        <Platform>x64</Platform>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+        <OutputType>WinExe</OutputType>
+        <ApplicationManifest>app.manifest</ApplicationManifest>
+        <WindowsPackageType>None</WindowsPackageType>
+        <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+
+        <Product>WinTabber</Product>
+        <Company>Kirill Birger</Company>
+        <Description>A Windows desktop utility for window switching and window management (WinUI 3).</Description>
+        <Copyright>Copyright (c) 2026 Kirill Birger</Copyright>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.WindowsAppSDK" />
+        <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
+        <PackageReference Include="WinUIEx" />
+        <PackageReference Include="CommunityToolkit.Mvvm" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+        <PackageReference Include="ReactiveUI" />
+        <PackageReference Include="ReactiveUI.WinUI" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\WinTabber.Api.Media\WinTabber.Api.Media.csproj" />
+        <ProjectReference Include="..\..\WinTabber.Api.Windowing\WinTabber.Api.Windowing.csproj" />
+        <ProjectReference Include="..\..\WinTabber.Events\WinTabber.Events.csproj" />
+        <ProjectReference Include="..\..\WinTabber.Infrastructure\WinTabber.Infrastructure.csproj" />
+        <ProjectReference Include="..\..\WinTabber.Interop\WinTabber.Interop.csproj" />
+        <ProjectReference Include="..\..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />
+        <ProjectReference Include="..\..\WinTabber.ViewModels\WinTabber.ViewModels.csproj" />
+        <ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
+        <ProjectReference Include="..\WinTabber.UI.Media\WinTabber.UI.Media.csproj" />
+    </ItemGroup>
+</Project>
