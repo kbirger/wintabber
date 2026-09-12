@@ -61,7 +61,8 @@ public static class Bootstrapper
     {
         return services
             .AddSingleton<AutoStartupService>()
-            .AddSingleton<BackgroundServiceContainer>();
+            .AddSingleton<BackgroundServiceContainer>()
+            .AddSingleton<IAppLifecycle, WpfAppLifecycle>();
     }
     private static IServiceCollection AddDomainModels(this IServiceCollection services)
     {

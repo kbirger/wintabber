@@ -1,6 +1,5 @@
 ﻿using ReactiveUI;
 using System.Reactive;
-using System.Windows;
 using WinTabber.Api.Windowing.Suspension;
 using WinTabber.Events;
 using WinTabberUI.Services;
@@ -14,12 +13,17 @@ namespace WinTabberUI.ViewModels;
 /// </summary>
 public partial class NotifyIconViewModel : ReactiveObject
 {
+    private readonly IAppLifecycle _appLifecycle;
+
     public NotifyIconViewModel(
         WinTabberEventManager eventManager,
         IProcessSuspensionService suspensionService,
-        MediaDebugStateService mediaDebugState
+        MediaDebugStateService mediaDebugState,
+        IAppLifecycle appLifecycle
     )
     {
+        _appLifecycle = appLifecycle;
+
         ExitApplicationCommand = ReactiveCommand.Create(ExitApplication);
         ShowSettingsCommand = ReactiveCommand.Create(ShowSettings(eventManager));
         ShowWindowCommand = ReactiveCommand.Create(ShowSelector(eventManager));
@@ -86,6 +90,6 @@ public partial class NotifyIconViewModel : ReactiveObject
     /// </summary>
     public void ExitApplication()
     {
-        Application.Current.Shutdown();
+        _appLifecycle.Shutdown();
     }
 }
