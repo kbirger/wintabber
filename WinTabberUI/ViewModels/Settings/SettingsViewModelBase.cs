@@ -1,5 +1,5 @@
-﻿using iNKORE.UI.WPF.Modern.Common.IconKeys;
-using ReactiveUI;
+﻿using ReactiveUI;
+using WinTabber.Infrastructure;
 
 namespace WinTabberUI.ViewModels.Settings
 {
@@ -7,15 +7,12 @@ namespace WinTabberUI.ViewModels.Settings
     {
         public string Name { get; }
 
-        public FontIconData Icon { get; }
+        public IconKey Icon { get; }
 
-        protected SettingsViewModelBase(string name, FontIconData icon)
+        protected SettingsViewModelBase(string name, IconKey icon)
         {
             Name = name;
             Icon = icon;
-
         }
-
-
     }
 }

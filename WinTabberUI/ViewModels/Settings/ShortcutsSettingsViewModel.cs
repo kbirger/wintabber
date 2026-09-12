@@ -2,10 +2,11 @@ using System.Collections.ObjectModel;
 using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
-using iNKORE.UI.WPF.Modern.Common.IconKeys;
 using ReactiveUI;
 using WinTabber.Events.Shortcuts;
 using WinTabber.Events.Shortcuts.Detection;
+using WinTabber.Infrastructure;
+using WinTabber.Infrastructure.Settings;
 using WinTabberUI.Models.Settings;
 
 namespace WinTabberUI.ViewModels.Settings;
@@ -24,7 +25,7 @@ public class ShortcutsSettingsViewModel : SettingsViewModelBase, IDisposable
         IShortcutMapProvider provider,
         IShortcutTriggerSource triggerSource
     )
-        : base("Shortcuts", FluentSystemIcons.Keyboard_24_Filled)
+        : base("Shortcuts", IconKey.Keyboard_24_Filled)
     {
         _settings = settings;
         _provider = provider;
@@ -133,7 +134,11 @@ public class ShortcutsSettingsViewModel : SettingsViewModelBase, IDisposable
     /// to saved bindings, but against a trigger that has not been saved yet. <paramref name="excluding" />
     /// leaves out the binding being re-captured, so a shortcut does not conflict with its own old value.
     /// </summary>
-    internal string? DescribeConflict(ShortcutCommand command, ShortcutTrigger trigger, ShortcutBindingViewModel? excluding)
+    internal string? DescribeConflict(
+        ShortcutCommand command,
+        ShortcutTrigger trigger,
+        ShortcutBindingViewModel? excluding
+    )
     {
         var bindings = Commands
             .SelectMany(c =>
@@ -144,7 +149,9 @@ public class ShortcutsSettingsViewModel : SettingsViewModelBase, IDisposable
 
         var conflict = new ShortcutMap(bindings)
             .FindConflicts()
-            .FirstOrDefault(c => string.Equals(c.Trigger.InputIdentity, trigger.InputIdentity, StringComparison.Ordinal));
+            .FirstOrDefault(c =>
+                string.Equals(c.Trigger.InputIdentity, trigger.InputIdentity, StringComparison.Ordinal)
+            );
 
         if (conflict is null)
         {
@@ -175,9 +182,7 @@ public class ShortcutsSettingsViewModel : SettingsViewModelBase, IDisposable
 
                 if (conflict is not null)
                 {
-                    var others = conflict
-                        .Commands.Where(c => c != command.Command)
-                        .Select(c => c.GetDisplayName());
+                    var others = conflict.Commands.Where(c => c != command.Command).Select(c => c.GetDisplayName());
                     binding.ConflictMessage = $"Also assigned to {string.Join(", ", others)}.";
                     continue;
                 }
@@ -187,9 +192,7 @@ public class ShortcutsSettingsViewModel : SettingsViewModelBase, IDisposable
                     && string.Equals(f.Trigger.InputIdentity, binding.Trigger.InputIdentity, StringComparison.Ordinal)
                 );
 
-                binding.ConflictMessage = rejected
-                    ? "Another application has already claimed this shortcut."
-                    : null;
+                binding.ConflictMessage = rejected ? "Another application has already claimed this shortcut." : null;
             }
         }
     }
@@ -222,7 +225,7 @@ public class ShortcutCommandViewModel : ReactiveObject
 
     public string DisplayName { get; }
     public string Desscription { get; }
-    public FontIconData Icon { get; }
+    public IconKey Icon { get; }
     public ObservableCollection<ShortcutBindingViewModel> Bindings { get; } = new();
 
     public ReactiveCommand<Unit, Unit> ResetCommand { get; }

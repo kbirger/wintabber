@@ -44,7 +44,7 @@
             <DataTemplate>
                 <ui:NavigationViewItem>
                     <ui:NavigationViewItem.Icon>
-                        <ui:FontIcon Icon="{Binding Icon}"/>
+                        <ui:FontIcon Icon="{Binding Icon, Converter={StaticResource IconKeyToFontIconDataConverter}}"/>
                     </ui:NavigationViewItem.Icon>
                     <TextBlock Text="{Binding Name}" />
                 </ui:NavigationViewItem>

@@ -2,10 +2,9 @@ using System.IO;
 using System.Reflection;
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using iNKORE.UI.WPF.Modern.Common.IconKeys;
 using WinTabber.Events.Shortcuts;
 
-namespace WinTabberUI.Models.Settings;
+namespace WinTabber.Infrastructure.Settings;
 
 /// <summary>
 /// The name, description, group and icon that <see cref="ShortcutCommand" /> shows in the settings
@@ -60,13 +59,12 @@ public static class ShortcutCommandCatalog
 
     public static string GetGroupName(this ShortcutCommand command) => For(command).Group;
 
-    public static FontIconData GetIcon(this ShortcutCommand command)
+    public static IconKey GetIcon(this ShortcutCommand command)
     {
         var entry = For(command);
-        var field = typeof(FluentSystemIcons).GetField(entry.Icon, BindingFlags.Public | BindingFlags.Static);
-        if (field?.GetValue(null) is not FontIconData icon)
+        if (!Enum.TryParse<IconKey>(entry.Icon, out var icon))
         {
-            throw new InvalidOperationException($"FluentSystemIcons has no icon named '{entry.Icon}'.");
+            throw new InvalidOperationException($"IconKey has no member named '{entry.Icon}'.");
         }
 
         return icon;

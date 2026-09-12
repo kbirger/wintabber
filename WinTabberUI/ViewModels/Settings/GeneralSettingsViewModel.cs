@@ -2,9 +2,9 @@
 using System.Diagnostics;
 using System.Reactive;
 using System.Threading.Tasks;
-using iNKORE.UI.WPF.Modern.Common.IconKeys;
 using ReactiveUI;
 using WinTabber.Events.Shortcuts;
+using WinTabber.Infrastructure;
 using WinTabber.Interop;
 using WinTabberUI.Models.Settings;
 using WinTabberUI.Services;
@@ -12,20 +12,21 @@ using WinTabberUI.Services;
 namespace WinTabberUI.ViewModels.Settings
 {
     public record StartupModeItem(string Name, StartupMode Mode);
+
     public class GeneralSettingsViewModel : SettingsViewModelBase
     {
         public GeneralSettingsViewModel(GeneralSettings settings, GsudoElevationLauncher gsudoElevationLauncher)
-            : base("General", FluentSystemIcons.Settings_32_Filled)
+            : base("General", IconKey.Settings_32_Filled)
         {
             _settings = settings;
             _gsudoElevationLauncher = gsudoElevationLauncher;
             IsGsudoAvailable = _gsudoElevationLauncher.IsAvailable;
             InstallGsudoCommand = ReactiveCommand.CreateFromTask(InstallGsudoAsync);
-            _showGsudoInstallPrompt = this
-                .WhenAnyValue(
+            _showGsudoInstallPrompt = this.WhenAnyValue(
                     x => x.ElevationBackend,
                     x => x.IsGsudoAvailable,
-                    (backend, available) => backend == ElevationBackend.Gsudo && !available)
+                    (backend, available) => backend == ElevationBackend.Gsudo && !available
+                )
                 .ToProperty(this, x => x.ShowGsudoInstallPrompt);
             StartupMode = settings.StartupMode;
             ThumbnailResizeMode = settings.ThumbnailResizeMode;
@@ -125,12 +126,7 @@ namespace WinTabberUI.ViewModels.Settings
 
         /// <summary>Single-modifier choices only — Focus Select checks one flag, not a combination.</summary>
         public ShortcutModifiers[] FocusSelectModifiers { get; } =
-        [
-            ShortcutModifiers.Ctrl,
-            ShortcutModifiers.Alt,
-            ShortcutModifiers.Shift,
-            ShortcutModifiers.Win,
-        ];
+        [ShortcutModifiers.Ctrl, ShortcutModifiers.Alt, ShortcutModifiers.Shift, ShortcutModifiers.Win];
 
         public FocusSelectScope FocusSelectScope
         {
@@ -175,11 +171,7 @@ namespace WinTabberUI.ViewModels.Settings
         {
             try
             {
-                var startInfo = new ProcessStartInfo
-                {
-                    FileName = "winget",
-                    UseShellExecute = false,
-                };
+                var startInfo = new ProcessStartInfo { FileName = "winget", UseShellExecute = false };
                 startInfo.ArgumentList.Add("install");
                 startInfo.ArgumentList.Add("--id");
                 startInfo.ArgumentList.Add("gerardog.gsudo");

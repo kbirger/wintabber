@@ -14,7 +14,6 @@
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="iNKORE.UI.WPF.Modern" />
         <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" />
         <PackageReference Include="ReactiveUI" />
         <PackageReference Include="System.Runtime.Caching" />

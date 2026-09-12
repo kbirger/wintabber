@@ -48,7 +48,7 @@
             <DataTemplate x:Key="CommandRowTemplate" DataType="{x:Type settingsvm:ShortcutCommandViewModel}">
                 <ui:SettingsCard Margin="0,4,0,0" Header="{Binding DisplayName}" Description="{Binding Desscription}">
                     <ui:SettingsCard.HeaderIcon>
-                        <ui:FontIcon Icon="{Binding Icon}" />
+                        <ui:FontIcon Icon="{Binding Icon, Converter={StaticResource IconKeyToFontIconDataConverter}}" />
                     </ui:SettingsCard.HeaderIcon>
                     <StackPanel MinWidth="320">
                         <ItemsControl ItemTemplate="{StaticResource BindingRowTemplate}" ItemsSource="{Binding Bindings}" HorizontalAlignment="Right" />
