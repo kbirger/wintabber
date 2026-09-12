@@ -1,0 +1,3 @@
+PostMessage
+IsWindow
+WM_CLOSE

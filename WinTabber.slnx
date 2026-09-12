@@ -15,6 +15,7 @@
   <Project Path="WinTabber.Api.Windowing.Tests/WinTabber.Api.Windowing.Tests.csproj" />
   <Project Path="WinTabber.Api.Windowing/WinTabber.Api.Windowing.csproj" />
   <Project Path="WinTabber.Common.Util/WinTabber.Common.Util.csproj" />
+  <Project Path="WinTabber.Elevator/WinTabber.Elevator.csproj" />
   <Project Path="WinTabber.Events/WinTabber.Events.csproj" />
   <Project Path="WinTabber.Events.Tests/WinTabber.Events.Tests.csproj" />
   <Project Path="WinTabber.Generators/WinTabber.Generators.csproj" />
