@@ -295,6 +295,9 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
     public IObservable<WinTabberEvent> CommandEvents { get; private set; }
     public IObservable<WinTabberEvent<int>> WindowChange { get; private set; }
 
+    /// <inheritdoc />
+    public ShortcutModifiers HeldModifiers => _commitTracker.HeldModifiers;
+
     /// <inheritdoc cref="CreateRawForegroundChanges" />
     public IObservable<int> ForegroundWindowChanges { get; private set; }
     public IObservable<WinTabberEvent<string>> ApplicationChange { get; private set; }

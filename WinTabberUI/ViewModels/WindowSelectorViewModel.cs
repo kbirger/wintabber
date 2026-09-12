@@ -1,6 +1,7 @@
 using DynamicData;
 using ReactiveUI;
 using System.Diagnostics;
+using System.Reactive;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
@@ -9,7 +10,9 @@ using WinTabber.Api.Windowing;
 using WinTabber.Api.Windowing.Suspension;
 using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Events;
+using WinTabber.Events.Shortcuts;
 using WinTabberUI.Models.Settings;
+using WinTabberUI.Services;
 
 namespace WinTabberUI.ViewModels;
 
@@ -81,8 +84,15 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
             .ObserveOn(scheduler)
             .Subscribe(_ => SelectAndClose());
 
+        var canCloseApplication = this.WhenAnyValue(vm => vm.WindowItems)
+            .Select(items => items.Length > 0 && _settings.EnableCloseApplicationWindows);
+
+        _isCloseApplicationButtonVisible = canCloseApplication.ToProperty(this, x => x.IsCloseApplicationButtonVisible);
+        CloseApplicationCommand = ReactiveCommand.Create(CloseApplication, canCloseApplication);
+
         _cleanUp = new CompositeDisposable(
-            appChanges, winChanges, nextEvents, prevEvents, selectEvents
+            appChanges, winChanges, nextEvents, prevEvents, selectEvents,
+            CloseApplicationCommand, _isCloseApplicationButtonVisible
         );
 
         this.WhenActivated((x) =>
@@ -202,11 +212,63 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
     {
         if (SelectedItem is not null && !SelectedItem.IsEditing)
         {
-            SelectedItem.Activate();
+            var selected = SelectedItem;
+            selected.Activate();
+
+            if (_settings.EnableFocusSelect && _eventManager.HeldModifiers.HasFlag(_settings.FocusSelectModifier))
+            {
+                MinimizeOthers(selected);
+            }
+
             Deactivate();
             _eventManager.SendEvent(EventType.WindowSelected);
         }
     }
+
+    /// <summary>Minimizes everything except <paramref name="selected" />, per Focus Select's scope setting.</summary>
+    private void MinimizeOthers(WindowItem selected)
+    {
+        if (_settings.FocusSelectScope == FocusSelectScope.AllWindows)
+        {
+            // Same enumeration DockWindow already uses live in the UI, so it's proven fast enough
+            // interactively; it also already excludes our own process's windows. A synthesized
+            // Win+Home was tried here first, but the modifier that triggers Focus Select is by
+            // definition still held when this runs, so the OS saw e.g. Ctrl+Win+Home and never
+            // fired its own "minimize all but active" gesture.
+            foreach (var window in WindowManager.GetWindows())
+            {
+                if (window.Handle != selected.Handle)
+                {
+                    window.Minimize();
+                }
+            }
+            return;
+        }
+
+        foreach (var item in WindowItems)
+        {
+            if (item != selected)
+            {
+                item.WindowRef.Minimize();
+            }
+        }
+    }
+
+    private void CloseApplication()
+    {
+        foreach (var item in WindowItems)
+        {
+            item.WindowRef.Close();
+        }
+
+        Deactivate();
+    }
+
+    public ReactiveCommand<Unit, Unit> CloseApplicationCommand { get; }
+
+    public bool IsCloseApplicationButtonVisible => _isCloseApplicationButtonVisible.Value;
+
+    private readonly ObservableAsPropertyHelper<bool> _isCloseApplicationButtonVisible;
 
     public WindowManager WindowManager { get; }
 

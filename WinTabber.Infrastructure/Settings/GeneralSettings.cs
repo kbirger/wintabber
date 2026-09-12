@@ -1,4 +1,5 @@
-﻿using WinTabberUI.Services;
+﻿using WinTabber.Events.Shortcuts;
+using WinTabberUI.Services;
 
 namespace WinTabberUI.Models.Settings
 {
@@ -20,5 +21,23 @@ namespace WinTabberUI.Models.Settings
         /// window, and the preload of data that feature uses (installed apps, audio devices).
         /// </summary>
         public bool EnableMediaControls { get; set; } = true;
+
+        /// <summary>
+        /// Turns the close-application feature on or off: the close button on the window selector's
+        /// chrome and the close-application-windows shortcut.
+        /// </summary>
+        public bool EnableCloseApplicationWindows { get; set; } = true;
+
+        /// <summary>
+        /// Turns Focus Select on or off: minimizing other windows when a selection is committed
+        /// while <see cref="FocusSelectModifier" /> is held.
+        /// </summary>
+        public bool EnableFocusSelect { get; set; } = false;
+
+        /// <summary>The modifier that, held while committing a selection, triggers Focus Select.</summary>
+        public ShortcutModifiers FocusSelectModifier { get; set; } = ShortcutModifiers.Ctrl;
+
+        /// <summary>Which windows Focus Select minimizes.</summary>
+        public FocusSelectScope FocusSelectScope { get; set; } = FocusSelectScope.SwitcherWindows;
     }
 }

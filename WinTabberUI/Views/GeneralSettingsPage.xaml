@@ -63,6 +63,30 @@
                             Description="The media controls shortcut and window, and the preload of installed apps and audio devices it uses">
                         <ui:ToggleSwitch IsOn="{Binding EnableMediaControls}" />
                     </ui:SettingsCard>
+                    <ui:SettingsCard Header="Close application windows" Margin="0,8,0,0"
+                            Description="The close button on the window selector and the close-application-windows shortcut">
+                        <ui:ToggleSwitch IsOn="{Binding EnableCloseApplicationWindows}" />
+                    </ui:SettingsCard>
+                    <ui:SettingsCard Header="Focus select" Margin="0,8,0,0"
+                            Description="Hold the modifier below while selecting a window to minimize the others">
+                        <ui:ToggleSwitch IsOn="{Binding EnableFocusSelect}" />
+                    </ui:SettingsCard>
+                    <ui:SettingsCard Header="Focus select modifier" Margin="0,8,0,0"
+                            Description="Which modifier, held at selection, triggers Focus Select">
+                        <ComboBox MinWidth="220" x:Name="FocusSelectModifierList"
+                                VerticalAlignment="Center"
+                                FontSize="14"
+                                ItemsSource="{Binding FocusSelectModifiers}"
+                                SelectedValue="{Binding Path=FocusSelectModifier, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </ui:SettingsCard>
+                    <ui:SettingsCard Header="Focus select scope" Margin="0,8,0,0"
+                            Description="Which windows get minimized: only the ones the switcher showed, or every other window">
+                        <ComboBox MinWidth="220" x:Name="FocusSelectScopeList"
+                                VerticalAlignment="Center"
+                                FontSize="14"
+                                ItemsSource="{Binding FocusSelectScopes}"
+                                SelectedValue="{Binding Path=FocusSelectScope, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </ui:SettingsCard>
                 </StackPanel>
             </HeaderedContentControl>
         </StackPanel>

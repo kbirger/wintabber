@@ -55,6 +55,10 @@ public class WindowCommandCoordinator : IDisposable
                     case EventType.CmdCloseApplicationWindows:
                         // Same grouping WindowSelector uses to decide which windows belong to one
                         // app, so this closes exactly the set the switcher would show together.
+                        if (!_settings.EnableCloseApplicationWindows)
+                        {
+                            break;
+                        }
                         var currentWindow = windowManager.CurrentWindow();
                         if (currentWindow is not null)
                         {
