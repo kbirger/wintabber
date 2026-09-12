@@ -19,6 +19,7 @@
         <ResourceDictionary>
             <c:EnumValuesConverter x:Key="EnumValuesConverter" />
             <c:StringToEnumConverter x:Key="StringToEnumConverter" />
+            <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
         </ResourceDictionary>
     </Page.Resources>
     <Grid>
@@ -94,6 +95,11 @@
                                 FontSize="14"
                                 ItemsSource="{Binding ElevationBackends}"
                                 SelectedValue="{Binding Path=ElevationBackend, Mode=TwoWay, UpdateSourceTrigger=PropertyChanged}" />
+                    </ui:SettingsCard>
+                    <ui:SettingsCard Header="gsudo not found" Margin="0,8,0,0"
+                            Description="Install gsudo via winget to use it as the elevation backend"
+                            Visibility="{Binding ShowGsudoInstallPrompt, Converter={StaticResource BoolToVisibilityConverter}}">
+                        <Button Content="Install" Command="{Binding InstallGsudoCommand}" />
                     </ui:SettingsCard>
                 </StackPanel>
             </HeaderedContentControl>

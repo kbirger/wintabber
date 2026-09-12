@@ -5,6 +5,7 @@ using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using WinTabber.Events;
 using WinTabber.Events.Shortcuts;
+using WinTabber.Interop;
 using WinTabberUI.Models.Settings;
 using WinTabberUI.ViewModels.Settings;
 
@@ -32,7 +33,8 @@ public class SettingsViewModel : ReactiveObject, IDisposable
     public SettingsViewModel(
         WinTabberEventManager winTabberEventManager,
         ApplicationSettings settings,
-        IShortcutMapProvider shortcutMapProvider
+        IShortcutMapProvider shortcutMapProvider,
+        GsudoElevationLauncher gsudoElevationLauncher
     )
     {
         _isShown = new BehaviorSubject<bool>(false);
@@ -43,7 +45,7 @@ public class SettingsViewModel : ReactiveObject, IDisposable
 
 
         Appearance = new AppearanceSettingsViewModel(_settings.Appearance);
-        General = new GeneralSettingsViewModel(_settings.General);
+        General = new GeneralSettingsViewModel(_settings.General, gsudoElevationLauncher);
         Shortcuts = new ShortcutsSettingsViewModel(
             _settings.Shortcuts,
             shortcutMapProvider,

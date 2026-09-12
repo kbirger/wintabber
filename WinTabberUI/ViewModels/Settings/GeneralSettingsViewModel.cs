@@ -1,4 +1,8 @@
-﻿using iNKORE.UI.WPF.Modern.Common.IconKeys;
+﻿using System.ComponentModel;
+using System.Diagnostics;
+using System.Reactive;
+using System.Threading.Tasks;
+using iNKORE.UI.WPF.Modern.Common.IconKeys;
 using ReactiveUI;
 using WinTabber.Events.Shortcuts;
 using WinTabber.Interop;
@@ -10,10 +14,19 @@ namespace WinTabberUI.ViewModels.Settings
     public record StartupModeItem(string Name, StartupMode Mode);
     public class GeneralSettingsViewModel : SettingsViewModelBase
     {
-        public GeneralSettingsViewModel(GeneralSettings settings)
+        public GeneralSettingsViewModel(GeneralSettings settings, GsudoElevationLauncher gsudoElevationLauncher)
             : base("General", FluentSystemIcons.Settings_32_Filled)
         {
             _settings = settings;
+            _gsudoElevationLauncher = gsudoElevationLauncher;
+            IsGsudoAvailable = _gsudoElevationLauncher.IsAvailable;
+            InstallGsudoCommand = ReactiveCommand.CreateFromTask(InstallGsudoAsync);
+            _showGsudoInstallPrompt = this
+                .WhenAnyValue(
+                    x => x.ElevationBackend,
+                    x => x.IsGsudoAvailable,
+                    (backend, available) => backend == ElevationBackend.Gsudo && !available)
+                .ToProperty(this, x => x.ShowGsudoInstallPrompt);
             StartupMode = settings.StartupMode;
             ThumbnailResizeMode = settings.ThumbnailResizeMode;
             EnableWindowSuspension = settings.EnableWindowSuspension;
@@ -142,5 +155,48 @@ namespace WinTabberUI.ViewModels.Settings
         }
 
         public ElevationBackend[] ElevationBackends => Enum.GetValues<ElevationBackend>();
+
+        private readonly GsudoElevationLauncher _gsudoElevationLauncher;
+        private readonly ObservableAsPropertyHelper<bool> _showGsudoInstallPrompt;
+        private bool _isGsudoAvailable;
+
+        public bool IsGsudoAvailable
+        {
+            get => _isGsudoAvailable;
+            private set => this.RaiseAndSetIfChanged(ref _isGsudoAvailable, value);
+        }
+
+        /// <summary>True only when Gsudo is the selected backend and it isn't actually installed.</summary>
+        public bool ShowGsudoInstallPrompt => _showGsudoInstallPrompt.Value;
+
+        public ReactiveCommand<Unit, Unit> InstallGsudoCommand { get; }
+
+        private async Task InstallGsudoAsync()
+        {
+            try
+            {
+                var startInfo = new ProcessStartInfo
+                {
+                    FileName = "winget",
+                    UseShellExecute = false,
+                };
+                startInfo.ArgumentList.Add("install");
+                startInfo.ArgumentList.Add("--id");
+                startInfo.ArgumentList.Add("gerardog.gsudo");
+
+                using var process = Process.Start(startInfo);
+                if (process is not null)
+                {
+                    await process.WaitForExitAsync();
+                }
+            }
+            catch (Win32Exception)
+            {
+                // winget missing, install failed, user cancelled, etc. — IsGsudoAvailable below
+                // simply stays false, and the install card stays visible.
+            }
+
+            IsGsudoAvailable = _gsudoElevationLauncher.IsAvailable;
+        }
     }
 }
