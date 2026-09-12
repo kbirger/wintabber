@@ -119,4 +119,47 @@ public class WindowManager : WindowOwner
     {
         Interop.DeactivateLivePreview();
     }
+
+    /// <summary>
+    /// Closes every window in <paramref name="windows"/>. Non-elevated windows close directly
+    /// (WM_CLOSE); elevated ones can't be reached that way (UIPI), so their handles are batched
+    /// into a single elevated launch — one prompt per call, not one per elevated window.
+    /// </summary>
+    public void CloseWindows(IEnumerable<WindowRef> windows) => PerformAction(windows, ElevatedWindowAction.Close);
+
+    /// <summary>
+    /// Minimizes every window in <paramref name="windows"/>, with the same elevation-aware
+    /// batching <see cref="CloseWindows"/> uses — minimizing an elevated window is blocked by UIPI
+    /// exactly like closing one is.
+    /// </summary>
+    public void MinimizeWindows(IEnumerable<WindowRef> windows) => PerformAction(windows, ElevatedWindowAction.Minimize);
+
+    private void PerformAction(IEnumerable<WindowRef> windows, ElevatedWindowAction action)
+    {
+        var elevatedHandles = new List<int>();
+
+        foreach (var window in windows)
+        {
+            if (window.Process.IsProcessElevated)
+            {
+                elevatedHandles.Add(window.Handle);
+                continue;
+            }
+
+            switch (action)
+            {
+                case ElevatedWindowAction.Close:
+                    window.Close();
+                    break;
+                case ElevatedWindowAction.Minimize:
+                    window.Minimize();
+                    break;
+            }
+        }
+
+        if (elevatedHandles.Count > 0)
+        {
+            Interop.RunElevatedAction(action, elevatedHandles);
+        }
+    }
 }

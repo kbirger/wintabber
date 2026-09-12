@@ -95,32 +95,18 @@ public partial class ApplicationRef : WindowOwner
     }
 
     /// <summary>
-    /// Closes every window in <paramref name="windows"/>. Non-elevated windows close directly
-    /// (WM_CLOSE); elevated ones can't be reached that way (UIPI), so their handles are batched
-    /// into a single call to <see cref="IWindowInterop.CloseElevatedWindows"/> — one UAC prompt
-    /// per call to this method, not one per elevated window.
+    /// Closes every window in <paramref name="windows"/>, provided this application owns all of
+    /// them. Delegates the actual elevation-aware close to <see cref="WindowManager.CloseWindows"/>.
     /// </summary>
     public void CloseAllWindows(IEnumerable<WindowRef> windows)
     {
-        var elevatedHandles = new List<int>();
+        var windowList = windows as IReadOnlyCollection<WindowRef> ?? windows.ToList();
 
-        foreach (var window in windows)
+        foreach (var window in windowList)
         {
             AssertOwnsWindow(window);
-
-            if (window.Process.IsProcessElevated)
-            {
-                elevatedHandles.Add(window.Handle);
-            }
-            else
-            {
-                window.Close();
-            }
         }
 
-        if (elevatedHandles.Count > 0)
-        {
-            Manager.Interop.RunElevatedAction(ElevatedWindowAction.Close, elevatedHandles);
-        }
+        Manager.CloseWindows(windowList);
     }
 }

@@ -45,7 +45,9 @@ public sealed class FakeWindowInterop : IWindowInterop
 
     public void MaximizeWindow(int handle) => throw new NotSupportedException();
 
-    public void MinimizeWindow(int handle) => throw new NotSupportedException();
+    public List<int> MinimizedHandles { get; } = [];
+
+    public void MinimizeWindow(int handle) => MinimizedHandles.Add(handle);
 
     public int GetForegroundWindowHandle() => throw new NotSupportedException();
 
