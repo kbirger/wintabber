@@ -61,4 +61,16 @@ public class ShortcutChipsTests
 
         await Assert.That(name).IsEqualTo(ShortcutDisplayNames.GetDisplayName(new ShortcutKey(VirtualKeys.Delete)));
     }
+
+    [Test]
+    public async Task GetDisplayName_MediaPlayPauseKey_ReturnsFriendlyName()
+    {
+        // 0xB3 (MediaPlayPause) is outside ShortcutDisplayNames' canonical table AND is not a
+        // defined member of Windows.System.VirtualKey (that enum stops at GoHome = 0xAC), so
+        // without the explicit volume/media lookup table this fell through to the raw hex
+        // fallback ("0xB3") instead of a friendly name — this pins that branch.
+        var name = ShortcutChips.GetDisplayName(new ShortcutKey(0xB3));
+
+        await Assert.That(name).IsEqualTo("Play/Pause");
+    }
 }

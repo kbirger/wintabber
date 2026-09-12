@@ -87,6 +87,16 @@ public class ShortcutPresenter : Control
         set => SetValue(EmptyTextProperty, value);
     }
 
+    // WinUI 3's VisualStateManager callbacks only fire on a property *change*, not at template
+    // application — unlike WPF's declarative Style.Triggers, which also matched at the property's
+    // default value. Without this override, a presenter whose Trigger is never set (IsEmpty stays
+    // at its default true) never enters the "Empty" state and PART_Empty stays hidden.
+    protected override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
+        VisualStateManager.GoToState(this, IsEmpty ? "Empty" : "HasChips", false);
+    }
+
     private static void OnVisualInputChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
         ((ShortcutPresenter)d).Rebuild();
 

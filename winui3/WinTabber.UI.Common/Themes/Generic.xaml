@@ -202,7 +202,8 @@
                             Foreground="{StaticResource ShortcutValidationForegroundBrush}"
                             Text="{TemplateBinding ValidationMessage}"
                             TextAlignment="Center"
-                            TextWrapping="Wrap" />
+                            TextWrapping="Wrap"
+                            Visibility="Collapsed" />
                     </StackPanel>
                 </ControlTemplate>
             </Setter.Value>
@@ -233,7 +234,10 @@
                             BorderBrush="{StaticResource ShortcutGroupBorderBrush}"
                             BorderThickness="1"
                             CornerRadius="6">
-                            <ContentPresenter HorizontalAlignment="Left" VerticalAlignment="Center" />
+                            <ContentPresenter
+                                Content="{TemplateBinding Content}"
+                                HorizontalAlignment="Left"
+                                VerticalAlignment="Center" />
                         </Border>
                     </Grid>
                 </ControlTemplate>
@@ -253,27 +257,31 @@
                         BorderBrush="{StaticResource ShortcutCaptureBoxBorderBrush}"
                         BorderThickness="1"
                         CornerRadius="6">
+                        <!-- VisualStateManager.GoToState resolves groups off the control's template
+                             root (this Border), not by searching the visual subtree — the groups
+                             must live here, not on the inner StackPanel, or every GoToState call
+                             (both the existing property-changed callbacks and OnApplyTemplate)
+                             silently no-ops. -->
+                        <VisualStateManager.VisualStateGroups>
+                            <VisualStateGroup x:Name="CaptureStates">
+                                <VisualState x:Name="Idle" />
+                                <VisualState x:Name="Capturing">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_Capturing.Visibility" Value="Visible" />
+                                        <Setter Target="PART_Presenter.Visibility" Value="Collapsed" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                            </VisualStateGroup>
+                            <VisualStateGroup x:Name="ValidationStates">
+                                <VisualState x:Name="NoValidationMessage">
+                                    <VisualState.Setters>
+                                        <Setter Target="PART_Validation.Visibility" Value="Collapsed" />
+                                    </VisualState.Setters>
+                                </VisualState>
+                                <VisualState x:Name="HasValidationMessage" />
+                            </VisualStateGroup>
+                        </VisualStateManager.VisualStateGroups>
                         <StackPanel>
-                            <VisualStateManager.VisualStateGroups>
-                                <VisualStateGroup x:Name="CaptureStates">
-                                    <VisualState x:Name="Idle" />
-                                    <VisualState x:Name="Capturing">
-                                        <VisualState.Setters>
-                                            <Setter Target="PART_Capturing.Visibility" Value="Visible" />
-                                            <Setter Target="PART_Presenter.Visibility" Value="Collapsed" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                </VisualStateGroup>
-                                <VisualStateGroup x:Name="ValidationStates">
-                                    <VisualState x:Name="NoValidationMessage">
-                                        <VisualState.Setters>
-                                            <Setter Target="PART_Validation.Visibility" Value="Collapsed" />
-                                        </VisualState.Setters>
-                                    </VisualState>
-                                    <VisualState x:Name="HasValidationMessage" />
-                                </VisualStateGroup>
-                            </VisualStateManager.VisualStateGroups>
-
                             <controls:ShortcutPresenter
                                 x:Name="PART_Presenter"
                                 Trigger="{TemplateBinding Trigger}" />
@@ -300,7 +308,8 @@
                                 FontSize="11"
                                 Foreground="{StaticResource ShortcutValidationForegroundBrush}"
                                 Text="{TemplateBinding ValidationMessage}"
-                                TextWrapping="Wrap" />
+                                TextWrapping="Wrap"
+                                Visibility="Collapsed" />
                         </StackPanel>
                     </Border>
                 </ControlTemplate>

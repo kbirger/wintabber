@@ -54,7 +54,13 @@ public class ShortcutCaptureBox : Control
         StartCaptureCommand = new RelayCommand(_ => StartCapture(), _ => TriggerSource is not null && !IsCapturing);
         CancelCaptureCommand = new RelayCommand(_ => CancelCapture(), _ => IsCapturing);
         Unloaded += (_, _) => CancelCapture();
-        LosingFocus += (_, _) => CancelCapture();
+
+        // LostFocus (not LosingFocus) is the mechanically faithful equivalent of WPF's
+        // LostKeyboardFocus, which this was originally ported from: it fires after focus has
+        // already moved, which is safe for the dependency-property mutation and GoToState calls
+        // CancelCapture makes transitively. LosingFocus is a cancellable, pre-focus-change event —
+        // mutating state inside it runs against WinUI 3 guidance for that event.
+        LostFocus += (_, _) => CancelCapture();
 
         // Nothing else invokes StartCaptureCommand: the host template (see ShortcutsSettingsPage.xaml)
         // just toggles this control's Visibility on when the row enters edit mode, it never fires the
@@ -152,10 +158,6 @@ public class ShortcutCaptureBox : Control
 
     public void StartCapture()
     {
-        System.IO.File.AppendAllText(
-            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "shortcut-capture-debug.log"),
-            $"{DateTime.Now:HH:mm:ss.fff} StartCapture called. IsCapturing={IsCapturing} TriggerSource={TriggerSource}\n"
-        );
         if (IsCapturing || TriggerSource is not { } source)
         {
             return;
@@ -186,7 +188,7 @@ public class ShortcutCaptureBox : Control
             _ => dispatcherQueue.TryEnqueue(CancelCapture)
         );
 
-        _idleTimer = DispatcherQueue.GetForCurrentThread().CreateTimer();
+        _idleTimer = dispatcherQueue.CreateTimer();
         _idleTimer.Interval = IdleTimeout;
         _idleTimer.Tick += (_, _) => CancelCapture();
         _idleTimer.Start();
@@ -196,10 +198,6 @@ public class ShortcutCaptureBox : Control
 
     public void CancelCapture()
     {
-        System.IO.File.AppendAllText(
-            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "shortcut-capture-debug.log"),
-            $"{DateTime.Now:HH:mm:ss.fff} CancelCapture called. IsCapturing={IsCapturing}\n"
-        );
         if (!IsCapturing)
         {
             return;
@@ -225,10 +223,6 @@ public class ShortcutCaptureBox : Control
 
     private void OnCapturedInput(CapturedInput input)
     {
-        System.IO.File.AppendAllText(
-            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "shortcut-capture-debug.log"),
-            $"{DateTime.Now:HH:mm:ss.fff} OnCapturedInput Kind={input.Kind}\n"
-        );
         // Any activity resets the idle countdown.
         _idleTimer?.Stop();
         _idleTimer?.Start();
@@ -318,6 +312,22 @@ public class ShortcutCaptureBox : Control
 
     private void UpdatePendingChips() =>
         SetValue(PendingChipsProperty, ShortcutChips.BuildInProgress(_pendingModifiers));
+
+    // WinUI 3's VisualStateManager callbacks only fire on a property *change*, not at template
+    // application — unlike WPF's declarative Style.Triggers, which also matched at the property's
+    // default value. Without this override, PART_Validation (default-visible, no markup override
+    // in some templates) would stay visible with an empty message until ValidationMessage
+    // actually changed at least once.
+    protected override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
+        VisualStateManager.GoToState(this, IsCapturing ? "Capturing" : "Idle", false);
+        VisualStateManager.GoToState(
+            this,
+            ValidationMessage is { Length: > 0 } ? "HasValidationMessage" : "NoValidationMessage",
+            false
+        );
+    }
 
     // WPF's original used Trigger Property="IsCapturing"/"ValidationMessage" that fired
     // automatically off the dependency property; WinUI 3's VisualStateManager needs an explicit

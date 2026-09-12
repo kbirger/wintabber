@@ -2738,3 +2738,48 @@ de-WPF `InstalledApplicationInfo.Icon` (e.g. to `IObservable<Stream>` or a
 new per-UI-framework `IIconSource` abstraction) and `AppCache`'s imaging
 code, before any winui3 media-related conversion work begins. Still
 unaddressed as of Phase 2.
+
+**Findings from Phase 2b's final-review fix wave, relevant to Phase 3 onward:**
+
+- **The `OnApplyTemplate` rule.** WinUI 3's `VisualStateManager` callbacks
+  wired to `PropertyMetadata` change handlers only fire on a property
+  *change*, not at template application — unlike WPF's declarative
+  `Style.Triggers`/`DataTrigger`, which also matched at the property's
+  default value. A control ported this way (as `ShortcutPresenter` and
+  `ShortcutCaptureBox` were in Task 2b.4) needs an `OnApplyTemplate`
+  override that calls `GoToState` once per `VisualStateGroup` at current
+  property values, or a state that should be active by default (e.g. an
+  "empty"/"idle" state whose driving property never changes from its
+  default) never activates and the corresponding template part never shows.
+  Found and fixed in Phase 2b; apply the same pattern to every future
+  ported control that converts a WPF trigger to `VisualStateManager`. Also
+  double-check, when porting such a template, that
+  `VisualStateManager.VisualStateGroups` is attached to the control's
+  actual template root (the top-level element returned by the
+  `ControlTemplate`) — Phase 2b's own default `ShortcutCaptureBox` style
+  initially had the groups attached to an inner `StackPanel` instead of the
+  root `Border`, which silently no-ops every `GoToState` call regardless of
+  whether `OnApplyTemplate` calls it correctly.
+- **Two Phase 3 hazards, left unfixed for now since there's no live consumer
+  to test against:** (a) `ShortcutPresenter.Trigger`'s WPF
+  `BindsTwoWayByDefault` was lost in the port — WinUI 3's `{x:Bind}`
+  defaults to `OneTime`, so a future consumer binding `Trigger` must use an
+  explicit `Mode=TwoWay` or it will silently lose captured shortcuts; (b)
+  `ShortcutCaptureBox`'s `RelayCommand`s (`StartCaptureCommand`/
+  `CancelCaptureCommand`) have a no-op `CanExecuteChanged` (consistent with
+  this plan's established precedent for WPF's `CommandManager.RequerySuggested`
+  having no WinUI 3 equivalent), which means a future consumer that binds a
+  button to either command will see it permanently disabled/enabled based
+  only on its state at construction time — a real `RaiseCanExecuteChanged`
+  wired to the relevant property-changed callbacks will be needed before
+  either command is safely bindable.
+- **The `VirtualKey` fallback's scope was corrected.** It was originally
+  documented as covering "media, volume, browser keys" outside
+  `ShortcutDisplayNames`'s canonical table; this is false for media and
+  volume keys (VK 0xAD-0xB3), which are not defined members of
+  `Windows.System.VirtualKey` at all (that enum stops at `GoHome = 0xAC`),
+  so they fell through to a raw hex fallback (e.g. "0xB3"). `ShortcutChip.cs`
+  now has an explicit lookup table for those seven keys, checked before the
+  `VirtualKey` fallback; the doc comment and the `VirtualKey` fallback
+  itself (still valid for keys like browser navigation, which genuinely are
+  defined `VirtualKey` members) were corrected accordingly.
