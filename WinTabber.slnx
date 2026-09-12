@@ -30,4 +30,8 @@
   <Project Path="WinTabber.UI.Media/WinTabber.UI.Media.csproj" Id="1c832ef2-4b5b-4f5b-bc19-bdbf004c8a25" />
   <Project Path="WinTabber.UI.Media.Tests/WinTabber.UI.Media.Tests.csproj" />
   <Project Path="WinTabberUI/WinTabberUI.csproj" />
+  <Folder Name="/winui3/">
+    <Project Path="winui3/WinTabber.UI.Common/WinTabber.UI.Common.csproj" />
+    <Project Path="winui3/WinTabber.UI.Common.Tests/WinTabber.UI.Common.Tests.csproj" />
+  </Folder>
 </Solution>

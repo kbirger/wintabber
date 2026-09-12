@@ -1,0 +1,24 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+        <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+        <UseWinUI>true</UseWinUI>
+        <Platform>x64</Platform>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="Microsoft.WindowsAppSDK" />
+        <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" />
+        <PackageReference Include="WinUIEx" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />
+        <ProjectReference Include="..\..\WinTabber.Events\WinTabber.Events.csproj" />
+        <ProjectReference Include="..\..\WinTabber.Interop\WinTabber.Interop.csproj" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <InternalsVisibleTo Include="WinTabber.UI.Common.Tests" />
+    </ItemGroup>
+</Project>

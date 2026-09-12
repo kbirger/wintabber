@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+        <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+        <UseWinUI>true</UseWinUI>
+        <Platform>x64</Platform>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
+
+    <ItemGroup>
+        <PackageReference Include="TUnit" />
+    </ItemGroup>
+
+    <ItemGroup>
+        <ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
+    </ItemGroup>
+</Project>
