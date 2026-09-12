@@ -2,4 +2,3 @@ PostMessage
 IsWindow
 WM_CLOSE
 ShowWindow
-SW_MINIMIZE
