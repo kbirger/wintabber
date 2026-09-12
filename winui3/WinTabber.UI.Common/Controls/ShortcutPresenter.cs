@@ -47,7 +47,7 @@ public class ShortcutPresenter : Control
         nameof(IsEmpty),
         typeof(bool),
         typeof(ShortcutPresenter),
-        new PropertyMetadata(true)
+        new PropertyMetadata(true, OnIsEmptyChanged)
     );
 
     public static readonly DependencyProperty EmptyTextProperty = DependencyProperty.Register(
@@ -89,6 +89,11 @@ public class ShortcutPresenter : Control
 
     private static void OnVisualInputChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
         ((ShortcutPresenter)d).Rebuild();
+
+    // WPF's original used a Trigger Property="IsEmpty" that fired automatically off the dependency
+    // property; WinUI 3's VisualStateManager needs an explicit GoToState call instead.
+    private static void OnIsEmptyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        VisualStateManager.GoToState((ShortcutPresenter)d, (bool)e.NewValue ? "Empty" : "HasChips", true);
 
     private void Rebuild()
     {

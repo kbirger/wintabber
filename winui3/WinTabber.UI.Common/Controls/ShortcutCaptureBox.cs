@@ -101,7 +101,7 @@ public class ShortcutCaptureBox : Control
         nameof(IsCapturing),
         typeof(bool),
         typeof(ShortcutCaptureBox),
-        new PropertyMetadata(false)
+        new PropertyMetadata(false, OnIsCapturingChanged)
     );
 
     public static readonly DependencyProperty PendingChipsProperty = DependencyProperty.Register(
@@ -115,7 +115,7 @@ public class ShortcutCaptureBox : Control
         nameof(ValidationMessage),
         typeof(string),
         typeof(ShortcutCaptureBox),
-        new PropertyMetadata(null)
+        new PropertyMetadata(null, OnValidationMessageChanged)
     );
 
     public ShortcutTrigger? Trigger
@@ -318,6 +318,19 @@ public class ShortcutCaptureBox : Control
 
     private void UpdatePendingChips() =>
         SetValue(PendingChipsProperty, ShortcutChips.BuildInProgress(_pendingModifiers));
+
+    // WPF's original used Trigger Property="IsCapturing"/"ValidationMessage" that fired
+    // automatically off the dependency property; WinUI 3's VisualStateManager needs an explicit
+    // GoToState call instead.
+    private static void OnIsCapturingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        VisualStateManager.GoToState((ShortcutCaptureBox)d, (bool)e.NewValue ? "Capturing" : "Idle", true);
+
+    private static void OnValidationMessageChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        VisualStateManager.GoToState(
+            (ShortcutCaptureBox)d,
+            e.NewValue is string { Length: > 0 } ? "HasValidationMessage" : "NoValidationMessage",
+            true
+        );
 
     private static string? FindReserved(ShortcutModifiers modifiers, ushort key)
     {
