@@ -33,5 +33,7 @@
   <Folder Name="/winui3/">
     <Project Path="winui3/WinTabber.UI.Common/WinTabber.UI.Common.csproj" />
     <Project Path="winui3/WinTabber.UI.Common.Tests/WinTabber.UI.Common.Tests.csproj" />
+    <Project Path="winui3/WinTabber.UI.Media/WinTabber.UI.Media.csproj" />
+    <Project Path="winui3/WinTabber.UI.Media.Tests/WinTabber.UI.Media.Tests.csproj" />
   </Folder>
 </Solution>

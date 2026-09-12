@@ -20,6 +20,7 @@
     <PackageVersion Include="NAudio.WASAPI" Version="2.3.0" />
     <PackageVersion Include="ReactiveUI" Version="22.3.1" />
     <PackageVersion Include="ReactiveUI.SourceGenerators" Version="2.6.1" />
+    <PackageVersion Include="ReactiveUI.WinUI" Version="22.3.1" />
     <PackageVersion Include="reactiveui.wpf" Version="22.3.1" />
     <PackageVersion Include="TaskScheduler" Version="2.12.2" />
     <PackageVersion Include="DynamicData" Version="9.4.1" />
@@ -33,7 +34,7 @@
     <PackageVersion Include="TUnit" Version="1.16.4" />
     <PackageVersion Include="System.Drawing.Common" Version="10.0.5" />
     <PackageVersion Include="System.Runtime.Caching" Version="10.0.5" />
-    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.8.250916003" />
+    <PackageVersion Include="Microsoft.WindowsAppSDK" Version="1.8.251106002" />
     <PackageVersion Include="CommunityToolkit.WinUI.Controls.SettingsControls" Version="8.2.250402" />
     <PackageVersion Include="WinUIEx" Version="2.9.3" />
   </ItemGroup>
