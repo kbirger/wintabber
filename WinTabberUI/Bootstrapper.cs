@@ -23,7 +23,7 @@ using WinTabberUI.Coordinators;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Models;
 using WinTabberUI.Services;
-using WinTabberUI.ViewModels;
+using WinTabber.ViewModels;
 using WinTabberUI.Views;
 
 namespace WinTabberUI;
@@ -62,7 +62,8 @@ public static class Bootstrapper
         return services
             .AddSingleton<AutoStartupService>()
             .AddSingleton<BackgroundServiceContainer>()
-            .AddSingleton<IAppLifecycle, WpfAppLifecycle>();
+            .AddSingleton<IAppLifecycle, WpfAppLifecycle>()
+            .AddSingleton<ISysColorsWindowLauncher, WpfSysColorsWindowLauncher>();
     }
     private static IServiceCollection AddDomainModels(this IServiceCollection services)
     {

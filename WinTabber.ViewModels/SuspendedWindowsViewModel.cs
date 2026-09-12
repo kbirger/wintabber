@@ -6,7 +6,7 @@ using System.Reactive.Linq;
 using WinTabber.Api.Windowing.Suspension;
 using WinTabber.Events;
 
-namespace WinTabberUI.ViewModels;
+namespace WinTabber.ViewModels;
 
 public class SuspendedWindowsViewModel : ReactiveObject, IDisposable
 {

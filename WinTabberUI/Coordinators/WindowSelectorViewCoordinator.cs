@@ -1,4 +1,4 @@
-﻿using WinTabberUI.ViewModels;
+﻿using WinTabber.ViewModels;
 
 namespace WinTabberUI.Coordinators
 {

@@ -5,7 +5,7 @@ using System.Windows.Controls;
 using System.Windows.Controls.Primitives;
 using System.Windows.Input;
 using System.Windows.Media;
-using WinTabberUI.ViewModels;
+using WinTabber.ViewModels;
 
 namespace WinTabberUI;
 

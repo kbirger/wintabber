@@ -1,5 +1,5 @@
 ﻿using ReactiveUI;
-using WinTabberUI.ViewModels.Settings;
+using WinTabber.ViewModels.Settings;
 
 namespace WinTabberUI.Views
 {

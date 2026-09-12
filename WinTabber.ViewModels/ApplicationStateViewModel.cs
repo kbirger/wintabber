@@ -4,7 +4,7 @@ using WinTabber.Api.Windowing;
 
 
 
-namespace WinTabberUI.ViewModels;
+namespace WinTabber.ViewModels;
 
 public class ApplicationStateViewModel : ReactiveObject
 {

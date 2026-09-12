@@ -17,7 +17,7 @@ using WinTabber.Api.Media.SMTC.Repositories;
 using WinTabber.UI.Media.Models;
 using WinTabber.UI.Media.Services;
 
-namespace WinTabberUI.ViewModels;
+namespace WinTabber.ViewModels;
 
 /// <summary>
 /// Live view of the six caches behind the media controls feature. It reads the same services that

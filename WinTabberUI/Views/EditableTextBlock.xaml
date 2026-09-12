@@ -5,7 +5,7 @@
              xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"                          
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-             xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
+             xmlns:vm="clr-namespace:WinTabber.ViewModels;assembly=WinTabber.ViewModels"
              xmlns:rxui="http://reactiveui.net"
              xmlns:fa="http://schemas.awesome.incremented/wpf/xaml/fontawesome.sharp"
              Name="root"

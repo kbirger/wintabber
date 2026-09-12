@@ -14,7 +14,7 @@ using WinTabber.Events.Shortcuts;
 using WinTabberUI.Models.Settings;
 using WinTabberUI.Services;
 
-namespace WinTabberUI.ViewModels;
+namespace WinTabber.ViewModels;
 
 public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IActivatableViewModel
 {

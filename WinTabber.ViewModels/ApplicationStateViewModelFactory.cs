@@ -2,7 +2,7 @@
 using WinTabber.UI.Media.Services;
 using WinTabberUI.Services;
 
-namespace WinTabberUI.ViewModels;
+namespace WinTabber.ViewModels;
 public class ApplicationStateViewModelFactory(IMediaControlsStateService mediaControlsStateService, IActiveWindowStateService activeWindowStateService)
 {
     //private readonly IWindowSelectorStateService _windowSelectorStateService = windowSelectorStateService;

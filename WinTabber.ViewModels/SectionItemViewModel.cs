@@ -1,4 +1,4 @@
-﻿namespace WinTabberUI.ViewModels
+﻿namespace WinTabber.ViewModels
 {
     public class SectionItemViewModel
     {

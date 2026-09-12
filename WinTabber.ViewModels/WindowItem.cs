@@ -7,7 +7,7 @@ using WinTabber.Api.Windowing.Suspension;
 using WinTabber.Api.Windowing.Thumbnails;
 using WinTabberUI.Models.Settings;
 
-namespace WinTabberUI.ViewModels;
+namespace WinTabber.ViewModels;
 
 public class WindowItem : ReactiveObject, IDisposable
 {

@@ -5,8 +5,8 @@
       xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006" 
       xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008" 
-      xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
-      xmlns:settingsvm="clr-namespace:WinTabberUI.ViewModels.Settings"
+      xmlns:vm="clr-namespace:WinTabber.ViewModels;assembly=WinTabber.ViewModels"
+      xmlns:settingsvm="clr-namespace:WinTabber.ViewModels.Settings;assembly=WinTabber.ViewModels"
 
       xmlns:rxui="http://reactiveui.net"
 

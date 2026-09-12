@@ -7,9 +7,9 @@ using WinTabber.Events;
 using WinTabber.Events.Shortcuts;
 using WinTabber.Interop;
 using WinTabberUI.Models.Settings;
-using WinTabberUI.ViewModels.Settings;
+using WinTabber.ViewModels.Settings;
 
-namespace WinTabberUI.ViewModels;
+namespace WinTabber.ViewModels;
 
 public class SettingsViewModel : ReactiveObject, IDisposable
 {

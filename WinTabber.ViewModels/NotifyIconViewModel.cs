@@ -4,7 +4,7 @@ using WinTabber.Api.Windowing.Suspension;
 using WinTabber.Events;
 using WinTabberUI.Services;
 
-namespace WinTabberUI.ViewModels;
+namespace WinTabber.ViewModels;
 
 /// <summary>
 /// Provides bindable properties and commands for the NotifyIcon. In this sample, the
@@ -19,7 +19,8 @@ public partial class NotifyIconViewModel : ReactiveObject
         WinTabberEventManager eventManager,
         IProcessSuspensionService suspensionService,
         MediaDebugStateService mediaDebugState,
-        IAppLifecycle appLifecycle
+        IAppLifecycle appLifecycle,
+        ISysColorsWindowLauncher sysColorsWindowLauncher
     )
     {
         _appLifecycle = appLifecycle;
@@ -40,11 +41,7 @@ public partial class NotifyIconViewModel : ReactiveObject
             }
         });
 
-        SysColorsCommand = ReactiveCommand.Create(() =>
-        {
-            var sysColors = new SysColor();
-            sysColors.ShowDialog();
-        });
+        SysColorsCommand = ReactiveCommand.Create(sysColorsWindowLauncher.Show);
         _areHooksActive = eventManager.WhenAnyValue(em => em.IsRunning)
             .ToProperty(this, vm => vm.AreHooksActive);
 

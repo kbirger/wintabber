@@ -1,6 +1,6 @@
 using ReactiveUI;
 
-namespace WinTabberUI.ViewModels;
+namespace WinTabber.ViewModels;
 
 public class WindowRenameViewModel : ReactiveObject
 {

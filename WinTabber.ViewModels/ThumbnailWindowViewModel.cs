@@ -1,6 +1,6 @@
 using ReactiveUI;
 
-namespace WinTabberUI.ViewModels;
+namespace WinTabber.ViewModels;
 
 /// <summary>
 /// Backs a single floating <see cref="ThumbnailWindow"/> instance. Registered transient in DI; the window

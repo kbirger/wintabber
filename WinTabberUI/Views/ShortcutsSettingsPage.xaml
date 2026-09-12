@@ -5,7 +5,7 @@
       xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
       xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
       xmlns:controls="clr-namespace:WinTabber.UI.Common.Controls;assembly=WinTabber.UI.Common"
-      xmlns:settingsvm="clr-namespace:WinTabberUI.ViewModels.Settings"
+      xmlns:settingsvm="clr-namespace:WinTabber.ViewModels.Settings;assembly=WinTabber.ViewModels"
       xmlns:rxwpf="clr-namespace:ReactiveUI;assembly=ReactiveUI.Wpf"
       mc:Ignorable="d"
       d:DataContext="{d:DesignInstance settingsvm:ShortcutsSettingsViewModel}"

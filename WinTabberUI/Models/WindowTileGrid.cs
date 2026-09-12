@@ -1,5 +1,5 @@
 ﻿using System.Diagnostics;
-using WinTabberUI.ViewModels;
+using WinTabber.ViewModels;
 
 namespace WinTabberUI.Models;
 

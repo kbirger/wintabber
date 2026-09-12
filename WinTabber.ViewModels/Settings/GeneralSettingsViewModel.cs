@@ -9,7 +9,7 @@ using WinTabber.Interop;
 using WinTabberUI.Models.Settings;
 using WinTabberUI.Services;
 
-namespace WinTabberUI.ViewModels.Settings
+namespace WinTabber.ViewModels.Settings
 {
     public record StartupModeItem(string Name, StartupMode Mode);
 

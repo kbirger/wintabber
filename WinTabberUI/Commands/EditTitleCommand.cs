@@ -1,5 +1,5 @@
 ﻿using System.Windows.Input;
-using WinTabberUI.ViewModels;
+using WinTabber.ViewModels;
 
 namespace WinTabberUI.Commands;
 

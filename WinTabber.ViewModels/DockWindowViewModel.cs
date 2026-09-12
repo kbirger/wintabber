@@ -7,7 +7,7 @@ using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Interop;
 using WinTabberUI.Models.Settings;
 
-namespace WinTabberUI.ViewModels;
+namespace WinTabber.ViewModels;
 
 public class DockWindowViewModel : ReactiveObject
 {

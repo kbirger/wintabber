@@ -1,7 +1,7 @@
 ﻿using ReactiveUI;
 using WinTabber.Infrastructure;
 
-namespace WinTabberUI.ViewModels.Settings
+namespace WinTabber.ViewModels.Settings
 {
     public abstract class SettingsViewModelBase : ReactiveObject
     {

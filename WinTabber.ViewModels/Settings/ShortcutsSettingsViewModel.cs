@@ -9,7 +9,7 @@ using WinTabber.Infrastructure;
 using WinTabber.Infrastructure.Settings;
 using WinTabberUI.Models.Settings;
 
-namespace WinTabberUI.ViewModels.Settings;
+namespace WinTabber.ViewModels.Settings;
 
 public class ShortcutsSettingsViewModel : SettingsViewModelBase, IDisposable
 {

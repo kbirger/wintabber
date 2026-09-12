@@ -2,7 +2,7 @@ using System.Reactive.Linq;
 using WinTabber.Api.Windowing.Suspension;
 using WinTabber.Events;
 using WinTabberUI.Models.Settings;
-using WinTabberUI.ViewModels;
+using WinTabber.ViewModels;
 
 namespace WinTabberUI.Coordinators
 {

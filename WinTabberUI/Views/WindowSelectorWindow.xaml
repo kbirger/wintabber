@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WinTabberUI"
         xmlns:controls="clr-namespace:WinTabberUI.Controls"
-        xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
+        xmlns:vm="clr-namespace:WinTabber.ViewModels;assembly=WinTabber.ViewModels"
         xmlns:rxui="http://reactiveui.net"
         
         xmlns:chrome="clr-namespace:WinTabber.UI.Common.Chrome;assembly=WinTabber.UI.Common"

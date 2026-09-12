@@ -9,7 +9,7 @@ using WinTabber.Interop;
 using WinTabberUI.Coordinators;
 using WinTabberUI.Infrastructure;
 using WinTabberUI.Models.Settings;
-using WinTabberUI.ViewModels;
+using WinTabber.ViewModels;
 
 namespace WinTabberUI;
 

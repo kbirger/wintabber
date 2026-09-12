@@ -8,7 +8,7 @@ using Windows.Foundation;
 using Windows.Media.Control;
 using WinTabber.Api.Media.CoreAudio.Models;
 
-namespace WinTabberUI.ViewModels;
+namespace WinTabber.ViewModels;
 
 /// <summary>
 /// Row types for the media debug window. They are flat and inert on purpose: the source objects are

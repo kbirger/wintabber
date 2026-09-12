@@ -3,7 +3,7 @@ using ReactiveUI;
 using WinTabber.Infrastructure;
 using WinTabberUI.Models.Settings;
 
-namespace WinTabberUI.ViewModels.Settings;
+namespace WinTabber.ViewModels.Settings;
 
 public class AppearanceSettingsViewModel : SettingsViewModelBase
 {
