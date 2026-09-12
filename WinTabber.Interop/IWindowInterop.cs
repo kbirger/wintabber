@@ -56,4 +56,16 @@ public interface IWindowInterop : IWindowVisibility
     /// ignore the request. No-op if the handle is not a window.
     /// </summary>
     void CloseWindow(int handle);
+
+    /// <summary>
+    /// Closes windows belonging to an elevated process, which <see cref="CloseWindow"/> cannot
+    /// reach — Windows' UIPI blocks WM_CLOSE from this (non-elevated) process to a higher-integrity
+    /// window. Launches the <c>WinTabber.Elevator</c> helper elevated (one UAC prompt) with all of
+    /// <paramref name="handles"/> batched into a single invocation; the helper posts WM_CLOSE to
+    /// each from an elevated context and exits. Fire-and-forget: does not wait for the helper to
+    /// exit. If the UAC prompt is declined, or the helper can't be launched at all, this silently
+    /// does nothing — matching how <c>WindowRef.MoveTo</c> already treats elevated windows it
+    /// can't touch.
+    /// </summary>
+    void CloseElevatedWindows(IEnumerable<int> handles);
 }

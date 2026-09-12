@@ -20,5 +20,6 @@
 
 	<ItemGroup>
 	  <ProjectReference Include="..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />
+	  <ProjectReference Include="..\WinTabber.Elevator\WinTabber.Elevator.csproj" />
 	</ItemGroup>
 </Project>

@@ -645,6 +645,37 @@ public class InteropProxy : IProcessControl, IWindowPlacement, IWindowInterop
         }
     }
 
+    public void CloseElevatedWindows(IEnumerable<int> handles)
+    {
+        var handleList = handles as IReadOnlyCollection<int> ?? handles.ToList();
+        if (handleList.Count == 0)
+        {
+            return;
+        }
+
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = Path.Combine(AppContext.BaseDirectory, "WinTabber.Elevator.exe"),
+                UseShellExecute = true,
+                Verb = "runas",
+            };
+
+            foreach (var handle in handleList)
+            {
+                startInfo.ArgumentList.Add(handle.ToString());
+            }
+
+            Process.Start(startInfo);
+        }
+        catch (Win32Exception)
+        {
+            // UAC declined (ERROR_CANCELLED), or the elevator binary is missing/broken. Same end
+            // state either way: these windows simply stay open.
+        }
+    }
+
     public string GetProcessImagePath(int pid)
     {
         using var hProcess = PInvoke.OpenProcess_SafeHandle(PROCESS_ACCESS_RIGHTS.PROCESS_QUERY_LIMITED_INFORMATION, false, (uint)pid);
