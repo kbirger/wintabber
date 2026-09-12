@@ -87,12 +87,11 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
         var canCloseApplication = this.WhenAnyValue(vm => vm.WindowItems)
             .Select(items => items.Length > 0 && _settings.EnableCloseApplicationWindows);
 
-        _isCloseApplicationButtonVisible = canCloseApplication.ToProperty(this, x => x.IsCloseApplicationButtonVisible);
         CloseApplicationCommand = ReactiveCommand.Create(CloseApplication, canCloseApplication);
 
         _cleanUp = new CompositeDisposable(
             appChanges, winChanges, nextEvents, prevEvents, selectEvents,
-            CloseApplicationCommand, _isCloseApplicationButtonVisible
+            CloseApplicationCommand
         );
 
         this.WhenActivated((x) =>
@@ -254,20 +253,34 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
 
     private void CloseApplication()
     {
-        if (WindowItems.Length > 0)
+        // Re-checked live here (not just via the command's canExecute) because canExecute is
+        // derived from WindowItems changes and can go stale the same way
+        // IsCloseApplicationButtonVisible could — see that property's doc comment.
+        if (!_settings.EnableCloseApplicationWindows || WindowItems.Length == 0)
         {
-            var application = WindowItems[0].WindowRef.Process.Application;
-            application.CloseAllWindows(WindowItems.Select(item => item.WindowRef));
+            return;
         }
+
+        var application = WindowItems[0].WindowRef.Process.Application;
+        application.CloseAllWindows(WindowItems.Select(item => item.WindowRef));
 
         CancelSelection();
     }
 
     public ReactiveCommand<Unit, Unit> CloseApplicationCommand { get; }
 
-    public bool IsCloseApplicationButtonVisible => _isCloseApplicationButtonVisible.Value;
-
-    private readonly ObservableAsPropertyHelper<bool> _isCloseApplicationButtonVisible;
+    /// <summary>
+    /// Computed live rather than cached via a WhenAnyValue(vm => vm.WindowItems) derivation,
+    /// because <see cref="Update" /> deliberately skips reassigning <see cref="WindowItems" />
+    /// when the incoming window set is unchanged (<see cref="IsSameAsCurrent" />) — so a
+    /// WindowItems-driven cache would stay stuck at whatever it was the last time the window set
+    /// genuinely changed. Toggling <see cref="GeneralSettings.EnableCloseApplicationWindows" /> in
+    /// Settings and reopening the switcher on the same application, with the same windows, would
+    /// never re-evaluate it. <see cref="Update" /> raises <c>PropertyChanged</c> for this property
+    /// unconditionally so WPF re-reads it on every switcher activation and every
+    /// foreground-window-change notification, not just when the tile list itself changes.
+    /// </summary>
+    public bool IsCloseApplicationButtonVisible => WindowItems.Length > 0 && _settings.EnableCloseApplicationWindows;
 
     public WindowManager WindowManager { get; }
 
@@ -287,6 +300,11 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
     public void Update(IEnumerable<WindowRef> windows)
     {
         var incoming = windows as WindowRef[] ?? windows.ToArray();
+
+        // Re-check on every call, including the early-return below, so a settings change picked
+        // up between activations (see IsCloseApplicationButtonVisible's doc comment) is reflected
+        // even when the window set itself hasn't changed.
+        this.RaisePropertyChanged(nameof(IsCloseApplicationButtonVisible));
 
         // A notification describing the tiles we are already showing carries no information.
         // Rebuilding for it would throw away every WindowItem and construct a replacement set, which
