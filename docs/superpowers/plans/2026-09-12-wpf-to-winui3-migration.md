@@ -2637,7 +2637,1236 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
+## Phase 3 — Convert `SettingsWindow`
+
+All files below were read in full before writing this phase: `WinTabberUI/Views/SettingsWindow.xaml(.cs)`,
+`GeneralSettingsPage.xaml(.cs)`, `AppearanceSettingsPage.xaml(.cs)`, `ShortcutsSettingsPage.xaml(.cs)`,
+`ShortcutCaptureDialog.xaml` (its `.xaml.cs` was read earlier in this plan's history), the current
+`winui3/WinTabberUI` shell (`App.xaml.cs`, `MainWindow.xaml`, `WinTabberUI.csproj`), `WinTabberUI/Bootstrapper.cs`,
+`WinTabber.ViewModels/SettingsWindowViewModel.cs` (class name `SettingsViewModel`, despite the file name),
+`WinTabber.ViewModels/Settings/GeneralSettingsViewModel.cs`, and `WinTabber.Interop/GsudoElevationLauncher.cs`.
+
+**Scope correction:** `WinTabberUI/EditableTextBlock.xaml` is not used by any Settings page — it is the
+window-tile title editor, consumed by `WindowSelectorWindow`. It belongs to Phase 4, not this phase; not
+read further here.
+
+**`SelectedView`'s WPF pattern doesn't port as-is.** WPF's `ui:Frame` here is not real page navigation —
+`Frame.Content` is bound directly to `SelectedView` (a ViewModel instance), and `Frame.Resources` holds
+`DataTemplate`s keyed by `DataType`, so WPF's implicit content-templating machinery picks the matching
+template automatically, the same way a bare `ContentControl` would. WinUI 3's `Frame` is for real
+`Frame.Navigate(Type)` page navigation and has no equivalent implicit-by-type template selection. The
+native replacement is a plain `ContentControl` with an explicit `DataTemplateSelector` (Task 3.5) — a real,
+supported WinUI 3 API (`Microsoft.UI.Xaml.Controls.DataTemplateSelector`), not a fabricated workaround.
+
+**Icon glyphs stay deferred per Global Constraints.** `NavigationView`'s per-section icon (bound to
+`SettingsViewModelBase.Icon`, an `IconKey`) and `ShortcutsSettingsPage`'s two `FluentSystemIcons.Add_32_Filled`
+references all get the placeholder glyph + `TODO(icon)` comment pattern — Phase 6's job, not this one.
+
+### Task 3.1: Minimal DI bootstrap for `winui3/WinTabberUI`, enough to construct `SettingsViewModel`
+
+**Files:**
+- Create: `winui3/WinTabberUI/Bootstrapper.cs`
+- Modify: `winui3/WinTabberUI/App.xaml.cs`
+
+**Interfaces:**
+- Produces: `WinTabberUI.Bootstrapper.Init() : ServiceProvider`, following the same static-class/extension-method shape as `WinTabberUI/Bootstrapper.cs` (the WPF one) so the two stay easy to compare and eventually reconcile in Phase 5.
+- Consumes: `WinTabber.ViewModels.SettingsViewModel`'s constructor — `WinTabberEventManager`, `ApplicationSettings`, `IShortcutMapProvider`, `GsudoElevationLauncher` — and each of those types' own transitive dependencies.
+
+Full app bootstrap parity (tray icon, all coordinators, every window) is Phase 5's job. This task registers only what `SettingsViewModel`'s dependency graph actually needs, traced from its constructor down:
+
+- `SettingsViewModel(WinTabberEventManager, ApplicationSettings, IShortcutMapProvider, GsudoElevationLauncher)`
+- `WinTabberEventManager(IWindowInterop, InputListenerService, IShortcutMapProvider)` — confirmed by reading `WinTabber.Events/WinTabberEventManager.cs`. Constructing this for real starts the live global keyboard/mouse hook (`InputListenerService.Init()`), which is correct and unavoidable here: `ShortcutsSettingsViewModel`'s whole purpose is capturing a *live* shortcut via `winTabberEventManager.TriggerSource`, so a fake/no-op event manager would make the one page this phase most needs to prove out untestable.
+- `IWindowInterop` → `InteropProxy` (per the WPF `Bootstrapper.cs` registration: `InteropProxy` registered once, exposed under `IProcessControl`/`IWindowPlacement`/`IWindowInterop`/`IWindowVisibility`).
+- `IShortcutMapProvider` → `ShortcutMapProvider`, constructed from `ApplicationSettings.Shortcuts.ToMap()` (mirror the WPF registration exactly — `sp => new ShortcutMapProvider(sp.GetRequiredService<ApplicationSettings>().Shortcuts.ToMap())`).
+- `ApplicationSettings` → `ApplicationSettings.Load()`, singleton (mirror the WPF registration's comment about why it must be a single shared instance).
+- `GsudoElevationLauncher` — parameterless constructor, confirmed by reading the file; no further dependencies.
+- `InputListenerService` — read `WinTabber.Events/InputListenerService.cs` (or wherever it actually lives — confirm the exact path via `find`/`grep` if it is not directly under `WinTabber.Events/`) to find its own constructor dependencies before registering it; this file was **not** read while writing this plan, so its exact dependency chain must be traced by whoever implements this task, following the same pattern as every other dependency listed above (register in the app project's Bootstrapper, following `WinTabberUI/Bootstrapper.cs`'s existing pattern for the same type one-for-one).
+
+**Explicitly excluded from this task** (Phase 5's job, or simply not needed by `SettingsViewModel`): `AutoStartupService`, `BackgroundServiceContainer`, `WindowManager`, every audio/media/SMTC service, `IProcessSuspensionService`, `IWindowThumbnailService`, `AppCache`, every coordinator, every other `View`/`ViewModel` registration, `IElevationBackendProvider`/`BuiltInElevationLauncher`/`ElevationLauncherResolver` (nothing in `SettingsViewModel`'s graph resolves `IElevationLauncher` — `GeneralSettingsViewModel` takes the concrete `GsudoElevationLauncher` directly).
+
+- [ ] **Step 1: Trace `InputListenerService`'s own dependencies**
+
+Run: `grep -rn "class InputListenerService" WinTabber.Events` to confirm its file location, then read that file's constructor in full. Register whatever it needs, following the exact registration shape `WinTabberUI/Bootstrapper.cs` already uses for the same type (do not re-derive a different shape — copy the existing pattern one-for-one, adjusted only for this project's namespace).
+
+- [ ] **Step 2: Write the bootstrapper**
+
+```csharp
+// winui3/WinTabberUI/Bootstrapper.cs
+using Microsoft.Extensions.DependencyInjection;
+using WinTabber.Events;
+using WinTabber.Events.Shortcuts;
+using WinTabber.Interop;
+using WinTabberUI.Models.Settings;
+using WinTabber.ViewModels;
+
+namespace WinTabberUI;
+
+public static class Bootstrapper
+{
+    public static ServiceProvider Init()
+    {
+        return new ServiceCollection()
+            .AddCoreServices()
+            .AddSettingsGraph()
+            .BuildServiceProvider();
+    }
+
+    private static IServiceCollection AddCoreServices(this IServiceCollection services)
+    {
+        return services
+            .AddSingleton<InteropProxy>()
+            .AddSingleton<IProcessControl>(sp => sp.GetRequiredService<InteropProxy>())
+            .AddSingleton<IWindowPlacement>(sp => sp.GetRequiredService<InteropProxy>())
+            .AddSingleton<IWindowInterop>(sp => sp.GetRequiredService<InteropProxy>())
+            .AddSingleton<IWindowVisibility>(sp => sp.GetRequiredService<InteropProxy>());
+            // Step 1's InputListenerService registration goes here, following the exact shape
+            // WinTabberUI/Bootstrapper.cs already uses for it.
+    }
+
+    private static IServiceCollection AddSettingsGraph(this IServiceCollection services)
+    {
+        return services
+            .AddSingleton<ApplicationSettings>(_ => ApplicationSettings.Load())
+            .AddSingleton<IShortcutMapProvider>(sp => new ShortcutMapProvider(
+                sp.GetRequiredService<ApplicationSettings>().Shortcuts.ToMap()))
+            .AddSingleton<WinTabberEventManager>()
+            .AddSingleton<GsudoElevationLauncher>()
+            .AddSingleton<SettingsViewModel>();
+    }
+}
+```
+
+Note: `WinTabberUI.Models.Settings.ApplicationSettings` is the namespace `ApplicationSettings` actually lives under today (physically in `WinTabber.Infrastructure`, namespace unchanged per this plan's Task 1.2 precedent) — confirm this `using` resolves; if the namespace has since moved, use whatever `grep -rn "class ApplicationSettings"` finds.
+
+- [ ] **Step 3: Wire it into `App.xaml.cs`**
+
+```csharp
+// winui3/WinTabberUI/App.xaml.cs
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
+using WinTabber.ViewModels;
+using WinTabberUI.Views;
+
+namespace WinTabberUI;
+
+public partial class App : Application
+{
+    private Window? _window;
+    public static ServiceProvider Services { get; private set; } = null!;
+
+    public App()
+    {
+        InitializeComponent();
+    }
+
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        Services = Bootstrapper.Init();
+
+        _window = new SettingsWindow(Services.GetRequiredService<SettingsViewModel>());
+        _window.Activate();
+    }
+}
+```
+
+This replaces the Phase 1 placeholder `MainWindow` as the shell's entry point for the duration of Phase 3
+(there is no tray icon or event-driven show/hide yet — Phase 5's job — so launching straight into
+`SettingsWindow` is the only way to manually verify this phase's work at all). `MainWindow.xaml(.cs)` stays
+in the project, unreferenced, rather than being deleted — Phase 5 will decide the real startup shape.
+
+- [ ] **Step 4: Build**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: does not build yet — `SettingsWindow` (Task 3.5) does not exist in the winui3 tree. This step's real purpose is confirming the DI graph above resolves with no missing-service exceptions once a temporary no-op `Window` stands in; if a full build isn't possible until Task 3.5 lands, the implementer may defer this task's own final build verification to the end of Task 3.5 instead — note that explicitly in this task's commit message if so, since it deviates from this plan's usual per-task build-and-commit rhythm.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add winui3/WinTabberUI/Bootstrapper.cs winui3/WinTabberUI/App.xaml.cs
+git commit -m "feat: add minimal DI bootstrap for winui3/WinTabberUI's SettingsViewModel graph
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 3.2: Port `GeneralSettingsPage`
+
+**Files:**
+- Create: `winui3/WinTabberUI/Views/GeneralSettingsPage.xaml`
+- Create: `winui3/WinTabberUI/Views/GeneralSettingsPage.xaml.cs`
+
+**Interfaces:**
+- Consumes: `WinTabber.ViewModels.Settings.GeneralSettingsViewModel` (unchanged from Phase 0/1), the converters/commands ported in Phase 2 (`EnumValuesConverter`, `StringToEnumConverter`, `BoolToVisibilityConverter` — all already in `winui3/WinTabber.UI.Common/ValueConverters/ValueConverters.cs`, Task 2.1).
+
+Control mapping for this page, per the design spec: `ui:SettingsCard`/`ui:SettingsExpander` →
+`CommunityToolkit.WinUI.Controls.SettingsControls` (already referenced in `winui3/WinTabber.UI.Common.csproj`
+since Task 1.4); `ui:ToggleSwitch`/`ui:FontIcon` → native `ToggleSwitch`/`FontIcon`; `rxwpf:ReactivePage` →
+`ReactiveUI.WinUI`'s `ReactivePage`. `HeaderedContentControl` (from a Toolkit package the WPF app doesn't
+even reference explicitly — it resolves through an implicit style) is replaced with a plain `StackPanel`
+holding the header `TextBlock` followed by the content, rather than adding a new
+`CommunityToolkit.WinUI.Controls.HeaderedControls` package dependency for what is, in this file, a purely
+cosmetic header-above-content wrapper with no other behavior.
+
+`this.Bind(...)` with an explicit `signalViewUpdate` (used twice in the WPF code-behind, for
+`StartupList`/`ThumbnailResizeModeList`) is a ReactiveUI-idiomatic two-way binding that should port
+unchanged under `ReactiveUI.WinUI` — `ComboBox.SelectionChanged` exists identically in WinUI 3.
+`ui:TextBoxHelper.IsDeleteButtonVisible="False"` doesn't appear on this page (only on Appearance's — see
+Task 3.3); nothing to remove here.
+
+- [ ] **Step 1: Port the XAML**
+
+```xml
+<!-- winui3/WinTabberUI/Views/GeneralSettingsPage.xaml -->
+<rxwpf:ReactivePage
+    x:Class="WinTabberUI.Views.GeneralSettingsPage"
+    x:TypeArguments="settingsvm:GeneralSettingsViewModel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:settingsvm="using:WinTabber.ViewModels.Settings"
+    xmlns:c="using:WinTabber.UI.Common.ValueConverters"
+    xmlns:rxwpf="using:ReactiveUI"
+>
+    <Page.Resources>
+        <c:EnumValuesConverter x:Key="EnumValuesConverter" />
+        <c:StringToEnumConverter x:Key="StringToEnumConverter" />
+        <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </Page.Resources>
+    <Grid>
+        <StackPanel Margin="20" VerticalAlignment="Top">
+            <TextBlock FontSize="24" Foreground="White" Text="General" />
+            <StackPanel Margin="0,12,0,0">
+                <controls:SettingsCard xmlns:controls="using:CommunityToolkit.WinUI.Controls" Header="Startup mode">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xe7f4;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ComboBox
+                        x:Name="StartupList"
+                        MinWidth="220"
+                        FontSize="14"
+                        VerticalAlignment="Center"
+                        ItemsSource="{x:Bind ViewModel.StartupModes, Mode=OneWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+                    Margin="0,8,0,0"
+                    Header="Thumbnail resize mode"
+                    Description="What resizing a floating window thumbnail does">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xe740;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ComboBox
+                        x:Name="ThumbnailResizeModeList"
+                        MinWidth="220"
+                        FontSize="14"
+                        VerticalAlignment="Center"
+                        ItemsSource="{x:Bind ViewModel.ThumbnailResizeModes, Mode=OneWay}" />
+                </controls:SettingsCard>
+            </StackPanel>
+            <TextBlock Margin="0,20,0,0" FontSize="24" Foreground="White" Text="Features" />
+            <StackPanel Margin="0,12,0,0">
+                <controls:SettingsCard
+                    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+                    Header="Window suspend"
+                    Description="The sleep button on a window tile, its shortcut, the suspended-windows shortcut, and the suspended-windows bar">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.EnableWindowSuspension, Mode=TwoWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+                    Margin="0,8,0,0"
+                    Header="Media controls"
+                    Description="The media controls shortcut and window, and the preload of installed apps and audio devices it uses">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.EnableMediaControls, Mode=TwoWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+                    Margin="0,8,0,0"
+                    Header="Close application windows"
+                    Description="The close button on the window selector and the close-application-windows shortcut">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.EnableCloseApplicationWindows, Mode=TwoWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsExpander
+                    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+                    Margin="0,8,0,0"
+                    Header="Focus select"
+                    Description="Hold the modifier below while selecting a window to minimize the others"
+                    IsExpanded="False"
+                    IsEnabled="{x:Bind ViewModel.EnableFocusSelect, Mode=OneWay}">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.EnableFocusSelect, Mode=TwoWay}" />
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard Header="Modifier" Description="Which modifier, held at selection, triggers Focus Select">
+                            <ComboBox
+                                x:Name="FocusSelectModifierList"
+                                MinWidth="220"
+                                FontSize="14"
+                                VerticalAlignment="Center"
+                                ItemsSource="{x:Bind ViewModel.FocusSelectModifiers, Mode=OneWay}" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard Header="Scope" Description="Which windows get minimized: only the ones the switcher showed, or every other window">
+                            <ComboBox
+                                x:Name="FocusSelectScopeList"
+                                MinWidth="220"
+                                FontSize="14"
+                                VerticalAlignment="Center"
+                                ItemsSource="{x:Bind ViewModel.FocusSelectScopes, Mode=OneWay}" />
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
+                <controls:SettingsCard
+                    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+                    Margin="0,8,0,0"
+                    Header="Elevation backend"
+                    Description="How WinTabber closes or minimizes windows belonging to an elevated (admin) process">
+                    <ComboBox
+                        x:Name="ElevationBackendList"
+                        MinWidth="220"
+                        FontSize="14"
+                        VerticalAlignment="Center"
+                        ItemsSource="{x:Bind ViewModel.ElevationBackends, Mode=OneWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+                    Margin="0,8,0,0"
+                    Header="gsudo not found"
+                    Description="Install gsudo via winget to use it as the elevation backend"
+                    Visibility="{x:Bind ViewModel.ShowGsudoInstallPrompt, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Button Command="{x:Bind ViewModel.InstallGsudoCommand}" Content="Install" />
+                </controls:SettingsCard>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</rxwpf:ReactivePage>
+```
+
+Note: repeating `xmlns:controls="using:CommunityToolkit.WinUI.Controls"` on every `SettingsCard`/
+`SettingsExpander` element above is verbose but deliberately explicit for this port — once the page
+compiles, collapse it to a single `xmlns:controls="using:CommunityToolkit.WinUI.Controls"` declaration on
+the root `rxwpf:ReactivePage` element (the normal XAML pattern) rather than leaving it repeated; it is
+written per-element here only so each control's exact required namespace is unambiguous while porting.
+
+`StartupList`'s `SelectedValue` binding from WPF (`SelectedValue="{Binding Path=StarupMode, ...}"`,
+note the original's misspelling of "Startup") is deliberately not carried into the XAML above — the
+code-behind's `this.Bind(...)` call (Step 2) is the one place the two-way `SelectedValue`↔`StartupMode`
+sync actually happens, matching how the WPF code-behind did it (the WPF XAML's own `SelectedValue`
+binding was in addition to, not instead of, the code-behind bind — reproduce only the code-behind path
+here, since duplicating both would create two competing write paths).
+
+- [ ] **Step 2: Port the code-behind**
+
+```csharp
+// winui3/WinTabberUI/Views/GeneralSettingsPage.xaml.cs
+using ReactiveUI;
+using System.Reactive.Disposables.Fluent;
+using System.Reactive.Linq;
+using WinTabber.ViewModels.Settings;
+
+namespace WinTabberUI.Views;
+
+public sealed partial class GeneralSettingsPage : ReactivePage<GeneralSettingsViewModel>, IViewFor<GeneralSettingsViewModel>
+{
+    public GeneralSettingsPage()
+    {
+        InitializeComponent();
+        this.WhenActivated((dispose) =>
+        {
+            this.Bind(
+                ViewModel,
+                vm => vm.StartupMode,
+                view => view.StartupList.SelectedValue,
+                signalViewUpdate: Observable.FromEventPattern(StartupList, nameof(StartupList.SelectionChanged))
+            ).DisposeWith(dispose);
+
+            this.Bind(
+                ViewModel,
+                vm => vm.ThumbnailResizeMode,
+                view => view.ThumbnailResizeModeList.SelectedValue,
+                signalViewUpdate: Observable.FromEventPattern(ThumbnailResizeModeList, nameof(ThumbnailResizeModeList.SelectionChanged))
+            ).DisposeWith(dispose);
+        });
+    }
+}
+```
+
+`DataContextChanged`/`ViewModel = e.NewValue as ...` from the WPF code-behind is dropped: WinUI 3's
+`ReactivePage<T>` (from `ReactiveUI.WinUI`) sets `ViewModel` from `DataContext` itself the same way its WPF
+counterpart does — **TODO(verify):** confirm this against the actual `ReactiveUI.WinUI` package source or
+a real compiler error before assuming it, since this plan was written without the ability to browse that
+package's source directly; if `ReactivePage<T>` does NOT wire `ViewModel` automatically in the installed
+version, restore an explicit `DataContextChanged`/`OnDataContextChanged` handler exactly like the WPF
+original's (WinUI 3's `FrameworkElement.DataContextChanged` event exists with the same name and a
+compatible signature, just a different event-args type).
+
+`StartupList_LostFocus` is dropped — it was already fully commented-out dead code in the WPF original
+(confirmed by reading the file); nothing to port.
+
+- [ ] **Step 3: Build**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: builds clean, or fails specifically on the `ReactivePage<T>`/`ViewModel` question flagged above — resolve per that note's guidance if so.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add winui3/WinTabberUI/Views/GeneralSettingsPage.xaml winui3/WinTabberUI/Views/GeneralSettingsPage.xaml.cs
+git commit -m "feat: port GeneralSettingsPage to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 3.3: Port `AppearanceSettingsPage`
+
+**Files:**
+- Create: `winui3/WinTabberUI/Views/AppearanceSettingsPage.xaml`
+- Create: `winui3/WinTabberUI/Views/AppearanceSettingsPage.xaml.cs`
+
+**Interfaces:**
+- Consumes: `WinTabber.ViewModels.Settings.AppearanceSettingsViewModel` (unchanged from Phase 0/1).
+
+Simpler than Task 3.2 — no code-behind bindings, no converters beyond what `x:Bind` handles directly.
+`ui:TextBoxHelper.IsDeleteButtonVisible="False"` (two sites) is removed outright per the design spec's
+control-mapping rule — native `TextBox` has no delete-button chrome to suppress.
+
+- [ ] **Step 1: Port the XAML**
+
+```xml
+<!-- winui3/WinTabberUI/Views/AppearanceSettingsPage.xaml -->
+<rxui:ReactivePage
+    x:Class="WinTabberUI.Views.AppearanceSettingsPage"
+    x:TypeArguments="settingsvm:AppearanceSettingsViewModel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:settingsvm="using:WinTabber.ViewModels.Settings"
+    xmlns:rxui="using:ReactiveUI"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+>
+    <Grid>
+        <StackPanel Margin="20" VerticalAlignment="Top">
+            <TextBlock FontSize="24" Foreground="White" Text="Scaling" />
+            <StackPanel Margin="0,12,0,0">
+                <controls:SettingsCard Header="Scale with display density" Description="Scale Window Selector tiles with screen DPI">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.ScaleToDpi, Mode=TwoWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsCard Header="UI Scale" Description="Scale of certain UI elements, on top of any other scaling" ContentAlignment="Vertical">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Slider
+                            Minimum="0.5"
+                            Maximum="3.0"
+                            VerticalAlignment="Center"
+                            IsThumbToolTipEnabled="True"
+                            StepFrequency="0.1"
+                            Value="{x:Bind ViewModel.ScaleFactor, Mode=TwoWay}" />
+                        <TextBox
+                            Grid.Column="1"
+                            Width="40"
+                            Margin="10,0,0,0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Text="{x:Bind ViewModel.ScaleFactor, Mode=TwoWay}" />
+                    </Grid>
+                </controls:SettingsCard>
+                <controls:SettingsCard Description="Width of Window Selector tiles in DIP" Header="Window Selector Tile Width" ContentAlignment="Vertical">
+                    <Grid>
+                        <Grid.ColumnDefinitions>
+                            <ColumnDefinition Width="*" />
+                            <ColumnDefinition Width="Auto" />
+                        </Grid.ColumnDefinitions>
+                        <Slider
+                            Minimum="250"
+                            Maximum="500"
+                            VerticalAlignment="Center"
+                            IsThumbToolTipEnabled="True"
+                            StepFrequency="10"
+                            Value="{x:Bind ViewModel.WindowTileWidth, Mode=TwoWay}" />
+                        <TextBox
+                            Grid.Column="1"
+                            Width="40"
+                            Margin="10,0,0,0"
+                            HorizontalContentAlignment="Center"
+                            VerticalContentAlignment="Center"
+                            Text="{x:Bind ViewModel.WindowTileWidth, Mode=TwoWay}" />
+                    </Grid>
+                </controls:SettingsCard>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</rxui:ReactivePage>
+```
+
+WPF's `Slider` used `TickFrequency`/`IsSnapToTickEnabled`/`TickPlacement` for the tick marks; WinUI 3's
+`Slider` has no `TickPlacement`/tick-mark rendering at all — `StepFrequency` is the closest equivalent
+(it snaps the value the same way `IsSnapToTickEnabled` did, just without drawing tick marks).
+`IsThumbToolTipEnabled="True"` is added as a reasonable substitute for the visual feedback WPF's tick
+marks gave, not a literal requirement — this is the plan author's judgment call, not a spec mandate;
+drop it if it doesn't read well once the page is actually visible. `TextBox`'s `Width="10"` from the WPF
+original is widened to `40` here since a single-digit-wide box was almost certainly already relying on
+WPF's more forgiving text clipping — a `TODO(verify)`-free, low-risk cosmetic judgment call, adjust once
+visible.
+
+- [ ] **Step 2: Port the code-behind**
+
+```csharp
+// winui3/WinTabberUI/Views/AppearanceSettingsPage.xaml.cs
+using WinTabber.ViewModels.Settings;
+
+namespace WinTabberUI.Views;
+
+public sealed partial class AppearanceSettingsPage : ReactiveUI.ReactivePage<AppearanceSettingsViewModel>
+{
+    public AppearanceSettingsPage()
+    {
+        InitializeComponent();
+    }
+}
+```
+
+- [ ] **Step 3: Build**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: builds clean.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add winui3/WinTabberUI/Views/AppearanceSettingsPage.xaml winui3/WinTabberUI/Views/AppearanceSettingsPage.xaml.cs
+git commit -m "feat: port AppearanceSettingsPage to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 3.4: Port `ShortcutsSettingsPage` and `ShortcutCaptureDialog`
+
+**Files:**
+- Create: `winui3/WinTabberUI/Views/ShortcutsSettingsPage.xaml`
+- Create: `winui3/WinTabberUI/Views/ShortcutsSettingsPage.xaml.cs`
+- Create: `winui3/WinTabberUI/Views/ShortcutCaptureDialog.xaml`
+- Create: `winui3/WinTabberUI/Views/ShortcutCaptureDialog.xaml.cs`
+
+**Interfaces:**
+- Consumes: `WinTabber.ViewModels.Settings.ShortcutsSettingsViewModel`/`ShortcutBindingViewModel`/`ShortcutCommandViewModel`/`ShortcutGroupViewModel` (unchanged), and `WinTabber.UI.Common.Controls.ShortcutPresenter`/`ShortcutCaptureBox` plus `Themes/Generic.xaml`'s styles (Phase 2b, already reviewed clean).
+
+This is the page that most directly exercises Phase 2b's work — `ShortcutPresenter` inside the binding
+row's button, `ShortcutCaptureBox` inside the dialog. Two real conversions beyond mechanical control
+mapping:
+
+1. **`DataTemplate.Triggers`/`DataTrigger` (forbidden in WinUI 3) → direct `x:Bind` with a converter.**
+   The WPF original shows `ConflictIcon` when `HasConflict` is true via a `DataTrigger`. Replace with a
+   direct `Visibility="{x:Bind HasConflict, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"`
+   on the `FontIcon` itself — no `VisualStateManager` needed here since this is a plain `DataTemplate`
+   binding, not a `Style`/`ControlTemplate` trigger (the `OnApplyTemplate` gotcha from Phase 2b's final
+   review does not apply to this case).
+2. **`ShortcutPresenter.Trigger="{Binding Trigger}"` needs `Mode=OneWay`, not the Phase 2b hazard's
+   `TwoWay`.** This page only *displays* the trigger inside the row button — nothing here writes back to
+   `ShortcutPresenter.Trigger`, so the lost `BindsTwoWayByDefault` (documented as a Phase 3 hazard at the
+   end of Phase 2's scope note) does not bite: `Mode=OneWay` is correct and sufficient, not a workaround.
+
+`{x:Static ui:FluentSystemIcons.Add_32_Filled}` (the "add shortcut" button icon) gets the deferred-icon
+placeholder pattern per Global Constraints — this is exactly the kind of site that rule anticipated.
+`ConflictIcon`'s hardcoded `Foreground="#FFC42B1C"` and `Glyph="&#xE7BA;"` are literal values, not an
+iNKORE key — they port unchanged, not deferred.
+
+`ShortcutCaptureDialog`'s WPF `Style="{DynamicResource ContentDialog}"` and its several
+`{DynamicResource ...}` brush references need to become `{ThemeResource}` (`DynamicResource` is
+prohibited in WinUI 3 per the migration skill) — WinUI 3's `ContentDialog` already ships a default
+`ContentDialogStyle` via `XamlControlsResources`, so the explicit `Style="{DynamicResource ContentDialog}"`
+line is dropped entirely rather than translated; the dialog gets the native default look, only overriding
+`ContentDialogPadding`/`ContentDialogTitleMargin` as the WPF original already did (those two keys are
+real WinUI 3 `ContentDialog` template resource keys too, so the override translates as-is).
+
+- [ ] **Step 1: Port `ShortcutsSettingsPage.xaml`**
+
+```xml
+<!-- winui3/WinTabberUI/Views/ShortcutsSettingsPage.xaml -->
+<rxwpf:ReactivePage
+    x:Class="WinTabberUI.Views.ShortcutsSettingsPage"
+    x:TypeArguments="settingsvm:ShortcutsSettingsViewModel"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:settingsvm="using:WinTabber.ViewModels.Settings"
+    xmlns:controls="using:WinTabber.UI.Common.Controls"
+    xmlns:c="using:WinTabber.UI.Common.ValueConverters"
+    xmlns:ui="using:CommunityToolkit.WinUI.Controls"
+    xmlns:rxwpf="using:ReactiveUI"
+>
+    <Page.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- ShortcutEditButtonStyle and its brushes live here, not auto-merged like the
+                     implicit ShortcutPresenter/ShortcutCaptureBox default styles WinUI 3 resolves by
+                     TargetType lookup — this is a plain-Button keyed style, so it needs an explicit
+                     merge, same reasoning as the WPF original's comment. -->
+                <ResourceDictionary Source="ms-appx:///WinTabber.UI.Common/Themes/Generic.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+
+            <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+
+            <!-- Editing and deleting both happen in ShortcutCaptureDialog (opened from code-behind).
+                 The whole combination is one clickable frame — there is no separate pencil icon. -->
+            <DataTemplate x:Key="BindingRowTemplate" x:DataType="settingsvm:ShortcutBindingViewModel">
+                <StackPanel Margin="0,2" HorizontalAlignment="Right" Orientation="Horizontal">
+                    <Button Click="OnEditShortcutClick" Style="{StaticResource ShortcutEditButtonStyle}" ToolTipService.ToolTip="Click to change">
+                        <controls:ShortcutPresenter EmptyText="Click to set shortcut" Trigger="{x:Bind Trigger, Mode=OneWay}" />
+                    </Button>
+
+                    <!-- Conflicts warn, they never block saving (§6.1). -->
+                    <FontIcon
+                        Margin="8,0"
+                        VerticalAlignment="Center"
+                        Foreground="#FFC42B1C"
+                        Glyph="&#xE7BA;"
+                        ToolTipService.ToolTip="{x:Bind ConflictMessage, Mode=OneWay}"
+                        Visibility="{x:Bind HasConflict, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
+                </StackPanel>
+            </DataTemplate>
+
+            <DataTemplate x:Key="CommandRowTemplate" x:DataType="settingsvm:ShortcutCommandViewModel">
+                <ui:SettingsCard Margin="0,4,0,0" Description="{x:Bind Desscription, Mode=OneWay}" Header="{x:Bind DisplayName, Mode=OneWay}">
+                    <ui:SettingsCard.HeaderIcon>
+                        <!-- TODO(icon): originally iNKORE FluentSystemIcons via IconKeyToFontIconDataConverter; real mapping is Phase 6 -->
+                        <FontIcon Glyph="&#xE897;" />
+                    </ui:SettingsCard.HeaderIcon>
+                    <StackPanel MinWidth="320">
+                        <ItemsControl HorizontalAlignment="Right" ItemTemplate="{StaticResource BindingRowTemplate}" ItemsSource="{x:Bind Bindings, Mode=OneWay}" />
+                        <StackPanel Margin="0,4,0,0" HorizontalAlignment="Right" Orientation="Horizontal">
+                            <Button Width="40" Height="28" Click="OnAddShortcutClick" ToolTipService.ToolTip="Add shortcut">
+                                <!-- TODO(icon): originally iNKORE FluentSystemIcons.Add_32_Filled; real mapping is Phase 6 -->
+                                <FontIcon Glyph="&#xE897;" />
+                            </Button>
+                        </StackPanel>
+                    </StackPanel>
+                </ui:SettingsCard>
+            </DataTemplate>
+        </ResourceDictionary>
+    </Page.Resources>
+
+    <ScrollViewer VerticalScrollBarVisibility="Auto">
+        <StackPanel Margin="20" VerticalAlignment="Top">
+            <TextBlock FontSize="24" Foreground="White" Text="Shortcuts" />
+            <StackPanel>
+                <ItemsControl ItemsSource="{x:Bind ViewModel.Groups, Mode=OneWay}">
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="settingsvm:ShortcutGroupViewModel">
+                            <StackPanel Margin="0,12,0,0">
+                                <TextBlock Margin="0,0,0,4" FontSize="16" FontWeight="SemiBold" Text="{x:Bind Name, Mode=OneWay}" />
+                                <ItemsControl ItemTemplate="{StaticResource CommandRowTemplate}" ItemsSource="{x:Bind Commands, Mode=OneWay}" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+
+                <Button
+                    Margin="0,20,0,0"
+                    HorizontalAlignment="Left"
+                    Command="{x:Bind ViewModel.ResetAllCommand}"
+                    Content="Reset all shortcuts to defaults" />
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</rxwpf:ReactivePage>
+```
+
+**TODO(verify):** the `ResourceDictionary Source="ms-appx:///WinTabber.UI.Common/Themes/Generic.xaml"` URI
+above assumes WinUI 3's `ms-appx:///<AssemblyName>/<Path>` cross-assembly resource URI scheme resolves the
+same way WPF's `pack://`-style `/WinTabber.UI.Common;component/...` did — confirm this against a real build
+(a missing-resource exception at runtime, not a compile error, is the likely failure mode if the URI scheme
+is wrong) before trusting it; if it does not resolve, the fallback is merging `Generic.xaml`'s content
+directly into this page's own `ResourceDictionary.MergedDictionaries` via a `ResourceDictionary` with no
+`Source` and instead an in-app-relative path, or (more idiomatically for WinUI 3) confirming whether
+`Themes/Generic.xaml` in a class library is already picked up automatically as that library's own default
+style dictionary without needing an explicit merge from a consumer at all — this is a real, common WinUI 3
+pattern (automatic per-assembly `Generic.xaml` lookup, the same mechanism that makes `ShortcutPresenter`'s
+own default style resolve today without WinUI 3 asset any explicit `Generic.xaml` merge in that project's
+own test/host app) that may make this whole `MergedDictionaries` entry unnecessary for the *default*
+styles, while `ShortcutEditButtonStyle` (an ordinary keyed `Button` style, not a default `TargetType`
+style) still needs it. Resolve this against real build/runtime behavior, not this plan's guess.
+
+- [ ] **Step 2: Port `ShortcutsSettingsPage.xaml.cs`**
+
+```csharp
+// winui3/WinTabberUI/Views/ShortcutsSettingsPage.xaml.cs
+using Microsoft.UI.Xaml;
+using ReactiveUI;
+using WinTabber.ViewModels.Settings;
+
+namespace WinTabberUI.Views;
+
+public sealed partial class ShortcutsSettingsPage : ReactivePage<ShortcutsSettingsViewModel>, IViewFor<ShortcutsSettingsViewModel>
+{
+    public ShortcutsSettingsPage()
+    {
+        InitializeComponent();
+    }
+
+    private async void OnEditShortcutClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ShortcutBindingViewModel binding } || ViewModel is null)
+        {
+            return;
+        }
+
+        var dialog = new ShortcutCaptureDialog(
+            binding.CommandDisplayName,
+            binding.Trigger,
+            ViewModel.TriggerSource,
+            canDelete: true
+        )
+        {
+            XamlRoot = XamlRoot,
+        };
+        dialog.ShowConflict(binding.ConflictMessage);
+        dialog.TriggerCaptured += (_, trigger) =>
+            dialog.ShowConflict(ViewModel.DescribeConflict(binding.Command, trigger, binding));
+
+        await dialog.ShowAsync();
+
+        switch (dialog.Result)
+        {
+            case ShortcutCaptureDialogResult.Saved when dialog.ResultTrigger is { } trigger:
+                binding.Trigger = trigger;
+                break;
+            case ShortcutCaptureDialogResult.Deleted:
+                binding.RemoveCommand.Execute().Subscribe();
+                break;
+            case ShortcutCaptureDialogResult.ResetToDefault:
+                binding.ResetOwnerToDefault();
+                break;
+        }
+    }
+
+    private async void OnAddShortcutClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ShortcutCommandViewModel command } || ViewModel is null)
+        {
+            return;
+        }
+
+        var dialog = new ShortcutCaptureDialog(command.DisplayName, null, ViewModel.TriggerSource, canDelete: false)
+        {
+            XamlRoot = XamlRoot,
+        };
+        dialog.TriggerCaptured += (_, trigger) =>
+            dialog.ShowConflict(ViewModel.DescribeConflict(command.Command, trigger, excluding: null));
+
+        await dialog.ShowAsync();
+
+        if (dialog.Result == ShortcutCaptureDialogResult.Saved && dialog.ResultTrigger is { } trigger)
+        {
+            command.AddFromDialog(trigger);
+        }
+    }
+}
+```
+
+The `DataContextChanged`/`ViewModel = ...` wiring is dropped for the same reason as Task 3.2 —
+`ReactivePage<T>` is expected to handle it; same `TODO(verify)` applies if it doesn't. The one WinUI
+3-specific addition beyond a mechanical port: `dialog.XamlRoot = XamlRoot` — a `ContentDialog` in WinUI 3
+throws at `ShowAsync()` if its `XamlRoot` isn't set (this repo's own migration skill flags this exact
+pitfall), unlike WPF's `ContentDialog`-equivalent, which needed no such wiring.
+
+- [ ] **Step 3: Port `ShortcutCaptureDialog.xaml`**
+
+```xml
+<!-- winui3/WinTabberUI/Views/ShortcutCaptureDialog.xaml -->
+<ContentDialog
+    x:Class="WinTabberUI.Views.ShortcutCaptureDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:WinTabber.UI.Common.Controls"
+    CornerRadius="8"
+>
+    <ContentDialog.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Same ms-appx:/// resolution question as Task 3.1's Step 1 — see that step's
+                     TODO(verify) note; ShortcutChipTemplateLarge/ShortcutCaptureBoxDialogStyle are
+                     keyed resources, so at minimum this explicit merge is needed for those two,
+                     whatever the answer turns out to be for the default styles. -->
+                <ResourceDictionary Source="ms-appx:///WinTabber.UI.Common/Themes/Generic.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Thickness x:Key="ContentDialogPadding">0</Thickness>
+            <Thickness x:Key="ContentDialogTitleMargin">0</Thickness>
+        </ResourceDictionary>
+    </ContentDialog.Resources>
+
+    <Grid MinWidth="440">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title, instructions, and the keys being pressed. -->
+        <StackPanel Grid.Row="0" Margin="26,20,26,20">
+            <TextBlock x:Name="TitleText" FontSize="20" FontWeight="SemiBold" />
+            <TextBlock
+                Margin="0,4,0,0"
+                FontSize="13"
+                Foreground="{ThemeResource ShortcutHintForegroundBrush}"
+                Text="Press the keys for this shortcut." />
+
+            <Border MinHeight="90" Margin="0,20,0,0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <controls:ShortcutCaptureBox x:Name="CaptureBox" Style="{StaticResource ShortcutCaptureBoxDialogStyle}" />
+            </Border>
+        </StackPanel>
+
+        <!-- Conflict warning — informational only; a conflicting shortcut can still be saved. -->
+        <Border Grid.Row="1" Margin="26,0,26,16" HorizontalAlignment="Stretch">
+            <Border
+                x:Name="ConflictBanner"
+                Padding="14,10"
+                Background="{ThemeResource ShortcutValidationBannerBackgroundBrush}"
+                BorderBrush="{ThemeResource ShortcutValidationForegroundBrush}"
+                BorderThickness="1"
+                CornerRadius="5"
+                Visibility="Collapsed">
+                <TextBlock x:Name="ConflictText" Foreground="{ThemeResource ShortcutValidationForegroundBrush}" TextWrapping="Wrap" />
+            </Border>
+        </Border>
+
+        <!-- Save / Reset / Delete / Cancel — the footer Flow.Launcher's hotkey dialog uses, minus
+             its "Overwrite" button: WinTabber never blocks a conflicting save. -->
+        <Border Grid.Row="2" BorderBrush="{ThemeResource ShortcutCaptureBoxBorderBrush}" BorderThickness="0,1,0,0" CornerRadius="0,0,8,8">
+            <StackPanel Margin="10,9" HorizontalAlignment="Center" Orientation="Horizontal">
+                <Button x:Name="SaveButton" MinWidth="100" MinHeight="36" Margin="0,0,4,0" Click="OnSaveClick" Content="Save" Style="{StaticResource AccentButtonStyle}" />
+                <Button x:Name="ResetButton" MinWidth="100" MinHeight="36" Margin="4,0" Click="OnResetClick" Content="Reset to default" />
+                <Button x:Name="DeleteButton" MinWidth="100" MinHeight="36" Margin="4,0" Click="OnDeleteClick" Content="Delete" />
+                <Button MinWidth="100" MinHeight="36" Margin="4,0,0,0" Click="OnCancelClick" Content="Cancel" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</ContentDialog>
+```
+
+**TODO(verify):** `ShortcutValidationBannerBackgroundBrush` is referenced here but was not confirmed to
+exist among the brushes Task 2b.4 actually defined in `winui3/WinTabber.UI.Common/Themes/Generic.xaml`
+(that task's brush list was: `ShortcutChipForegroundBrush`, `ShortcutCaptureBoxBorderBrush`,
+`ShortcutHintForegroundBrush`, `ShortcutEmptyForegroundBrush`, `ShortcutValidationForegroundBrush`,
+`ShortcutGroupBackgroundBrush`, `ShortcutGroupHoverBackgroundBrush`, `ShortcutGroupBorderBrush`,
+`ShortcutChipAccentBrush` — no `...BannerBackgroundBrush`). Check `Generic.xaml` directly before this
+compiles; if the brush is missing, add it there (a semi-transparent variant of
+`ShortcutValidationForegroundBrush`'s color is the WPF original's apparent intent) rather than inventing a
+hardcoded color inline.
+
+`AccentButtonStyle` is a native WinUI 3 style key (ships via `XamlControlsResources`, already the first
+merged dictionary in `winui3/WinTabberUI/App.xaml`) — no port needed, it already exists.
+
+- [ ] **Step 4: Port `ShortcutCaptureDialog.xaml.cs`**
+
+```csharp
+// winui3/WinTabberUI/Views/ShortcutCaptureDialog.xaml.cs
+using Microsoft.UI.Xaml;
+using WinTabber.Events.Shortcuts;
+using WinTabber.Events.Shortcuts.Detection;
+
+namespace WinTabberUI.Views;
+
+public enum ShortcutCaptureDialogResult
+{
+    Cancelled,
+    Saved,
+    Deleted,
+    ResetToDefault,
+}
+
+public sealed partial class ShortcutCaptureDialog : ContentDialog
+{
+    public ShortcutCaptureDialog(
+        string title,
+        ShortcutTrigger? initialTrigger,
+        IShortcutTriggerSource triggerSource,
+        bool canDelete
+    )
+    {
+        InitializeComponent();
+
+        TitleText.Text = title;
+        ResultTrigger = initialTrigger;
+        DeleteButton.Visibility = canDelete ? Visibility.Visible : Visibility.Collapsed;
+        ResetButton.Visibility = canDelete ? Visibility.Visible : Visibility.Collapsed;
+        SaveButton.IsEnabled = initialTrigger is not null;
+
+        CaptureBox.TriggerSource = triggerSource;
+        CaptureBox.Trigger = initialTrigger;
+        CaptureBox.Captured += (_, trigger) =>
+        {
+            ResultTrigger = trigger;
+            SaveButton.IsEnabled = true;
+            TriggerCaptured?.Invoke(this, trigger);
+        };
+
+        // ShortcutCaptureBox normally starts capturing off its own Visibility toggle (see
+        // ShortcutCaptureBox.cs's RegisterPropertyChangedCallback on VisibilityProperty) — inside a
+        // ContentDialog that never fires reliably, since the control can already report Visible
+        // before the dialog itself actually opens. Start explicitly once the dialog has opened, and
+        // stop once it closes regardless of how it closed, same as the WPF original's Opened/Closed
+        // wiring, just under WinUI 3's own ContentDialog event names.
+        Opened += (_, _) => CaptureBox.StartCapture();
+        Closed += (_, _) => CaptureBox.CancelCapture();
+    }
+
+    public event EventHandler<ShortcutTrigger>? TriggerCaptured;
+
+    public ShortcutCaptureDialogResult Result { get; private set; } = ShortcutCaptureDialogResult.Cancelled;
+
+    public ShortcutTrigger? ResultTrigger { get; private set; }
+
+    public void ShowConflict(string? message)
+    {
+        ConflictBanner.Visibility = message is null ? Visibility.Collapsed : Visibility.Visible;
+        ConflictText.Text = message;
+    }
+
+    private void OnSaveClick(object sender, RoutedEventArgs e)
+    {
+        if (ResultTrigger is null)
+        {
+            return;
+        }
+
+        Result = ShortcutCaptureDialogResult.Saved;
+        Hide();
+    }
+
+    private void OnResetClick(object sender, RoutedEventArgs e)
+    {
+        Result = ShortcutCaptureDialogResult.ResetToDefault;
+        Hide();
+    }
+
+    private void OnDeleteClick(object sender, RoutedEventArgs e)
+    {
+        Result = ShortcutCaptureDialogResult.Deleted;
+        Hide();
+    }
+
+    private void OnCancelClick(object sender, RoutedEventArgs e)
+    {
+        Result = ShortcutCaptureDialogResult.Cancelled;
+        CaptureBox.CancelCapture();
+        Hide();
+    }
+}
+```
+
+The WPF original's `Opened`/`Closed` handlers wrote a debug line to
+`%TEMP%\shortcut-capture-debug.log` (a leftover diagnostic, per that file's own code comment about a
+focus-timing bug). Not ported: Phase 2b's final review already removed the equivalent debug logging from
+`ShortcutCaptureBox.cs` itself as dead scaffolding, and carrying the same pattern into this new file would
+reintroduce exactly what that fix wave removed.
+
+- [ ] **Step 5: Build**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: does not build clean until this task's `TODO(verify)` items (the `ms-appx:///` resource URI, the
+missing `ShortcutValidationBannerBackgroundBrush`, and whatever `ReactivePage<T>`/`ViewModel` question Task
+3.2 already surfaced) are resolved against real compiler/runtime behavior. Iterate until clean.
+
+- [ ] **Step 6: Commit**
+
+```bash
+git add winui3/WinTabberUI/Views/ShortcutsSettingsPage.xaml winui3/WinTabberUI/Views/ShortcutsSettingsPage.xaml.cs \
+  winui3/WinTabberUI/Views/ShortcutCaptureDialog.xaml winui3/WinTabberUI/Views/ShortcutCaptureDialog.xaml.cs
+git commit -m "feat: port ShortcutsSettingsPage and ShortcutCaptureDialog to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 3.5: Port `SettingsWindow` and wire it as the winui3 shell's entry point
+
+**Files:**
+- Create: `winui3/WinTabberUI/Views/SettingsWindow.xaml`
+- Create: `winui3/WinTabberUI/Views/SettingsWindow.xaml.cs`
+- Create: `winui3/WinTabberUI/Views/SettingsPageTemplateSelector.cs`
+- Create: `winui3/WinTabberUI/ValueConverters/IconKeyToGlyphConverter.cs` (winui3-side placeholder mapping, per Global Constraints — every `IconKey` maps to the same placeholder glyph until Phase 6)
+- Modify: `winui3/WinTabberUI/App.xaml` (add `WinUIEx` package's needs, if any beyond what's already referenced; add `XamlControlsResources` as first merged dictionary if not already present — confirm against the current file before assuming)
+- Modify: `winui3/WinTabberUI/App.xaml.cs` (Task 3.1 already changed this to construct `SettingsWindow` directly; no further change expected here unless Step 1 below reveals otherwise)
+- Modify: `winui3/WinTabberUI/WinTabberUI.csproj` (add `<ProjectReference>` to `winui3/WinTabber.UI.Common` — confirm it is not already there from Task 1.3's original scaffold, since that csproj's `ItemGroup` already listed one)
+
+**Interfaces:**
+- Consumes: `WinTabber.ViewModels.SettingsViewModel` (Task 3.1's DI-constructed instance), `GeneralSettingsPage`/`AppearanceSettingsPage`/`ShortcutsSettingsPage` (Tasks 3.2-3.4).
+- Produces: `WinTabberUI.Views.SettingsPageTemplateSelector : Microsoft.UI.Xaml.Controls.DataTemplateSelector`, the native WinUI 3 replacement for WPF's implicit `DataTemplate`-by-`DataType` selection inside a `Frame`/`ContentControl` (see this phase's opening note).
+
+`WindowEx` (WinUIEx) replaces the bare `Window`/`ui:WindowHelper.UseModernWindowStyle`/`CornerStyle`/
+`SystemBackdropType="Mica"` combination — per the design spec's per-window backdrop table, `SettingsWindow`
+gets `MicaBackdrop`. `ui:NavigationView` → native `NavigationView`; `ui:FontIcon` → native `FontIcon`.
+`SegoeFluentIcons.Home`/`.OEM`/`.Game` (the three static top-level nav items — Home/Apps/Games, which this
+plan's earlier XAML read confirms are unrelated to the dynamic `Sections`-driven items and were explicitly
+called "untouched" in the design spec's icon note) get the same deferred-glyph placeholder treatment as
+every other iNKORE icon key in this phase.
+
+- [ ] **Step 1: Confirm current `App.xaml`'s resource setup and `WinTabberUI.csproj`'s `WinTabber.UI.Common` reference**
+
+Run: `cat winui3/WinTabberUI/App.xaml` and `cat winui3/WinTabberUI/WinTabberUI.csproj`. Task 1.3's original
+scaffold already added `<XamlControlsResources xmlns="using:Microsoft.UI.Xaml.Controls" />` as the first
+merged dictionary and a `ProjectReference` to `winui3/WinTabber.UI.Common` — if both are already present
+(expected), no changes are needed to either file in this step; if either is missing (e.g. removed or never
+landed as the plan originally specified), add it before proceeding.
+
+- [ ] **Step 2: Write the `DataTemplateSelector`**
+
+```csharp
+// winui3/WinTabberUI/Views/SettingsPageTemplateSelector.cs
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using WinTabber.ViewModels.Settings;
+
+namespace WinTabberUI.Views;
+
+/// <summary>
+/// The native WinUI 3 replacement for WPF's implicit Frame/ContentControl DataTemplate-by-DataType
+/// selection: WinUI 3's Frame is real page navigation with no equivalent, so SettingsWindow uses a
+/// plain ContentControl with this selector instead.
+/// </summary>
+public sealed class SettingsPageTemplateSelector : DataTemplateSelector
+{
+    public required DataTemplate AppearanceTemplate { get; set; }
+    public required DataTemplate GeneralTemplate { get; set; }
+    public required DataTemplate ShortcutsTemplate { get; set; }
+
+    protected override DataTemplate SelectTemplateCore(object item)
+    {
+        return item switch
+        {
+            AppearanceSettingsViewModel => AppearanceTemplate,
+            GeneralSettingsViewModel => GeneralTemplate,
+            ShortcutsSettingsViewModel => ShortcutsTemplate,
+            _ => throw new ArgumentOutOfRangeException(nameof(item), item, "No template registered for this settings section."),
+        };
+    }
+}
+```
+
+**TODO(verify):** `DataTemplateSelector.SelectTemplateCore(object)` (single-parameter overload) is the
+signature this plan assumes based on WPF's own `DataTemplateSelector.SelectTemplate(object, DependencyObject)`
+precedent adapted to WinUI 3's simpler API surface — confirm the exact virtual method WinUI 3's
+`Microsoft.UI.Xaml.Controls.DataTemplateSelector` actually requires overriding (it may be a two-parameter
+`SelectTemplateCore(object, DependencyObject)` instead, mirroring WPF more closely) against real compiler
+output before trusting this signature.
+
+- [ ] **Step 3: Write the placeholder icon converter**
+
+```csharp
+// winui3/WinTabberUI/ValueConverters/IconKeyToGlyphConverter.cs
+using Microsoft.UI.Xaml.Data;
+using WinTabber.Infrastructure;
+
+namespace WinTabberUI.ValueConverters;
+
+/// <summary>
+/// Placeholder per this plan's Global Constraints: every IconKey maps to the same "Help" glyph until
+/// Phase 6 does the real IconKey-to-WinUI-glyph mapping. Do not add real per-key glyphs here before
+/// Phase 6 — that is the one phase this plan allows to replace this file's placeholder behavior.
+/// </summary>
+public sealed class IconKeyToGlyphConverter : IValueConverter
+{
+    // TODO(icon): placeholder for every IconKey; Phase 6 replaces this with real per-key glyphs.
+    private const string PlaceholderGlyph = "";
+
+    public object Convert(object value, Type targetType, object parameter, string language) =>
+        value is IconKey ? PlaceholderGlyph : PlaceholderGlyph;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language) =>
+        throw new NotSupportedException();
+}
+```
+
+- [ ] **Step 4: Port `SettingsWindow.xaml`**
+
+```xml
+<!-- winui3/WinTabberUI/Views/SettingsWindow.xaml -->
+<winuiex:WindowEx
+    x:Class="WinTabberUI.Views.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:winuiex="using:WinUIEx"
+    xmlns:settingsvm="using:WinTabber.ViewModels.Settings"
+    xmlns:views="using:WinTabberUI.Views"
+    xmlns:conv="using:WinTabberUI.ValueConverters"
+    Title="Settings"
+    Width="1200"
+    Height="1000"
+    SystemBackdrop="{winuiex:MicaBackdrop}"
+>
+    <winuiex:WindowEx.Resources>
+        <conv:IconKeyToGlyphConverter x:Key="IconKeyToGlyphConverter" />
+        <DataTemplate x:Key="GeneralTemplate" x:DataType="settingsvm:GeneralSettingsViewModel">
+            <views:GeneralSettingsPage />
+        </DataTemplate>
+        <DataTemplate x:Key="AppearanceTemplate" x:DataType="settingsvm:AppearanceSettingsViewModel">
+            <views:AppearanceSettingsPage />
+        </DataTemplate>
+        <DataTemplate x:Key="ShortcutsTemplate" x:DataType="settingsvm:ShortcutsSettingsViewModel">
+            <views:ShortcutsSettingsPage />
+        </DataTemplate>
+        <views:SettingsPageTemplateSelector
+            x:Key="SettingsPageTemplateSelector"
+            AppearanceTemplate="{StaticResource AppearanceTemplate}"
+            GeneralTemplate="{StaticResource GeneralTemplate}"
+            ShortcutsTemplate="{StaticResource ShortcutsTemplate}" />
+    </winuiex:WindowEx.Resources>
+
+    <NavigationView
+        x:Name="SettingsNavigationView"
+        IsBackButtonVisible="Collapsed"
+        MenuItemsSource="{x:Bind ViewModel.Sections}"
+        OpenPaneLength="240"
+        PaneDisplayMode="Left"
+        SelectionChanged="OnNavigationSelectionChanged">
+        <NavigationView.MenuItemTemplate>
+            <DataTemplate x:DataType="settingsvm:SettingsViewModelBase">
+                <NavigationViewItem Content="{x:Bind Name}">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="{x:Bind Icon, Converter={StaticResource IconKeyToGlyphConverter}}" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </DataTemplate>
+        </NavigationView.MenuItemTemplate>
+        <NavigationView.MenuItems>
+            <NavigationViewItem Content="Home">
+                <NavigationViewItem.Icon>
+                    <!-- TODO(icon): originally iNKORE SegoeFluentIcons.Home -->
+                    <FontIcon Glyph="&#xE897;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="Apps">
+                <NavigationViewItem.Icon>
+                    <!-- TODO(icon): originally iNKORE SegoeFluentIcons.OEM -->
+                    <FontIcon Glyph="&#xE897;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="Games">
+                <NavigationViewItem.Icon>
+                    <!-- TODO(icon): originally iNKORE SegoeFluentIcons.Game -->
+                    <FontIcon Glyph="&#xE897;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+        </NavigationView.MenuItems>
+
+        <ContentControl
+            x:Name="SettingsContent"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
+            Content="{x:Bind ViewModel.SelectedView, Mode=OneWay}"
+            ContentTemplateSelector="{StaticResource SettingsPageTemplateSelector}" />
+    </NavigationView>
+</winuiex:WindowEx>
+```
+
+**TODO(verify):** `SystemBackdrop="{winuiex:MicaBackdrop}"` assumes `WinUIEx.WindowEx` exposes a XAML
+markup extension for its `SystemBackdrop` property with this exact name — this plan was written without
+access to browse the installed `WinUIEx` package's exact markup-extension surface. If `{winuiex:MicaBackdrop}`
+does not resolve, the fallback is setting it in code-behind instead: `SystemBackdrop = new MicaBackdrop();`
+(from `Microsoft.UI.Xaml.Media`) inside the constructor, which is guaranteed to work regardless of what
+`WindowEx` does or doesn't expose as a markup extension, since `SystemBackdrop` is a plain settable
+property either way.
+
+`NavigationView`'s `SelectedItem` two-way binding from the WPF original (`SelectedItem="{Binding
+Mode=TwoWay, Path=SelectedView}"`) is replaced with a `SelectionChanged` event handler (Step 5) rather
+than attempted as `x:Bind Mode=TwoWay` — `NavigationView.SelectedItem`'s change-notification behavior
+under `x:Bind` two-way was not confirmed against real compiler/runtime behavior while writing this plan,
+and the event-handler approach is the standard, unambiguous WinUI 3 `NavigationView` pattern regardless,
+so it is used here rather than risking a binding that silently doesn't sync.
+
+- [ ] **Step 5: Port `SettingsWindow.xaml.cs`**
+
+```csharp
+// winui3/WinTabberUI/Views/SettingsWindow.xaml.cs
+using Microsoft.UI.Xaml.Controls;
+using WinTabber.ViewModels;
+using WinTabber.ViewModels.Settings;
+using WinUIEx;
+
+namespace WinTabberUI.Views;
+
+public sealed partial class SettingsWindow : WindowEx
+{
+    public SettingsViewModel ViewModel { get; }
+
+    public SettingsWindow(SettingsViewModel viewModel)
+    {
+        ViewModel = viewModel;
+        InitializeComponent();
+    }
+
+    private void OnNavigationSelectionChanged(NavigationView sender, NavigationViewSelectionChangedEventArgs args)
+    {
+        if (args.SelectedItem is SettingsViewModelBase section)
+        {
+            ViewModel.SelectedView = section;
+        }
+    }
+}
+```
+
+The three static `NavigationViewItem`s (Home/Apps/Games) select `null` via this handler today (they are
+not `SettingsViewModelBase` instances), which matches the WPF original's behavior exactly: those three
+items were never wired to anything beyond being visible, decorative placeholders in the WPF app either —
+confirmed by re-reading `SettingsWindow.xaml.cs`, which has no logic branching on them at all.
+
+`ViewModel` here is a plain constructor-injected property, not `ReactiveWindow<T>`'s `ViewModel` — WinUI 3
+`Window` (unlike `Page`/`UserControl`) is genuinely not a `DependencyObject` at all (per the migration
+skill's own troubleshooting table), so `ReactiveWindow<T>`'s WPF-style `DependencyProperty`-backed
+`ViewModel` pattern does not carry over the same way `ReactivePage<T>` does — a plain CLR property is the
+correct, deliberate substitute here, not a shortcut.
+
+- [ ] **Step 6: Update Task 3.1's `App.xaml.cs` reference**
+
+`Task 3.1`'s `App.xaml.cs` already constructs `new SettingsWindow(Services.GetRequiredService<SettingsViewModel>())`
+— confirm the `using WinTabberUI.Views;` in that file resolves now that `SettingsWindow` actually exists at
+that namespace/path (it should, no change expected, but this step exists to catch it if Task 3.1's file
+needs a namespace adjustment once this task's real `SettingsWindow.xaml.cs` supersedes the assumption that
+task made about where it would live).
+
+- [ ] **Step 7: Build and run**
+
+Run: `dotnet build WinTabber.slnx` then `dotnet run --project winui3/WinTabberUI/WinTabberUI.csproj`
+Expected: does not build clean on the first attempt — resolve every `TODO(verify)` flagged across all five
+tasks in this phase against real compiler output, in whatever order the compiler surfaces them, then
+re-build until clean. Once clean, the app should launch directly into `SettingsWindow` (per Task 3.1's
+`App.xaml.cs`), showing the General page by default with Mica backdrop, and clicking between
+General/Appearance/Shortcuts in the nav pane should swap the content pane. Manually verify: toggling a
+`ToggleSwitch` persists (re-launch and confirm it stuck — `SettingsViewModel` saves on any section's
+`Changed` observable firing); clicking a shortcut's edit button opens `ShortcutCaptureDialog` and pressing
+a real key combination is captured and displayed live via `ShortcutPresenter`/`ShortcutCaptureBox` (this is
+the actual, meaningful end-to-end proof that Phase 2b's controls work, not just that they compile).
+
+- [ ] **Step 8: Commit**
+
+```bash
+git add winui3/WinTabberUI/Views/SettingsWindow.xaml winui3/WinTabberUI/Views/SettingsWindow.xaml.cs \
+  winui3/WinTabberUI/Views/SettingsPageTemplateSelector.cs winui3/WinTabberUI/ValueConverters/IconKeyToGlyphConverter.cs \
+  winui3/WinTabberUI/App.xaml winui3/WinTabberUI/App.xaml.cs winui3/WinTabberUI/WinTabberUI.csproj
+git commit -m "feat: port SettingsWindow to WinUI3, launch it as the winui3 shell's entry point
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+**What Phase 3 honestly does not fully deliver:** six distinct `TODO(verify)` items are left for the
+implementer to resolve against real compiler/runtime output rather than fabricated (the `ReactivePage<T>`/
+`ViewModel` auto-wiring question, twice; the `ms-appx:///` cross-assembly resource URI scheme; the missing
+`ShortcutValidationBannerBackgroundBrush`; `DataTemplateSelector`'s exact override signature; and
+`WinUIEx`'s `{winuiex:MicaBackdrop}` markup extension, with a guaranteed-correct code-behind fallback
+already given). All six are named, scoped narrowly, and have either a concrete fallback already written or
+a clear "check `Generic.xaml`, add the brush" resolution path — none require new design work the way
+Phase 2c's hint-overlay system does.
+
+---
+
 ## Phase 2c onward — scope note
+
+Phase 3 (`SettingsWindow`) is now written above and consumes the two "Phase 3
+hazards" this note originally flagged (`ShortcutPresenter.Trigger`'s lost
+`BindsTwoWayByDefault`, `RelayCommand.CanExecuteChanged`'s no-op) only
+partially — Task 3.4's `ShortcutPresenter` usage is `Mode=OneWay` and never
+hits the `TwoWay` hazard, and nothing in Phase 3 binds `StartCaptureCommand`/
+`CancelCaptureCommand` directly (they're driven by `ShortcutCaptureBox`
+internally, not from XAML), so both hazards remain live for whatever future
+phase or feature first does bind them. This note's remaining content (the
+hint-overlay deferral, the `OnApplyTemplate` rule, and the corrected
+`VirtualKey` fallback scope) is unaffected by Phase 3 and stays as written.
 
 **Deferred from Phase 2, needs design work before a task-by-task plan can be
 written:**
@@ -2733,11 +3962,14 @@ types directly, which is why `WinTabber.Infrastructure.csproj` still carries
 `InstalledApplicationInfo App` property, a WPF type is reachable through
 `WinTabber.ViewModels`'s public surface today — it only compiles clean
 because `winui3/WinTabberUI` has no real code yet exercising that path.
-Phase 2b (or Phase 3, whichever starts first) should open with a task to
-de-WPF `InstalledApplicationInfo.Icon` (e.g. to `IObservable<Stream>` or a
-new per-UI-framework `IIconSource` abstraction) and `AppCache`'s imaging
-code, before any winui3 media-related conversion work begins. Still
-unaddressed as of Phase 2.
+Phase 3 (SettingsWindow) does not touch `WinTabber.Api.Media`, `AggregateSession`,
+or `AppCache` at all — none of the Settings pages have any media dependency — so
+this gap is confirmed still not applicable to close out there. **Phase 4 (the
+media/overlay windows) should open with a task to de-WPF
+`InstalledApplicationInfo.Icon`** (e.g. to `IObservable<Stream>` or a new
+per-UI-framework `IIconSource` abstraction) and `AppCache`'s imaging code,
+before any winui3 media-related conversion work begins. Still unaddressed as
+of Phase 3.
 
 **Findings from Phase 2b's final-review fix wave, relevant to Phase 3 onward:**
 
