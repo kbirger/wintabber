@@ -4106,3 +4106,987 @@ This applies with extra force to `ThumbnailWindow` and `WindowSelectorWindow`
 specifically, since both have custom hit-testing whose only failure mode
 (clicks landing in the wrong place, or not registering at all) is invisible
 to both a build and a bare process-alive check.
+
+**Update: Phase 4a (below) is now planned**, covering `DockWindow` and
+`SuspendedWindowsWindow` per this note's own recommended order. The
+remaining three windows (`WindowSelectorWindow`, `ThumbnailWindow`,
+`MediaControlsWindow`) are still only scoped, not planned — the next
+research pass should pick up `WindowSelectorWindow` next, per the ordering
+above.
+
+---
+
+## Phase 4a — Convert `DockWindow` and `SuspendedWindowsWindow`
+
+All files below were read in full before writing this phase:
+`WinTabberUI/Views/DockWindow.xaml(.cs)`, `SuspendedWindowsWindow.xaml(.cs)`,
+`WinTabberUI/Controls/WindowThumbnail.cs`, `WinTabberUI/Windowing/DesktopHelper.cs`,
+`WinTabber.ViewModels/DockWindowViewModel.cs`, `SuspendedWindowsViewModel.cs`,
+`SuspendedWindowItemViewModel.cs`, `WindowItem.cs` (all already WPF-free, no
+changes needed), and `WinTabberUI/Bootstrapper.cs`'s registrations for
+`WindowManager`/`IProcessSuspensionService`/`IWindowThumbnailService` and
+their own transitive dependencies.
+
+**Both windows are plain `Window`, not `ReactiveWindow<T>`.** Neither hits
+the generic-XAML-root bug — `SettingsWindow`'s plain-`WindowEx`-with-a-CLR-
+`ViewModel`-property pattern (Task 3.5) is the template for both, not the
+`*PageBase` workaround.
+
+**`DockWindow` embeds `WindowThumbnail` directly** (`<local:WindowThumbnail
+Source="{Binding Path=Handle}" />` inside its `ItemTemplate`), so this
+phase cannot deliver a working `DockWindow` without also porting
+`WindowThumbnail` — even though `WindowThumbnail` was flagged in the Phase 4
+scope note above as reserved for later, that flag was about `ThumbnailWindow`
+needing it for `WM_NCHITTEST` hit-testing, a separate, harder problem. The
+control itself (DWM registration, per-frame rect updates) has no dependency
+on that hit-testing code and is fully portable now.
+
+**`WindowThumbnail`'s two real design decisions, not mechanical renames:**
+
+1. WPF's `HwndSource.FromVisual(this)` finds the owning window by walking up
+   from any element in the visual tree — WinUI 3 has no equivalent (a
+   `FrameworkElement` cannot discover its owning `Window` from the visual
+   tree alone). Fix: add a settable `TargetWindow` property that the hosting
+   window (`DockWindow`, later `ThumbnailWindow`) sets once, obtaining the
+   HWND via `WinRT.Interop.WindowNative.GetWindowHandle(window)` itself,
+   rather than trying to rediscover it per-instance the way WPF did.
+2. WPF's `_target.RootVisual.IsAncestorOf(this)` (checked every
+   `LayoutUpdated` tick, to detect the element leaving the visual tree) has
+   no WinUI 3 equivalent — there is no ancestor-walk API on `UIElement`. Fix:
+   track connection state via the element's own `Loaded`/`Unloaded` events
+   instead of an ancestry check — functionally equivalent (both exist to
+   answer "is this element still live"), simpler, and doesn't require an
+   ancestor-walk API that doesn't exist. **TODO(verify) at runtime, not at
+   compile time:** confirm `Unloaded` fires promptly enough when a
+   `DockWindow` list item's container is virtualized away or removed — if
+   there is a lag, thumbnails could briefly render at a stale position
+   before `DwmUnregisterThumbnail` is called. Flag this in manual
+   verification (Task 4a.4's Step 4), not something to block on now.
+
+**`DesktopHelper.ToLogicalBounds` currently depends on
+`iNKORE.UI.WPF.DragDrop.Utilities.DpiHelper`** — an iNKORE dependency this
+whole migration exists to remove, confirming the plan's assumption that this
+file was WPF-package-clean was wrong (same class of gap as
+`WinTabber.Api.Media`/`Infrastructure`'s WPF-imaging leak, flagged in Phase 2's
+scope note). Port drops the iNKORE call entirely in favor of
+`PInvoke.GetDpiForWindow` (already a CsWin32 binding available via
+`WinTabber.Interop`'s `NativeMethods.txt` coverage, or addable if not — a
+plain, well-documented Win32 API, not iNKORE-specific).
+
+### Task 4a.1: Extend `winui3/WinTabberUI`'s DI graph for the window/suspension/thumbnail services
+
+**Files:**
+- Modify: `winui3/WinTabberUI/Bootstrapper.cs`
+
+**Interfaces:**
+- Produces: `WindowManager`, `IProcessSuspensionService`, `IWindowThumbnailService` all resolvable from `App.Services`.
+- Consumes: `WinTabber.Api.Windowing.WindowManager`, `WinTabber.Api.Windowing.Suspension.{IProcessSuspensionService, ProcessSuspensionService, ISuspensionStrategy, NtProcessSuspensionStrategy, ThreadSuspensionStrategy, ISuspendedWindowStore, SuspendedWindowFileStore}`, `WinTabber.Api.Windowing.Thumbnails.{IWindowThumbnailService, WindowThumbnailService}`, `WinTabber.Interop.IProcessRepository`/`ProcessRepository` — all already used by the WPF `Bootstrapper.cs`, mirror its registrations one-for-one, not `AppCache` or anything audio-related (neither `DockWindowViewModel` nor `SuspendedWindowsViewModel` needs them).
+
+- [ ] **Step 1: Add the registrations**
+
+```csharp
+// winui3/WinTabberUI/Bootstrapper.cs — inside AddCoreServices, after the existing
+// IWindowVisibility/InputListenerService registrations, mirroring WinTabberUI/Bootstrapper.cs
+// (the WPF one) lines 94-101 exactly:
+.AddSingleton<IProcessRepository, ProcessRepository>()
+.AddSingleton<WindowManager>()
+.AddSingleton<ISuspensionStrategy, NtProcessSuspensionStrategy>()
+.AddSingleton<ISuspensionStrategy, ThreadSuspensionStrategy>()
+.AddSingleton<ISuspendedWindowStore>(_ => new SuspendedWindowFileStore(Paths.SuspensionDirectory))
+.AddSingleton<IProcessSuspensionService, ProcessSuspensionService>()
+.AddSingleton<IWindowThumbnailService, WindowThumbnailService>()
+```
+
+Add the corresponding `using WinTabber.Api.Windowing;`, `using WinTabber.Api.Windowing.Suspension;`, `using WinTabber.Api.Windowing.Thumbnails;` to the top of the file — confirm `Paths.SuspensionDirectory`'s actual namespace via `grep -rn "class Paths" WinTabber.Interop WinTabber.Infrastructure` (not confirmed in this pass) and add that `using` too.
+
+- [ ] **Step 2: Register the two ViewModels and add the DI-graph extension methods**
+
+```csharp
+// winui3/WinTabberUI/Bootstrapper.cs — new method, called from Init()
+private static IServiceCollection AddDockAndSuspendedWindowsGraph(this IServiceCollection services)
+{
+    return services
+        .AddSingleton<DockWindowViewModel>()
+        .AddSingleton<SuspendedWindowsViewModel>();
+}
+```
+
+```csharp
+// Init() — add the new call:
+public static ServiceProvider Init()
+{
+    return new ServiceCollection()
+        .AddCoreServices()
+        .AddSettingsGraph()
+        .AddDockAndSuspendedWindowsGraph()
+        .BuildServiceProvider();
+}
+```
+
+Note: `DockWindowViewModel` is registered `AddSingleton`, not
+`AddTransient`, deliberately diverging from the WPF app's registration
+(unconfirmed in this pass — check `WinTabberUI/Bootstrapper.cs` for
+`DockWindowViewModel`'s actual WPF lifetime before implementing this step,
+and match it exactly rather than assuming singleton; `DockWindow` is shown
+once per triggering application in the WPF app based on `ApplicationName`
+being settable post-construction, which is more consistent with a
+transient-per-show lifetime than a singleton — verify, don't guess).
+
+- [ ] **Step 3: Build**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: builds clean. This task adds no new UI, so no runtime/UI-Automation verification applies here — Task 4a.4/4a.5 will exercise this DI graph for real.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add winui3/WinTabberUI/Bootstrapper.cs
+git commit -m "feat: extend winui3 DI graph for window/suspension/thumbnail services
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 4a.2: Port `DesktopHelper`, dropping its iNKORE dependency
+
+**Files:**
+- Create: `winui3/WinTabberUI/Windowing/DesktopHelper.cs`
+
+**Interfaces:**
+- Produces: `WinTabberUI.Windowing.DesktopHelper` with `ToLogicalBounds(nint hwnd, System.Drawing.Rectangle deviceRect) : Windows.Foundation.Rect`, `GetDesktopArea() : Windows.Foundation.Rect`, `SetDesktopArea(Windows.Foundation.Rect rect)`.
+
+Signature change from the WPF original: `ToLogicalBounds` becomes an
+ordinary static method taking an `nint hwnd` instead of a `this Visual`
+extension method — WinUI 3 has no `VisualTreeHelper.GetDpi(Visual)`
+equivalent tied to an arbitrary element; DPI is queried per-window via
+`GetDpiForWindow(HWND)`. Callers (Task 4a.5) pass their own HWND
+(`WinRT.Interop.WindowNative.GetWindowHandle(this)`), obtained once, instead
+of chaining off `this` as a `Visual`.
+
+- [ ] **Step 1: Port, replacing the iNKORE DPI call**
+
+```csharp
+// winui3/WinTabberUI/Windowing/DesktopHelper.cs
+using Windows.Foundation;
+using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.UI.WindowsAndMessaging;
+
+namespace WinTabberUI.Windowing;
+
+internal static class DesktopHelper
+{
+    /// <summary>
+    /// Converts a device-pixel screen rectangle to WinUI 3 logical (effective-pixel) units using
+    /// the DPI in effect for the window at <paramref name="hwnd"/> right now. Queried live rather
+    /// than cached, so centering is always correct even if the window's own DPI bookkeeping is stale.
+    /// </summary>
+    public static Rect ToLogicalBounds(nint hwnd, System.Drawing.Rectangle deviceRect)
+    {
+        var dpi = PInvoke.GetDpiForWindow(new HWND(hwnd));
+        var scale = dpi / 96.0;
+        return new Rect(
+            deviceRect.Left / scale,
+            deviceRect.Top / scale,
+            deviceRect.Width / scale,
+            deviceRect.Height / scale);
+    }
+
+    public static unsafe Rect GetDesktopArea()
+    {
+        RECT area = new RECT();
+        PInvoke.SystemParametersInfo(SYSTEM_PARAMETERS_INFO_ACTION.SPI_GETWORKAREA, 0, &area, 0);
+        return new Rect(area.X, area.Y, area.Width, area.Height);
+    }
+
+    public static unsafe void SetDesktopArea(Rect rect)
+    {
+        RECT area = new RECT((int)rect.Left, (int)rect.Top, (int)(rect.Left + rect.Width), (int)(rect.Top + rect.Height));
+        PInvoke.SystemParametersInfo(SYSTEM_PARAMETERS_INFO_ACTION.SPI_SETWORKAREA, 0, &area, 0);
+    }
+}
+```
+
+`GetDesktopArea`/`SetDesktopArea` are unchanged in substance from the WPF
+original (plain `SPI_GETWORKAREA`/`SPI_SETWORKAREA` calls, never WPF-typed) —
+only `ToLogicalBounds` actually needed a rewrite. **TODO(verify):** confirm
+`PInvoke.GetDpiForWindow` is already covered by this project's CsWin32
+`NativeMethods.txt` (it should be, transitively, given other DPI-aware calls
+elsewhere in the interop layer — not confirmed in this pass); if the build
+reports it missing, add `GetDpiForWindow` to
+`winui3/WinTabberUI/NativeMethods.txt` (create the file if it doesn't exist
+yet, following the pattern in `WinTabber.Interop/NativeMethods.txt`).
+
+- [ ] **Step 2: Build**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: builds clean.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add winui3/WinTabberUI/Windowing/DesktopHelper.cs
+git commit -m "feat: port DesktopHelper to WinUI3, dropping its iNKORE DPI dependency
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 4a.3: Port `WindowThumbnail`
+
+**Files:**
+- Create: `winui3/WinTabberUI/Controls/WindowThumbnail.cs`
+
+**Interfaces:**
+- Produces: `WinTabberUI.Controls.WindowThumbnail : Microsoft.UI.Xaml.FrameworkElement` with `Source` (`nint`, was `IntPtr` — same type, WinUI 3 convention prefers `nint`), `ClientAreaOnly` (`bool`), `Stretch` (`bool`), `TargetWindow` (`Microsoft.UI.Xaml.Window`, NEW — replaces WPF's auto-discovered `HwndSource`).
+
+- [ ] **Step 1: Port the control**
+
+```csharp
+// winui3/WinTabberUI/Controls/WindowThumbnail.cs
+using Microsoft.UI.Xaml;
+using Windows.Win32;
+using Windows.Win32.Foundation;
+using Windows.Win32.Graphics.Dwm;
+using WinRT.Interop;
+
+namespace WinTabberUI.Controls;
+
+public class WindowThumbnail : FrameworkElement
+{
+    public WindowThumbnail()
+    {
+        if (!IsDwmEnabled)
+            throw new NotSupportedException("Creating a window thumbnail is not supported when DWM is not enabled.");
+
+        LayoutUpdated += Thumbnail_LayoutUpdated;
+        Loaded += (_, _) => _isLoaded = true;
+        Unloaded += (_, _) =>
+        {
+            _isLoaded = false;
+            ReleaseThumbnail();
+        };
+    }
+
+    private static bool IsDwmEnabled
+    {
+        get
+        {
+            PInvoke.DwmIsCompositionEnabled(out var enabled);
+            return enabled;
+        }
+    }
+
+    public static readonly DependencyProperty SourceProperty = DependencyProperty.Register(
+        nameof(Source), typeof(nint), typeof(WindowThumbnail),
+        new PropertyMetadata((nint)0, (d, e) => ((WindowThumbnail)d).InitialiseThumbnail((nint)e.NewValue)));
+
+    public static readonly DependencyProperty ClientAreaOnlyProperty = DependencyProperty.Register(
+        nameof(ClientAreaOnly), typeof(bool), typeof(WindowThumbnail),
+        new PropertyMetadata(false, (d, _) => ((WindowThumbnail)d).UpdateThumbnail()));
+
+    // When true, always fills exactly the space it's given (DWM stretches the bitmap to match,
+    // non-uniformly if the aspect ratio doesn't line up) instead of computing an aspect-preserving,
+    // letterboxed size. Off by default so existing consumers (e.g. the selector tiles) keep their
+    // current letterboxed behavior.
+    public static readonly DependencyProperty StretchProperty = DependencyProperty.Register(
+        nameof(Stretch), typeof(bool), typeof(WindowThumbnail), new PropertyMetadata(false));
+
+    // Replaces WPF's HwndSource.FromVisual(this) auto-discovery, which has no WinUI 3 equivalent —
+    // a FrameworkElement cannot discover its owning Window from the visual tree alone. The hosting
+    // window (DockWindow, ThumbnailWindow) sets this once after it obtains its own HWND.
+    public static readonly DependencyProperty TargetWindowProperty = DependencyProperty.Register(
+        nameof(TargetWindow), typeof(Window), typeof(WindowThumbnail),
+        new PropertyMetadata(null, (d, e) => ((WindowThumbnail)d).InitialiseThumbnail(((WindowThumbnail)d).Source)));
+
+    public nint Source
+    {
+        get => (nint)GetValue(SourceProperty);
+        set => SetValue(SourceProperty, value);
+    }
+
+    public bool ClientAreaOnly
+    {
+        get => (bool)GetValue(ClientAreaOnlyProperty);
+        set => SetValue(ClientAreaOnlyProperty, value);
+    }
+
+    public bool Stretch
+    {
+        get => (bool)GetValue(StretchProperty);
+        set => SetValue(StretchProperty, value);
+    }
+
+    public Window? TargetWindow
+    {
+        get => (Window?)GetValue(TargetWindowProperty);
+        set => SetValue(TargetWindowProperty, value);
+    }
+
+    private nint _targetHwnd;
+    private nint _thumb;
+    private bool _isLoaded;
+
+    private void InitialiseThumbnail(nint source)
+    {
+        if (_thumb != 0)
+        {
+            ReleaseThumbnail();
+        }
+
+        if (source != 0 && TargetWindow is { } window)
+        {
+            _targetHwnd = WindowNative.GetWindowHandle(window);
+
+            if (_targetHwnd != 0 && 0 == PInvoke.DwmRegisterThumbnail(new HWND(_targetHwnd), new HWND(source), out var thumb))
+            {
+                _thumb = thumb;
+                var props = new DWM_THUMBNAIL_PROPERTIES
+                {
+                    fVisible = false,
+                    fSourceClientAreaOnly = ClientAreaOnly,
+                    opacity = 255,
+                    dwFlags = PInvoke.DWM_TNP_VISIBLE | PInvoke.DWM_TNP_SOURCECLIENTAREAONLY | PInvoke.DWM_TNP_OPACITY,
+                };
+                PInvoke.DwmUpdateThumbnailProperties(_thumb, props);
+            }
+        }
+    }
+
+    private void ReleaseThumbnail()
+    {
+        if (_thumb != 0)
+        {
+            PInvoke.DwmUnregisterThumbnail(_thumb);
+        }
+        _thumb = 0;
+        _targetHwnd = 0;
+    }
+
+    private void UpdateThumbnail()
+    {
+        if (_thumb != 0)
+        {
+            var props = new DWM_THUMBNAIL_PROPERTIES
+            {
+                fSourceClientAreaOnly = ClientAreaOnly,
+                opacity = 255,
+                dwFlags = PInvoke.DWM_TNP_SOURCECLIENTAREAONLY | PInvoke.DWM_TNP_OPACITY,
+            };
+            PInvoke.DwmUpdateThumbnailProperties(_thumb, props);
+        }
+    }
+
+    // this is where the magic happens
+    private void Thumbnail_LayoutUpdated(object? sender, object e)
+    {
+        if (_thumb == 0)
+        {
+            InitialiseThumbnail(Source);
+        }
+
+        if (_thumb != 0)
+        {
+            if (!_isLoaded || TargetWindow is not { } window)
+            {
+                ReleaseThumbnail();
+                return;
+            }
+
+            var root = window.Content;
+            if (root is null)
+            {
+                InvalidateArrange();
+                return;
+            }
+
+            var transform = TransformToVisual(root);
+            var a = transform.TransformPoint(new Windows.Foundation.Point(0, 0));
+            if (double.IsNaN(a.X))
+            {
+                InvalidateArrange();
+            }
+            else
+            {
+                var b = transform.TransformPoint(new Windows.Foundation.Point(ActualSize.X, ActualSize.Y));
+                var scale = XamlRoot?.RasterizationScale ?? 1.0;
+
+                var props = new DWM_THUMBNAIL_PROPERTIES
+                {
+                    fVisible = true,
+                    rcDestination = new RECT
+                    {
+                        left = (int)Math.Ceiling(a.X * scale),
+                        top = (int)Math.Ceiling(a.Y * scale),
+                        right = (int)Math.Ceiling(b.X * scale),
+                        bottom = (int)Math.Ceiling(b.Y * scale),
+                    },
+                    dwFlags = PInvoke.DWM_TNP_VISIBLE | PInvoke.DWM_TNP_RECTDESTINATION,
+                };
+                PInvoke.DwmUpdateThumbnailProperties(_thumb, props);
+            }
+        }
+    }
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        if (Stretch)
+        {
+            return new Size(
+                double.IsInfinity(availableSize.Width) ? 0 : availableSize.Width,
+                double.IsInfinity(availableSize.Height) ? 0 : availableSize.Height);
+        }
+
+        if (_thumb == 0)
+        {
+            return new Size(0, 0);
+        }
+
+        PInvoke.DwmQueryThumbnailSourceSize(_thumb, out var size);
+        double scale = 1;
+        if (size.Width > availableSize.Width) scale = availableSize.Width / size.Width;
+        if (size.Height > availableSize.Height) scale = Math.Min(scale, availableSize.Height / size.Height);
+        return new Size(size.Width * scale, size.Height * scale);
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        if (Stretch || _thumb == 0)
+        {
+            return finalSize;
+        }
+
+        PInvoke.DwmQueryThumbnailSourceSize(_thumb, out var size);
+        double scale = finalSize.Width / size.Width;
+        scale = Math.Min(scale, finalSize.Height / size.Height);
+        return new Size(size.Width * scale, size.Height * scale);
+    }
+}
+```
+
+Two API-shape notes, both applied above, neither a guess: WinUI 3's
+`FrameworkElement.LayoutUpdated` handler signature is
+`(object? sender, object e)`, not WPF's `(object? sender, EventArgs e)` —
+confirm this compiles as written; if the compiler reports a signature
+mismatch, adjust the handler's second parameter type to whatever the real
+event's delegate expects. `TransformToVisual(UIElement)` (not
+`TransformToAncestor`) is WinUI 3's equivalent, returning a
+`GeneralTransform` with `TransformPoint`, not `Transform`.
+
+The opacity property (`WindowThumbnail.Opacity`, overridden in the WPF
+original to trigger `UpdateThumbnail()` on change) is dropped in this port
+— nothing in `DockWindow.xaml`'s usage sets it, and `FrameworkElement.Opacity`
+already exists as a real WinUI 3 property with its own rendering behavior;
+re-overriding it to also drive `DWM_TNP_OPACITY` is a nice-to-have this task
+does not need. `opacity = 255` above is a hardcoded full-opacity default
+matching the WPF original's actual runtime value for every current caller.
+
+- [ ] **Step 2: Build**
+
+Run: `dotnet build WinTabber.slnx`
+Expected: builds clean, or names a specific unresolved member — resolve
+against real compiler output per the two notes above.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add winui3/WinTabberUI/Controls/WindowThumbnail.cs
+git commit -m "feat: port WindowThumbnail to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 4a.4: Port `DockWindow`
+
+**Files:**
+- Create: `winui3/WinTabberUI/Views/DockWindow.xaml`
+- Create: `winui3/WinTabberUI/Views/DockWindow.xaml.cs`
+- Create: `winui3/WinTabberUI/Resources/DockWindowResources.xaml` (mirrors the WPF original's merged resource dictionary — read `WinTabberUI/Resources/DockWindowResources.xaml` before writing this file; not read while writing this plan)
+
+**Interfaces:**
+- Consumes: `WinTabber.ViewModels.DockWindowViewModel` (Task 4a.1), `WinTabberUI.Controls.WindowThumbnail` (Task 4a.3), `WinTabberUI.Windowing.DesktopHelper` (Task 4a.2), `WinTabber.Api.Windowing.WindowManager`.
+
+`AcrylicChrome` (`ACCENT_ENABLE_BLURBEHIND`, `DWMWCP_ROUNDSMALL`) → `WindowEx`
++ `DesktopAcrylicBackdrop`, per the design spec's backdrop table and the
+established `SettingsWindow`/Phase 2b pattern. `UnderStratumColor="#55ff0000"`
+(a translucent red tint, likely a debug leftover given the color) is dropped —
+`DesktopAcrylicBackdrop` has no tint-color property matching this; note the
+drop in the commit message rather than silently losing it.
+
+- [ ] **Step 1: Read the WPF resource dictionary**
+
+Run: read `WinTabberUI/Resources/DockWindowResources.xaml` in full before writing Step 2 — its content was not read while writing this plan.
+
+- [ ] **Step 2: Port `DockWindow.xaml`**
+
+```xml
+<!-- winui3/WinTabberUI/Views/DockWindow.xaml -->
+<winuiex:WindowEx
+    x:Class="WinTabberUI.DockWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:winuiex="using:WinUIEx"
+    xmlns:local="using:WinTabberUI.Controls"
+    Title="DockWindow"
+    Width="200"
+    IsTitleBarVisible="False"
+    IsShownInSwitchers="False"
+    IsResizable="False"
+>
+    <Grid Padding="10" Margin="10">
+        <Grid.Resources>
+            <ResourceDictionary>
+                <ResourceDictionary.MergedDictionaries>
+                    <!-- Port DockWindowResources.xaml's content here per Step 1's read, following
+                         the migration skill's XAML syntax table for any DynamicResource/Style
+                         conversions its content needs. -->
+                    <ResourceDictionary Source="/Resources/DockWindowResources.xaml" />
+                </ResourceDictionary.MergedDictionaries>
+            </ResourceDictionary>
+        </Grid.Resources>
+        <ListView
+            x:Name="WindowsList"
+            ItemsSource="{x:Bind ViewModel.Windows, Mode=OneWay}"
+            Background="Transparent"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+            ScrollViewer.VerticalScrollBarVisibility="Hidden"
+        >
+            <ListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Vertical" />
+                </ItemsPanelTemplate>
+            </ListView.ItemsPanel>
+            <ListView.ItemContainerStyle>
+                <Style TargetType="ListViewItem">
+                    <Setter Property="Margin" Value="0" />
+                </Style>
+            </ListView.ItemContainerStyle>
+            <ListView.ItemTemplate>
+                <DataTemplate x:DataType="vm:WindowItem">
+                    <Grid Margin="0">
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <TextBlock
+                            Grid.Row="0"
+                            Margin="0,0,0,10"
+                            VerticalAlignment="Center"
+                            Text="{x:Bind Title, Mode=OneWay}"
+                            TextTrimming="CharacterEllipsis"
+                            TextWrapping="NoWrap" />
+                        <Viewbox Grid.Row="1" HorizontalAlignment="Center" VerticalAlignment="Top" Stretch="Uniform">
+                            <local:WindowThumbnail x:Name="PART_Thumbnail" Source="{x:Bind Handle, Mode=OneWay}" />
+                        </Viewbox>
+                    </Grid>
+                </DataTemplate>
+            </ListView.ItemTemplate>
+        </ListView>
+    </Grid>
+</winuiex:WindowEx>
+```
+
+Add `xmlns:vm="using:WinTabber.ViewModels"` alongside the other `xmlns`
+declarations. Background changed from WPF's near-transparent
+`#01000000` (a WPF-specific hit-testing trick — a fully transparent
+background in WPF does not receive hits, so the original used 1/255 alpha
+to keep the `ListView` clickable while looking invisible) to WinUI 3's
+`Transparent`, which — unlike WPF — does receive hits by default; the
+`#01000000` trick is unneeded and would just be a wrong color if carried
+over literally.
+
+**Open item, consistent with this plan's Hint-chip precedent (Phase 2b):**
+`WindowThumbnail.TargetWindow` (Task 4a.3) is not wired in this XAML — a
+`{x:Bind}`/`{Binding}` to the window itself is not idiomatic in either XAML
+dialect. Wire it in code-behind instead (Step 3).
+
+- [ ] **Step 3: Port `DockWindow.xaml.cs`**
+
+```csharp
+// winui3/WinTabberUI/Views/DockWindow.xaml.cs
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using WinRT.Interop;
+using WinTabber.Api.Windowing;
+using WinTabber.ViewModels;
+using WinTabberUI.Controls;
+using WinTabberUI.Windowing;
+
+namespace WinTabberUI;
+
+public sealed partial class DockWindow : WinUIEx.WindowEx
+{
+    private readonly WindowManager _windowManager;
+    public DockWindowViewModel ViewModel { get; }
+
+    private Windows.Foundation.Rect? _reservedArea;
+    private nint _hwnd;
+
+    public DockWindow(WindowManager windowManager, DockWindowViewModel viewModel)
+    {
+        _windowManager = windowManager;
+        ViewModel = viewModel;
+
+        InitializeComponent();
+
+        _hwnd = WindowNative.GetWindowHandle(this);
+
+        // Wire WindowThumbnail.TargetWindow for every container the ListView generates — there is
+        // no XAML-level way to bind a control property to "the window that hosts me" in WinUI 3.
+        WindowsList.ContainerContentChanging += (_, args) =>
+        {
+            if (args.ItemContainer.ContentTemplateRoot is FrameworkElement root)
+            {
+                var thumbnail = root.FindName("PART_Thumbnail") as WindowThumbnail;
+                // TODO(verify): confirm FindName walks into a DataTemplate's realized visual tree in
+                // WinUI 3 the way it did in WPF (the x:Name="PART_Thumbnail" registration itself is
+                // already in Step 2's XAML — this only needs confirming that FindName resolves it at
+                // runtime). If it returns null, the fallback is VisualTreeHelper-walking root's
+                // descendants for the first WindowThumbnail instead.
+                if (thumbnail is not null)
+                {
+                    thumbnail.TargetWindow = this;
+                }
+            }
+        };
+
+        Activated += (_, _) => MakeSpace();
+    }
+
+    private void MakeSpace()
+    {
+        if (_reservedArea is not null)
+        {
+            return;
+        }
+
+        var screenArea = DesktopHelper.GetDesktopArea();
+        var scale = AppWindow.Size.Width / (double)Bounds.Width; // TODO(verify): confirm this is the
+        // right way to get the window's DPI scale in WinUI3 — WPF's original used
+        // VisualTreeHelper.GetDpi(this).DpiScaleX; the more direct WinUI3 equivalent is likely
+        // XamlRoot.RasterizationScale once the window has content loaded, which may be simpler and
+        // more reliable than deriving scale from AppWindow.Size — confirm against real behavior.
+
+        _reservedArea = new Windows.Foundation.Rect(
+            screenArea.X + Width * scale,
+            screenArea.Y,
+            screenArea.Width - Width * scale,
+            screenArea.Height);
+        DesktopHelper.SetDesktopArea(_reservedArea.Value);
+
+        foreach (var window in _windowManager.GetWindows()
+            .Where(w => w.State != WindowPlacement.WindowState.Minimized
+                && w.State != WindowPlacement.WindowState.Hidden
+                && w.Bounds.X < _reservedArea.Value.X
+                && w.Bounds.Width > 0))
+        {
+            if (!window.Process.IsProcessElevated)
+            {
+                window.MoveTo(new System.Drawing.Point((int)_reservedArea.Value.X, window.Bounds.Y));
+            }
+        }
+    }
+
+    protected override void OnClosed(WindowEventArgs args)
+    {
+        if (_reservedArea is not null)
+        {
+            var screenArea = DesktopHelper.GetDesktopArea();
+            DesktopHelper.SetDesktopArea(new Windows.Foundation.Rect(
+                screenArea.X, screenArea.Y, screenArea.Width, _reservedArea.Value.Height));
+            _reservedArea = null;
+        }
+        base.OnClosed(args);
+    }
+}
+```
+
+Three deliberate simplifications from the WPF original, all disclosed:
+- The commented-out `//MakeSpace()` calls in `DockWindow_LayoutUpdated`/
+  `DockWindow_IsVisibleChanged` (dead code in the WPF original — already
+  commented out there) are dropped rather than ported as dead code, since
+  this plan's precedent (Task 0.2, etc.) is to port dead *reachable* code
+  for structural parity, not resurrect already-disabled debug scaffolding.
+- `ApplicationName`'s WPF `DependencyProperty` (used only so XAML could set
+  it declaratively — no XAML in this repo actually does) is dropped; the
+  constructor-injected `ViewModel.ApplicationName` is set directly by
+  whoever constructs this window (the coordinator, ported in a later phase),
+  the same simplification `SettingsWindow` (Task 3.5) already established
+  for plain constructor-injected properties over `DependencyProperty`
+  ceremony that has no real XAML consumer.
+- `OnActivated` in the WPF original only calls `base.OnActivated(e)` with no
+  added logic — dropped as a no-op override.
+
+- [ ] **Step 4: Build and manually verify via UI Automation**
+
+Run: `dotnet build WinTabber.slnx`
+
+Then launch `winui3/WinTabberUI.exe` (via whatever entry-point wiring exists
+at the time this task runs — `App.xaml.cs` may need a temporary direct
+`new DockWindow(...)` launch if no coordinator wires it up yet in this
+phase; note this explicitly in the report if so, since full app-wiring is
+Phase 5's job) and walk its UI Automation tree (`System.Windows.Automation`
+or `UIAutomationClient`/`UIAutomationTypes`, per the pattern Phase 3's fix
+round established) to confirm: the `ListView` contains one item per open
+window for the target application, each item shows a real `TextBlock` with
+the window's title (not a bare type name), and a `WindowThumbnail` element
+is present in the tree for each item (a UI Automation walk cannot directly
+verify DWM's own compositing, but can confirm the control itself is
+instantiated and sized). Also confirm — by checking the desktop's actual
+work area via `SystemParametersInfo(SPI_GETWORKAREA)` before and after
+showing/closing the window — that `MakeSpace`/`OnClosed` actually
+resize and restore the desktop work area, not just that no exception is
+thrown.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add winui3/WinTabberUI/Views/DockWindow.xaml winui3/WinTabberUI/Views/DockWindow.xaml.cs \
+  winui3/WinTabberUI/Resources/DockWindowResources.xaml
+git commit -m "feat: port DockWindow to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 4a.5: Port `SuspendedWindowsWindow`
+
+**Files:**
+- Create: `winui3/WinTabberUI/Views/SuspendedWindowsWindow.xaml`
+- Create: `winui3/WinTabberUI/Views/SuspendedWindowsWindow.xaml.cs`
+
+**Interfaces:**
+- Consumes: `WinTabber.ViewModels.SuspendedWindowsViewModel` (Task 4a.1), `WinTabberUI.Windowing.DesktopHelper` (Task 4a.2), `WinTabber.Interop.IWindowInterop`.
+
+WPF's `fa:IconBlock Icon="Sun"` (fontawesome.sharp — a WPF-only icon font
+package) gets the deferred-icon placeholder pattern per Global Constraints,
+same as every other undecided icon site in this plan: `Glyph="&#xE897;"`
+with a `TODO(icon)` comment naming the original (`fontawesome.sharp
+FontAwesomeIcon.Sun`). The `DataTrigger`-driven "No windows are sleeping"
+empty-state text becomes a direct `x:Bind` + converter on the `TextBlock`
+itself, the same pattern Task 3.4 used for `ConflictIcon` — not
+`VisualStateManager`, since this is a plain element property, not a custom
+control's own visual states. `AcrylicChrome` (`ACCENT_ENABLE_BLURBEHIND`,
+`DWMWCP_ROUND`) → `WindowEx` + `DesktopAcrylicBackdrop`.
+
+- [ ] **Step 1: Port `SuspendedWindowsWindow.xaml`**
+
+```xml
+<!-- winui3/WinTabberUI/Views/SuspendedWindowsWindow.xaml -->
+<winuiex:WindowEx
+    x:Class="WinTabberUI.SuspendedWindowsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:winuiex="using:WinUIEx"
+    xmlns:vm="using:WinTabber.ViewModels"
+    xmlns:c="using:WinTabber.UI.Common.ValueConverters"
+    Title="SuspendedWindowsWindow"
+    IsTitleBarVisible="False"
+    IsShownInSwitchers="False"
+    IsResizable="False"
+    IsMinimizable="False"
+    IsMaximizable="False"
+    IsAlwaysOnTop="True"
+    MinWidth="200"
+    MinHeight="96"
+>
+    <Grid Margin="10" Background="#30000000">
+        <Grid.Resources>
+            <ResourceDictionary>
+                <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+                <Style x:Key="ResumeTileButton" TargetType="Button">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="Margin" Value="6" />
+                    <Setter Property="Padding" Value="12,8" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border
+                                    Background="{TemplateBinding Background}"
+                                    Padding="{TemplateBinding Padding}"
+                                    CornerRadius="4"
+                                >
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal" />
+                                            <VisualState x:Name="PointerOver">
+                                                <VisualState.Setters>
+                                                    <Setter Target="Bg.Background" Value="#22666666" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                            <VisualState x:Name="Pressed">
+                                                <VisualState.Setters>
+                                                    <Setter Target="Bg.Background" Value="#dd666666" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateManager.VisualStateGroups>
+                                    <ContentPresenter x:Name="Bg" Content="{TemplateBinding Content}" />
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ResourceDictionary>
+        </Grid.Resources>
+
+        <TextBlock
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            FontStyle="Italic"
+            Foreground="White"
+            Opacity="0.7"
+            Text="No windows are sleeping"
+            Visibility="{x:Bind ViewModel.Items.Count, Mode=OneWay, Converter={StaticResource EmptyCountToVisibilityConverter}}" />
+
+        <ItemsControl HorizontalAlignment="Center" ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:SuspendedWindowItemViewModel">
+                    <Button Style="{StaticResource ResumeTileButton}" Command="{x:Bind ResumeCommand}" ToolTipService.ToolTip="Click to resume">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- TODO(icon): originally fontawesome.sharp FontAwesomeIcon.Sun -->
+                            <FontIcon Margin="0,0,8,0" VerticalAlignment="Center" Glyph="&#xE897;" />
+                            <StackPanel Orientation="Vertical">
+                                <TextBlock FontWeight="Bold" Text="{x:Bind ProcessName}" />
+                                <TextBlock MaxWidth="220" Opacity="0.8" Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+</winuiex:WindowEx>
+```
+
+**Open item, not resolved by this task:** `EmptyCountToVisibilityConverter`
+does not exist yet in `winui3/WinTabber.UI.Common/ValueConverters/ValueConverters.cs`
+— the WPF original relied on a `DataTrigger Binding="{Binding Items.Count}"
+Value="0"` comparing an `int` to a literal, which `x:Bind` cannot replicate
+directly (no `DataTrigger` in WinUI 3, and `x:Bind`'s converter takes only
+the bound value, not a comparison target). Add a small new converter —
+`public sealed class EmptyCountToVisibilityConverter : IValueConverter`
+returning `Visibility.Visible` when `(int)value == 0` else `Collapsed` — to
+`winui3/WinTabber.UI.Common/ValueConverters/ValueConverters.cs`, registered
+in `winui3/WinTabber.UI.Common/Resources/ValueConvertersResources.xaml`
+(both files already exist, from Task 2.1/2.3 — this is an addition, not a
+new file), before this task's build can succeed. This mirrors the class of
+gap Task 3.4 found in Phase 2b's `Generic.xaml` (a genuinely missing
+resource, added as part of the consuming task rather than deferred).
+
+- [ ] **Step 2: Port `SuspendedWindowsWindow.xaml.cs`**
+
+```csharp
+// winui3/WinTabberUI/Views/SuspendedWindowsWindow.xaml.cs
+using Microsoft.UI.Windowing;
+using WinRT.Interop;
+using WinTabber.Interop;
+using WinTabber.ViewModels;
+using WinTabberUI.Windowing;
+
+namespace WinTabberUI;
+
+public sealed partial class SuspendedWindowsWindow : WinUIEx.WindowEx
+{
+    private const double BottomMargin = 24;
+
+    private readonly IWindowInterop _windowInterop;
+    public SuspendedWindowsViewModel ViewModel { get; }
+
+    public SuspendedWindowsWindow(SuspendedWindowsViewModel viewModel, IWindowInterop windowInterop)
+    {
+        ViewModel = viewModel;
+        _windowInterop = windowInterop;
+
+        InitializeComponent();
+
+        var hwnd = WindowNative.GetWindowHandle(this);
+
+        // Never let this window take focus/activation, even from a mouse click on one of its
+        // buttons — that keeps focus on WindowSelectorWindow regardless of show ordering between
+        // the two coordinators. Same call the WPF original made via IWindowInterop, just with a
+        // WinUI3-obtained handle instead of WindowInteropHelper's.
+        _windowInterop.MakeWindowNonActivating(hwnd);
+
+        SizeChanged += (_, _) => PositionWindow(hwnd);
+        Activated += (_, _) => PositionWindow(hwnd);
+
+        PositionWindow(hwnd);
+    }
+
+    private void PositionWindow(nint hwnd)
+    {
+        // TODO(verify): WPF's original found the screen under the cursor via
+        // System.Windows.Forms.Screen.FromPoint(Control.MousePosition) — that WinForms API still
+        // works unchanged in a WinUI3 app (confirmed elsewhere in this plan, WindowSelectorViewModel
+        // already does the same). The WinUI3-native alternative is
+        // Microsoft.UI.Windowing.DisplayArea.GetFromPoint / GetFromWindowId — either is valid; this
+        // draft uses the already-proven WinForms path for consistency with WindowSelectorViewModel's
+        // CursorScreen, confirm this doesn't diverge from whatever WindowSelectorWindow's own port
+        // (a later phase) settles on for the same concept.
+        var workingArea = System.Windows.Forms.Screen.FromPoint(System.Windows.Forms.Control.MousePosition).WorkingArea;
+        var bounds = DesktopHelper.ToLogicalBounds(hwnd, workingArea);
+
+        AppWindow.Move(new Windows.Graphics.PointInt32(
+            (int)(bounds.Left + (bounds.Width - Bounds.Width) / 2),
+            (int)(bounds.Bottom - Bounds.Height - BottomMargin)));
+    }
+}
+```
+
+**Open item:** the WPF original repositions on `IsVisibleChanged` (true) and
+`SizeChanged`; this port repositions on `Activated` and `SizeChanged`
+instead, since WinUI 3's `Window` has no direct `IsVisibleChanged`-equivalent
+event the way a `FrameworkElement`'s `Visibility` DP change does (a `Window`
+itself isn't a `FrameworkElement`, per Task 3.5's finding). **TODO(verify)
+at runtime:** confirm this window is actually repositioned correctly every
+time it is shown by whatever later shows it (a coordinator, not built in
+this phase) — if `Activated` doesn't fire reliably on every show (e.g. if
+the window is shown without stealing focus, which is the whole point of
+`MakeWindowNonActivating`), a different hook is needed; flag this
+explicitly in Step 3's manual verification rather than assume `Activated`
+is sufficient.
+
+- [ ] **Step 3: Build and manually verify via UI Automation**
+
+Run: `dotnet build WinTabber.slnx`
+
+Then, similar to Task 4a.4 Step 4: launch the window (via a temporary direct
+construction if no coordinator exists yet at this point in the plan — note
+this explicitly) with the suspension service holding at least one suspended
+entry, and walk its UI Automation tree to confirm: a `Button` exists per
+suspended window with real child `TextBlock`s showing the process name and
+title (not a bare type name), and that invoking the button
+(`InvokePattern.Invoke()`) actually triggers `ResumeCommand` (observable via
+the entry disappearing from the suspension service's list, or the window
+itself closing per `SuspendedWindowItemViewModel.ResumeCommand`'s
+`eventManager.SendEvent(EventType.WindowSelected)` call). Also confirm the
+empty-state text (`EmptyCountToVisibilityConverter`) actually shows/hides
+correctly by toggling between zero and one suspended entries.
+
+- [ ] **Step 4: Commit**
+
+```bash
+git add winui3/WinTabberUI/Views/SuspendedWindowsWindow.xaml winui3/WinTabberUI/Views/SuspendedWindowsWindow.xaml.cs \
+  winui3/WinTabber.UI.Common/ValueConverters/ValueConverters.cs \
+  winui3/WinTabber.UI.Common/Resources/ValueConvertersResources.xaml
+git commit -m "feat: port SuspendedWindowsWindow to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+---
+
+## Phase 4 — remaining scope note
+
+`WindowSelectorWindow`, `ThumbnailWindow`, and `MediaControlsWindow` are
+still not planned task-by-task — only `ThumbnailWindow` and
+`WindowSelectorWindow` have been read at all (see the "Phase 4 — scope note"
+section above), and `MediaControlsWindow` has not been opened yet. The next
+research pass should read `WindowSelectorWindow`'s remaining open questions
+(its `ReactiveWindow<T>` status against real `ReactiveUI.WinUI` behavior,
+`CompositionTarget.Rendering`-gated reveal timing) to a resolution, or
+confirm it needs its own further-split scope note the way this one did.
