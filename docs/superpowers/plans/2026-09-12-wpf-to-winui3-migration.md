@@ -5123,13 +5123,126 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-## Phase 4 — remaining scope note
+## Phase 4b — scope note (research only; no tasks written yet)
 
-`WindowSelectorWindow`, `ThumbnailWindow`, and `MediaControlsWindow` are
-still not planned task-by-task — only `ThumbnailWindow` and
-`WindowSelectorWindow` have been read at all (see the "Phase 4 — scope note"
-section above), and `MediaControlsWindow` has not been opened yet. The next
-research pass should read `WindowSelectorWindow`'s remaining open questions
-(its `ReactiveWindow<T>` status against real `ReactiveUI.WinUI` behavior,
-`CompositionTarget.Rendering`-gated reveal timing) to a resolution, or
-confirm it needs its own further-split scope note the way this one did.
+This pass re-read `WindowSelectorWindow.xaml(.cs)` in full (deeper than the
+earlier scoping pass), plus `WinTabberUI/Controls/SpatialNavigationListView.cs`
+and `WinTabberUI/Behaviors/HoverSelect.cs` in full, and checked the current
+`winui3/WinTabberUI/Windowing/DesktopHelper.cs`. It stops there, deliberately,
+before writing any Task 4b.N — `WindowSelectorWindow` turns out to be the
+single most WPF-entangled window in this migration, and this pass surfaced
+enough genuinely unresolved design questions that writing real task code now
+would fabricate against them, the same discipline this plan has applied at
+every prior scope-note stop (Phase 2b/2c's split, the original Phase 4 note).
+
+**Two things this pass DID resolve, so a future pass does not re-derive them:**
+
+1. **`ReactiveWindow<T>` is a non-question — plain `WindowEx` is already the
+   established answer.** `SettingsWindow`, `DockWindow`, and
+   `SuspendedWindowsWindow` are all plain `WindowEx` with a CLR `ViewModel`
+   property, precisely because `Microsoft.UI.Xaml.Window` is not a
+   `DependencyObject` at all (confirmed in Task 3.5's fix round), which is
+   the root cause `ReactiveWindow<T>`'s WPF-side generic-XAML-root problem
+   depends on. There is no need to decompile `ReactiveUI.WinUI`'s
+   `ReactiveWindow<T>` (if one even exists) to re-confirm this — three
+   windows already prove the pattern. `WindowSelectorWindow` should be
+   ported the same way: `WindowSelectorWindow : WindowEx`, a constructor-
+   injected `WindowSelectorViewModel` property, no generic base.
+2. **`DesktopHelper` already covers what `WindowSelectorWindow` needs for
+   DPI-aware bounds.** `ToLogicalBounds(nint hwnd, System.Drawing.Rectangle)`
+   and `GetScaleForWindow(nint hwnd)` (both from Task 4a.2/4a.5) are exactly
+   the WPF original's `this.ToLogicalBounds(...)` call site's WinUI 3
+   equivalent — no extension needed.
+
+**What is NOT yet resolved, and why full tasks were not written around it:**
+
+- **The reused-window frame-composition-timing hack
+  (`ArmReveal`/`RevealWhenComposed`/`_parked`) has no researched WinUI 3
+  equivalent.** The WPF original parks the window off-screen, subscribes to
+  `System.Windows.Media.CompositionTarget.Rendering`, and waits for two
+  frames to be composed before revealing it on-screen — a hand-tuned fix for
+  a specific flicker (stale tiles from the previous open flashing before the
+  new tile order composes) documented in unusually detailed comments in the
+  WPF file itself. WinUI 3's compositor is a different engine
+  (DirectComposition/Visual layer via `Microsoft.UI.Composition`, not WPF's
+  render thread), and whether an equivalent "tell me when a frame has
+  actually been presented" signal exists — `CompositionTarget.Rendering`
+  under `Microsoft.UI.Xaml.Media`, `Compositor.RequestCommitAsync`, or
+  something else entirely — was not researched in this pass. Writing a
+  `WM_NCHITTEST`-adjacent timing hack against an unconfirmed API would be
+  exactly the fabrication this plan's discipline forbids. This also
+  interacts with `ReuseInstances`-style window reuse (the same window
+  instance is shown/hidden repeatedly rather than recreated), whose WinUI 3
+  cost/benefit (is `Show()`/`Hide()` on a `WindowEx` even cheap enough to
+  make reuse worth the complexity, the way it was for a WPF `Window`?) was
+  also not evaluated.
+- **`SpatialNavigationListView`'s container-access pattern needs WinUI 3
+  API confirmation, not assumption.** It calls
+  `ItemContainerGenerator.ContainerFromIndex(i)` to build a spatial grid
+  (`WindowTileGrid`) for arrow-key navigation between tiles. WinUI 3's
+  `ListView` (a `Microsoft.UI.Xaml.Controls.ListViewBase`) has a
+  `ContainerFromIndex` method directly on the control in newer WinUI 3
+  versions, replacing WPF's `ItemContainerGenerator` indirection — but
+  whether it behaves identically (returns `null` for a not-yet-realized
+  container the same way, works correctly with virtualization if any is
+  enabled) needs confirming against the actual installed
+  `Microsoft.WindowsAppSDK` version's API surface, not assumed from general
+  WinUI 3 knowledge.
+- **`HoverSelect`'s inheritable-`DependencyProperty`-reaching-generated-
+  containers pattern has no direct WinUI 3 equivalent.** It registers an
+  attached property with `FrameworkPropertyMetadataOptions.Inherits` so
+  setting it once on the `ListView` propagates to every generated
+  `ListViewItem` container, which a `Style`'s trigger condition then reads.
+  WinUI 3's `DependencyProperty.RegisterAttached` has no `Inherits` option —
+  property value inheritance down the visual tree is not a general WinUI 3
+  mechanism the way it is in WPF. The likely replacement is the same pattern
+  Phase 2b's `ShortcutCaptureBox`/Phase 4a's `DockWindow` already
+  established for "a control needs per-item state WinUI 3 has no built-in
+  propagation for": wire it explicitly per-container via
+  `ContainerContentChanging` instead of relying on inherited property
+  propagation. This needs to be designed, not assumed to "just work" the
+  same way.
+- **`WrapPanel` (used as `SpatialNavigationListView.ItemsPanel`) is not a
+  native WinUI 3 panel.** Per the migration skill's own mapping table, the
+  WinUI 3 equivalent is `CommunityToolkit.WinUI.Controls.Primitives`'s
+  `WrapPanel` (package not yet referenced by `winui3/WinTabberUI`) — a real,
+  known answer, not an open question, but noted here since it's a new
+  package dependency this phase will need to add.
+- **`EditableTextBlock.xaml`/`.xaml.cs`** (the window-tile title editor,
+  flagged as belonging to this phase back in Phase 3's scope note) was
+  **not read in this pass** — deferred for the same reason as the items
+  above: this phase's research budget went to the window-level questions
+  first, since those gate whether the whole port is even structurally
+  sound, before the tile-level editor control is worth reading in detail.
+- **`Style.Triggers`/`DataTrigger` conversions** in the WPF XAML (dimming a
+  tile when `IsSuspended`/`IsThumbnailed`, per the `Grid.Style` block) need
+  the same `x:Bind`+converter treatment already established in Phase 3
+  (Task 3.4's `ConflictIcon`) — a known, mechanical pattern, not an open
+  question, just not yet applied here.
+- **`DpiChanged`, `OnSourceInitialized`'s `PresentationSource`-based
+  transform matrices (`_transformToDevice`/`_transformtoDip`), and the
+  close-application button's `Path`-based custom glyph** were read but not
+  yet mapped to WinUI 3 equivalents in this pass.
+
+**On the three Phase 4a final-review carry-forward items** (I3 show-path
+timing, M7 shared `SizeToContent` helper, M8 `Bootstrapper` grouping
+naming): none of the three is directly exercised by `WindowSelectorWindow`'s
+own port as scoped so far — this window doesn't use `MakeSpace`-style
+desktop-work-area reservation (that's `DockWindow`-specific) or a
+non-activating show path (`WindowSelectorWindow` uses `ShowActivated="True"`
+already, unlike `SuspendedWindowsWindow`'s `MakeWindowNonActivating`). All
+three remain open and should be settled in whichever future task actually
+touches the relevant window/`Bootstrapper` structure — **not resolved or
+deferred by this pass, simply not yet reached.**
+
+**Recommendation for whoever picks this up next:** research, in order: (1)
+the real WinUI 3/Composition-layer frame-presentation-timing API (the single
+highest-value unknown, since it gates whether `ArmReveal`'s flicker-avoidance
+even has a WinUI 3 answer at all, or whether a different strategy is needed),
+(2) `ListViewBase.ContainerFromIndex`'s actual behavior in the installed SDK
+version, (3) a concrete `ContainerContentChanging`-based redesign for
+`HoverSelect`'s per-container state, (4) `EditableTextBlock`. Only then write
+Task 4b.N tasks — following this plan's now-consistent pattern, expect this
+window's real port to need at least one fix round given how much of its WPF
+logic is timing-sensitive and empirically tuned (the WPF file's own comments
+document at least two already-fixed timing bugs from that tuning process).
