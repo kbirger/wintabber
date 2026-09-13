@@ -8,6 +8,11 @@
     <SolidColorBrush x:Key="ShortcutHintForegroundBrush" Color="#99FFFFFF" />
     <SolidColorBrush x:Key="ShortcutEmptyForegroundBrush" Color="#88808080" />
     <SolidColorBrush x:Key="ShortcutValidationForegroundBrush" Color="#FFC42B1C" />
+    <!-- Referenced by ShortcutCaptureDialog's conflict banner background; not part of Task 2b.4's
+         original brush list (that task covered chip/presenter/capture-box brushes only) — added
+         here as a semi-transparent tint of ShortcutValidationForegroundBrush's color, matching the
+         WPF original's apparent intent for a soft warning banner background. -->
+    <SolidColorBrush x:Key="ShortcutValidationBannerBackgroundBrush" Color="#26C42B1C" />
     <SolidColorBrush x:Key="ShortcutGroupBackgroundBrush" Color="#3A3A3A" />
     <SolidColorBrush x:Key="ShortcutGroupHoverBackgroundBrush" Color="#454545" />
     <SolidColorBrush x:Key="ShortcutGroupBorderBrush" Color="#55FFFFFF" />
