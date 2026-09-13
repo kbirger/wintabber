@@ -4015,3 +4015,94 @@ of Phase 3.
   `VirtualKey` fallback; the doc comment and the `VirtualKey` fallback
   itself (still valid for keys like browser navigation, which genuinely are
   defined `VirtualKey` members) were corrected accordingly.
+
+---
+
+## Phase 4 — scope note (research only; no tasks written yet)
+
+Phase 4 converts the five remaining windows: `WindowSelectorWindow`,
+`ThumbnailWindow`, `DockWindow`, `SuspendedWindowsWindow`,
+`MediaControlsWindow`. This pass read `WindowSelectorWindow.xaml(.cs)`,
+`ThumbnailWindow.xaml(.cs)`, and `WinTabberUI/Controls/WindowThumbnail.cs` in
+full, in that order, before stopping — deliberately, not from running out of
+effort partway through a file. What was found in just those three files
+means writing real, verified tasks for any of the five windows right now
+would violate this plan's own "No Placeholders" discipline. This note
+records the findings so the next pass does not have to re-derive them, and
+explains exactly why the split happened where it did.
+
+**The one question this whole migration hinged on — DWM thumbnail
+compositing inside a WinUI 3 window — checks out.** `WindowThumbnail.cs`'s
+actual registration code
+(`PInvoke.DwmRegisterThumbnail(new HWND(_target.Handle), new HWND(source),
+out _thumb)`) is plain `Windows.Win32.PInvoke` — the same CsWin32-generated
+binding the WPF app already uses, with no WPF-specific type in the call
+itself. The one WPF-specific piece is obtaining `_target.Handle`, done today
+via `HwndSource.FromVisual(this)`; the direct WinUI 3 replacement is
+`WinRT.Interop.WindowNative.GetWindowHandle(window)`, a real, standard API
+for exactly this. The per-frame destination-rect recompute
+(`Thumbnail_LayoutUpdated`) uses `TransformToAncestor` (WPF) and
+`VisualTreeHelper.GetDpi` (WPF) — both have direct WinUI 3 equivalents
+(`TransformToVisual`, `XamlRoot.RasterizationScale`), and neither touches the
+DWM call itself, only the rectangle fed into it. Nothing found in this file
+threatens the premise this migration was approved on. Confirming this in
+code, not just by the earlier verbal validation, is the most important
+outcome of this pass.
+
+**What is NOT yet resolved, and why full tasks were not written around it:**
+
+- `ThumbnailWindow.xaml.cs` hooks `WM_NCHITTEST`, `WM_SIZING`, and
+  `WM_EXITSIZEMOVE` via WPF's `HwndSource.AddHook(WndProc)` to implement a
+  hand-tuned resize-grab hit-test region (`HitTestResizeBorder`), aspect-lock
+  during drag (`LockAspectRatio`), and a post-drag real-window resize
+  (`ApplyZoomFactor`). WinUI 3 has no direct equivalent of `HwndSource.AddHook`
+  — the standard replacement is subclassing the window's `WndProc` via
+  `SetWindowSubclass`/`SetWindowLongPtr(GWLP_WNDPROC)`, which is a real,
+  documented pattern but was not researched in this pass, and CsWin32's
+  metadata coverage for it was not checked. Writing `WM_NCHITTEST`
+  hit-testing code against an unconfirmed subclassing mechanism would be
+  exactly the kind of fabrication this plan's discipline exists to prevent.
+- `WindowSelectorWindow.xaml.cs` derives from `ReactiveWindow<T>` (the same
+  generic-XAML-root shape that broke `ReactivePage<T>` in Phase 3 — untested
+  for `Window`, and likely moot anyway, since Task 3.5 already established
+  that `Microsoft.UI.Xaml.Window` is not a `DependencyObject` at all, so
+  `SettingsWindow`'s plain-`WindowEx`-with-a-CLR-`ViewModel`-property pattern
+  is almost certainly the right target here too — but this needs confirming
+  against `ReactiveUI.WinUI`'s actual `ReactiveWindow<T>` (if it exists) the
+  same way Task 3.2 confirmed `ReactivePage<T>`'s real behavior, not assumed).
+  It also has WPF-specific frame-composition timing logic
+  (`CompositionTarget.Rendering`-gated `ArmReveal`/`RevealWhenComposed`) to
+  avoid a stale-frame flicker on reuse, and DPI-aware screen-bounds
+  resolution (`ToLogicalBounds`, an extension method not yet located) — both
+  need their WinUI 3/`AppWindow` equivalents identified before real code can
+  be written.
+- Neither `DockWindow`, `SuspendedWindowsWindow`, nor `MediaControlsWindow`
+  has been read at all yet. `MediaControlsWindow.xaml` was flagged elsewhere
+  in this repo's history as large and complex; it should not be assumed
+  simpler than `ThumbnailWindow` just because it hasn't been opened.
+
+**Recommendation for whoever picks this up next:** research and plan one
+window at a time, the same way Phase 2 split into 2 (mechanical) / 2b
+(shortcut-capture, needed real design work) / 2c (deferred, hint-overlay).
+A plausible order, easiest-to-hardest: `DockWindow` and
+`SuspendedWindowsWindow` first (unread, but by their names and role likely
+closer to `SettingsWindow`'s shape than to `ThumbnailWindow`'s), then
+`WindowSelectorWindow` (complex but no undiscovered Win32 subclassing
+question), then `ThumbnailWindow` last (blocked on resolving the
+`WM_NCHITTEST` subclassing mechanism), with `MediaControlsWindow` read and
+sized up before deciding where it lands in that order.
+
+**Verification bar for Phase 4, raised by what Phase 3's final review
+found:** a build succeeding and a process staying alive proved nothing about
+whether Phase 3's settings pages actually rendered — the real defect
+(`DataTemplateSelector`'s wrong override never being called) was silent at
+both compile and runtime until someone actually walked the live UI
+Automation tree. Every Phase 4 task's own verification step must specify
+concrete, checkable evidence that the window's real controls render and its
+real interactive behavior works (a UI Automation tree walk confirming actual
+control types, `SelectionItemPattern`/`InvokePattern` exercised against
+real controls, or equivalent), not process liveness or a window title alone.
+This applies with extra force to `ThumbnailWindow` and `WindowSelectorWindow`
+specifically, since both have custom hit-testing whose only failure mode
+(clicks landing in the wrong place, or not registering at all) is invisible
+to both a build and a bare process-alive check.
