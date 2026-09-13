@@ -1,7 +1,6 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
-using WinRT.Interop;
 using WinTabber.Api.Windowing;
 using WinTabber.Interop;
 using WinTabber.ViewModels;
@@ -16,7 +15,6 @@ public sealed partial class DockWindow : WinUIEx.WindowEx
     public DockWindowViewModel ViewModel { get; }
 
     private Windows.Foundation.Rect? _reservedArea;
-    private nint _hwnd;
 
     public DockWindow(WindowManager windowManager, DockWindowViewModel viewModel)
     {
@@ -30,8 +28,6 @@ public sealed partial class DockWindow : WinUIEx.WindowEx
         // `SystemBackdrop="{winuiex:...}"`-style XAML attribute crashes this SDK's XamlCompiler
         // pass2 with no diagnostic (see SettingsWindow.xaml.cs's comment for the confirmed repro).
         SystemBackdrop = new DesktopAcrylicBackdrop();
-
-        _hwnd = WindowNative.GetWindowHandle(this);
 
         // Wire WindowThumbnail.TargetWindow for every container the ListView generates — there is
         // no XAML-level way to bind a control property to "the window that hosts me" in WinUI 3.

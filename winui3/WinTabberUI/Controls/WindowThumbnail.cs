@@ -22,8 +22,26 @@ public class WindowThumbnail : FrameworkElement
             // already true once the element is in the tree), and releases the thumbnail it just
             // registered because _isLoaded was still false. Nothing else invalidates layout
             // afterward, so without this the thumbnail would stay released forever. One explicit
-            // InvalidateArrange here schedules the follow-up LayoutUpdated pass that (re)registers it
+            // InvalidateMeasure here schedules the follow-up LayoutUpdated pass that (re)registers it
             // now that _isLoaded is true.
+            //
+            // This is the actual fix for the Task 4a.4 review bug: the original code called only
+            // InvalidateArrange() here. On the very first layout pass, MeasureOverride ran before
+            // DwmRegisterThumbnail (_thumb == 0) and committed a (0,0) DesiredSize; InvalidateArrange
+            // alone only re-runs Arrange against that already-committed size and can never enlarge
+            // it, so the control stayed permanently zero-sized for any consumer that doesn't pin an
+            // explicit Width/Height. InvalidateMeasure forces a fresh Measure pass, which now sees a
+            // non-zero _thumb and can commit a real DesiredSize.
+            //
+            // We call both, rather than relying on InvalidateMeasure alone: WPF's
+            // UIElement.InvalidateMeasure docs state it "also calls InvalidateArrange internally", so
+            // one call suffices there. The WinUI 3 Microsoft.UI.Xaml.UIElement doc page for the same
+            // method omits that sentence (it only says UpdateLayout is "equivalent to calling
+            // InvalidateMeasure and InvalidateArrange in sequence") — which isn't proof WinUI 3
+            // behaves differently, but isn't proof it doesn't either, and we did not find an
+            // authoritative source settling it either way. Calling both costs nothing and removes the
+            // question, so we don't depend on undocumented chaining behavior.
+            InvalidateMeasure();
             InvalidateArrange();
         };
         Unloaded += (_, _) =>
@@ -55,7 +73,11 @@ public class WindowThumbnail : FrameworkElement
             // InitialiseThumbnail registers with fVisible = false; only a LayoutUpdated pass sets it
             // visible and computes rcDestination. If Source changes after Loaded with no other layout
             // activity pending, nothing would schedule that pass and the thumbnail would sit registered
-            // but invisible forever. Force one, same as the Loaded handler does.
+            // but invisible forever. Force one, same as the Loaded handler does — both
+            // InvalidateMeasure (so a zero-area DesiredSize committed before this Source was set can
+            // grow now that _thumb is non-zero) and InvalidateArrange (see the Loaded handler's
+            // comment for why we call both rather than relying on one implying the other).
+            self.InvalidateMeasure();
             self.InvalidateArrange();
         }));
 
@@ -81,7 +103,9 @@ public class WindowThumbnail : FrameworkElement
             self.InitialiseThumbnail(self.Source);
             // Same reasoning as the Source-changed callback above: without this, a TargetWindow change
             // after Loaded (e.g. DockWindow re-targeting its thumbnail) can leave the thumbnail
-            // registered but permanently invisible.
+            // registered but permanently invisible, and DesiredSize stuck at zero. Both
+            // InvalidateMeasure and InvalidateArrange are called — see the Loaded handler's comment.
+            self.InvalidateMeasure();
             self.InvalidateArrange();
         }));
 
@@ -169,6 +193,33 @@ public class WindowThumbnail : FrameworkElement
         if (_thumb == 0)
         {
             InitialiseThumbnail(Source);
+
+            if (_thumb != 0)
+            {
+                // Registered for the first time via this lazy path. A temporary diagnostic run
+                // against the real DockWindow (not a synthetically-sized harness) showed this is
+                // where registration actually succeeds for the containers that persist on screen —
+                // the three callbacks above (Loaded, Source-changed, TargetWindow-changed) had
+                // already run and invalidated measure/arrange by this point, but _thumb was still 0
+                // when they did, so their InitialiseThumbnail calls were no-ops.
+                //
+                // By this point in the CURRENT pass, MeasureOverride already ran with _thumb == 0
+                // and committed a (0,0) DesiredSize, and Arrange already ran against that, so
+                // ActualSize below is still stale (0,0) — using it now would compute the same
+                // degenerate zero-area rcDestination this whole fix exists to avoid. Force a fresh
+                // Measure/Arrange pass and pick up a real rcDestination on the next LayoutUpdated
+                // instead of computing one now from stale state.
+                //
+                // This early return skips the _isLoaded/TargetWindow-null release guard just below
+                // for this one pass. If _isLoaded happens to be false here (LayoutUpdated can fire
+                // before Loaded — see that handler's comment), the thumbnail stays registered but
+                // unreleased for one extra pass instead of being released immediately; the guard
+                // still runs and releases it on the very next pass. Verified via the same diagnostic
+                // run to converge correctly in practice, not left as a bare assumption.
+                InvalidateMeasure();
+                InvalidateArrange();
+                return;
+            }
         }
 
         if (_thumb != 0)
