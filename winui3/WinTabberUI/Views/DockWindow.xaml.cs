@@ -1,6 +1,7 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
+using WinRT.Interop;
 using WinTabber.Api.Windowing;
 using WinTabber.Interop;
 using WinTabber.ViewModels;
@@ -14,7 +15,16 @@ public sealed partial class DockWindow : WinUIEx.WindowEx
     private readonly WindowManager _windowManager;
     public DockWindowViewModel ViewModel { get; }
 
+    private readonly nint _hwnd;
+
+    // The reservation MakeSpace computed and applied — used to reposition windows against.
     private Windows.Foundation.Rect? _reservedArea;
+
+    // The work area as it was BEFORE MakeSpace shrank it, captured once, up front. OnClosed
+    // restores from this saved value directly rather than re-reading GetDesktopArea() (which,
+    // once MakeSpace has run, always returns the already-shrunk area — restoring from that is an
+    // identity write that leaves the desktop permanently narrower after every open/close cycle).
+    private Windows.Foundation.Rect? _originalDesktopArea;
 
     public DockWindow(WindowManager windowManager, DockWindowViewModel viewModel)
     {
@@ -22,6 +32,8 @@ public sealed partial class DockWindow : WinUIEx.WindowEx
         ViewModel = viewModel;
 
         InitializeComponent();
+
+        _hwnd = WindowNative.GetWindowHandle(this);
 
         // Per the brief and the design spec's backdrop table: WindowEx + DesktopAcrylicBackdrop.
         // Set in code-behind, not XAML, matching SettingsWindow's established workaround — a
@@ -76,13 +88,25 @@ public sealed partial class DockWindow : WinUIEx.WindowEx
 
     private void MakeSpace()
     {
-        if (_reservedArea is not null)
+        // Bounds.Width can still be 0 at Activated time, before layout has run — guard the same
+        // way the WPF original did (`_rect is null && ActualWidth > 0`), otherwise scale becomes
+        // Infinity and propagates into a reservation rect with Infinity/-Infinity components,
+        // which then gets cast to int when written via SetDesktopArea — garbage written to a
+        // global system display setting. Leaving _reservedArea null here means the next
+        // Activated firing (once layout has run) retries.
+        if (_reservedArea is not null || !(Bounds.Width > 0))
         {
             return;
         }
 
         var screenArea = DesktopHelper.GetDesktopArea();
-        var scale = AppWindow.Size.Width / (double)Bounds.Width;
+        _originalDesktopArea = screenArea;
+
+        // AppWindow.Size is physical pixels for the whole window (frame included); Bounds is DIPs
+        // for the client area only — their ratio is inflated by the non-client border, not a
+        // clean DPI scale factor. Use the established DIP-to-physical-pixel helper instead (added
+        // in Task 4a.5 for this exact conversion problem).
+        var scale = DesktopHelper.GetScaleForWindow(_hwnd);
 
         _reservedArea = new Windows.Foundation.Rect(
             screenArea.X + Width * scale,
@@ -108,12 +132,15 @@ public sealed partial class DockWindow : WinUIEx.WindowEx
     // plain event, wired up in the constructor above.
     private void OnClosed(object sender, WindowEventArgs args)
     {
-        if (_reservedArea is not null)
+        if (_originalDesktopArea is not null)
         {
-            var screenArea = DesktopHelper.GetDesktopArea();
-            DesktopHelper.SetDesktopArea(new Windows.Foundation.Rect(
-                screenArea.X, screenArea.Y, screenArea.Width, _reservedArea.Value.Height));
-            _reservedArea = null;
+            // Restore from the pre-shrink value captured in MakeSpace, not a freshly-read
+            // GetDesktopArea() — by this point that call would only ever return the already-
+            // shrunk area, making the restore an identity write (see field comment above).
+            DesktopHelper.SetDesktopArea(_originalDesktopArea.Value);
+            _originalDesktopArea = null;
         }
+
+        _reservedArea = null;
     }
 }

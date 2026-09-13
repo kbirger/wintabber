@@ -4700,6 +4700,28 @@ dialect. Wire it in code-behind instead (Step 3).
 
 - [ ] **Step 3: Port `DockWindow.xaml.cs`**
 
+> **Corrected after a final-review finding (post-Task-4a.5 whole-phase review).** The draft below
+> as originally written had two bugs, both fixed in the code block that follows:
+> 1. `OnClosed` restored from a freshly-read `DesktopHelper.GetDesktopArea()`, substituting only
+>    `Height` from `_reservedArea`. Once `MakeSpace` has shrunk the work area, `GetDesktopArea()`
+>    only ever returns the already-shrunk value — the "restore" was an identity write that
+>    restored nothing, and the desktop work area ratcheted narrower on every open/close cycle with
+>    no recovery. Fixed by capturing the work area BEFORE the shrink, into a separate field
+>    (`_originalDesktopArea`), and restoring from that saved value directly in `OnClosed`.
+> 2. The scale calculation (`AppWindow.Size.Width / (double)Bounds.Width`) mixed physical pixels
+>    for the whole window frame with DIPs for the client area — not a clean DPI scale factor — and
+>    dropped the WPF original's `> 0` guard, so a zero `Bounds.Width` (possible at `Activated` time
+>    before layout has run) produced `scale = Infinity`, which propagated into a reservation rect
+>    with `Infinity`/`-Infinity` components that got cast to `int` and written to a global system
+>    display setting via `SetDesktopArea`. Fixed by using `DesktopHelper.GetScaleForWindow` (the
+>    helper Task 4a.5 added for exactly this DIP-to-physical-pixel conversion) and restoring a
+>    `Bounds.Width > 0` guard.
+>
+> Both bugs were provable purely from reading the code (an identity write, and an unguarded
+> division producing `Infinity`) and were caught only in final-phase review, not in Step 4's
+> original verification — see the phase 4a fix report for the corrected verification method
+> (`SPI_GETWORKAREA` readings across shrink and a graceful close).
+
 ```csharp
 // winui3/WinTabberUI/Views/DockWindow.xaml.cs
 using Microsoft.UI.Xaml;
@@ -4717,8 +4739,16 @@ public sealed partial class DockWindow : WinUIEx.WindowEx
     private readonly WindowManager _windowManager;
     public DockWindowViewModel ViewModel { get; }
 
+    private readonly nint _hwnd;
+
+    // The reservation MakeSpace computed and applied — used to reposition windows against.
     private Windows.Foundation.Rect? _reservedArea;
-    private nint _hwnd;
+
+    // The work area as it was BEFORE MakeSpace shrank it, captured once, up front. OnClosed
+    // restores from this saved value directly rather than re-reading GetDesktopArea() (which,
+    // once MakeSpace has run, always returns the already-shrunk area — restoring from that is an
+    // identity write that leaves the desktop permanently narrower after every open/close cycle).
+    private Windows.Foundation.Rect? _originalDesktopArea;
 
     public DockWindow(WindowManager windowManager, DockWindowViewModel viewModel)
     {
@@ -4749,21 +4779,30 @@ public sealed partial class DockWindow : WinUIEx.WindowEx
         };
 
         Activated += (_, _) => MakeSpace();
+        Closed += OnClosed;
     }
 
     private void MakeSpace()
     {
-        if (_reservedArea is not null)
+        // Bounds.Width can still be 0 at Activated time, before layout has run — guard the same
+        // way the WPF original did (`_rect is null && ActualWidth > 0`), otherwise scale becomes
+        // Infinity and propagates into a reservation rect with Infinity/-Infinity components,
+        // which then gets cast to int when written via SetDesktopArea — garbage written to a
+        // global system display setting. Leaving _reservedArea null here means the next
+        // Activated firing (once layout has run) retries.
+        if (_reservedArea is not null || !(Bounds.Width > 0))
         {
             return;
         }
 
         var screenArea = DesktopHelper.GetDesktopArea();
-        var scale = AppWindow.Size.Width / (double)Bounds.Width; // TODO(verify): confirm this is the
-        // right way to get the window's DPI scale in WinUI3 — WPF's original used
-        // VisualTreeHelper.GetDpi(this).DpiScaleX; the more direct WinUI3 equivalent is likely
-        // XamlRoot.RasterizationScale once the window has content loaded, which may be simpler and
-        // more reliable than deriving scale from AppWindow.Size — confirm against real behavior.
+        _originalDesktopArea = screenArea;
+
+        // AppWindow.Size is physical pixels for the whole window (frame included); Bounds is DIPs
+        // for the client area only — their ratio is inflated by the non-client border, not a
+        // clean DPI scale factor. Use the established DIP-to-physical-pixel helper instead (added
+        // in Task 4a.5 for this exact conversion problem).
+        var scale = DesktopHelper.GetScaleForWindow(_hwnd);
 
         _reservedArea = new Windows.Foundation.Rect(
             screenArea.X + Width * scale,
@@ -4785,16 +4824,20 @@ public sealed partial class DockWindow : WinUIEx.WindowEx
         }
     }
 
-    protected override void OnClosed(WindowEventArgs args)
+    // WinUI 3's Window has no overridable OnClosed (unlike WPF's Window.OnClosing) — Closed is a
+    // plain event, wired up in the constructor above.
+    private void OnClosed(object sender, WindowEventArgs args)
     {
-        if (_reservedArea is not null)
+        if (_originalDesktopArea is not null)
         {
-            var screenArea = DesktopHelper.GetDesktopArea();
-            DesktopHelper.SetDesktopArea(new Windows.Foundation.Rect(
-                screenArea.X, screenArea.Y, screenArea.Width, _reservedArea.Value.Height));
-            _reservedArea = null;
+            // Restore from the pre-shrink value captured in MakeSpace, not a freshly-read
+            // GetDesktopArea() — by this point that call would only ever return the already-
+            // shrunk area, making the restore an identity write (see field comment above).
+            DesktopHelper.SetDesktopArea(_originalDesktopArea.Value);
+            _originalDesktopArea = null;
         }
-        base.OnClosed(args);
+
+        _reservedArea = null;
     }
 }
 ```
