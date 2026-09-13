@@ -19,14 +19,24 @@ public sealed class SettingsPageTemplateSelector : DataTemplateSelector
     public DataTemplate GeneralTemplate { get; set; } = null!;
     public DataTemplate ShortcutsTemplate { get; set; } = null!;
 
-    protected override DataTemplate SelectTemplateCore(object item)
-    {
-        return item switch
+    // IMPORTANT: Microsoft.UI.Xaml.Controls.DataTemplateSelector actually exposes TWO virtual
+    // overloads: SelectTemplateCore(object) and SelectTemplateCore(object, DependencyObject).
+    // ContentPresenter calls the two-argument overload, and the base implementation of that
+    // overload does NOT chain to the one-argument overload (confirmed by reflecting the installed
+    // Microsoft.WinUI.dll). Overriding only the one-argument form compiles cleanly, throws no
+    // exception, and is simply never invoked -- ContentPresenter silently falls back to rendering
+    // Content.ToString() as plain text. The two-argument overload must carry the real logic; the
+    // one-argument overload delegates to it so any other caller of the single-arg form still works.
+    protected override DataTemplate SelectTemplateCore(object item, DependencyObject container) => SelectTemplateFor(item);
+
+    protected override DataTemplate SelectTemplateCore(object item) => SelectTemplateFor(item);
+
+    private DataTemplate SelectTemplateFor(object item) =>
+        item switch
         {
             AppearanceSettingsViewModel => AppearanceTemplate,
             GeneralSettingsViewModel => GeneralTemplate,
             ShortcutsSettingsViewModel => ShortcutsTemplate,
             _ => throw new ArgumentOutOfRangeException(nameof(item), item, "No template registered for this settings section."),
         };
-    }
 }
