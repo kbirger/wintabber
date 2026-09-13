@@ -29,7 +29,6 @@
     <Grid x:Name="RootGrid" Margin="10" Background="#30000000">
         <Grid.Resources>
             <ResourceDictionary>
-                <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
                 <c:EmptyCountToVisibilityConverter x:Key="EmptyCountToVisibilityConverter" />
                 <Style x:Key="ResumeTileButton" TargetType="Button">
                     <Setter Property="Background" Value="Transparent" />
