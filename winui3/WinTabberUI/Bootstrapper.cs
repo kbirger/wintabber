@@ -1,4 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
+using WinTabber.Api.Windowing;
+using WinTabber.Api.Windowing.Suspension;
+using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Events;
 using WinTabber.Events.Shortcuts;
 using WinTabber.Interop;
@@ -15,6 +18,7 @@ public static class Bootstrapper
         return new ServiceCollection()
             .AddCoreServices()
             .AddSettingsGraph()
+            .AddDockAndSuspendedWindowsGraph()
             .BuildServiceProvider();
     }
 
@@ -32,7 +36,14 @@ public static class Bootstrapper
             .AddSingleton<IWindowPlacement>(sp => sp.GetRequiredService<InteropProxy>())
             .AddSingleton<IWindowInterop>(sp => sp.GetRequiredService<InteropProxy>())
             .AddSingleton<IWindowVisibility>(sp => sp.GetRequiredService<InteropProxy>())
-            .AddSingleton<InputListenerService>();
+            .AddSingleton<InputListenerService>()
+            .AddSingleton<IProcessRepository, ProcessRepository>()
+            .AddSingleton<WindowManager>()
+            .AddSingleton<ISuspensionStrategy, NtProcessSuspensionStrategy>()
+            .AddSingleton<ISuspensionStrategy, ThreadSuspensionStrategy>()
+            .AddSingleton<ISuspendedWindowStore>(_ => new SuspendedWindowFileStore(Paths.SuspensionDirectory))
+            .AddSingleton<IProcessSuspensionService, ProcessSuspensionService>()
+            .AddSingleton<IWindowThumbnailService, WindowThumbnailService>();
     }
 
     private static IServiceCollection AddSettingsGraph(this IServiceCollection services)
@@ -48,5 +59,12 @@ public static class Bootstrapper
             .AddSingleton<WinTabberEventManager>()
             .AddSingleton<GsudoElevationLauncher>()
             .AddSingleton<SettingsViewModel>();
+    }
+
+    private static IServiceCollection AddDockAndSuspendedWindowsGraph(this IServiceCollection services)
+    {
+        return services
+            .AddSingleton<DockWindowViewModel>()
+            .AddSingleton<SuspendedWindowsViewModel>();
     }
 }
