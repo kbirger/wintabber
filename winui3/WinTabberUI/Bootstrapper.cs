@@ -65,6 +65,10 @@ public static class Bootstrapper
     {
         return services
             .AddSingleton<DockWindowViewModel>()
-            .AddSingleton<SuspendedWindowsViewModel>();
+            .AddSingleton<SuspendedWindowsViewModel>()
+            // Transient: DockWindow is a WinUI 3 Window, and a Window can only be shown once — a
+            // future coordinator (Phase 5) needs to be able to construct a fresh one each time it
+            // docks a new application, not reuse a disposed Window instance from the container.
+            .AddTransient<DockWindow>();
     }
 }
