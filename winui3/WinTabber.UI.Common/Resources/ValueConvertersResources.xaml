@@ -9,6 +9,7 @@
     <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
     <c:InverseBoolConverter x:Key="InverseBoolConverter" />
     <c:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+    <c:EmptyCountToVisibilityConverter x:Key="EmptyCountToVisibilityConverter" />
     <c:TimeSpanToFloatConverter x:Key="TimeSpanToFloatConverter" />
     <c:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter" />
     <c:FloatToPercentageConverter x:Key="FloatToPercentageConverter" />

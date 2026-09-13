@@ -1,0 +1,102 @@
+<winuiex:WindowEx
+    x:Class="WinTabberUI.SuspendedWindowsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:winuiex="using:WinUIEx"
+    xmlns:vm="using:WinTabber.ViewModels"
+    xmlns:c="using:WinTabber.UI.Common.ValueConverters"
+    Title="SuspendedWindowsWindow"
+    IsTitleBarVisible="False"
+    IsShownInSwitchers="False"
+    IsResizable="False"
+    IsMinimizable="False"
+    IsMaximizable="False"
+    IsAlwaysOnTop="True"
+    MinWidth="200"
+    MinHeight="96"
+>
+    <!--
+        x:Name="RootGrid" + DataContext set in code-behind, not x:Bind, for the empty-state
+        TextBlock's Visibility below. An x:Bind with a Converter={StaticResource ...} compiles to
+        SetConverterLookupRoot(this), where "this" is the enclosing x:Class root — here that root is
+        the Window (via WindowEx), which is not a FrameworkElement (confirmed against real compiler
+        output: CS1503 "cannot convert from 'SuspendedWindowsWindow' to
+        'Microsoft.UI.Xaml.FrameworkElement'"). Same root cause and same fix SettingsWindow.xaml
+        already documents for its own converter binding. ItemsSource/Command/DataTemplate bindings
+        below aren't affected — none of them resolve a converter via StaticResource at this file's
+        root binding scope.
+    -->
+    <Grid x:Name="RootGrid" Margin="10" Background="#30000000">
+        <Grid.Resources>
+            <ResourceDictionary>
+                <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+                <c:EmptyCountToVisibilityConverter x:Key="EmptyCountToVisibilityConverter" />
+                <Style x:Key="ResumeTileButton" TargetType="Button">
+                    <Setter Property="Background" Value="Transparent" />
+                    <Setter Property="Foreground" Value="White" />
+                    <Setter Property="Margin" Value="6" />
+                    <Setter Property="Padding" Value="12,8" />
+                    <Setter Property="Template">
+                        <Setter.Value>
+                            <ControlTemplate TargetType="Button">
+                                <Border
+                                    Background="{TemplateBinding Background}"
+                                    Padding="{TemplateBinding Padding}"
+                                    CornerRadius="4"
+                                >
+                                    <VisualStateManager.VisualStateGroups>
+                                        <VisualStateGroup x:Name="CommonStates">
+                                            <VisualState x:Name="Normal" />
+                                            <VisualState x:Name="PointerOver">
+                                                <VisualState.Setters>
+                                                    <Setter Target="Bg.Background" Value="#22666666" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                            <VisualState x:Name="Pressed">
+                                                <VisualState.Setters>
+                                                    <Setter Target="Bg.Background" Value="#dd666666" />
+                                                </VisualState.Setters>
+                                            </VisualState>
+                                        </VisualStateGroup>
+                                    </VisualStateManager.VisualStateGroups>
+                                    <ContentPresenter x:Name="Bg" Content="{TemplateBinding Content}" />
+                                </Border>
+                            </ControlTemplate>
+                        </Setter.Value>
+                    </Setter>
+                </Style>
+            </ResourceDictionary>
+        </Grid.Resources>
+
+        <TextBlock
+            HorizontalAlignment="Center"
+            VerticalAlignment="Center"
+            FontStyle="Italic"
+            Foreground="White"
+            Opacity="0.7"
+            Text="No windows are sleeping"
+            Visibility="{Binding Items.Count, Mode=OneWay, Converter={StaticResource EmptyCountToVisibilityConverter}}" />
+
+        <ItemsControl HorizontalAlignment="Center" ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}">
+            <ItemsControl.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <StackPanel Orientation="Horizontal" />
+                </ItemsPanelTemplate>
+            </ItemsControl.ItemsPanel>
+            <ItemsControl.ItemTemplate>
+                <DataTemplate x:DataType="vm:SuspendedWindowItemViewModel">
+                    <Button Style="{StaticResource ResumeTileButton}" Command="{x:Bind ResumeCommand}" ToolTipService.ToolTip="Click to resume">
+                        <StackPanel Orientation="Horizontal">
+                            <!-- TODO(icon): originally fontawesome.sharp FontAwesomeIcon.Sun -->
+                            <FontIcon Margin="0,0,8,0" VerticalAlignment="Center" Glyph="&#xE897;" />
+                            <StackPanel Orientation="Vertical">
+                                <TextBlock FontWeight="Bold" Text="{x:Bind ProcessName}" />
+                                <TextBlock MaxWidth="220" Opacity="0.8" Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+                            </StackPanel>
+                        </StackPanel>
+                    </Button>
+                </DataTemplate>
+            </ItemsControl.ItemTemplate>
+        </ItemsControl>
+    </Grid>
+</winuiex:WindowEx>

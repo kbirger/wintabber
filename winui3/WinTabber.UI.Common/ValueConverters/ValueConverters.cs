@@ -69,6 +69,15 @@ public class WindowStateToVisibilityConverter : IValueConverter
         => (Visibility)value == Visibility.Visible ? TargetState : OverlappedPresenterState.Restored;
 }
 
+public class EmptyCountToVisibilityConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => (int)value == 0 ? Visibility.Visible : Visibility.Collapsed;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotImplementedException();
+}
+
 public class NullToVisibilityConverter : IValueConverter
 {
     public object Convert(object value, Type targetType, object parameter, string language)

@@ -14,13 +14,25 @@ internal static class DesktopHelper
     /// </summary>
     public static Rect ToLogicalBounds(nint hwnd, System.Drawing.Rectangle deviceRect)
     {
-        var dpi = PInvoke.GetDpiForWindow(new HWND(hwnd));
-        var scale = dpi / 96.0;
+        var scale = GetScaleForWindow(hwnd);
         return new Rect(
             deviceRect.Left / scale,
             deviceRect.Top / scale,
             deviceRect.Width / scale,
             deviceRect.Height / scale);
+    }
+
+    /// <summary>
+    /// The DIP-to-physical-pixel scale in effect for <paramref name="hwnd"/> right now (queried
+    /// live, not cached). <see cref="Microsoft.UI.Xaml.Window.Bounds"/> and everything measured off
+    /// it (e.g. a XAML element's <c>ActualWidth</c>/<c>DesiredSize</c>) are DIPs; AppWindow APIs
+    /// (<c>Move</c>, <c>ResizeClient</c>) take physical pixels — this is the conversion factor
+    /// between the two, needed anywhere a DIP-space computation feeds an AppWindow call.
+    /// </summary>
+    public static double GetScaleForWindow(nint hwnd)
+    {
+        var dpi = PInvoke.GetDpiForWindow(new HWND(hwnd));
+        return dpi / 96.0;
     }
 
     public static unsafe Rect GetDesktopArea()
