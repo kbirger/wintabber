@@ -25,6 +25,12 @@ public sealed partial class DockWindow : WinUIEx.WindowEx
 
         InitializeComponent();
 
+        // Per the brief and the design spec's backdrop table: WindowEx + DesktopAcrylicBackdrop.
+        // Set in code-behind, not XAML, matching SettingsWindow's established workaround — a
+        // `SystemBackdrop="{winuiex:...}"`-style XAML attribute crashes this SDK's XamlCompiler
+        // pass2 with no diagnostic (see SettingsWindow.xaml.cs's comment for the confirmed repro).
+        SystemBackdrop = new DesktopAcrylicBackdrop();
+
         _hwnd = WindowNative.GetWindowHandle(this);
 
         // Wire WindowThumbnail.TargetWindow for every container the ListView generates — there is
