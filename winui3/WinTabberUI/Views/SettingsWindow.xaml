@@ -1,0 +1,94 @@
+<winuiex:WindowEx
+    x:Class="WinTabberUI.Views.SettingsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:winuiex="using:WinUIEx"
+    xmlns:settingsvm="using:WinTabber.ViewModels.Settings"
+    xmlns:views="using:WinTabberUI.Views"
+    xmlns:conv="using:WinTabberUI.ValueConverters"
+    Title="Settings"
+    Width="1200"
+    Height="1000"
+>
+    <!--
+        NOTE: Resources live on the root NavigationView, not on the Window itself.
+        Microsoft.UI.Xaml.Window (unlike WPF's Window) is not a DependencyObject/FrameworkElement,
+        so it has no Resources property at all: a winuiex:WindowEx.Resources (or plain
+        Window.Resources) element here crashes this SDK's XamlCompiler with no diagnostic
+        (confirmed against real compiler output: MSB3073, XamlCompiler.exe exits 1 with zero
+        stdout/stderr; reproduced down to a bare empty Window.Resources block on the Phase 1
+        placeholder MainWindow.xaml too, so it is not specific to this file or WindowEx).
+
+        Also: the NavigationViewItem.Icon glyph inside NavigationView.MenuItemTemplate below uses a
+        classic Binding, not x:Bind, deliberately. An x:Bind with a Converter referencing a
+        StaticResource inside a DataTemplate compiles to a call to SetConverterLookupRoot(this),
+        where "this" is the enclosing x:Class root, which needs to be a FrameworkElement.
+        SettingsWindow's root is a Window (via WindowEx), which is not a FrameworkElement, so that
+        generated call fails to compile (CS1503: cannot convert SettingsWindow to FrameworkElement).
+        Every other x:Bind in this file binds directly against the root's ViewModel property, not
+        inside a nested DataTemplate needing a StaticResource converter, and compiles fine.
+    -->
+    <NavigationView
+        x:Name="SettingsNavigationView"
+        IsBackButtonVisible="Collapsed"
+        MenuItemsSource="{x:Bind ViewModel.Sections}"
+        OpenPaneLength="240"
+        PaneDisplayMode="Left"
+        SelectionChanged="OnNavigationSelectionChanged">
+        <NavigationView.Resources>
+            <conv:IconKeyToGlyphConverter x:Key="IconKeyToGlyphConverter" />
+            <DataTemplate x:Key="GeneralTemplate" x:DataType="settingsvm:GeneralSettingsViewModel">
+                <views:GeneralSettingsPage />
+            </DataTemplate>
+            <DataTemplate x:Key="AppearanceTemplate" x:DataType="settingsvm:AppearanceSettingsViewModel">
+                <views:AppearanceSettingsPage />
+            </DataTemplate>
+            <DataTemplate x:Key="ShortcutsTemplate" x:DataType="settingsvm:ShortcutsSettingsViewModel">
+                <views:ShortcutsSettingsPage />
+            </DataTemplate>
+            <views:SettingsPageTemplateSelector
+                x:Key="SettingsPageTemplateSelector"
+                AppearanceTemplate="{StaticResource AppearanceTemplate}"
+                GeneralTemplate="{StaticResource GeneralTemplate}"
+                ShortcutsTemplate="{StaticResource ShortcutsTemplate}" />
+        </NavigationView.Resources>
+        <NavigationView.MenuItemTemplate>
+            <DataTemplate x:DataType="settingsvm:SettingsViewModelBase">
+                <NavigationViewItem Content="{x:Bind Name}">
+                    <NavigationViewItem.Icon>
+                        <FontIcon Glyph="{Binding Icon, Converter={StaticResource IconKeyToGlyphConverter}}" />
+                    </NavigationViewItem.Icon>
+                </NavigationViewItem>
+            </DataTemplate>
+        </NavigationView.MenuItemTemplate>
+        <NavigationView.MenuItems>
+            <NavigationViewItem Content="Home">
+                <NavigationViewItem.Icon>
+                    <!-- TODO(icon): originally iNKORE SegoeFluentIcons.Home -->
+                    <FontIcon Glyph="&#xE897;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="Apps">
+                <NavigationViewItem.Icon>
+                    <!-- TODO(icon): originally iNKORE SegoeFluentIcons.OEM -->
+                    <FontIcon Glyph="&#xE897;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+            <NavigationViewItem Content="Games">
+                <NavigationViewItem.Icon>
+                    <!-- TODO(icon): originally iNKORE SegoeFluentIcons.Game -->
+                    <FontIcon Glyph="&#xE897;" />
+                </NavigationViewItem.Icon>
+            </NavigationViewItem>
+        </NavigationView.MenuItems>
+
+        <ContentControl
+            x:Name="SettingsContent"
+            HorizontalAlignment="Stretch"
+            VerticalAlignment="Stretch"
+            HorizontalContentAlignment="Stretch"
+            VerticalContentAlignment="Stretch"
+            Content="{x:Bind ViewModel.SelectedView, Mode=OneWay}"
+            ContentTemplateSelector="{StaticResource SettingsPageTemplateSelector}" />
+    </NavigationView>
+</winuiex:WindowEx>

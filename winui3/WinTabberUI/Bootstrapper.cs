@@ -4,6 +4,7 @@ using WinTabber.Events.Shortcuts;
 using WinTabber.Interop;
 using WinTabberUI.Models.Settings;
 using WinTabber.ViewModels;
+using WinTabberUI.Services;
 
 namespace WinTabberUI;
 
@@ -20,6 +21,12 @@ public static class Bootstrapper
     private static IServiceCollection AddCoreServices(this IServiceCollection services)
     {
         return services
+            .AddSingleton<BuiltInElevationLauncher>()
+            .AddSingleton<IElevationBackendProvider, GeneralSettingsElevationBackendProvider>()
+            .AddSingleton<IElevationLauncher>(sp => new ElevationLauncherResolver(
+                sp.GetRequiredService<BuiltInElevationLauncher>(),
+                sp.GetRequiredService<GsudoElevationLauncher>(),
+                sp.GetRequiredService<IElevationBackendProvider>()))
             .AddSingleton<InteropProxy>()
             .AddSingleton<IProcessControl>(sp => sp.GetRequiredService<InteropProxy>())
             .AddSingleton<IWindowPlacement>(sp => sp.GetRequiredService<InteropProxy>())
