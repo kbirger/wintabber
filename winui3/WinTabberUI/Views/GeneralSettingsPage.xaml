@@ -1,0 +1,111 @@
+<local:GeneralSettingsPageBase
+    x:Class="WinTabberUI.Views.GeneralSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WinTabberUI.Views"
+    xmlns:settingsvm="using:WinTabber.ViewModels.Settings"
+    xmlns:c="using:WinTabber.UI.Common.ValueConverters"
+    xmlns:controls="using:CommunityToolkit.WinUI.Controls"
+>
+    <Page.Resources>
+        <c:EnumValuesConverter x:Key="EnumValuesConverter" />
+        <c:StringToEnumConverter x:Key="StringToEnumConverter" />
+        <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+    </Page.Resources>
+    <Grid>
+        <StackPanel Margin="20" VerticalAlignment="Top">
+            <TextBlock FontSize="24" Foreground="White" Text="General" />
+            <StackPanel Margin="0,12,0,0">
+                <controls:SettingsCard Header="Startup mode">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xe7f4;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ComboBox
+                        x:Name="StartupList"
+                        MinWidth="220"
+                        FontSize="14"
+                        VerticalAlignment="Center"
+                        ItemsSource="{x:Bind ViewModel.StartupModes, Mode=OneWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    Margin="0,8,0,0"
+                    Header="Thumbnail resize mode"
+                    Description="What resizing a floating window thumbnail does">
+                    <controls:SettingsCard.HeaderIcon>
+                        <FontIcon Glyph="&#xe740;" />
+                    </controls:SettingsCard.HeaderIcon>
+                    <ComboBox
+                        x:Name="ThumbnailResizeModeList"
+                        MinWidth="220"
+                        FontSize="14"
+                        VerticalAlignment="Center"
+                        ItemsSource="{x:Bind ViewModel.ThumbnailResizeModes, Mode=OneWay}" />
+                </controls:SettingsCard>
+            </StackPanel>
+            <TextBlock Margin="0,20,0,0" FontSize="24" Foreground="White" Text="Features" />
+            <StackPanel Margin="0,12,0,0">
+                <controls:SettingsCard
+                    Header="Window suspend"
+                    Description="The sleep button on a window tile, its shortcut, the suspended-windows shortcut, and the suspended-windows bar">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.EnableWindowSuspension, Mode=TwoWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    Margin="0,8,0,0"
+                    Header="Media controls"
+                    Description="The media controls shortcut and window, and the preload of installed apps and audio devices it uses">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.EnableMediaControls, Mode=TwoWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    Margin="0,8,0,0"
+                    Header="Close application windows"
+                    Description="The close button on the window selector and the close-application-windows shortcut">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.EnableCloseApplicationWindows, Mode=TwoWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsExpander
+                    Margin="0,8,0,0"
+                    Header="Focus select"
+                    Description="Hold the modifier below while selecting a window to minimize the others"
+                    IsExpanded="False"
+                    IsEnabled="{x:Bind ViewModel.EnableFocusSelect, Mode=OneWay}">
+                    <ToggleSwitch IsOn="{x:Bind ViewModel.EnableFocusSelect, Mode=TwoWay}" />
+                    <controls:SettingsExpander.Items>
+                        <controls:SettingsCard Header="Modifier" Description="Which modifier, held at selection, triggers Focus Select">
+                            <ComboBox
+                                x:Name="FocusSelectModifierList"
+                                MinWidth="220"
+                                FontSize="14"
+                                VerticalAlignment="Center"
+                                ItemsSource="{x:Bind ViewModel.FocusSelectModifiers, Mode=OneWay}" />
+                        </controls:SettingsCard>
+                        <controls:SettingsCard Header="Scope" Description="Which windows get minimized: only the ones the switcher showed, or every other window">
+                            <ComboBox
+                                x:Name="FocusSelectScopeList"
+                                MinWidth="220"
+                                FontSize="14"
+                                VerticalAlignment="Center"
+                                ItemsSource="{x:Bind ViewModel.FocusSelectScopes, Mode=OneWay}" />
+                        </controls:SettingsCard>
+                    </controls:SettingsExpander.Items>
+                </controls:SettingsExpander>
+                <controls:SettingsCard
+                    Margin="0,8,0,0"
+                    Header="Elevation backend"
+                    Description="How WinTabber closes or minimizes windows belonging to an elevated (admin) process">
+                    <ComboBox
+                        x:Name="ElevationBackendList"
+                        MinWidth="220"
+                        FontSize="14"
+                        VerticalAlignment="Center"
+                        ItemsSource="{x:Bind ViewModel.ElevationBackends, Mode=OneWay}" />
+                </controls:SettingsCard>
+                <controls:SettingsCard
+                    Margin="0,8,0,0"
+                    Header="gsudo not found"
+                    Description="Install gsudo via winget to use it as the elevation backend"
+                    Visibility="{x:Bind ViewModel.ShowGsudoInstallPrompt, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <Button Command="{x:Bind ViewModel.InstallGsudoCommand}" Content="Install" />
+                </controls:SettingsCard>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</local:GeneralSettingsPageBase>
