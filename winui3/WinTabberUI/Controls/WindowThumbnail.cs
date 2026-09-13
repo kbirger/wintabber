@@ -48,7 +48,16 @@ public class WindowThumbnail : FrameworkElement
     // specifies; only the DependencyProperty's storage type differs.
     public static readonly DependencyProperty SourceProperty = DependencyProperty.Register(
         nameof(Source), typeof(long), typeof(WindowThumbnail),
-        new PropertyMetadata((long)0, (d, e) => ((WindowThumbnail)d).InitialiseThumbnail((nint)(long)e.NewValue)));
+        new PropertyMetadata((long)0, (d, e) =>
+        {
+            var self = (WindowThumbnail)d;
+            self.InitialiseThumbnail((nint)(long)e.NewValue);
+            // InitialiseThumbnail registers with fVisible = false; only a LayoutUpdated pass sets it
+            // visible and computes rcDestination. If Source changes after Loaded with no other layout
+            // activity pending, nothing would schedule that pass and the thumbnail would sit registered
+            // but invisible forever. Force one, same as the Loaded handler does.
+            self.InvalidateArrange();
+        }));
 
     public static readonly DependencyProperty ClientAreaOnlyProperty = DependencyProperty.Register(
         nameof(ClientAreaOnly), typeof(bool), typeof(WindowThumbnail),
@@ -66,7 +75,15 @@ public class WindowThumbnail : FrameworkElement
     // window (DockWindow, ThumbnailWindow) sets this once after it obtains its own HWND.
     public static readonly DependencyProperty TargetWindowProperty = DependencyProperty.Register(
         nameof(TargetWindow), typeof(Window), typeof(WindowThumbnail),
-        new PropertyMetadata(null, (d, e) => ((WindowThumbnail)d).InitialiseThumbnail(((WindowThumbnail)d).Source)));
+        new PropertyMetadata(null, (d, e) =>
+        {
+            var self = (WindowThumbnail)d;
+            self.InitialiseThumbnail(self.Source);
+            // Same reasoning as the Source-changed callback above: without this, a TargetWindow change
+            // after Loaded (e.g. DockWindow re-targeting its thumbnail) can leave the thumbnail
+            // registered but permanently invisible.
+            self.InvalidateArrange();
+        }));
 
     public nint Source
     {
