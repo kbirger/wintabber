@@ -5,11 +5,11 @@ using Microsoft.UI.Xaml;
 namespace WinTabberUI.Tests;
 
 /// <summary>
-/// Guards against the class of bug found three separate times during this migration (Tasks 3.5,
-/// 4a.4, 4a.5): a <c>Window</c>-derived type (or one of its constructor dependencies) missing from
-/// <see cref="Bootstrapper"/>'s registrations, caught previously only when a real window was
-/// constructed at runtime — <c>dotnet build</c> succeeding proves nothing about whether the DI
-/// graph actually resolves.
+/// Guards against two of the three DI registration gaps found during this migration (Tasks 4a.4,
+/// 4a.5): a <c>Window</c>-derived type itself, or one of its own direct constructor parameters,
+/// missing from <see cref="Bootstrapper"/>'s registrations, caught previously only when a real
+/// window was constructed at runtime — <c>dotnet build</c> succeeding proves nothing about whether
+/// the DI graph actually resolves.
 /// </summary>
 /// <remarks>
 /// <para>
@@ -27,13 +27,34 @@ namespace WinTabberUI.Tests;
 /// </para>
 /// <para>
 /// Instead this resolves down to — but not including — invoking any constructor at all: for every
-/// <c>Window</c>/<c>WindowEx</c> type registered in the container, it walks that type's own
-/// constructor parameters and asserts each parameter type has a matching DI registration via
+/// <c>Window</c>/<c>WindowEx</c> type registered in the container, it walks that type's OWN
+/// constructor parameters (one level deep — not a recursive walk of the full transitive
+/// dependency graph) and asserts each parameter type has a matching DI registration via
 /// <see cref="IServiceProviderIsService.IsService"/>, which answers "would this resolve?" purely
 /// from the registration table, without invoking any factory or constructor. That is a pure static
-/// check unaffected by the ReactiveUI/dispatcher constraint above, and it still catches exactly the
-/// failure mode all three prior bugs shared: a constructor parameter (a `Window` type itself, or a
-/// ViewModel it needs) that nobody registered in <see cref="Bootstrapper"/>.
+/// check unaffected by the ReactiveUI/dispatcher constraint above, and it catches the failure mode
+/// Tasks 4a.4 and 4a.5 shared: a <c>Window</c> type itself, or one of its own constructor
+/// parameters, that nobody registered in <see cref="Bootstrapper"/>.
+/// </para>
+/// <para>
+/// It does NOT catch Task 3.5's gap: <c>IElevationLauncher</c> was missing several
+/// constructor-hops below <c>SettingsWindow</c>'s own signature, behind an interface parameter.
+/// This test would not have caught that, because it only inspects each window's own constructor
+/// parameters, not the constructors of what those parameters resolve to. Reflecting on an
+/// interface parameter's <see cref="Type"/> yields no constructor to walk into in the first
+/// place — <see cref="IServiceProviderIsService"/> can only answer "is this type registered",
+/// never "what concrete type would this resolve to". Doing so would require
+/// <see cref="IServiceCollection"/>'s <c>ServiceDescriptor.ImplementationType</c> mapping, which
+/// <see cref="Bootstrapper.Init"/> does not currently expose (it only returns the built
+/// <see cref="IServiceProvider"/>).
+/// </para>
+/// <para>
+/// TODO: if this class of deeper bug (a gap several hops down the dependency graph, especially
+/// behind an interface) recurs, the real fix is to have <see cref="Bootstrapper"/> expose its
+/// <see cref="IServiceCollection"/> (or the <c>ServiceDescriptor.ImplementationType</c> map built
+/// from it) alongside the built <see cref="IServiceProvider"/>, so a smoke test can recursively
+/// walk each registered implementation type's constructor parameters — including through
+/// interfaces — rather than stopping one level deep.
 /// </para>
 /// </remarks>
 public class BootstrapperDiResolutionTests
