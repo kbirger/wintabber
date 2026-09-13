@@ -1,0 +1,4 @@
+GetDpiForWindow
+SystemParametersInfoA
+SystemParametersInfoW
+RECT
