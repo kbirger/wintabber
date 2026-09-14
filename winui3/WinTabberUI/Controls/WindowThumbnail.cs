@@ -279,11 +279,28 @@ public class WindowThumbnail : FrameworkElement
             return new Size(0, 0);
         }
 
-        PInvoke.DwmQueryThumbnailSourceSize(_thumb, out var size);
-        double scale = 1;
-        if (size.Width > availableSize.Width) scale = availableSize.Width / size.Width;
-        if (size.Height > availableSize.Height) scale = Math.Min(scale, availableSize.Height / size.Height);
-        return new Size(size.Width * scale, size.Height * scale);
+        // Real crash found via WindowSelectorWindow's live verification (Task 4b.4): CsWin32's
+        // DwmQueryThumbnailSourceSize throws on a failing HRESULT (unlike this file's other DWM
+        // calls, which check an explicit int/bool return), and this call was previously unguarded --
+        // an unhandled COMException (E_FAIL, 0x80004005) out of this layout callback took the whole
+        // app down. Reproduced with a real DwmRegisterThumbnail-registered thumbnail under a *locked*
+        // Windows session specifically; not confirmed whether the same call can fail this way on an
+        // unlocked desktop (DWM composition/thumbnail support may simply be degraded while locked),
+        // but a layout callback throwing an unhandled exception is a real robustness gap either way --
+        // treating a transient DWM failure as "no size available" rather than crashing is a defensive
+        // fix regardless of how reproducible the specific trigger turns out to be on a normal desktop.
+        try
+        {
+            PInvoke.DwmQueryThumbnailSourceSize(_thumb, out var size);
+            double scale = 1;
+            if (size.Width > availableSize.Width) scale = availableSize.Width / size.Width;
+            if (size.Height > availableSize.Height) scale = Math.Min(scale, availableSize.Height / size.Height);
+            return new Size(size.Width * scale, size.Height * scale);
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            return new Size(0, 0);
+        }
     }
 
     protected override Size ArrangeOverride(Size finalSize)
@@ -293,9 +310,17 @@ public class WindowThumbnail : FrameworkElement
             return finalSize;
         }
 
-        PInvoke.DwmQueryThumbnailSourceSize(_thumb, out var size);
-        double scale = finalSize.Width / size.Width;
-        scale = Math.Min(scale, finalSize.Height / size.Height);
-        return new Size(size.Width * scale, size.Height * scale);
+        // See MeasureOverride's comment above for why this is guarded the same way.
+        try
+        {
+            PInvoke.DwmQueryThumbnailSourceSize(_thumb, out var size);
+            double scale = finalSize.Width / size.Width;
+            scale = Math.Min(scale, finalSize.Height / size.Height);
+            return new Size(size.Width * scale, size.Height * scale);
+        }
+        catch (System.Runtime.InteropServices.COMException)
+        {
+            return finalSize;
+        }
     }
 }

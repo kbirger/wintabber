@@ -79,6 +79,16 @@ public class WindowItem : ReactiveObject, IDisposable
             .ObserveOn(RxApp.MainThreadScheduler)
             .ToProperty(this, x => x.IsThumbnailed);
 
+        // WinUI3 port only (task 4b.4): the WPF selector tile dimmed itself via two independent
+        // Style.Triggers DataTriggers (IsSuspended OR IsThumbnailed -> Opacity 0.4). WinUI 3's
+        // {x:Bind} has no MultiBinding equivalent to AND/OR two source properties directly, so this
+        // is collapsed into one computed bool here rather than reaching for a converter that reads
+        // the whole WindowItem — keeping the "what makes a tile dimmed" rule in the view model next
+        // to the two flags it depends on, rather than duplicating that logic in the view layer.
+        _isDimmed = this.WhenAnyValue(x => x.IsSuspended, x => x.IsThumbnailed, (suspended, thumbnailed) => suspended || thumbnailed)
+            .DistinctUntilChanged()
+            .ToProperty(this, x => x.IsDimmed);
+
         //var editWatch = canEdit.Subscribe(value =>
         //{
         //    if (!value)
@@ -95,7 +105,8 @@ public class WindowItem : ReactiveObject, IDisposable
             _canEdit,
             _isSuspendButtonVisible,
             _isSuspended,
-            _isThumbnailed);
+            _isThumbnailed,
+            _isDimmed);
     }
 
     public WindowRef WindowRef { get; }
@@ -114,10 +125,15 @@ public class WindowItem : ReactiveObject, IDisposable
 
     public bool IsSuspendButtonVisible => _isSuspendButtonVisible.Value;
 
+    /// <summary>True when this tile should render dimmed -- suspended or thumbnailed. See the
+    /// constructor comment for why this is computed here rather than in the view layer.</summary>
+    public bool IsDimmed => _isDimmed.Value;
+
     private readonly ObservableAsPropertyHelper<bool> _canEdit;
     private readonly ObservableAsPropertyHelper<bool> _isSuspendButtonVisible;
     private readonly ObservableAsPropertyHelper<bool> _isSuspended;
     private readonly ObservableAsPropertyHelper<bool> _isThumbnailed;
+    private readonly ObservableAsPropertyHelper<bool> _isDimmed;
     private readonly CompositeDisposable _cleanUp;
 
     public string ProcessName => WindowRef.Process.ProcessInstance.ProcessName;

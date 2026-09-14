@@ -153,6 +153,18 @@ public class FloatToPercentageConverter : IValueConverter
         => (double)value / 100;
 }
 
+/// <summary>Bool -> tile opacity, for the WindowSelectorWindow tile dimming treatment (WinUI3
+/// port of a WPF Style.Triggers pair -- see WindowItem.IsDimmed's doc comment for why the two
+/// source flags it used to read are collapsed into one bool before reaching this converter).</summary>
+public class DimIfTrueConverter : IValueConverter
+{
+    public object Convert(object value, Type targetType, object parameter, string language)
+        => (bool)value ? 0.4 : 1.0;
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotImplementedException();
+}
+
 public class BoolToContentConverter : IValueConverter
 {
     public required FrameworkElement TrueContent { get; set; }

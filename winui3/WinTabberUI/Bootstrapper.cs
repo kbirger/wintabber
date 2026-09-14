@@ -85,6 +85,10 @@ public static class Bootstrapper
             .AddSingleton<IMediaControlsStateService, StubMediaControlsStateService>()
             .AddSingleton<ApplicationStateViewModelFactory>()
             .AddSingleton(sp => sp.GetRequiredService<ApplicationStateViewModelFactory>().CreateApplicationStateViewModel())
-            .AddSingleton<WindowSelectorViewModel>();
+            .AddSingleton<WindowSelectorViewModel>()
+            // Transient, same reasoning as DockWindow/SuspendedWindowsWindow (Task 4a.4's fix, reapplied
+            // to every window since): a WinUI 3 Window can only be shown once, so the container must
+            // hand back a fresh instance on every resolve rather than a disposed singleton.
+            .AddTransient<Views.WindowSelectorWindow>();
     }
 }
