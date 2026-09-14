@@ -5123,126 +5123,1150 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-## Phase 4b — scope note (research only; no tasks written yet)
+## Phase 4b — Convert `WindowSelectorWindow`
 
-This pass re-read `WindowSelectorWindow.xaml(.cs)` in full (deeper than the
-earlier scoping pass), plus `WinTabberUI/Controls/SpatialNavigationListView.cs`
-and `WinTabberUI/Behaviors/HoverSelect.cs` in full, and checked the current
-`winui3/WinTabberUI/Windowing/DesktopHelper.cs`. It stops there, deliberately,
-before writing any Task 4b.N — `WindowSelectorWindow` turns out to be the
-single most WPF-entangled window in this migration, and this pass surfaced
-enough genuinely unresolved design questions that writing real task code now
-would fabricate against them, the same discipline this plan has applied at
-every prior scope-note stop (Phase 2b/2c's split, the original Phase 4 note).
+This phase re-read `WindowSelectorWindow.xaml(.cs)`, `SpatialNavigationListView.cs`,
+`HoverSelect.cs`, `EditableTextBlock.xaml(.cs)`, `WindowSelectorViewModel.cs`,
+`WindowItem.cs`, `ApplicationStateViewModel.cs`, `ApplicationStateViewModelFactory.cs`,
+`ActiveWindowStateService.cs`, `MediaControlsStateService.cs`, `DesktopHelper.cs`,
+`SuspendedWindowsWindow.xaml.cs` (for its established `ResizeToContent`/`PositionWindow`
+pattern), and `WindowSelectorResources.xaml` in full, and resolved every open question
+the prior scope note (commit 6c79a9a) left blocking, each against real compiler output
+via a throwaway probe file (created, tested, deleted — never committed):
 
-**Two things this pass DID resolve, so a future pass does not re-derive them:**
+1. **`ReactiveWindow<T>` confirmed a non-question** — `WindowSelectorWindow : WindowEx`
+   with a constructor-injected `ViewModel` property, matching `SettingsWindow`/
+   `DockWindow`/`SuspendedWindowsWindow`.
+2. **`Microsoft.UI.Xaml.Media.CompositionTarget.Rendering` exists**, confirmed by a
+   real compile (`Microsoft.UI.Xaml.Media.CompositionTarget.Rendering += (s, e) => { };`
+   built clean against the installed SDK) — the exact same type/member shape as WPF's
+   `System.Windows.Media.CompositionTarget.Rendering`. The whole `ArmReveal`/
+   `RevealWhenComposed`/`_parked` hack ports almost verbatim, only the namespace
+   changes. This was the single highest-value unknown from the prior pass and it
+   resolves in the best possible way: no redesign needed, only a rename. (The API's
+   *existence* is compiler-verified; its exact runtime timing semantics — whether it
+   fires mid-composition the same way WPF's does — is not, and Task 4b.4 below calls
+   this out as something its own implementer must verify against real execution, the
+   same way Task 4a.3/4a.4 verified DWM thumbnail timing.)
+3. **`ListView.ContainerFromIndex(int)` exists directly** (inherited from
+   `Microsoft.UI.Xaml.Controls.ListViewBase`), returning `Microsoft.UI.Xaml.DependencyObject`
+   — confirmed by a real compile forcing a type-mismatch error to print the return
+   type. `ContainerContentChanging` (with `.Item`/`.ItemContainer`/`.ItemIndex`) also
+   confirmed to exist and compile. `SpatialNavigationListView`'s container-access
+   pattern ports as a near-rename: `ItemContainerGenerator.ContainerFromIndex(i)` →
+   `ContainerFromIndex(i)`.
+4. **`HoverSelect`'s redesign is simpler in WinUI 3 than the WPF original, not just
+   different.** Reading `WindowSelectorResources.xaml`'s actual `MultiTrigger` (the
+   thing `HoverSelect.IsEnabled`'s inheritance existed to feed) shows it does exactly
+   one thing: `IsMouseOver=True AND HoverSelect.IsEnabled=True → ListViewItem.IsSelected=True`.
+   WinUI 3 has no attached-property inheritance, but it also doesn't need it here —
+   `SpatialNavigationListView` can simply expose `bool HoverSelectionEnabled` as a
+   plain property on itself (no attached property, no inheritance), and each
+   container's `PointerEntered` handler (wired via `ContainerContentChanging`, the
+   same pattern Phase 2b's `ShortcutCaptureBox`/Phase 4a's `DockWindow` established)
+   reads that one property directly off its owning list, then sets `SelectedItem`
+   on the `ListView` itself. No per-container attached state needed at all.
+5. **`WrapPanel`** — confirmed real, known answer from the prior pass:
+   `CommunityToolkit.WinUI.Controls.Primitives` (XAML namespace
+   `using:CommunityToolkit.WinUI.Controls`), not yet referenced by
+   `winui3/WinTabberUI` — added in Task 4b.3.
+6. **`EditableTextBlock` needs the `*Base` intermediate-class workaround**, same as
+   Tasks 3.2-3.4's `ReactivePage<T>` pages — `ReactiveUserControl<WindowItem>` hits the
+   identical generic-XAML-root `x:TypeArguments` propagation bug (`UserControl`, unlike
+   `Window`, genuinely is a `DependencyObject`/`FrameworkElement`, so the bug applies
+   here the same way it did to the settings pages, unlike `WindowSelectorWindow` itself).
+7. **A genuine, previously-uncaught DI gap found by reading the graph, not by a crash
+   this time.** `WindowSelectorViewModel`'s constructor needs `ApplicationStateViewModel`
+   (via `ApplicationStateViewModelFactory`), which transitively needs
+   `IMediaControlsStateService` → `MediaControlsStateService` — a concrete type that
+   lives in the WPF-dependent `WinTabber.UI.Media` project, which `winui3/WinTabberUI`
+   does not and should not reference (that's the whole point of the parallel-app
+   structure). `winui3/WinTabber.UI.Media` (the WinUI3 copy, scaffolded in Phase 1) has
+   no media-controls service of its own yet — that's `MediaControlsWindow`'s own future
+   phase's job, not this one's. Task 4b.1 registers a minimal, explicitly-temporary stub
+   (`IMediaControlsStateService.IsMediaControlsVisibleChanges => Observable.Empty<bool>()`,
+   `HideView()` a no-op) scoped only to unblock `WindowSelectorViewModel`'s DI
+   resolution — not a real implementation, and named/commented as such so it is not
+   mistaken for one when `MediaControlsWindow`'s phase lands the real service.
 
-1. **`ReactiveWindow<T>` is a non-question — plain `WindowEx` is already the
-   established answer.** `SettingsWindow`, `DockWindow`, and
-   `SuspendedWindowsWindow` are all plain `WindowEx` with a CLR `ViewModel`
-   property, precisely because `Microsoft.UI.Xaml.Window` is not a
-   `DependencyObject` at all (confirmed in Task 3.5's fix round), which is
-   the root cause `ReactiveWindow<T>`'s WPF-side generic-XAML-root problem
-   depends on. There is no need to decompile `ReactiveUI.WinUI`'s
-   `ReactiveWindow<T>` (if one even exists) to re-confirm this — three
-   windows already prove the pattern. `WindowSelectorWindow` should be
-   ported the same way: `WindowSelectorWindow : WindowEx`, a constructor-
-   injected `WindowSelectorViewModel` property, no generic base.
-2. **`DesktopHelper` already covers what `WindowSelectorWindow` needs for
-   DPI-aware bounds.** `ToLogicalBounds(nint hwnd, System.Drawing.Rectangle)`
-   and `GetScaleForWindow(nint hwnd)` (both from Task 4a.2/4a.5) are exactly
-   the WPF original's `this.ToLogicalBounds(...)` call site's WinUI 3
-   equivalent — no extension needed.
+**On the three Phase 4a final-review carry-forward items** (I3 show-path timing, M7
+shared `SizeToContent`/resize-to-content helper, M8 `Bootstrapper` grouping naming):
+M7 *is* directly relevant here — `WindowSelectorWindow` uses WPF's
+`SizeToContent="WidthAndHeight"` plus `MaxWidth`/`MaxHeight` constraints, and
+`WindowEx` (confirmed via compile: `MinWidth`/`MinHeight`/`MaxWidth`/`MaxHeight`/
+`IsResizable`/`IsAlwaysOnTop`/`IsShownInSwitchers`/`IsTitleBarVisible` all exist and
+compile as real `WindowEx` properties) has no automatic size-to-content behavior,
+exactly the gap Task 4a.5 hand-rolled `ResizeToContent`/`PositionWindow` around for
+`SuspendedWindowsWindow`. Task 4b.4 below reuses that established pattern (measure the
+root content, scale via `DesktopHelper.GetScaleForWindow`, call
+`AppWindow.ResizeClient`) rather than re-deriving a third variant — closing M7 by
+reuse, not by extracting a shared helper (the two windows' sizing triggers differ
+enough — content-driven with `MaxWidth`/`MaxHeight` clamping here, vs. a simple content
+measure there — that forcing them through one shared method now would be premature
+abstraction; a real `DesktopHelper.ResizeWindowToContent` extraction is worth
+doing once a third window needs the identical shape, not before). I3 and M8 remain
+genuinely not exercised by this window's port and stay open for whichever future task
+touches them.
 
-**What is NOT yet resolved, and why full tasks were not written around it:**
+### Task 4b.1: Extend `winui3/WinTabberUI`'s DI graph for `WindowSelectorViewModel`
 
-- **The reused-window frame-composition-timing hack
-  (`ArmReveal`/`RevealWhenComposed`/`_parked`) has no researched WinUI 3
-  equivalent.** The WPF original parks the window off-screen, subscribes to
-  `System.Windows.Media.CompositionTarget.Rendering`, and waits for two
-  frames to be composed before revealing it on-screen — a hand-tuned fix for
-  a specific flicker (stale tiles from the previous open flashing before the
-  new tile order composes) documented in unusually detailed comments in the
-  WPF file itself. WinUI 3's compositor is a different engine
-  (DirectComposition/Visual layer via `Microsoft.UI.Composition`, not WPF's
-  render thread), and whether an equivalent "tell me when a frame has
-  actually been presented" signal exists — `CompositionTarget.Rendering`
-  under `Microsoft.UI.Xaml.Media`, `Compositor.RequestCommitAsync`, or
-  something else entirely — was not researched in this pass. Writing a
-  `WM_NCHITTEST`-adjacent timing hack against an unconfirmed API would be
-  exactly the fabrication this plan's discipline forbids. This also
-  interacts with `ReuseInstances`-style window reuse (the same window
-  instance is shown/hidden repeatedly rather than recreated), whose WinUI 3
-  cost/benefit (is `Show()`/`Hide()` on a `WindowEx` even cheap enough to
-  make reuse worth the complexity, the way it was for a WPF `Window`?) was
-  also not evaluated.
-- **`SpatialNavigationListView`'s container-access pattern needs WinUI 3
-  API confirmation, not assumption.** It calls
-  `ItemContainerGenerator.ContainerFromIndex(i)` to build a spatial grid
-  (`WindowTileGrid`) for arrow-key navigation between tiles. WinUI 3's
-  `ListView` (a `Microsoft.UI.Xaml.Controls.ListViewBase`) has a
-  `ContainerFromIndex` method directly on the control in newer WinUI 3
-  versions, replacing WPF's `ItemContainerGenerator` indirection — but
-  whether it behaves identically (returns `null` for a not-yet-realized
-  container the same way, works correctly with virtualization if any is
-  enabled) needs confirming against the actual installed
-  `Microsoft.WindowsAppSDK` version's API surface, not assumed from general
-  WinUI 3 knowledge.
-- **`HoverSelect`'s inheritable-`DependencyProperty`-reaching-generated-
-  containers pattern has no direct WinUI 3 equivalent.** It registers an
-  attached property with `FrameworkPropertyMetadataOptions.Inherits` so
-  setting it once on the `ListView` propagates to every generated
-  `ListViewItem` container, which a `Style`'s trigger condition then reads.
-  WinUI 3's `DependencyProperty.RegisterAttached` has no `Inherits` option —
-  property value inheritance down the visual tree is not a general WinUI 3
-  mechanism the way it is in WPF. The likely replacement is the same pattern
-  Phase 2b's `ShortcutCaptureBox`/Phase 4a's `DockWindow` already
-  established for "a control needs per-item state WinUI 3 has no built-in
-  propagation for": wire it explicitly per-container via
-  `ContainerContentChanging` instead of relying on inherited property
-  propagation. This needs to be designed, not assumed to "just work" the
-  same way.
-- **`WrapPanel` (used as `SpatialNavigationListView.ItemsPanel`) is not a
-  native WinUI 3 panel.** Per the migration skill's own mapping table, the
-  WinUI 3 equivalent is `CommunityToolkit.WinUI.Controls.Primitives`'s
-  `WrapPanel` (package not yet referenced by `winui3/WinTabberUI`) — a real,
-  known answer, not an open question, but noted here since it's a new
-  package dependency this phase will need to add.
-- **`EditableTextBlock.xaml`/`.xaml.cs`** (the window-tile title editor,
-  flagged as belonging to this phase back in Phase 3's scope note) was
-  **not read in this pass** — deferred for the same reason as the items
-  above: this phase's research budget went to the window-level questions
-  first, since those gate whether the whole port is even structurally
-  sound, before the tile-level editor control is worth reading in detail.
-- **`Style.Triggers`/`DataTrigger` conversions** in the WPF XAML (dimming a
-  tile when `IsSuspended`/`IsThumbnailed`, per the `Grid.Style` block) need
-  the same `x:Bind`+converter treatment already established in Phase 3
-  (Task 3.4's `ConflictIcon`) — a known, mechanical pattern, not an open
-  question, just not yet applied here.
-- **`DpiChanged`, `OnSourceInitialized`'s `PresentationSource`-based
-  transform matrices (`_transformToDevice`/`_transformtoDip`), and the
-  close-application button's `Path`-based custom glyph** were read but not
-  yet mapped to WinUI 3 equivalents in this pass.
+**Files:**
+- Modify: `winui3/WinTabberUI/Bootstrapper.cs`
+- Create: `winui3/WinTabberUI/Services/StubMediaControlsStateService.cs`
 
-**On the three Phase 4a final-review carry-forward items** (I3 show-path
-timing, M7 shared `SizeToContent` helper, M8 `Bootstrapper` grouping
-naming): none of the three is directly exercised by `WindowSelectorWindow`'s
-own port as scoped so far — this window doesn't use `MakeSpace`-style
-desktop-work-area reservation (that's `DockWindow`-specific) or a
-non-activating show path (`WindowSelectorWindow` uses `ShowActivated="True"`
-already, unlike `SuspendedWindowsWindow`'s `MakeWindowNonActivating`). All
-three remain open and should be settled in whichever future task actually
-touches the relevant window/`Bootstrapper` structure — **not resolved or
-deferred by this pass, simply not yet reached.**
+**Interfaces:**
+- Produces: `WinTabberUI.Services.StubMediaControlsStateService : WinTabber.ViewModels.Services.IMediaControlsStateService`, registered singleton.
+- Consumes/registers: `WinTabber.ViewModels.ApplicationStateViewModel` (via `ApplicationStateViewModelFactory.CreateApplicationStateViewModel()`), `WinTabber.ViewModels.ApplicationStateViewModelFactory`, `WinTabber.ViewModels.WindowSelectorViewModel`.
 
-**Recommendation for whoever picks this up next:** research, in order: (1)
-the real WinUI 3/Composition-layer frame-presentation-timing API (the single
-highest-value unknown, since it gates whether `ArmReveal`'s flicker-avoidance
-even has a WinUI 3 answer at all, or whether a different strategy is needed),
-(2) `ListViewBase.ContainerFromIndex`'s actual behavior in the installed SDK
-version, (3) a concrete `ContainerContentChanging`-based redesign for
-`HoverSelect`'s per-container state, (4) `EditableTextBlock`. Only then write
-Task 4b.N tasks — following this plan's now-consistent pattern, expect this
-window's real port to need at least one fix round given how much of its WPF
-logic is timing-sensitive and empirically tuned (the WPF file's own comments
-document at least two already-fixed timing bugs from that tuning process).
+`WindowSelectorViewModel`'s full dependency chain, traced from its constructor:
+`WindowSelectorViewModel(ApplicationStateViewModel, WinTabberEventManager, WindowManager,
+IProcessSuspensionService, IWindowThumbnailService, ApplicationSettings)`. Every one of
+these except `ApplicationStateViewModel` is already registered (Tasks 3.1/4a.1).
+`ApplicationStateViewModel` itself is not a DI-constructed type — it is built by
+`ApplicationStateViewModelFactory.CreateApplicationStateViewModel()`, which needs
+`IMediaControlsStateService` and `IActiveWindowStateService`.
+`IActiveWindowStateService` → `WinTabberUI.Services.ActiveWindowStateService(WinTabberEventManager, WindowManager)`
+— both already registered, straightforward `AddSingleton`.
+`IMediaControlsStateService` has no real implementation available in `winui3/WinTabberUI`
+yet (see the phase-opening note above) — register the stub instead.
+
+- [ ] **Step 1: Write the stub `IMediaControlsStateService`**
+
+```csharp
+// winui3/WinTabberUI/Services/StubMediaControlsStateService.cs
+using System.Reactive.Linq;
+using WinTabber.ViewModels.Services;
+
+namespace WinTabberUI.Services;
+
+/// <summary>
+/// Placeholder implementation, registered only to satisfy <see cref="WinTabber.ViewModels.ApplicationStateViewModelFactory"/>'s
+/// dependency graph so <see cref="WinTabber.ViewModels.WindowSelectorViewModel"/> can be
+/// constructed in this phase. The real media-controls state service (WinTabber.UI.Media's
+/// MediaControlsStateService, WPF-dependent, not referenced by this project) is ported when
+/// MediaControlsWindow itself is — that phase should replace this registration with the real
+/// one, not build alongside it.
+/// </summary>
+public sealed class StubMediaControlsStateService : IMediaControlsStateService
+{
+    public IObservable<bool> IsMediaControlsVisibleChanges { get; } = Observable.Empty<bool>();
+
+    public void HideView() { }
+}
+```
+
+- [ ] **Step 2: Register the graph**
+
+```csharp
+// winui3/WinTabberUI/Bootstrapper.cs — new method, called from Init()
+private static IServiceCollection AddWindowSelectorGraph(this IServiceCollection services)
+{
+    return services
+        .AddSingleton<IActiveWindowStateService, ActiveWindowStateService>()
+        .AddSingleton<IMediaControlsStateService, StubMediaControlsStateService>()
+        .AddSingleton<ApplicationStateViewModelFactory>()
+        .AddSingleton(sp => sp.GetRequiredService<ApplicationStateViewModelFactory>().CreateApplicationStateViewModel())
+        .AddSingleton<WindowSelectorViewModel>();
+}
+```
+
+Add `.AddWindowSelectorGraph()` to the fluent chain in `Init()`, and the two new
+`using` directives (`WinTabber.ViewModels.Services`, `WinTabberUI.Services` is already
+present) this needs.
+
+- [ ] **Step 3: Build and verify DI resolution**
+
+Run: `dotnet build WinTabber.slnx` — must be clean. Run the `winui3/WinTabberUI.Tests`
+DI smoke test (`BootstrapperDiResolutionTests`, added in Phase 4a's final-review fix
+wave) — it only walks `Window`/`WindowEx` types, so it will not exercise
+`WindowSelectorViewModel` directly until Task 4b.4 registers `WindowSelectorWindow`
+itself; note this explicitly rather than treating a green smoke-test run as proof this
+task's graph resolves. Actually resolve `WindowSelectorViewModel` from a real
+`Bootstrapper.Init()` container in a throwaway test/harness (temporary, reverted before
+commit, same discipline as Task 4a.4/4a.5) to prove the whole chain constructs without
+exception before moving on.
+
+- [ ] **Step 4: Commit**
+
+Document any registration gap found beyond what's listed above (there may be one this
+plan's static trace missed) directly in the commit message, not only in the task
+report — this exact documentation gap recurred three times in Phase 4a despite being
+called out each time.
+
+```bash
+git add winui3/WinTabberUI/Bootstrapper.cs winui3/WinTabberUI/Services/StubMediaControlsStateService.cs
+git commit -m "feat: extend winui3 DI graph for WindowSelectorViewModel
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 4b.2: Port `EditableTextBlock`
+
+**Files:**
+- Create: `winui3/WinTabberUI/Views/EditableTextBlockBase.cs`
+- Create: `winui3/WinTabberUI/Views/EditableTextBlock.xaml`
+- Create: `winui3/WinTabberUI/Views/EditableTextBlock.xaml.cs`
+
+**Interfaces:**
+- Produces: `WinTabberUI.Views.EditableTextBlockBase : ReactiveUI.ReactiveUserControl<WindowItem>` (the generic-root workaround); `WinTabberUI.Views.EditableTextBlock : EditableTextBlockBase`.
+- Consumes: `WinTabber.ViewModels.WindowItem`'s `Title`/`IsEditing`/`CanEdit`/`IsSuspendButtonVisible` properties and `StartEditCommand`/`SaveTitleCommand`/`CancelEditTitleCommand`/`SuspendCommand`/`ThumbnailCommand` commands (all already WPF-free, confirmed by reading `WindowItem.cs`).
+
+Real conversions beyond the established `*Base` pattern:
+1. **`IsMouseOver`** (used for `BorderContainer`'s background) has no WinUI 3
+   `FrameworkElement`-level equivalent — WPF's is a built-in bindable property; WinUI 3
+   only has `PointerEntered`/`PointerExited` events. Add a plain `bool IsPointerOver`
+   property on the code-behind, toggled by those two events on the root, and bind
+   `Border.Background` to it via `x:Bind` (not the WPF file's `ElementName=root`
+   trick, which has no direct WinUI 3 equivalent either — bind directly to the
+   code-behind property instead).
+2. **`TextBox.InputBindings`/`KeyBinding`** (Enter→`SaveTitleCommand`, Escape→
+   `CancelEditTitleCommand`) has no WinUI 3 equivalent — `TextBox` has no
+   `InputBindings` collection. Replace with a `KeyDown` handler on the `TextBox`
+   checking `args.Key == VirtualKey.Enter` / `VirtualKey.Escape` and invoking the
+   corresponding `ICommand` directly.
+3. **`fa:IconBlock`** (FontAwesome.Sharp: `Moon`, `ExternalLinkAlt`, `Check`, `Ban`)
+   is not an iNKORE icon key, so it doesn't go through `IconKeyToGlyphConverter` —
+   it's a different icon library entirely, used directly. Apply the same
+   deferred-icon placeholder pattern established for iNKORE icons anyway, for
+   consistency and to keep this task mechanical: `<FontIcon Glyph="&#xE897;" />`
+   plus `<!-- TODO(icon): originally FontAwesome.Sharp <IconName> -->` at each of
+   the four sites. Real glyph selection is Phase 6's job either way.
+4. **`ui:TextBoxHelper.IsDeleteButtonVisible="False"`** — drop outright, per this
+   plan's established no-op-removal pattern (Task 3.3's precedent).
+
+- [ ] **Step 1: Write `EditableTextBlockBase`**
+
+```csharp
+// winui3/WinTabberUI/Views/EditableTextBlockBase.cs
+using ReactiveUI;
+using WinTabber.ViewModels;
+
+namespace WinTabberUI.Views;
+
+/// <summary>
+/// See GeneralSettingsPageBase.cs for the full rationale: WinUI 3's XAML compiler does not
+/// propagate x:TypeArguments from a generic base class on a XAML root (CS0305); this
+/// non-generic intermediate class is the documented ReactiveUI.WinUI workaround. Unlike the
+/// settings pages, EditableTextBlock's ViewModel is bound directly (x:Bind ViewModel="{Binding}"
+/// from the hosting ItemTemplate), not via DataContext, so this base class does not need the
+/// DataContextChanged wiring GeneralSettingsPageBase has — ViewModel is set explicitly per
+/// instance instead. See Task 4b.4's item template for how.
+/// </summary>
+public class EditableTextBlockBase : ReactiveUserControl<WindowItem>
+{
+}
+```
+
+- [ ] **Step 2: Port `EditableTextBlock.xaml`**
+
+```xml
+<!-- winui3/WinTabberUI/Views/EditableTextBlock.xaml -->
+<local:EditableTextBlockBase
+    x:Class="WinTabberUI.Views.EditableTextBlock"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WinTabberUI.Views"
+    xmlns:c="using:WinTabber.UI.Common.ValueConverters"
+    Focusable="False"
+>
+    <Border
+        x:Name="BorderContainer"
+        CornerRadius="4"
+        BorderBrush="Gray"
+        PointerEntered="OnPointerEnteredRoot"
+        PointerExited="OnPointerExitedRoot"
+    >
+        <Grid Margin="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox
+                x:Name="TitleTextBox"
+                Text="{x:Bind ViewModel.Title, Mode=TwoWay}"
+                BorderThickness="0"
+                Foreground="White"
+                Background="Transparent"
+                IsReadOnly="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource InverseBoolConverter}}"
+                VerticalAlignment="Center"
+                VerticalContentAlignment="Center"
+                MinHeight="0"
+                Padding="2"
+                KeyDown="OnTitleTextBoxKeyDown"
+            />
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button
+                    x:Name="SuspendButton"
+                    Command="{x:Bind ViewModel.SuspendCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="Sleep this process"
+                    Visibility="{x:Bind ViewModel.IsSuspendButtonVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <!-- TODO(icon): originally FontAwesome.Sharp Moon -->
+                    <FontIcon Glyph="&#xE897;" />
+                </Button>
+                <Button
+                    x:Name="ThumbnailButton"
+                    Command="{x:Bind ViewModel.ThumbnailCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="Show as floating thumbnail"
+                    Visibility="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                    <!-- TODO(icon): originally FontAwesome.Sharp ExternalLinkAlt -->
+                    <FontIcon Glyph="&#xE897;" />
+                </Button>
+                <Button
+                    x:Name="AcceptButton"
+                    Command="{x:Bind ViewModel.SaveTitleCommand, Mode=OneWay}"
+                    CommandParameter="{x:Bind ViewModel.Title, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <!-- TODO(icon): originally FontAwesome.Sharp Check -->
+                    <FontIcon Glyph="&#xE897;" />
+                </Button>
+                <Button
+                    x:Name="CancelButton"
+                    Command="{x:Bind ViewModel.CancelEditTitleCommand, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <!-- TODO(icon): originally FontAwesome.Sharp Ban -->
+                    <FontIcon Glyph="&#xE897;" />
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</local:EditableTextBlockBase>
+```
+
+`InverseBoolConverter`/`BoolToVisibilityConverter`/`InverseBoolToVisibilityConverter`
+are already ported (Task 2.1) — confirm this file's resource scope actually has them
+merged (per `SettingsWindow.xaml`'s precedent, converters need explicit merging; check
+whether `winui3/WinTabberUI`'s `App.xaml` already merges `WinTabber.UI.Common`'s
+`ValueConvertersResources.xaml` app-wide, or whether this file needs its own
+`UserControl.Resources` merge — this file's root is `EditableTextBlockBase`, a real
+`UserControl`/`FrameworkElement`, so unlike `Window` it CAN legally host `.Resources`
+directly if a local merge turns out to be needed).
+
+**TODO(verify):** confirm `TextBox.KeyDown`'s event-arg shape
+(`Windows.System.VirtualKeyEventArgs` vs `Microsoft.UI.Xaml.Input.KeyRoutedEventArgs`)
+against real compiler output before writing Step 3 — this plan has not yet had a
+`TextBox`-level `KeyDown` handler to confirm the exact type against.
+
+- [ ] **Step 3: Port `EditableTextBlock.xaml.cs`**
+
+```csharp
+// winui3/WinTabberUI/Views/EditableTextBlock.xaml.cs
+using Microsoft.UI.Xaml.Input;
+using Windows.System;
+
+namespace WinTabberUI.Views;
+
+public sealed partial class EditableTextBlock : EditableTextBlockBase
+{
+    public EditableTextBlock()
+    {
+        InitializeComponent();
+    }
+
+    private void OnPointerEnteredRoot(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) { }
+
+    private void OnPointerExitedRoot(object sender, Microsoft.UI.Xaml.Input.PointerRoutedEventArgs e) { }
+
+    private void OnTitleTextBoxKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        if (ViewModel is null)
+        {
+            return;
+        }
+
+        switch (e.Key)
+        {
+            case VirtualKey.Enter:
+                e.Handled = true;
+                if (ViewModel.SaveTitleCommand.CanExecute.FirstOrDefaultAsync().Wait())
+                {
+                    ViewModel.SaveTitleCommand.Execute(ViewModel.Title).Subscribe();
+                }
+                return;
+            case VirtualKey.Escape:
+                e.Handled = true;
+                if (ViewModel.CancelEditTitleCommand.CanExecute.FirstOrDefaultAsync().Wait())
+                {
+                    ViewModel.CancelEditTitleCommand.Execute().Subscribe();
+                }
+                return;
+        }
+    }
+}
+```
+
+The WPF original's `BorderContainer_MouseDown`/`IsUnderButton` click-to-edit handling
+is deliberately NOT ported here — Task 4b.4's item template wires the equivalent
+`PointerPressed` handling at the tile (`Grid`) level, where the WPF original's own
+`Grid_MouseUp` already lived, since both need the same "did this click land on a
+button inside the tile" walk and duplicating it in two places would drift.
+
+**TODO(verify):** the `SaveTitleCommand.CanExecute.FirstOrDefaultAsync().Wait()` guard
+above is a synchronous wait on an `IObservable<bool>`, mirroring how a
+`ReactiveCommand`'s enablement is normally read — confirm this compiles and behaves
+correctly against the real `ReactiveCommand<string, string>` type before relying on
+it; a synchronous `.Wait()` inside a UI-thread event handler is a plausible deadlock
+risk if the observable ever needs the same thread to produce a value, so verify this
+doesn't hang in practice (a real capture-and-check pattern outside the handler, set
+once and read as a field, is a safer fallback if `.Wait()` proves risky).
+
+- [ ] **Step 4: Build**
+
+Run: `dotnet build WinTabber.slnx` — expect it to fail only for reasons downstream of
+`WindowSelectorWindow.xaml` not yet existing (Task 4b.4's job) if this file is wired
+into anything before then; in isolation, this file alone should build clean once the
+`KeyDown` event-arg TODO(verify) above is resolved.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add winui3/WinTabberUI/Views/EditableTextBlockBase.cs winui3/WinTabberUI/Views/EditableTextBlock.xaml winui3/WinTabberUI/Views/EditableTextBlock.xaml.cs
+git commit -m "feat: port EditableTextBlock to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 4b.3: Port `HoverSelect` and `SpatialNavigationListView`
+
+**Files:**
+- Create: `winui3/WinTabberUI/Controls/SpatialNavigationListView.cs`
+- Modify: `winui3/WinTabberUI/WinTabberUI.csproj` (add `CommunityToolkit.WinUI.Controls.Primitives`)
+- Modify: `Directory.Packages.props` (add its `PackageVersion` if not already present)
+
+**Interfaces:**
+- Produces: `WinTabberUI.Controls.SpatialNavigationListView : Microsoft.UI.Xaml.Controls.ListView`, with `bool HoverSelectionEnabled { get; set; } = true` (the redesigned, non-attached replacement for `HoverSelect`) and `void SuppressHoverUntilPointerMoves()`.
+- Consumes: `WinTabber.ViewModels.WindowItem`, `WinTabber.ViewModels.Models.WindowTileGrid`/`WindowTileInfo` (already WPF-free, ported by Task 1.2 — confirm exact namespace via `grep -rn "class WindowTileGrid"` before writing the `using`, since this plan's own history shows namespace assumptions have been wrong before).
+
+`HoverSelect.cs` (the WPF attached-property file) is NOT ported — per the phase-opening
+note above, its one job (feed a `Style` `MultiTrigger`) is replaced entirely by a plain
+property on this control plus a `ContainerContentChanging`-wired `PointerEntered`
+handler per container, so there is nothing left for a separate `HoverSelect` type to
+do in WinUI 3.
+
+- [ ] **Step 1: Confirm `WindowTileGrid`/`WindowTileInfo`'s actual current namespace**
+
+Run: `grep -rn "class WindowTileGrid\|class WindowTileInfo" WinTabber.ViewModels`
+
+- [ ] **Step 2: Add the `WrapPanel` package**
+
+```xml
+<!-- Directory.Packages.props, if not already present -->
+<PackageVersion Include="CommunityToolkit.WinUI.Controls.Primitives" Version="8.2.250402" />
+```
+
+(Match whatever version `CommunityToolkit.WinUI.Controls.SettingsControls` — already
+referenced — pins, per this package family's convention of shipping in lockstep; verify
+against the actual installed `SettingsControls` version rather than guessing 8.2.250402
+literally.)
+
+```xml
+<!-- winui3/WinTabberUI/WinTabberUI.csproj -->
+<PackageReference Include="CommunityToolkit.WinUI.Controls.Primitives" />
+```
+
+- [ ] **Step 3: Port `SpatialNavigationListView.cs`**
+
+```csharp
+// winui3/WinTabberUI/Controls/SpatialNavigationListView.cs
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Windows.Foundation;
+using Windows.System;
+using WinTabber.ViewModels;
+// TODO(verify): confirm this using against Step 1's grep result before compiling.
+using WinTabber.ViewModels.Models;
+
+namespace WinTabberUI.Controls;
+
+/// <summary>
+/// Arrow-key spatial navigation between tiles, plus hover-to-select gated on the pointer having
+/// actually moved (see <see cref="HoverSelectionEnabled" />). Ported from WinTabberUI's WPF
+/// SpatialNavigationListView.cs; see WindowSelectorWindow.xaml.cs's port for why the selector
+/// window reuses this control's instance across opens rather than recreating it.
+/// </summary>
+public class SpatialNavigationListView : ListView
+{
+    private static readonly VirtualKey[] ArrowKeys =
+        [VirtualKey.Down, VirtualKey.Up, VirtualKey.Left, VirtualKey.Right];
+
+    private WindowTileGrid? _tileGrid;
+    private Point? _hoverAnchor;
+
+    /// <summary>
+    /// Replaces WPF's HoverSelect attached property. WinUI 3 has no property-value inheritance
+    /// down the visual tree, so this is a plain property on the list itself rather than an
+    /// attached one on each container -- each container's PointerEntered handler (wired below,
+    /// via ContainerContentChanging) reads this directly off its owning list.
+    /// </summary>
+    public bool HoverSelectionEnabled { get; private set; } = true;
+
+    public SpatialNavigationListView()
+    {
+        ContainerContentChanging += OnContainerContentChanging;
+    }
+
+    /// <summary>Ignore hover selection until the pointer actually moves.</summary>
+    public void SuppressHoverUntilPointerMoves()
+    {
+        _hoverAnchor = GetCursorPosition();
+        HoverSelectionEnabled = false;
+    }
+
+    private void OnContainerContentChanging(ListViewBase sender, ContainerContentChangingEventArgs args)
+    {
+        if (args.InRecycleQueue || args.ItemContainer is not ListViewItem container)
+        {
+            return;
+        }
+
+        // Safe to re-add on every call, including recycled containers: WinUI 3 event handler
+        // subscription is idempotent only if this container never got this exact delegate
+        // instance before -- ContainerContentChanging can fire more than once for the same
+        // container across its lifetime, so guard with -= before += to avoid a double-fire.
+        container.PointerEntered -= OnContainerPointerEntered;
+        container.PointerEntered += OnContainerPointerEntered;
+    }
+
+    private void OnContainerPointerEntered(object sender, PointerRoutedEventArgs e)
+    {
+        if (!HoverSelectionEnabled)
+        {
+            return;
+        }
+
+        if (sender is ListViewItem { Content: WindowItem item })
+        {
+            SelectedItem = item;
+        }
+    }
+
+    /// <summary>Re-arms hover selection on the first real pointer movement after a suppress.</summary>
+    protected override void OnPointerMoved(PointerRoutedEventArgs e)
+    {
+        base.OnPointerMoved(e);
+
+        if (_hoverAnchor is not { } anchor)
+        {
+            return;
+        }
+
+        var current = GetCursorPosition();
+        if (current.X == anchor.X && current.Y == anchor.Y)
+        {
+            return;
+        }
+
+        _hoverAnchor = null;
+        HoverSelectionEnabled = true;
+    }
+
+    protected override void OnKeyDown(KeyRoutedEventArgs e)
+    {
+        base.OnKeyDown(e);
+
+        if (!ArrowKeys.Contains(e.Key))
+        {
+            return;
+        }
+
+        if (!TryInitializeTileGrid(out var tileGrid))
+        {
+            return;
+        }
+
+        var next = e.Key switch
+        {
+            VirtualKey.Down => tileGrid.MoveDown(),
+            VirtualKey.Up => tileGrid.MoveUp(),
+            VirtualKey.Left => tileGrid.MoveLeft(),
+            VirtualKey.Right => tileGrid.MoveRight(),
+            _ => null,
+        };
+
+        if (next is { })
+        {
+            SelectedItem = next;
+            e.Handled = true;
+        }
+    }
+
+    // TODO(verify): System.Windows.Forms.Control.MousePosition (used elsewhere in this migration,
+    // e.g. WindowSelectorViewModel.CursorScreen) is the established, already-proven way to read the
+    // live cursor position without a pointer event in hand. Confirm it is available/appropriate
+    // here too before relying on it, or use PointerRoutedEventArgs.GetCurrentPoint(this).Position
+    // from within OnPointerMoved instead if a non-event-driven read isn't actually needed by
+    // SuppressHoverUntilPointerMoves's call site (it is called from WindowSelectorWindow.xaml.cs's
+    // ShowWindowSelector, outside any pointer event).
+    private static Point GetCursorPosition()
+    {
+        var p = System.Windows.Forms.Control.MousePosition;
+        return new Point(p.X, p.Y);
+    }
+
+    /// <summary>Rebuilds the tile grid unless already built; leaves it unbuilt if containers
+    /// are not yet realised, so the next arrow press retries rather than caching a half-built grid.</summary>
+    private bool TryInitializeTileGrid(out WindowTileGrid tileGrid)
+    {
+        if (_tileGrid is { } cached)
+        {
+            tileGrid = cached;
+            return true;
+        }
+
+        var infos = new List<WindowTileInfo>(Items.Count);
+        for (var i = 0; i < Items.Count; i++)
+        {
+            if (ContainerFromIndex(i) is not FrameworkElement container)
+            {
+                tileGrid = null!;
+                return false;
+            }
+
+            infos.Add(GetTile(i, container));
+        }
+
+        if (infos.Count == 0)
+        {
+            tileGrid = null!;
+            return false;
+        }
+
+        _tileGrid = WindowTileGrid.Create(infos);
+        tileGrid = _tileGrid;
+        return true;
+    }
+
+    private WindowTileInfo GetTile(int index, FrameworkElement container)
+    {
+        var item = (WindowItem)Items[index];
+        var transform = container.TransformToVisual(this);
+        var location = transform.TransformPoint(new Point(0, 0));
+
+        return new WindowTileInfo
+        {
+            Container = container,
+            WindowItem = item,
+            Location = location,
+            IsSelected = index == SelectedIndex,
+            Index = index,
+        };
+    }
+}
+```
+
+`Items.Count`/`SelectedIndex`/`SelectedItem` are all inherited from `ListViewBase` and
+match the WPF `ListView` surface directly — no conversion needed for those. The
+`SelectionChanged`-based `ScrollIntoView` re-selection logic from the WPF original's
+`OnSelectionChanged` override is dropped: WinUI 3's `ListView` already scrolls a newly
+selected item into view by default (confirm this via the same live UI-Automation
+verification Task 4b.4 needs anyway — if it turns out not to, add it back as an
+explicit `ScrollIntoView(e.AddedItems[0])` call in an `OnSelectionChanged` override).
+
+**TODO(verify):** `WindowTileInfo.Container`'s and `WindowTileGrid.Create`/`MoveDown`
+etc.'s exact parameter types (`System.Windows.Media.Visual` in WPF — confirm the
+WinUI3-ported `WindowTileGrid`/`WindowTileInfo` in `WinTabber.ViewModels` actually
+takes a `FrameworkElement` here, not still `Visual` or something else; this plan's own
+Task 1.2 moved these types into `WinTabber.ViewModels` but did not change their WPF
+type dependencies at the time — if `WindowTileGrid`/`WindowTileInfo` still reference
+`System.Windows.Media.Visual` internally, that is itself a real gap this task must fix
+first, since `WinTabber.ViewModels` is supposed to be WPF-free).
+
+- [ ] **Step 4: Build, resolving all TODO(verify) items above against real compiler output**
+
+Run: `dotnet build WinTabber.slnx`. If `WindowTileGrid`/`WindowTileInfo` turn out to
+still carry a WPF type dependency, fix that in `WinTabber.ViewModels` as part of this
+task (small, contained fix, consistent with how this plan has handled similar
+discoveries in shared projects before) rather than deferring it, since it would block
+every future consumer of these types, not just this one.
+
+- [ ] **Step 5: Commit**
+
+Document exactly how each TODO(verify) resolved, per this plan's established
+convention — this is the fourth task in a row in this phase alone to carry open
+verification items into its commit step; do not let this be the task that breaks the
+documentation habit Phase 4a's final review had to fix twice.
+
+```bash
+git add winui3/WinTabberUI/Controls/SpatialNavigationListView.cs \
+  winui3/WinTabberUI/WinTabberUI.csproj Directory.Packages.props
+git commit -m "feat: port SpatialNavigationListView (with redesigned hover-select) to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+### Task 4b.4: Port `WindowSelectorWindow`
+
+**Files:**
+- Create: `winui3/WinTabberUI/Views/WindowSelectorWindow.xaml`
+- Create: `winui3/WinTabberUI/Views/WindowSelectorWindow.xaml.cs`
+- Modify: `winui3/WinTabberUI/Bootstrapper.cs` (register the window itself — Task 4b.1 only registered the ViewModel)
+
+**Interfaces:**
+- Produces: `WinTabberUI.Views.WindowSelectorWindow : WinUIEx.WindowEx`, constructor `WindowSelectorWindow(WindowSelectorViewModel viewModel)`, `public void ShowWindowSelector()`, `public WindowSelectorViewModel ViewModel { get; }`.
+- Consumes: `WinTabber.ViewModels.WindowSelectorViewModel` (Task 4b.1), `WinTabberUI.Controls.SpatialNavigationListView` (Task 4b.3), `WinTabberUI.Views.EditableTextBlock` (Task 4b.2), `WinTabberUI.Controls.WindowThumbnail` (Task 4a.3/4a.4, already handles dynamic `Source` changes correctly per that phase's fix round), `winui3/WinTabberUI/Windowing/DesktopHelper.cs`'s `ToLogicalBounds`/`GetScaleForWindow` (Task 4a.2).
+
+Per the design spec's backdrop table: `WindowEx` + `DesktopAcrylicBackdrop` (this window
+uses WPF's `AcrylicChrome` with `ACCENT_ENABLE_ACRYLICBLURBEHIND`/`DWMWCP_ROUND`, matching
+`DockWindow`/`SuspendedWindowsWindow`'s established mapping). `IsShownInSwitchers=False`
+(`ShowInTaskbar="False"`), `IsAlwaysOnTop=True` (`Topmost="True"`), `IsTitleBarVisible=False`
+(`WindowStyle="None"`) — all four confirmed to exist as real `WindowEx` properties by a
+throwaway compile probe during this phase's research. `IsResizable=False` (the WPF style
+sets no explicit `ResizeMode`, but with no visible border/title bar and `SizeToContent`
+driving the window's actual size, there is no user-facing resize affordance to preserve).
+
+- [ ] **Step 1: Port `WindowSelectorWindow.xaml`**
+
+```xml
+<!-- winui3/WinTabberUI/Views/WindowSelectorWindow.xaml -->
+<winuiex:WindowEx
+    x:Class="WinTabberUI.Views.WindowSelectorWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:winuiex="using:WinUIEx"
+    xmlns:controls="using:WinTabberUI.Controls"
+    xmlns:views="using:WinTabberUI.Views"
+    xmlns:vm="using:WinTabber.ViewModels"
+    xmlns:wrap="using:CommunityToolkit.WinUI.Controls"
+    Title="WindowSelector"
+    IsShownInSwitchers="False"
+    IsAlwaysOnTop="True"
+    IsTitleBarVisible="False"
+    IsResizable="False"
+>
+    <!--
+        NOTE: Resources live on the root Grid, not on the Window itself, per SettingsWindow's
+        established precedent (Microsoft.UI.Xaml.Window is not a DependencyObject/FrameworkElement
+        and has no Resources property at all).
+    -->
+    <Grid x:Name="RootGrid" Background="#01000000">
+        <Grid.Resources>
+            <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" xmlns:c="using:WinTabber.UI.Common.ValueConverters" />
+        </Grid.Resources>
+
+        <controls:SpatialNavigationListView
+            x:Name="TabListView"
+            SelectionMode="Single"
+            ScrollViewer.HorizontalScrollBarVisibility="Disabled"
+            ItemsSource="{x:Bind ViewModel.WindowItems, Mode=OneWay}"
+            SelectedItem="{x:Bind ViewModel.SelectedItem, Mode=TwoWay}"
+        >
+            <controls:SpatialNavigationListView.ItemsPanel>
+                <ItemsPanelTemplate>
+                    <wrap:WrapPanel
+                        Orientation="Horizontal"
+                        HorizontalSpacing="8"
+                        VerticalSpacing="8"
+                        HorizontalAlignment="Center"
+                        VerticalAlignment="Center"
+                    />
+                </ItemsPanelTemplate>
+            </controls:SpatialNavigationListView.ItemsPanel>
+            <controls:SpatialNavigationListView.ItemTemplate>
+                <DataTemplate x:DataType="vm:WindowItem">
+                    <Grid
+                        Margin="0"
+                        Background="Transparent"
+                        MaxWidth="{x:Bind (double)0, Mode=OneWay}"
+                        PointerPressed="OnTileGridPointerPressed"
+                    >
+                        <Grid.RowDefinitions>
+                            <RowDefinition Height="Auto" />
+                            <RowDefinition Height="*" />
+                        </Grid.RowDefinitions>
+                        <Grid.Opacity>
+                            <!-- Dim the whole tile, not just the title strip: a suspended window
+                                 is hidden, so its thumbnail renders blank and would otherwise just
+                                 look broken. A thumbnailed window has been moved off-screen; dim
+                                 its tile so it doesn't look like a duplicate of the floating
+                                 thumbnail window. Both conditions use the same visual treatment, so
+                                 a single converter reads either flag. -->
+                            <Binding Path="IsSuspended" Converter="{StaticResource DimIfTrueConverter}" />
+                        </Grid.Opacity>
+                        <views:EditableTextBlock ViewModel="{x:Bind}" />
+                        <Viewbox
+                            Grid.Row="1"
+                            HorizontalAlignment="Center"
+                            VerticalAlignment="Top"
+                            Stretch="Uniform"
+                            Margin="0,10,0,0"
+                        >
+                            <controls:WindowThumbnail Source="{x:Bind Handle, Mode=OneWay}" />
+                        </Viewbox>
+                    </Grid>
+                </DataTemplate>
+            </controls:SpatialNavigationListView.ItemTemplate>
+        </controls:SpatialNavigationListView>
+
+        <Button
+            x:Name="CloseApplicationButton"
+            Command="{x:Bind ViewModel.CloseApplicationCommand, Mode=OneWay}"
+            ToolTipService.ToolTip="Close all windows of this application"
+            HorizontalAlignment="Right"
+            VerticalAlignment="Top"
+            Margin="0"
+            Visibility="{x:Bind ViewModel.IsCloseApplicationButtonVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}"
+        >
+            <!-- TODO(icon): originally a hand-drawn Path glyph matching CaptionButtons.xaml's
+                 native close-button X (WinTabber.UI.Common/Chrome/CaptionButtons.xaml,
+                 not ported -- the whole Chrome folder is deleted per the design spec). A real
+                 FontIcon "Dismiss" glyph is a closer match than a placeholder; not deferred to
+                 Phase 6 since this one has an obvious correct answer already (Segoe Fluent
+                 Dismiss, U+E711) rather than needing a real icon-mapping decision. -->
+            <FontIcon Glyph="&#xE711;" />
+        </Button>
+    </Grid>
+</winuiex:WindowEx>
+```
+
+Two things in the draft above are placeholders for the implementer to resolve, not
+fabricated final answers: (a) the `MaxWidth="{x:Bind (double)0, Mode=OneWay}"` line is
+a deliberately-broken placeholder marking where the WPF original's
+`Grid.Style`/`Style.Triggers` `DataTrigger`-based `IsSuspended`/`IsThumbnailed` dimming
+needs a real `x:Bind`+converter treatment (Task 3.4's `ConflictIcon` established the
+pattern; a new `DimIfTrueConverter` reading either `IsSuspended` or `IsThumbnailed` and
+returning `0.4`/`1.0` opacity is the natural shape, but WinUI 3's `Grid.Opacity` cannot
+bind to two independent source properties the way a WPF `Style.Triggers` block with two
+`DataTrigger`s could without a real multi-value solution — `{x:Bind}` has no
+`MultiBinding` equivalent, so this needs either two separate bindings ANDed via a
+converter reading the whole `WindowItem` (bind `Opacity` to the item itself with a
+converter checking both flags) or a computed `bool IsDimmed` property added to
+`WindowItem` combining both — **decide which, against real compiler output, before
+finalizing this task**, this is the one design point in the whole phase intentionally
+left for the implementer since it needs a `WindowItem`-level decision this research
+pass should not make unilaterally on a shared ViewModel type without more context on
+whether `IsDimmed` belongs there); (b) `PointerPressed="OnTileGridPointerPressed"`
+needs the exact click-to-select-and-close logic from the WPF original's `Grid_MouseUp`
+(ported in Step 2 below).
+
+Confirm `winui3/WinTabber.UI.Common`'s `ValueConvertersResources.xaml` merge scope
+(App-wide, or does this file need its own explicit `Grid.Resources` merge, the way
+`SettingsWindow.xaml` needed one for `ShortcutsSettingsPage`'s `ms-appx:///` merge) —
+this XAML draft's `xmlns:c` inline-namespace approach for `BoolToVisibilityConverter`
+avoids the question entirely by declaring the converter directly rather than merging a
+dictionary; keep this approach unless a future task establishes a cleaner app-wide
+merge story.
+
+- [ ] **Step 2: Port `WindowSelectorWindow.xaml.cs`**
+
+```csharp
+// winui3/WinTabberUI/Views/WindowSelectorWindow.xaml.cs
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Windows.Foundation;
+using Windows.System;
+using WinTabber.ViewModels;
+using WinTabberUI.Windowing;
+using WinUIEx;
+
+namespace WinTabberUI.Views;
+
+public sealed partial class WindowSelectorWindow : WindowEx
+{
+    private readonly nint _hwnd;
+    private Rect? _screenBounds;
+    private bool _parked;
+    private int _framesBeforeReveal;
+
+    public WindowSelectorViewModel ViewModel { get; }
+
+    public WindowSelectorWindow(WindowSelectorViewModel viewModel)
+    {
+        ViewModel = viewModel;
+        InitializeComponent();
+
+        SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
+        _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
+
+        RootGrid.SizeChanged += (_, _) => CenterWindow();
+        Activated += (_, _) => { ScaleTiles(); CenterWindow(); };
+        Closed += (_, _) => DisarmReveal();
+    }
+
+    /// <summary>
+    /// Frames still to be composed before revealing. Two rather than one because
+    /// CompositionTarget.Rendering is raised while a frame is still being built, not after it has
+    /// been presented -- ported from the WPF original's identical comment; this plan confirmed
+    /// Microsoft.UI.Xaml.Media.CompositionTarget.Rendering exists with the identical shape via a
+    /// real compile, but its runtime timing semantics (does it fire mid-composition here too, or
+    /// does the WinUI 3 compositor make this unnecessary) still needs live verification -- see the
+    /// self-review note below.
+    /// </summary>
+    private void ArmReveal()
+    {
+        _parked = true;
+        _framesBeforeReveal = 2;
+        Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= RevealWhenComposed;
+        Microsoft.UI.Xaml.Media.CompositionTarget.Rendering += RevealWhenComposed;
+
+        // TODO(verify): WPF's fallback here was Dispatcher.BeginInvoke(DispatcherPriority.Render, RevealNow) --
+        // a safety net in case Rendering never fires for this open. Confirm DispatcherQueue's
+        // priority enum has an equivalent "after layout/render, before input" priority
+        // (Microsoft.UI.Dispatching.DispatcherQueuePriority has High/Normal/Low, not WPF's
+        // fine-grained Render-specific priority) before deciding whether this fallback still needs
+        // a post at all, or whether WinUI 3's compositor makes the original flicker this guards
+        // against structurally impossible (its stale-frame problem was specific to WPF's render
+        // thread reusing a Window's surface across Show/Hide; confirm whether a WinUI 3 Window's
+        // Show/Hide has the same surface-reuse behavior before assuming the fallback is still
+        // needed at all).
+    }
+
+    private void DisarmReveal()
+    {
+        _parked = false;
+        _framesBeforeReveal = 0;
+        Microsoft.UI.Xaml.Media.CompositionTarget.Rendering -= RevealWhenComposed;
+    }
+
+    private void RevealWhenComposed(object? sender, object e)
+    {
+        if (--_framesBeforeReveal > 0)
+        {
+            return;
+        }
+
+        RevealNow();
+    }
+
+    private void RevealNow()
+    {
+        if (!_parked)
+        {
+            return;
+        }
+
+        DisarmReveal();
+        CenterWindow();
+    }
+
+    private const double FillPercent = 0.8;
+
+    private void ScaleTiles()
+    {
+        // TODO(verify): WindowTileWidth/ScaleFactor read from WinTabber.ViewModels' SettingsViewModel
+        // via the same ApplicationSettings singleton Task 4b.1's DI graph already provides -- confirm
+        // the exact property path (this draft assumes AppearanceSettings.WindowTileWidth/ScaleFactor,
+        // matching the WPF original's `_settings.Appearance.*`) against the real registered
+        // ApplicationSettings type before finalizing.
+    }
+
+    private Rect GetScreenBounds()
+    {
+        if (_screenBounds is { } cached)
+        {
+            return cached;
+        }
+
+        var cursorScreenBounds = ViewModel.CursorScreen.Bounds;
+        var rect = DesktopHelper.ToLogicalBounds(_hwnd, new System.Drawing.Rectangle(
+            cursorScreenBounds.X, cursorScreenBounds.Y, cursorScreenBounds.Width, cursorScreenBounds.Height));
+        var logical = new Rect(rect.X, rect.Y, rect.Width, rect.Height);
+
+        _screenBounds = logical;
+        return logical;
+    }
+
+    private void ApplyScreenBounds()
+    {
+        var bounds = GetScreenBounds();
+        MaxHeight = bounds.Height * FillPercent;
+        MaxWidth = bounds.Width * FillPercent;
+    }
+
+    private void CenterWindow()
+    {
+        if (_parked)
+        {
+            return;
+        }
+
+        var bounds = GetScreenBounds();
+        var scale = DesktopHelper.GetScaleForWindow(_hwnd);
+        var x = bounds.Left + (bounds.Width - Bounds.Width) / 2;
+        var y = bounds.Top + (bounds.Height - Bounds.Height) / 2;
+
+        AppWindow.Move(new Windows.Graphics.PointInt32((int)(x * scale), (int)(y * scale)));
+    }
+
+    public void ShowWindowSelector()
+    {
+        _screenBounds = null;
+        var bounds = GetScreenBounds();
+
+        ScaleTiles();
+        ApplyScreenBounds();
+
+        TabListView.SuppressHoverUntilPointerMoves();
+
+        var scale = DesktopHelper.GetScaleForWindow(_hwnd);
+        AppWindow.Move(new Windows.Graphics.PointInt32(
+            (int)(bounds.Left * scale), (int)((bounds.Top - bounds.Height) * scale)));
+
+        ArmReveal();
+        Activate();
+        TabListView.Focus(FocusState.Programmatic);
+    }
+
+    public void SwitchWindowAndClose()
+    {
+        if (ViewModel.SelectedIndex >= 0 && ViewModel.SelectedIndex < ViewModel.WindowItems.Length)
+        {
+            ViewModel.SelectedItem?.WindowRef.Activate();
+        }
+
+        ViewModel.EndPreview();
+        ViewModel.NotifySwitcherClosed();
+        this.Hide();
+    }
+
+    private void OnTileGridPointerPressed(object sender, PointerRoutedEventArgs e)
+    {
+        if (IsUnderEditableTextBlock(e.OriginalSource as DependencyObject))
+        {
+            return;
+        }
+
+        if (sender is FrameworkElement { DataContext: WindowItem clicked })
+        {
+            ViewModel.SelectedItem = clicked;
+        }
+
+        SwitchWindowAndClose();
+    }
+
+    private static bool IsUnderEditableTextBlock(DependencyObject? node)
+    {
+        while (node is not null)
+        {
+            if (node is EditableTextBlock)
+            {
+                return true;
+            }
+
+            node = VisualTreeHelper.GetParent(node);
+        }
+
+        return false;
+    }
+
+    protected override void OnKeyDown(KeyRoutedEventArgs e)
+    {
+        base.OnKeyDown(e);
+
+        switch (e.Key)
+        {
+            case VirtualKey.Enter:
+                e.Handled = true;
+                ViewModel.CommitSelection();
+                this.Hide();
+                return;
+            case VirtualKey.Escape:
+                e.Handled = true;
+                ViewModel.CancelSelection();
+                this.Hide();
+                return;
+        }
+    }
+}
+```
+
+Several real gaps left as explicit `TODO(verify)` markers above, per this task's own
+draft status — resolve each against real compiler/runtime output, not assumption,
+before this task is done:
+
+1. **`RevealWhenComposed`'s event-arg type** — WPF's `CompositionTarget.Rendering` is
+   `EventHandler`; confirm whether WinUI 3's is the same delegate shape or something
+   else (the draft above uses `object e` defensively; fix to the real type once known).
+2. **The `Dispatcher.BeginInvoke(DispatcherPriority.Render, ...)` fallback's WinUI 3
+   equivalent**, and whether WinUI 3's Window reuse even needs it (see the inline note).
+3. **`ScaleTiles`'s exact settings property path.**
+4. **The `OnKeyDown` "editor has focus, don't intercept" guard** — the WPF original
+   checked `Keyboard.FocusedElement is TextBox` before committing/cancelling via
+   Enter/Escape, so a rename-in-progress doesn't get swallowed by the switcher's own
+   handler. `WindowEx`/`Window`-level `OnKeyDown` needs the WinUI 3 equivalent focus
+   check (`FocusManager.GetFocusedElement(this.Content.XamlRoot) is TextBox`, or
+   similar) before this task is done — dropping it silently would reintroduce the
+   exact bug class `EditableTextBlock`'s `KeyDown` handler (Task 4b.2) already
+   handles at its own level, but the window-level guard still matters if focus
+   somehow isn't on the `TextBox` itself.
+5. **The dimming converter/`WindowItem.IsDimmed` design decision** (Step 1's note).
+6. **`WindowRef.Activate()`'s exact call shape** — confirm against the real
+   `WinTabber.Api.Windowing.WindowRef` type (already WPF-free, used elsewhere in this
+   migration) rather than assumed from the WPF original's `.Activate()` call.
+
+Given how many of the WPF original's own comments document already-fixed timing bugs
+from real user-facing symptoms (the selection "jump" `HoverSelect` exists to prevent,
+the tile-reshuffle flicker `ArmReveal` exists to prevent), **expect this task to need
+at least one fix round found via real execution**, the same as Tasks 4a.3/4a.4 — do not
+treat a clean build as sufficient evidence this window behaves correctly.
+
+- [ ] **Step 3: Register the window in DI**
+
+```csharp
+// winui3/WinTabberUI/Bootstrapper.cs — add to AddWindowSelectorGraph (Task 4b.1)
+.AddTransient<Views.WindowSelectorWindow>();
+```
+
+- [ ] **Step 4: Build and verify real UI Automation evidence**
+
+Run: `dotnet build WinTabber.slnx` — resolve every `TODO(verify)` above against real
+compiler output first. Then, following Task 4a.4/4a.5's established verification
+method (temporarily wire `App.xaml.cs` to launch `WindowSelectorWindow` and call
+`ShowWindowSelector()`, reverted before commit): confirm via UI Automation that (a)
+real window tiles render with real thumbnails and real titles for actual open windows
+on the system, (b) arrow-key navigation actually moves selection between tiles in the
+expected spatial direction, (c) hovering a tile after a genuine pointer move selects
+it, but the initial reveal does not spuriously select whatever tile happens to be
+under a stationary cursor (the exact bug `HoverSelect`/`SuppressHoverUntilPointerMoves`
+exists to prevent — this is the single most important behavior to verify live, since
+it has no compile-time signal at all if the redesign is wrong), (d) Enter/Escape
+commit/cancel and close the window, (e) no stale-frame flicker is visible across at
+least two consecutive opens (the `ArmReveal` hack's whole reason to exist) — if this
+cannot be observed reliably via UI Automation alone, screenshot evidence across two
+opens is the fallback, matching Task 4a.4's `PrintWindow`-based verification method.
+
+- [ ] **Step 5: Commit**
+
+```bash
+git add winui3/WinTabberUI/Views/WindowSelectorWindow.xaml winui3/WinTabberUI/Views/WindowSelectorWindow.xaml.cs \
+  winui3/WinTabberUI/Bootstrapper.cs
+git commit -m "feat: port WindowSelectorWindow to WinUI3
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+---
+
+## Phase 4c onward — scope note
+
+`WindowSelectorWindow` (Phase 4b) was the last of the three windows this plan's
+original Phase 4 split identified as needing dedicated research passes beyond the
+mechanical Phase 4a pair. Two pieces of Phase 4's original scope remain, in the order
+the original Phase 4 note recommended:
+
+- **`ThumbnailWindow`** — blocked on researching WinUI 3's `WM_NCHITTEST`/`WM_SIZING`
+  subclassing mechanism (`SetWindowSubclass`/`SetWindowLongPtr(GWLP_WNDPROC)`,
+  real and documented, but CsWin32 metadata coverage for it was never checked in this
+  plan) for the hand-tuned resize-grab hit-testing WPF's `HwndSource.AddHook` gave it.
+  Not otherwise blocked — `WindowThumbnail` itself (this window's core control) is
+  already ported and proven (Task 4a.3/4a.4).
+- **`MediaControlsWindow`** — not yet read at all. Flagged early in this migration's
+  design spec as large and complex; should not be assumed simpler than
+  `WindowSelectorWindow` turned out to be just because it hasn't been opened. This is
+  also where the temporary `StubMediaControlsStateService` (Task 4b.1) gets replaced
+  with the real, ported `MediaControlsStateService` — read that stub's doc comment
+  first when starting this window's research.
+
+Also still open, carried forward unchanged from Phase 4a's final review (I3 show-path
+timing, M8 `Bootstrapper` grouping naming) — neither was exercised by Phase 4b either,
+since `WindowSelectorWindow` uses `ShowActivated`-equivalent activation like
+`DockWindow`, not a non-activating show path, and `Bootstrapper.cs` has now grown a
+fourth `Add*Graph` method (`AddWindowSelectorGraph`) without resolving the grouping
+question M8 raised — worth settling before a fifth window adds a fifth arbitrary group.
+
+The deferred hint-overlay system (Phase 2c) remains untouched and unresearched since
+its own scope note.
