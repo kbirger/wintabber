@@ -5,6 +5,7 @@ using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Events;
 using WinTabber.Events.Shortcuts;
 using WinTabber.Interop;
+using WinTabber.UI.Media.Services;
 using WinTabberUI.Models.Settings;
 using WinTabber.ViewModels;
 using WinTabberUI.Services;
@@ -19,6 +20,7 @@ public static class Bootstrapper
             .AddCoreServices()
             .AddSettingsGraph()
             .AddDockAndSuspendedWindowsGraph()
+            .AddWindowSelectorGraph()
             .BuildServiceProvider();
     }
 
@@ -74,5 +76,15 @@ public static class Bootstrapper
             // fixed for DockWindow; fixed here for SuspendedWindowsWindow before it ships.
             .AddTransient<DockWindow>()
             .AddTransient<SuspendedWindowsWindow>();
+    }
+
+    private static IServiceCollection AddWindowSelectorGraph(this IServiceCollection services)
+    {
+        return services
+            .AddSingleton<IActiveWindowStateService, ActiveWindowStateService>()
+            .AddSingleton<IMediaControlsStateService, StubMediaControlsStateService>()
+            .AddSingleton<ApplicationStateViewModelFactory>()
+            .AddSingleton(sp => sp.GetRequiredService<ApplicationStateViewModelFactory>().CreateApplicationStateViewModel())
+            .AddSingleton<WindowSelectorViewModel>();
     }
 }
