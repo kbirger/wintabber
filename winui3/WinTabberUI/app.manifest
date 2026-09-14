@@ -3,6 +3,17 @@
   <application xmlns="urn:schemas-microsoft-com:asm.v3">
     <windowsSettings>
       <activeCodePage xmlns="http://schemas.microsoft.com/SMI/2019/WindowsSettings">UTF-8</activeCodePage>
+      <!--
+        Without an explicit DPI-awareness declaration, Windows treats an unpackaged app as
+        DPI-unaware by default: it renders the window at 96 DPI and lets DWM bitmap-stretch the
+        result to match the real display scale. That stretching is what makes text look blurry,
+        and it also degrades System Backdrop (Mica/Acrylic) compositing, since DWM is scaling an
+        already-rendered bitmap instead of the app drawing natively at the display's real scale.
+        PerMonitorV2 is the mode every WinUI 3 project template declares by default; dpiAware is
+        the older fallback key some Windows versions still read instead of dpiAwareness.
+      -->
+      <dpiAware xmlns="http://schemas.microsoft.com/SMI/2005/WindowsSettings">true/pm</dpiAware>
+      <dpiAwareness xmlns="http://schemas.microsoft.com/SMI/2016/WindowsSettings">PerMonitorV2</dpiAwareness>
     </windowsSettings>
   </application>
   <compatibility xmlns="urn:schemas-microsoft-com:compatibility.v1">

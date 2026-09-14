@@ -34,6 +34,14 @@ public sealed class SettingsPageTemplateSelector : DataTemplateSelector
     private DataTemplate SelectTemplateFor(object item) =>
         item switch
         {
+            // ContentPresenter probes the selector with a null item at least once during initial
+            // layout, before ContentControl.Content's own x:Bind has evaluated for the first time
+            // (confirmed live: SettingsViewModel.SelectedView is set to General in its constructor
+            // and is never null afterward, so this is a WinUI 3 template-resolution quirk, not a
+            // real app-level null state). Returning null here is the standard, documented response
+            // -- ContentPresenter treats it as "no template yet" and simply waits for the next
+            // SelectTemplateCore call once real content arrives, rather than throwing.
+            null => null!,
             AppearanceSettingsViewModel => AppearanceTemplate,
             GeneralSettingsViewModel => GeneralTemplate,
             ShortcutsSettingsViewModel => ShortcutsTemplate,
