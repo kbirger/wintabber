@@ -279,16 +279,20 @@ public class WindowThumbnail : FrameworkElement
             return new Size(0, 0);
         }
 
-        // Real crash found via WindowSelectorWindow's live verification (Task 4b.4): CsWin32's
-        // DwmQueryThumbnailSourceSize throws on a failing HRESULT (unlike this file's other DWM
-        // calls, which check an explicit int/bool return), and this call was previously unguarded --
-        // an unhandled COMException (E_FAIL, 0x80004005) out of this layout callback took the whole
-        // app down. Reproduced with a real DwmRegisterThumbnail-registered thumbnail under a *locked*
-        // Windows session specifically; not confirmed whether the same call can fail this way on an
-        // unlocked desktop (DWM composition/thumbnail support may simply be degraded while locked),
-        // but a layout callback throwing an unhandled exception is a real robustness gap either way --
-        // treating a transient DWM failure as "no size available" rather than crashing is a defensive
-        // fix regardless of how reproducible the specific trigger turns out to be on a normal desktop.
+        // Defensive hardening added during WindowSelectorWindow's live verification (Task 4b.4), NOT
+        // a confirmed fix for a specific observed crash: CsWin32's DwmQueryThumbnailSourceSize throws
+        // on a failing HRESULT (unlike this file's other DWM calls, which check an explicit int/bool
+        // return), and this call was previously unguarded. A COMException (E_FAIL, 0x80004005) WAS
+        // observed live, from a FrameworkElement's MeasureOverride, under a locked Windows session --
+        // but the captured stack trace does not actually show a WindowThumbnail.MeasureOverride frame
+        // (it shows the *base* Microsoft.UI.Xaml.FrameworkElement.MeasureOverride delegating straight
+        // to native code and failing there), so that specific crash was NOT conclusively attributed to
+        // this call -- it most likely originates in a different FrameworkElement in the same tree
+        // (EditableTextBlock or SpatialNavigationListView are the candidates that don't override
+        // Measure themselves) or in native/compositor code triggered by the locked session, not here.
+        // The guard below is kept anyway on its own merits: an unguarded call that can throw an
+        // unhandled COMException out of a layout callback is a real robustness gap regardless of
+        // whether it explains the one crash that was actually observed.
         try
         {
             PInvoke.DwmQueryThumbnailSourceSize(_thumb, out var size);
@@ -310,7 +314,8 @@ public class WindowThumbnail : FrameworkElement
             return finalSize;
         }
 
-        // See MeasureOverride's comment above for why this is guarded the same way.
+        // Defensive hardening, matching MeasureOverride's guard above -- see that comment for why
+        // this is NOT a confirmed fix for the one crash actually observed live.
         try
         {
             PInvoke.DwmQueryThumbnailSourceSize(_thumb, out var size);

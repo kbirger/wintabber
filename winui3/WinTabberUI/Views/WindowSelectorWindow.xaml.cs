@@ -66,13 +66,14 @@ public sealed partial class WindowSelectorWindow : WindowEx
         // REAL BUG found via live verification (Task 4b.4), not in the brief's draft at all: without
         // this, WindowThumbnail.TargetWindow is never set for any tile, so InitialiseThumbnail's
         // `TargetWindow is { } window` guard is always false and DwmRegisterThumbnail never runs --
-        // thumbnails would silently never appear. Worse, it also produced a real crash during this
-        // task's live testing: a COMException (E_FAIL) out of WindowThumbnail.MeasureOverride's
-        // DwmQueryThumbnailSourceSize call, surfaced only once containers were actually realized under
-        // repeated ItemsSource churn. Ported from DockWindow.xaml.cs's identical wiring/rationale
-        // (FindName does not resolve a DataTemplate's realized content as a name scope in WinUI 3, so a
-        // VisualTreeHelper walk for the first WindowThumbnail descendant is used instead of the brief's
-        // unstated assumption that Source alone would be enough).
+        // thumbnails would silently never appear. Ported from DockWindow.xaml.cs's identical
+        // wiring/rationale (FindName does not resolve a DataTemplate's realized content as a name
+        // scope in WinUI 3, so a VisualTreeHelper walk for the first WindowThumbnail descendant is
+        // used instead of the brief's unstated assumption that Source alone would be enough).
+        // NOTE: a separate COMException was also observed live during this task's verification, from
+        // a FrameworkElement's MeasureOverride, but the captured stack trace does not show this being
+        // WindowThumbnail's own override -- see WindowThumbnail.cs's MeasureOverride comment. That
+        // crash's origin is NOT attributed to this wiring gap and remains otherwise unexplained.
         TabListView.ContainerContentChanging += (_, args) =>
         {
             if (args.ItemContainer.ContentTemplateRoot is FrameworkElement root
