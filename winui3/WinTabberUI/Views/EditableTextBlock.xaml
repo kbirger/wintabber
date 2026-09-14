@@ -1,0 +1,108 @@
+<!-- winui3/WinTabberUI/Views/EditableTextBlock.xaml -->
+<local:EditableTextBlockBase
+    x:Class="WinTabberUI.Views.EditableTextBlock"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WinTabberUI.Views"
+    xmlns:c="using:WinTabber.UI.Common.ValueConverters"
+    IsTabStop="False"
+>
+    <!--
+        Deviations from the brief (see task-4b.2-report.md for the full list):
+        - Focusable="False" (the brief's literal sample) is a WPF-only property with no WinUI 3
+          equivalent — UIElement has no Focusable member there. Replaced with IsTabStop="False",
+          the nearest WinUI 3 equivalent, or this file would not compile.
+        - This file declares its converters locally (InverseBoolConverter, BoolToVisibilityConverter,
+          InverseBoolToVisibilityConverter, BoolToThicknessConverter, and a configured
+          BorderBrushConverter instance) rather than merging WinTabber.UI.Common's
+          ValueConvertersResources.xaml by ms-appx Source, per ShortcutsSettingsPage.xaml's actual
+          precedent (it merges Generic.xaml for styles but declares c:BoolToVisibilityConverter
+          inline) — nothing in this tree merges ValueConvertersResources.xaml by Source, and that
+          dictionary carries an x:Class (meant to be instantiated, not merged), so local declaration
+          is the proven-safe path.
+        - Border.Background (bound to IsMouseOver in WPF) and Border.BorderThickness (bound to
+          IsEditing in WPF, via BoolToThicknessConverter) were both silently absent from the brief's
+          Step 2 code sample, even though the brief's own "Real conversions" item 1 explicitly
+          requires the Background/IsPointerOver conversion. Restored both: Background binds to the
+          code-behind IsPointerOver property (toggled by PointerEntered/PointerExited, per item 1)
+          through a locally configured BoolToBrushConverter matching the WPF original's
+          EditableTextBlockResources.xaml colors (EditBrush=#ff666666, ViewBrush=Transparent — the
+          shared ValueConvertersResources.xaml's keyed BoolToBrushConverter uses the class's White
+          default, which would have been visibly wrong here). BorderThickness binds to
+          ViewModel.IsEditing via BoolToThicknessConverter, same as the WPF original.
+    -->
+    <local:EditableTextBlockBase.Resources>
+        <c:InverseBoolConverter x:Key="InverseBoolConverter" />
+        <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+        <c:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
+        <c:BoolToThicknessConverter x:Key="BoolToThicknessConverter" />
+        <c:BoolToBrushConverter x:Key="BorderBrushConverter" EditBrush="#ff666666" ViewBrush="Transparent" />
+    </local:EditableTextBlockBase.Resources>
+
+    <Border
+        x:Name="BorderContainer"
+        CornerRadius="4"
+        Background="{x:Bind IsPointerOver, Mode=OneWay, Converter={StaticResource BorderBrushConverter}}"
+        BorderThickness="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource BoolToThicknessConverter}}"
+        BorderBrush="Gray"
+        PointerEntered="OnPointerEnteredRoot"
+        PointerExited="OnPointerExitedRoot"
+    >
+        <Grid Margin="2">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <TextBox
+                x:Name="TitleTextBox"
+                Text="{x:Bind ViewModel.Title, Mode=TwoWay}"
+                BorderThickness="0"
+                Foreground="White"
+                Background="Transparent"
+                IsReadOnly="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource InverseBoolConverter}}"
+                VerticalAlignment="Center"
+                VerticalContentAlignment="Center"
+                MinHeight="0"
+                Padding="2"
+                TextChanged="OnTitleTextBoxTextChanged"
+                KeyDown="OnTitleTextBoxKeyDown"
+            />
+
+            <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
+                <Button
+                    x:Name="SuspendButton"
+                    Command="{x:Bind ViewModel.SuspendCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="Sleep this process"
+                    Visibility="{x:Bind ViewModel.IsSuspendButtonVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <!-- TODO(icon): originally FontAwesome.Sharp Moon -->
+                    <FontIcon Glyph="&#xE897;" />
+                </Button>
+                <Button
+                    x:Name="ThumbnailButton"
+                    Command="{x:Bind ViewModel.ThumbnailCommand, Mode=OneWay}"
+                    ToolTipService.ToolTip="Show as floating thumbnail"
+                    Visibility="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
+                    <!-- TODO(icon): originally FontAwesome.Sharp ExternalLinkAlt -->
+                    <FontIcon Glyph="&#xE897;" />
+                </Button>
+                <Button
+                    x:Name="AcceptButton"
+                    Command="{x:Bind ViewModel.SaveTitleCommand, Mode=OneWay}"
+                    CommandParameter="{x:Bind ViewModel.Title, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <!-- TODO(icon): originally FontAwesome.Sharp Check -->
+                    <FontIcon Glyph="&#xE897;" />
+                </Button>
+                <Button
+                    x:Name="CancelButton"
+                    Command="{x:Bind ViewModel.CancelEditTitleCommand, Mode=OneWay}"
+                    Visibility="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
+                    <!-- TODO(icon): originally FontAwesome.Sharp Ban -->
+                    <FontIcon Glyph="&#xE897;" />
+                </Button>
+            </StackPanel>
+        </Grid>
+    </Border>
+</local:EditableTextBlockBase>
