@@ -5,8 +5,8 @@ using System.Windows.Controls;
 using System.Windows.Input;
 using System.Windows.Media;
 using WinTabberUI.Behaviors;
-using WinTabberUI.Models;
 using WinTabber.ViewModels;
+using WinTabber.ViewModels.Models;
 
 namespace WinTabberUI.Controls;
 
@@ -146,7 +146,7 @@ public class SpatialNavigationListView : ListView
         {
             Container = container,
             WindowItem = item,
-            Location = location,
+            Location = new TilePoint(location.X, location.Y),
             IsSelected = index == SelectedIndex,
             Index = index
         };

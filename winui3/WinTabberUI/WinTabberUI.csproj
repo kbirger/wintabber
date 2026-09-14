@@ -29,6 +29,7 @@
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
         <PackageReference Include="ReactiveUI" />
         <PackageReference Include="ReactiveUI.WinUI" />
+        <PackageReference Include="CommunityToolkit.WinUI.Controls.Primitives" />
     </ItemGroup>
 
     <ItemGroup>
