@@ -21,6 +21,7 @@ public static class Bootstrapper
             .AddSettingsGraph()
             .AddDockAndSuspendedWindowsGraph()
             .AddWindowSelectorGraph()
+            .AddThumbnailWindowGraph()
             .BuildServiceProvider();
     }
 
@@ -90,5 +91,28 @@ public static class Bootstrapper
             // to every window since): a WinUI 3 Window can only be shown once, so the container must
             // hand back a fresh instance on every resolve rather than a disposed singleton.
             .AddTransient<Views.WindowSelectorWindow>();
+    }
+
+    // Settles the carried-forward M8 review item (Phase 4a's final review): this port groups DI
+    // registrations per window/feature area (AddSettingsGraph, AddDockAndSuspendedWindowsGraph,
+    // AddWindowSelectorGraph, this one), not per kind the way the WPF original's Bootstrapper does
+    // (AddCoordinators/AddStateServices/AddViewModels/AddViews, each spanning every window). Decision:
+    // keep the per-window grouping already established by three precedents rather than switch to
+    // per-kind now that a fourth window needs one -- it reads locally coherent (everything one window
+    // needs lives in one method) at the cost of the WPF layout's cross-window kind-grouping. Revisit
+    // only if a future window's DI graph turns out to overlap heavily with another's.
+    private static IServiceCollection AddThumbnailWindowGraph(this IServiceCollection services)
+    {
+        return services
+            .AddTransient<ThumbnailWindowViewModel>()
+            // Transient, same reasoning as every other Window registered above: a WinUI 3 Window can
+            // only be shown once, and this one is explicitly multi-instance (one per thumbnailed
+            // window) besides.
+            .AddTransient<Views.ThumbnailWindow>()
+            // Singleton, rooted explicitly in App.xaml.cs's OnLaunched (not left to incidental
+            // transitive resolution through whatever window happens to be shown first) -- its
+            // subscriptions must stay alive for the app's lifetime, the same requirement WPF's
+            // BackgroundServiceContainer existed to guarantee.
+            .AddSingleton<Coordinators.ThumbnailWindowCoordinator>();
     }
 }
