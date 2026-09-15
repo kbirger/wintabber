@@ -1,4 +1,5 @@
 // winui3/WinTabberUI/Views/WindowSelectorWindow.xaml.cs
+using System.Collections.Generic;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
@@ -20,9 +21,10 @@ namespace WinTabberUI.Views;
 //      is not a Microsoft.UI.Xaml.FrameworkElement (confirmed via real compiler output: CS1503 "cannot
 //      convert from 'WinTabberUI.Views.WindowSelectorWindow' to 'Microsoft.UI.Xaml.FrameworkElement'").
 //      Every converter-carrying binding in WindowSelectorWindow.xaml therefore uses classic {Binding}
-//      instead (DataContext resolved via RootGrid.DataContext set below, or via ElementName for the
-//      DataTemplate-scoped tile sizing -- see TileSize's doc comment). x:Bind without a converter is
-//      unaffected and used throughout.
+//      instead (DataContext resolved via RootGrid.DataContext set below). x:Bind without a converter
+//      is unaffected and used throughout. NOTE: a classic {Binding ElementName=..., Path=(attached
+//      property)} was also tried for per-tile MaxWidth/MaxHeight and found to crash the process
+//      natively (see ScaleTiles' doc comment) -- that path is no longer used in this file at all.
 //   2. A large multi-line XML comment placed directly before the root Grid element in this file's XAML
 //      reproducibly made XamlCompiler.exe exit 1 with zero output on both stdout/stderr and in
 //      output.json's MSBuildLogEntries -- the same "no diagnostic at all" pass2 crash class
@@ -63,50 +65,161 @@ public sealed partial class WindowSelectorWindow : WindowEx
         // visual tree from RootGrid, exactly like it does in WPF/UWP.
         RootGrid.DataContext = ViewModel;
 
-        // REAL BUG found via live verification (Task 4b.4), not in the brief's draft at all: without
-        // this, WindowThumbnail.TargetWindow is never set for any tile, so InitialiseThumbnail's
-        // `TargetWindow is { } window` guard is always false and DwmRegisterThumbnail never runs --
-        // thumbnails would silently never appear. Ported from DockWindow.xaml.cs's identical
-        // wiring/rationale (FindName does not resolve a DataTemplate's realized content as a name
-        // scope in WinUI 3, so a VisualTreeHelper walk for the first WindowThumbnail descendant is
-        // used instead of the brief's unstated assumption that Source alone would be enough).
-        // NOTE: a separate COMException was also observed live during this task's verification, from
-        // a FrameworkElement's MeasureOverride, but the captured stack trace does not show this being
-        // WindowThumbnail's own override -- see WindowThumbnail.cs's MeasureOverride comment. That
-        // crash's origin is NOT attributed to this wiring gap and remains otherwise unexplained.
-        TabListView.ContainerContentChanging += (_, args) =>
+        // REAL BUG found via live verification (Task 4b.4, and this follow-up): without wiring each
+        // tile's WindowThumbnail.TargetWindow, InitialiseThumbnail's `TargetWindow is { } window`
+        // guard is always false and DwmRegisterThumbnail never runs -- thumbnails silently never
+        // appear. The brief's original approach (Ported from DockWindow.xaml.cs) used
+        // ListView.ContainerContentChanging for this. CONFIRMED VIA LIVE VERIFICATION THAT DOES NOT
+        // WORK HERE: ContainerContentChanging simply never fires at all when the ItemsPanel is
+        // CommunityToolkit.WinUI.Controls.WrapPanel -- that event is only raised by the built-in
+        // virtualizing panels (ItemsStackPanel/ItemsWrapGrid); a third-party non-virtualizing panel
+        // never generates the notification. Fixed by walking TabListView's realized visual tree
+        // directly instead, from RootGrid.SizeChanged. A non-virtualizing panel realizes every item's
+        // container eagerly, so a full-tree walk finds every tile in one pass; the per-tile calls are
+        // idempotent (safe to repeat on every layout).
+        //
+        // NOTE: RootGrid.SizeChanged only fires when RootGrid's own outer bounds change, NOT on every
+        // ItemsSource content swap (a WindowItems reassignment with the same overall tile count/layout
+        // does not necessarily resize RootGrid) -- confirmed live, see the ViewModel.PropertyChanged
+        // subscription below, which is what actually catches that case.
+        RootGrid.SizeChanged += (_, _) =>
         {
-            if (args.ItemContainer.ContentTemplateRoot is FrameworkElement root
-                && FindWindowThumbnail(root) is { } thumbnail)
+            WireRealizedTiles();
+            CenterWindow();
+            TryFocusTabList();
+        };
+        // REAL BUG found via live verification (this task's own fourth follow-up): thumbnails
+        // flashed once on a real focus switch and never came back (a regression from the earlier
+        // flash-then-reappear symptom). Root cause: this handler ignored
+        // WindowActivatedEventArgs.WindowActivationState, so it ran on DEACTIVATION too (WinUI 3's
+        // Window.Activated fires for both gaining and losing activation, unlike WPF's separate
+        // OnActivated/OnDeactivated overrides -- the WPF original's OnDeactivated is empty, which is
+        // exactly why this was never a problem there). CenterWindow() calls AppWindow.Move, so the
+        // instant the user clicked another window, the selector silently moved -- but nothing then
+        // forced a fresh LayoutUpdated pass for each WindowThumbnail, so DWM kept drawing each
+        // thumbnail's rcDestination at the pre-move screen position, which is exactly where the
+        // now-foreground window used to be. Fixed by ignoring the event when the window is losing
+        // (not gaining) activation.
+        Activated += (_, args) =>
+        {
+            if (args.WindowActivationState == WindowActivationState.Deactivated)
             {
-                thumbnail.TargetWindow = this;
+                return;
+            }
+            ScaleTiles();
+            CenterWindow();
+        };
+        Closed += (_, _) => DisarmReveal();
+
+        // REAL BUG found via live verification (this task's own follow-up): thumbnails went blank
+        // after switching focus to another window and only came back after clicking back into the
+        // selector. Root cause: WindowSelectorViewModel.WindowItems gets reassigned (a whole new
+        // array, new WindowItem/WindowThumbnail instances) whenever the foreground window changes
+        // while the selector is open, but nothing was re-running WireRealizedTiles for the newly
+        // realized containers -- RootGrid.SizeChanged only fires when RootGrid's own outer bounds
+        // change, not on every ItemsSource content swap.
+        // <para>
+        // REAL BUG found via a second round of live verification, under REAL (not locked-session)
+        // window-activation events: a single deferred WireRealizedTiles call could still run before
+        // the ListView had actually regenerated containers for the new array, finding nothing to
+        // wire -- confirmed live via a call-count log showing a 4+ second gap between a real
+        // WindowItems change and the eventual successful wiring, with nothing retrying in between.
+        // An earlier attempt to paper over this with an unconditional 200ms-forever timer was wrong
+        // for a different reason (that testing session's session was locked, and the churn driving
+        // it was lock-screen UI noise, not real activity -- verified via a live GetForegroundWindow
+        // poll before and after unlocking). The real, remaining gap is retry timing, not event
+        // frequency: RetryUntil below is bounded and stops as soon as every currently known
+        // WindowItem's tile is wired, rather than running forever.
+        // </para>
+        ViewModel.PropertyChanged += (_, args) =>
+        {
+            if (args.PropertyName == nameof(WindowSelectorViewModel.WindowItems))
+            {
+                // REAL BUG found via live verification (this task's own third follow-up): 100ms
+                // steps converged (every WindowItems change eventually got wired, confirmed live),
+                // but slowly enough -- up to 1.5s across attempts -- to be visibly seen as the
+                // thumbnail flashing away and back on every real focus switch. 30ms is roughly two
+                // display frames; still bounded, just fast enough that the gap stops being visible.
+                RetryUntil(WireRealizedTiles, maxAttempts: 40, TimeSpan.FromMilliseconds(30));
             }
         };
-
-        RootGrid.SizeChanged += (_, _) => CenterWindow();
-        Activated += (_, _) => { ScaleTiles(); CenterWindow(); };
-        Closed += (_, _) => DisarmReveal();
     }
 
-    // See the ContainerContentChanging wiring above for why this walk is needed instead of FindName.
-    private static WinTabberUI.Controls.WindowThumbnail? FindWindowThumbnail(DependencyObject root)
+    // REAL BUG found via live verification (this task's own follow-up): thumbnails only appeared
+    // after clicking a tile, never on initial open. Root cause: WindowThumbnail's first
+    // LayoutUpdated pass (from its own Loaded handler) runs BEFORE this method gets a chance to set
+    // the tile's Width/Height, so it computes and commits a degenerate rcDestination against the
+    // still-unsized tile. Width/Height then get set correctly here, but that alone does not
+    // guarantee another LayoutUpdated notification fires for WindowThumbnail specifically -- a click
+    // happened to trigger one indirectly (selection visual-state change invalidates layout nearby).
+    // Fixed by explicitly invalidating each WindowThumbnail's own measure/arrange after its tile's
+    // size is set, forcing a fresh LayoutUpdated pass with the now-correct geometry, deterministically
+    // instead of by accident.
+    // <para>
+    // REAL BUG found via a second round of live verification: invalidating unconditionally on every
+    // call created a feedback loop -- RootGrid.SizeChanged fires this method, which invalidated every
+    // thumbnail regardless of whether anything about it had actually changed, which forced a new
+    // layout pass, which (via a WrapPanel relayout that transiently unloads/reloads the container)
+    // toggled WindowThumbnail's own Unloaded/Loaded, releasing and re-registering the DWM thumbnail
+    // over and over, tens of times per second -- confirmed live via a call-count/stack-trace log
+    // showing continuous ReleaseThumbnail/DwmRegisterThumbnail churn with no user action driving it.
+    // Fixed by only touching a thumbnail (setting TargetWindow and invalidating) the first time it is
+    // seen -- every later WireRealizedTiles call is now a no-op for tiles already wired, so the
+    // feedback loop cannot sustain itself. Same guard applied to ApplyTileSize so re-setting the
+    // identical Width/Height doesn't itself re-trigger a layout pass.
+    // </para>
+    /// <returns>
+    /// True once every realized tile currently in the tree has a wired thumbnail. Used by
+    /// <see cref="RetryUntil"/> to know when to stop retrying; a mismatch between this count and
+    /// <see cref="WindowSelectorViewModel.WindowItems"/>'s length just means containers for the
+    /// latest array have not been realized yet, not that anything is wrong.
+    /// </returns>
+    private bool WireRealizedTiles()
+    {
+        var realizedCount = 0;
+        var wiredCount = 0;
+
+        foreach (var tileGrid in FindDescendants<FrameworkElement>(TabListView, e => e.Name == "TileRootGrid"))
+        {
+            ApplyTileSize(tileGrid);
+
+            foreach (var thumbnail in FindDescendants<WinTabberUI.Controls.WindowThumbnail>(tileGrid))
+            {
+                realizedCount++;
+
+                if (thumbnail.TargetWindow is not null)
+                {
+                    wiredCount++;
+                    continue;
+                }
+
+                thumbnail.TargetWindow = this;
+                thumbnail.InvalidateMeasure();
+                thumbnail.InvalidateArrange();
+                wiredCount++;
+            }
+        }
+
+        return realizedCount > 0 && realizedCount == wiredCount && realizedCount == ViewModel.WindowItems.Length;
+    }
+
+    private static IEnumerable<T> FindDescendants<T>(DependencyObject root, System.Func<T, bool>? predicate = null)
+        where T : DependencyObject
     {
         var count = VisualTreeHelper.GetChildrenCount(root);
         for (var i = 0; i < count; i++)
         {
             var child = VisualTreeHelper.GetChild(root, i);
-            if (child is WinTabberUI.Controls.WindowThumbnail thumbnail)
+            if (child is T match && (predicate is null || predicate(match)))
             {
-                return thumbnail;
+                yield return match;
             }
 
-            if (FindWindowThumbnail(child) is { } found)
+            foreach (var descendant in FindDescendants<T>(child, predicate))
             {
-                return found;
+                yield return descendant;
             }
         }
-
-        return null;
     }
 
     /// <summary>
@@ -169,13 +282,30 @@ public sealed partial class WindowSelectorWindow : WindowEx
     /// RESOLVED (TODO(verify) item 3): WPF's WrapPanel had ItemWidth/ItemHeight for uniform tile
     /// sizing; CommunityToolkit.WinUI.Controls.WrapPanel has no such properties (confirmed -- its
     /// public surface is only Orientation/HorizontalSpacing/VerticalSpacing), so uniform sizing is
-    /// reproduced on the tile Grid itself via MaxWidth/MaxHeight, using the same
+    /// reproduced on the tile Grid itself, using the same
     /// `_settings.Appearance.WindowTileWidth * _settings.Appearance.ScaleFactor` formula and
     /// height-from-aspect-ratio calculation as the WPF original's ScaleTiles/MaxItemWidth/MaxItemHeight.
-    /// Pushed onto RootGrid via the TileSize attached properties below (see that class's doc comment
-    /// for why an ElementName binding to an attached property on RootGrid, rather than x:Bind against
-    /// the Window itself, which is not a DependencyObject/FrameworkElement Windows can even name-scope
-    /// bind to reliably here).
+    /// <para>
+    /// REAL BUG found via live verification (this task's own follow-up, not the brief's draft): the
+    /// brief's original design pushed this size onto RootGrid via a pair of TileSize attached
+    /// DependencyProperties, read by each tile's classic {Binding ElementName=RootGrid,
+    /// Path=(views:TileSize.MaxItemWidth)}. That binding crashes the process outright on the very
+    /// first layout pass -- not a catchable .NET exception, a native STATUS_STOWED_EXCEPTION
+    /// (0xC000027B) fast-fail inside Microsoft.UI.Xaml.dll, confirmed by bisection (removing just
+    /// those two MaxWidth/MaxHeight bindings, with no other change, made the crash stop). Classic
+    /// Binding's reflection-based resolution of a parenthesized attached-property Path segment is
+    /// evidently not a safe pattern against a WinUI 3 attached DependencyProperty in this SDK version.
+    /// Fixed by dropping TileSize/the attached-property indirection entirely and setting the size
+    /// directly on each realized tile's root Grid instead, via <see cref="WireRealizedTiles"/>'s
+    /// visual-tree walk below.
+    /// </para>
+    /// <para>
+    /// REAL BUG found via a further round of live verification: MaxWidth/MaxHeight alone do not force
+    /// a size, they only cap one -- an Auto+*-row Grid with no explicit Width/Height still sizes to
+    /// its Auto row's content only, so the tile's own MaxWidth/MaxHeight had no visible effect and the
+    /// title text overlapped the tile. Fixed by setting Width/Height directly (see
+    /// <see cref="ApplyTileSize"/>) instead of MaxWidth/MaxHeight.
+    /// </para>
     /// </summary>
     private void ScaleTiles()
     {
@@ -183,8 +313,38 @@ public sealed partial class WindowSelectorWindow : WindowEx
         var ratio = bounds.Width > 0 ? bounds.Height / bounds.Width : 1.0;
         var width = _settings.Appearance.WindowTileWidth * _settings.Appearance.ScaleFactor;
 
-        TileSize.SetMaxItemWidth(RootGrid, width);
-        TileSize.SetMaxItemHeight(RootGrid, 55 + width * ratio);
+        _tileMaxWidth = width;
+        _tileMaxHeight = 55 + width * ratio;
+
+        // Pushes the freshly computed size onto every already-realized tile (e.g. a settings
+        // change while the selector is open); newly realized tiles pick it up from
+        // RootGrid.SizeChanged's own WireRealizedTiles call above.
+        WireRealizedTiles();
+    }
+
+    private double _tileMaxWidth = 400.0;
+    private double _tileMaxHeight = 400.0;
+
+    // REAL BUG found via live verification (this task's own follow-up): MaxWidth/MaxHeight alone
+    // only cap a Grid's size, they do not force it -- with no explicit Width/Height, an
+    // Auto+*-row Grid still sizes itself to its Auto row's content only, so the *-row (the
+    // Viewbox/WindowThumbnail) collapsed to zero height and the title (the Auto row) rendered
+    // with no reserved space below it, which is what "thumbnails don't show, title overlaps the
+    // tile" looks like. WPF's WrapPanel.ItemWidth/ItemHeight forced every cell to an exact size;
+    // the equivalent here is setting Width/Height (not just MaxWidth/MaxHeight) on each tile.
+    private void ApplyTileSize(FrameworkElement tileGrid)
+    {
+        // Guard against reassigning the identical value -- see WireRealizedTiles' feedback-loop
+        // doc comment for why an unconditional set here matters, not just for saved cycles.
+        if (tileGrid.Width != _tileMaxWidth)
+        {
+            tileGrid.Width = _tileMaxWidth;
+        }
+
+        if (tileGrid.Height != _tileMaxHeight)
+        {
+            tileGrid.Height = _tileMaxHeight;
+        }
     }
 
     private Rect GetScreenBounds()
@@ -241,7 +401,68 @@ public sealed partial class WindowSelectorWindow : WindowEx
 
         ArmReveal();
         Activate();
-        TabListView.Focus(FocusState.Programmatic);
+
+        // REAL BUG found via live verification (this task's own follow-up): Alt+Arrow (and every
+        // other key) never reached any PreviewKeyDown handler at all, even though this window WAS
+        // the real Win32 foreground window (confirmed via GetForegroundWindow -- ruling out the
+        // "Alt+Arrow delivered as WM_SYSKEYDOWN, bypassing XAML input" theory this file's doc
+        // comments had flagged as the leading suspect). Root cause: TabListView.Focus(...) here
+        // returns false -- the container isn't focusable yet this early in Activate()'s call chain,
+        // most likely because its items/containers haven't been realized yet (a non-virtualizing
+        // WrapPanel still needs a layout pass to produce them). With no element in this XamlRoot
+        // ever gaining keyboard focus, WinUI 3 has nothing to route key input to, so PreviewKeyDown
+        // never tunnels through RootGrid at all. A single retry from RootGrid.SizeChanged still
+        // wasn't reliably enough (confirmed live: Alt+Arrow kept requiring a manual click even with
+        // that retry in place) -- SizeChanged's *first* firing can itself still be too early, before
+        // the WrapPanel has produced a genuinely focusable container. Retried instead on a short,
+        // explicitly bounded schedule (see RetryUntil) so it converges within a few frames of
+        // whenever the container actually becomes focusable, without polling indefinitely.
+        RetryUntil(TryFocusTabList, maxAttempts: 40, TimeSpan.FromMilliseconds(30));
+    }
+
+    /// <summary>
+    /// Retries <paramref name="attempt"/> on <paramref name="interval"/> until it returns true or
+    /// <paramref name="maxAttempts"/> is reached, then stops -- a bounded, self-terminating retry
+    /// for a known one-shot operation (this window's own initial realization, or reacting to one
+    /// WindowItems change), not an indefinite poll. See ShowWindowSelector's and the
+    /// WindowItems-changed handler's doc comments for why a single deferred attempt is not enough:
+    /// the WrapPanel's container realization after either this window's own first layout pass or an
+    /// ItemsSource content swap does not land on any one predictable event, confirmed live via call-
+    /// count logs showing single-attempt retries succeeding anywhere from immediately to several
+    /// seconds later.
+    /// </summary>
+    private void RetryUntil(Func<bool> attempt, int maxAttempts, TimeSpan interval)
+    {
+        if (attempt() || maxAttempts <= 0)
+        {
+            return;
+        }
+
+        var timer = DispatcherQueue.CreateTimer();
+        timer.Interval = interval;
+        var remaining = maxAttempts;
+        timer.Tick += (_, _) =>
+        {
+            remaining--;
+            if (attempt() || remaining <= 0)
+            {
+                timer.Stop();
+            }
+        };
+        timer.Start();
+    }
+
+    private bool _focusAcquired;
+
+    private bool TryFocusTabList()
+    {
+        if (_focusAcquired)
+        {
+            return true;
+        }
+
+        _focusAcquired = TabListView.Focus(FocusState.Programmatic);
+        return _focusAcquired;
     }
 
     public void SwitchWindowAndClose()
@@ -339,31 +560,4 @@ public sealed partial class WindowSelectorWindow : WindowEx
                 return;
         }
     }
-}
-
-/// <summary>
-/// Live-updatable per-tile size constraints for WindowSelectorWindow's ItemTemplate, pushed by
-/// ScaleTiles() and read via an ElementName+attached-property classic Binding from the tile Grid
-/// (see WindowSelectorWindow.xaml). Not an x:Bind against the Window itself: WinUIEx.WindowEx is not
-/// a DependencyObject/FrameworkElement (see ScaleTiles' and OnRootGridPreviewKeyDown's doc comments),
-/// so it cannot be an x:Bind or classic-Binding ElementName target at all -- RootGrid (a real,
-/// named FrameworkElement) hosts these two attached properties instead, and the tile Grid binds to
-/// them by path. Public (not internal) so the classic Binding engine's reflection-based property
-/// path resolution can see the static accessors from XAML at runtime.
-/// </summary>
-public static class TileSize
-{
-    public static readonly DependencyProperty MaxItemWidthProperty = DependencyProperty.RegisterAttached(
-        "MaxItemWidth", typeof(double), typeof(TileSize), new PropertyMetadata(400.0));
-
-    public static readonly DependencyProperty MaxItemHeightProperty = DependencyProperty.RegisterAttached(
-        "MaxItemHeight", typeof(double), typeof(TileSize), new PropertyMetadata(400.0));
-
-    public static double GetMaxItemWidth(DependencyObject obj) => (double)obj.GetValue(MaxItemWidthProperty);
-
-    public static void SetMaxItemWidth(DependencyObject obj, double value) => obj.SetValue(MaxItemWidthProperty, value);
-
-    public static double GetMaxItemHeight(DependencyObject obj) => (double)obj.GetValue(MaxItemHeightProperty);
-
-    public static void SetMaxItemHeight(DependencyObject obj, double value) => obj.SetValue(MaxItemHeightProperty, value);
 }

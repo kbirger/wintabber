@@ -42,10 +42,9 @@
             <controls:SpatialNavigationListView.ItemTemplate>
                 <DataTemplate x:DataType="vm:WindowItem">
                     <Grid
+                        x:Name="TileRootGrid"
                         Margin="0"
                         Background="Transparent"
-                        MaxWidth="{Binding ElementName=RootGrid, Path=(views:TileSize.MaxItemWidth), Mode=OneWay}"
-                        MaxHeight="{Binding ElementName=RootGrid, Path=(views:TileSize.MaxItemHeight), Mode=OneWay}"
                         Opacity="{Binding IsDimmed, Converter={StaticResource DimIfTrueConverter}}"
                         PointerPressed="OnTileGridPointerPressed"
                     >

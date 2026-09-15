@@ -69,6 +69,25 @@ public class WindowThumbnail : FrameworkElement
         new PropertyMetadata((long)0, (d, e) =>
         {
             var self = (WindowThumbnail)d;
+
+            // REAL BUG found via live verification (WindowSelectorWindow, this task's own
+            // follow-up): registering eagerly here before Loaded has fired raced against
+            // Thumbnail_LayoutUpdated's `!_isLoaded` release guard -- Source/TargetWindow are
+            // routinely both set (via x:Bind/code) before the control's Loaded event has actually
+            // fired, so InitialiseThumbnail would succeed here, then the very next LayoutUpdated
+            // pass (scheduled by the InvalidateMeasure/Arrange below) would see _isLoaded still
+            // false and immediately release what was just registered -- confirmed live via a
+            // call-count log showing DwmRegisterThumbnail immediately followed by
+            // "releasing: isLoaded=False" on the same instance, repeatedly. Skipping registration
+            // here until Loaded has actually fired removes that race: the Loaded handler's own
+            // InvalidateMeasure already schedules a LayoutUpdated pass whose lazy `_thumb == 0`
+            // branch registers using whatever Source/TargetWindow are set by then, so no update is
+            // lost, only deferred to a point where the isLoaded guard cannot immediately undo it.
+            if (!self._isLoaded)
+            {
+                return;
+            }
+
             self.InitialiseThumbnail((nint)(long)e.NewValue);
             // InitialiseThumbnail registers with fVisible = false; only a LayoutUpdated pass sets it
             // visible and computes rcDestination. If Source changes after Loaded with no other layout
@@ -100,6 +119,17 @@ public class WindowThumbnail : FrameworkElement
         new PropertyMetadata(null, (d, e) =>
         {
             var self = (WindowThumbnail)d;
+
+            // See the Source-changed callback's doc comment for why registration is skipped here
+            // until Loaded has actually fired -- the same register-then-immediately-release race
+            // applies to this callback too (and was the more commonly hit one live, since
+            // TargetWindow is set from code shortly after the container is realized, routinely
+            // before Loaded fires).
+            if (!self._isLoaded)
+            {
+                return;
+            }
+
             self.InitialiseThumbnail(self.Source);
             // Same reasoning as the Source-changed callback above: without this, a TargetWindow change
             // after Loaded (e.g. DockWindow re-targeting its thumbnail) can leave the thumbnail
@@ -147,8 +177,9 @@ public class WindowThumbnail : FrameworkElement
         if (source != 0 && TargetWindow is { } window)
         {
             _targetHwnd = WindowNative.GetWindowHandle(window);
+            var hr = PInvoke.DwmRegisterThumbnail(new HWND(_targetHwnd), new HWND(source), out var thumb);
 
-            if (_targetHwnd != 0 && 0 == PInvoke.DwmRegisterThumbnail(new HWND(_targetHwnd), new HWND(source), out var thumb))
+            if (_targetHwnd != 0 && 0 == hr)
             {
                 _thumb = thumb;
                 var props = new DWM_THUMBNAIL_PROPERTIES
@@ -190,7 +221,17 @@ public class WindowThumbnail : FrameworkElement
     // this is where the magic happens
     private void Thumbnail_LayoutUpdated(object? sender, object e)
     {
-        if (_thumb == 0)
+        // REAL BUG found via live verification (this task's own second follow-up): the register-
+        // then-immediately-release race documented on the Source/TargetWindow callbacks above also
+        // applies here, and this lazy branch is the DOMINANT registration path in practice (it runs
+        // on every LayoutUpdated regardless of what triggered it, unlike the property-changed
+        // callbacks which only run once per actual value change) -- guarding only the callbacks left
+        // this branch registering while _isLoaded was still false just as often, confirmed live via
+        // the same register/release churn persisting after that first guard was added. Skipping here
+        // too means no registration attempt happens at all until Loaded has fired; the Loaded
+        // handler's own InvalidateMeasure schedules the next LayoutUpdated pass that retries once
+        // _isLoaded is genuinely true.
+        if (_thumb == 0 && _isLoaded)
         {
             InitialiseThumbnail(Source);
 
