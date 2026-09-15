@@ -90,8 +90,9 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
 
         _thumbnail = monitors
             .Select(monitor => monitor?.ThumbnailChanges)
-            .OrDefault<ImageSource?>(null)
+            .OrDefault<IRandomAccessStreamReference?>(null)
             .Switch()
+            .SelectMany(GetCurrentMediaAlbumArt)
             .ObserveOn(scheduler)
             .ToProperty(this, vm => vm.Thumbnail, initialValue: null)
             .DisposeWith(_disposable);

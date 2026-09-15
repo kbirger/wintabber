@@ -2,8 +2,6 @@
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Windows.Media.Control;
 using Windows.Storage.Streams;
 
@@ -33,7 +31,12 @@ public partial class SMTCSessionMonitor
     public IObservable<bool> CanNextChanges { get; }
     public IObservable<bool> CanPrevChanges { get; }
     public IObservable<bool> CanPauseChanges { get; }
-    public IObservable<ImageSource?> ThumbnailChanges { get; }
+    /// <summary>
+    /// Emits the raw album-art stream reference reported by the source app, not a decoded image.
+    /// Decoding is UI-framework-specific (WPF <c>BitmapImage</c> vs WinUI 3 <c>BitmapImage</c>),
+    /// so it belongs to each app's own view model, not this UI-less monitor.
+    /// </summary>
+    public IObservable<IRandomAccessStreamReference?> ThumbnailChanges { get; }
     public IObservable<bool> CanSeekChanges { get; }
     public SMTCSessionMonitor(GlobalSystemMediaTransportControlsSession smtcSession)
     {
@@ -54,8 +57,7 @@ public partial class SMTCSessionMonitor
             .Select(update => update.Title);
 
         ThumbnailChanges = mediaPropertiesChanged
-            //.ObserveOn(scheduler)
-            .SelectMany(update => GetCurrentMediaAlbumArt(update.Thumbnail));
+            .Select(update => update.Thumbnail);
 
 
         CanPlayPauseChanges = playbackPropertiesChanged
@@ -187,36 +189,5 @@ public partial class SMTCSessionMonitor
 
         _seekBaselines.OnNext(new TimelineBaseline(position, DateTimeOffset.Now, maxSeekTime));
         return true;
-    }
-
-    public static async Task<ImageSource?> GetCurrentMediaAlbumArt(IRandomAccessStreamReference? imageStream)
-    {
-        if (imageStream is not null)
-        {
-            // The Thumbnail property is a RandomAccessStreamReference
-            IRandomAccessStreamWithContentType streamRef = await imageStream.OpenReadAsync();
-
-            // You can now read the stream into a byte array or process it directly
-            using (Stream inputStream = streamRef.AsStreamForRead())
-            {
-                var imageSource = new BitmapImage { CacheOption = BitmapCacheOption.OnLoad };
-                imageSource.BeginInit();
-                imageSource.StreamSource = inputStream;
-                imageSource.EndInit();
-                imageSource.Freeze();
-                return imageSource;
-
-                // Example 2: Load into a UI framework's Image source (e.g., WPF, WinForms, UWP)
-                // The exact code varies by framework, but you use the 'inputStream'.
-                // Example for System.Drawing.Bitmap (WinForms/GDI+):
-                // var bitmap = new System.Drawing.Bitmap(inputStream);
-            }
-        }
-        else
-        {
-            Console.WriteLine("No album art available for the current media.");
-        }
-
-        return null;
     }
 }
