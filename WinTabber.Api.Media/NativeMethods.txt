@@ -1,3 +1,4 @@
+DeleteObject
 IShellItem
 IShellItemImageFactory
 SHCreateItemFromParsingName

@@ -5,10 +5,6 @@ using System.Drawing;
 using System.IO;
 using System.Reactive.Linq;
 using System.Runtime.Caching;
-using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using WinTabber.Api.Media.ShellApplications.Models;
 
 namespace WinTabberUI.Infrastructure;
@@ -116,50 +112,20 @@ public class AppCache
         return null;
     }
 
-    private IObservable<ImageSource> GetImageAsync(Func<System.Drawing.Bitmap> valueFactory)
+    private IObservable<Bitmap?> GetImageAsync(Func<System.Drawing.Bitmap> valueFactory)
     {
-        return Observable.Defer(() => 
-            Observable.Start(valueFactory, RxSchedulers.TaskpoolScheduler))
+        return Observable.Defer(() =>
+            Observable.Start(() => (Bitmap?)valueFactory(), RxSchedulers.TaskpoolScheduler))
             .ObserveOn(RxSchedulers.MainThreadScheduler)
-            .Select(Bitmap2BitmapImage)
             .Replay(1)
             .AutoConnect();
     }
 
-    private BitmapSource Bitmap2BitmapImage(Bitmap bitmap)
+    private IObservable<Bitmap?> LoadingImage { get; } = GetLoadingImage();
+
+    private static IObservable<Bitmap?> GetLoadingImage()
     {
-        IntPtr hBitmap = bitmap.GetHbitmap();
-        BitmapSource retval;
-
-        try
-        {
-            retval = Imaging.CreateBitmapSourceFromHBitmap(
-                         hBitmap,
-                         IntPtr.Zero,
-                         Int32Rect.Empty,
-                         BitmapSizeOptions.FromEmptyOptions());
-            retval.Freeze();
-        }
-        finally
-        {
-            Windows.Win32.PInvoke.DeleteObject(new Windows.Win32.Graphics.Gdi.HGDIOBJ(hBitmap));
-        }
-
-        return retval;
-    }
-    private IObservable<ImageSource> LoadingImage { get; } = GetLoadingImage();
-
-    private static IObservable<ImageSource> GetLoadingImage()
-    {
-        return Observable.Start(() =>
-        {
-            var uri = new Uri("pack://application:,,,/WinTabberUI;component/Images/loading.png");
-            var src = new BitmapImage(uri);
-            src.Freeze();
-
-            return src;
-
-        }, RxSchedulers.TaskpoolScheduler)
+        return Observable.Start(() => (Bitmap?)null, RxSchedulers.TaskpoolScheduler)
             .Replay(1)
             .AutoConnect();
     }

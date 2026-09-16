@@ -9,6 +9,7 @@
         <Compile Update="Views\MediaControlsWindow.xaml.cs">
             <SubType>Code</SubType>
         </Compile>
+        <AdditionalFiles Include="NativeMethods.txt" />
     </ItemGroup>
 
     <ItemGroup>
@@ -19,10 +20,10 @@
         <!--<PackageReference Include="Microsoft-WindowsAPICodePack-Shell" />-->
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
 
-        <!--<PackageReference Include="Microsoft.Windows.CsWin32">
+        <PackageReference Include="Microsoft.Windows.CsWin32">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>-->
+		</PackageReference>
         <!--<PackageReference Include="MouseKeyHook" />-->
         <!--<PackageReference Include="NAudio.WASAPI" />-->
         <PackageReference Include="ReactiveUI" />

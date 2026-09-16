@@ -9,10 +9,6 @@ using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
 using System.Runtime.InteropServices;
-using System.Windows;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Gdi;
 using Windows.Win32.UI.Shell;
@@ -178,7 +174,7 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         };
     }
 
-    private IObservable<ImageSource> GetIcon(ShellObject shellObject, string path)
+    private IObservable<Bitmap?> GetIcon(ShellObject shellObject, string path)
     {
         int width = (int)shellObject.Thumbnail.CurrentSize.Width;
         int height = (int)shellObject.Thumbnail.CurrentSize.Height;
@@ -237,18 +233,16 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
                                 Marshal.ReleaseComObject(imageFactory);
                             }
 
-                            var image = Imaging.CreateBitmapSourceFromHBitmap(
-                                hBitmap,
-                                0,
-                                Int32Rect.Empty,
-                                BitmapSizeOptions.FromEmptyOptions()
-                            );
-                            if (!image.IsFrozen && image.CanFreeze)
+                            // Bitmap.FromHbitmap copies the pixel data into a managed bitmap, so
+                            // the source HBITMAP is ours to free immediately afterward.
+                            try
                             {
-                                image.Freeze();
+                                return Image.FromHbitmap(hBitmap);
                             }
-
-                            return image;
+                            finally
+                            {
+                                Windows.Win32.ShellPInvoke.DeleteObject(new HGDIOBJ((nint)hBitmap));
+                            }
                         }
                     },
                     Scheduler.CurrentThread
@@ -267,22 +261,15 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         };
     }
 
-    public static IObservable<ImageSource> LoadingImage { get; } = GetLoadingImage();
+    public static IObservable<Bitmap?> LoadingImage { get; } = GetLoadingImage();
     public IObservableCache<InstalledApplicationInfo, string> ApplicationsByAumid { get; }
     public IObservableCache<InstalledApplicationInfo, string> ApplicationsByPath { get; }
     public IObservable<Exception> AcquisitionErrors => _acquisitionErrors;
 
-    private static IObservable<ImageSource> GetLoadingImage()
+    private static IObservable<Bitmap?> GetLoadingImage()
     {
         return Observable.Start(
-            () =>
-            {
-                //var uri = new Uri("pack://application:,,,/WinTabberUI;component/Images/loading.png");
-                var src = new BitmapImage();
-                src.Freeze();
-
-                return src;
-            },
+            () => (Bitmap?)null,
             TaskPoolScheduler.Default
         );
     }

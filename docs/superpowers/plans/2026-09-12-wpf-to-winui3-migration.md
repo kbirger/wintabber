@@ -6261,12 +6261,13 @@ the original Phase 4 note recommended:
   with the real, ported `MediaControlsStateService` — read that stub's doc comment
   first when starting this window's research.
 
-Also still open, carried forward unchanged from Phase 4a's final review (I3 show-path
-timing, M8 `Bootstrapper` grouping naming) — neither was exercised by Phase 4b either,
-since `WindowSelectorWindow` uses `ShowActivated`-equivalent activation like
-`DockWindow`, not a non-activating show path, and `Bootstrapper.cs` has now grown a
-fourth `Add*Graph` method (`AddWindowSelectorGraph`) without resolving the grouping
-question M8 raised — worth settling before a fifth window adds a fifth arbitrary group.
+Also carried forward from Phase 4a's final review: I3 (non-activating show-path timing)
+remains open — still not exercised, since `WindowSelectorWindow` uses `ShowActivated`-equivalent
+activation like `DockWindow`, not a non-activating show path. M8 (`Bootstrapper` grouping naming)
+was settled during the Phase 4c `ThumbnailWindow` task: kept this port's per-window/feature
+grouping (`AddSettingsGraph`, `AddDockAndSuspendedWindowsGraph`, `AddWindowSelectorGraph`,
+`AddThumbnailWindowGraph`), documented at the new method rather than switching to the WPF
+original's per-kind grouping. Not open any longer.
 
 The deferred hint-overlay system (Phase 2c) remains untouched and unresearched since
 its own scope note.
