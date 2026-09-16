@@ -50,8 +50,15 @@ public class VolumeControlsViewModel : ReactiveObject, IDisposable
             .Do(x => { Debug.WriteLine($"Muted? {x}");  })
             .ToProperty(this, vm => vm.IsMuted, scheduler: scheduler);
 
+        // ObserveOn before Subscribe: UpdateVolume raises PropertyChanged directly (not through
+        // ToProperty's own scheduler marshaling, unlike _isMuted/_canMute/_canSetVolume above), and
+        // VolumeChanges is hardware-driven, so it can emit off the UI thread. Same
+        // RPC_E_WRONG_THREAD hazard as AudioDeviceSelectorViewModel's GetDefaultDevice subscription
+        // -- WinUI 3's WinRT-projected PropertyChangedEventArgs needs UI-thread affinity; WPF does
+        // not.
         volumeDto.Select(dto => dto?.VolumeChanges ?? Observable.Empty<float>())
             .Switch()
+            .ObserveOn(scheduler)
             .Subscribe(volume => UpdateVolume(volume))
             .DisposeWith(_disposable);
     }

@@ -19,8 +19,14 @@ namespace WinTabber.UI.Media.ViewModels
             var devices = deviceService.Devices.Connect().Filter(device => device.DataFlow == flow);
             devices.ObserveOn(RxApp.MainThreadScheduler).Bind(out _devices).Subscribe().DisposeWith(_cleanUp);
 
+            // ObserveOn before Subscribe, not left off like the WPF original tolerated: raising
+            // PropertyChanged off the UI thread is harmless in WPF (plain CLR EventArgs), but WinUI
+            // 3's WinRT-projected PropertyChangedEventArgs must be created on the UI thread --
+            // confirmed live via a real RPC_E_WRONG_THREAD COMException crash on startup without
+            // this, from GetDefaultDevice's CoreAudio callback thread setting SelectedDevice.
             deviceService
                 .GetDefaultDevice(flow)
+                .ObserveOn(RxApp.MainThreadScheduler)
                 .Subscribe(defaultDevice =>
                 {
                     SelectedDevice = defaultDevice;
