@@ -2,8 +2,10 @@
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using WinRT.Interop;
 using WinTabber.UI.Media.Services;
 using WinTabber.UI.Media.ViewModels;
+using WinTabberUI.Windowing;
 using WinUIEx;
 
 namespace WinTabberUI.Views;
@@ -21,6 +23,7 @@ namespace WinTabberUI.Views;
 public sealed partial class MediaControlsWindow : WindowEx
 {
     private readonly IMediaControlsStateService _mediaControlsStateService;
+    private readonly nint _hwnd;
 
     public MediaControlsViewModel ViewModel { get; }
 
@@ -34,6 +37,44 @@ public sealed partial class MediaControlsWindow : WindowEx
         RootGrid.DataContext = ViewModel;
 
         Activated += OnActivated;
+
+        _hwnd = WindowNative.GetWindowHandle(this);
+
+        // WPF original: SizeToContent="Height" with a fixed Width="700". WindowEx/WinUIEx expose no
+        // SizeToContent equivalent (same gap SuspendedWindowsWindow.xaml.cs documents) -- reproduced
+        // here the same way: measure RootGrid at the window's current client width with unbounded
+        // height, then resize just the AppWindow's height to match. Width is never touched, unlike
+        // SuspendedWindowsWindow's resize-both-dimensions case, since this window keeps a fixed width.
+        // Re-measured on every RootGrid.SizeChanged, not just once at startup: switching the active
+        // session changes which of the title/artist/album TextBlocks are visible (each collapses via
+        // NullToVisibilityConverter), which changes the content's natural height.
+        RootGrid.SizeChanged += (_, _) => DispatcherQueue.TryEnqueue(ResizeHeightToContent);
+        ResizeHeightToContent();
+    }
+
+    private void ResizeHeightToContent()
+    {
+        var scale = DesktopHelper.GetScaleForWindow(_hwnd);
+        var currentSize = AppWindow.ClientSize;
+        RootGrid.Measure(new Windows.Foundation.Size(currentSize.Width / scale, double.PositiveInfinity));
+        var desiredHeight = RootGrid.DesiredSize.Height;
+        if (desiredHeight <= 0)
+        {
+            return;
+        }
+
+        // Floored at MinHeight (DIPs, set in XAML): WinUIEx clamps ResizeClient to MinHeight itself,
+        // so an un-floored newHeight below that would never actually apply -- currentSize.Height
+        // would keep reporting the clamped value while desiredHeight kept reporting the smaller
+        // unclamped one, and the 1px guard below would never converge (a genuine SizeChanged
+        // feedback loop, not just resize-triggered rounding noise).
+        var newHeight = Math.Max((int)Math.Ceiling(desiredHeight * scale), (int)Math.Ceiling(MinHeight * scale));
+        if (Math.Abs(newHeight - currentSize.Height) <= 1)
+        {
+            return;
+        }
+
+        AppWindow.ResizeClient(new Windows.Graphics.SizeInt32(currentSize.Width, newHeight));
     }
 
     private void OnActivated(object sender, WindowActivatedEventArgs args)
