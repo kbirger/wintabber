@@ -22,6 +22,7 @@
         <ProjectReference Include="..\..\WinTabber.Events\WinTabber.Events.csproj" />
         <ProjectReference Include="..\..\WinTabber.Generators\WinTabber.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\..\WinTabber.Interop\WinTabber.Interop.csproj" />
+        <ProjectReference Include="..\..\WinTabber.ViewModels\WinTabber.ViewModels.csproj" />
         <ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
     </ItemGroup>
 </Project>
