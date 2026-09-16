@@ -29,23 +29,30 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
     {
         SessionChanged = this.WhenAnyValue(vm => vm.Session);
 
+        // scheduler: passed explicitly on every ToProperty below, not left to the default: these
+        // pipelines are driven by SMTC change events and (for _position/_progress) a periodic
+        // extrapolation timer, both of which emit off the UI thread. WinUI 3's WinRT-projected
+        // PropertyChangedEventArgs needs UI-thread affinity to be created at all -- the same
+        // RPC_E_WRONG_THREAD hazard already found and fixed in AudioDeviceSelectorViewModel and
+        // VolumeControlsViewModel, found here live via a real COMException (0x8001010E) crash when
+        // opening MediaControlsWindow while a real session was playing.
         _isPlaying = SessionChanged
             .Select(session => session?.IsPlayingChanges)
             .OrDefault(false)
             .Switch()
-            .ToProperty(this, vm => vm.IsPlaying);
+            .ToProperty(this, vm => vm.IsPlaying, scheduler: scheduler);
 
         _canSeek = SessionChanged
             .Select(session => session?.CanSeekChanges)
             .OrDefault(false)
             .Switch()
-            .ToProperty(this, vm => vm.CanSeek);
+            .ToProperty(this, vm => vm.CanSeek, scheduler: scheduler);
 
         _duration = SessionChanged
             .Select(session => session?.DurationChanges)
             .OrDefault(TimeSpan.Zero)
             .Switch()
-            .ToProperty(this, vm => vm.Duration);
+            .ToProperty(this, vm => vm.Duration, scheduler: scheduler);
 
         var isSeekingChanges = this.WhenAnyValue(vm => vm.IsSeeking, true)
             .SelectMany(value =>
@@ -63,7 +70,7 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
             .RefCount();
         _position = positionObservable
         //.Do(t => Debug.WriteLine($"Position {t}"))
-        .ToProperty(this, vm => vm.Position, initialValue: TimeSpan.Zero);
+        .ToProperty(this, vm => vm.Position, initialValue: TimeSpan.Zero, scheduler: scheduler);
 
         var durationObservable = SessionChanged
             .Select(session => session?.DurationChanges)
@@ -72,7 +79,7 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
         _progress = positionObservable
             .WithLatestFrom(durationObservable)
             .Select(SelectProgress)
-            .ToProperty(this, vm => vm.Progress, initialValue: 0);
+            .ToProperty(this, vm => vm.Progress, initialValue: 0, scheduler: scheduler);
 
         PlayPause = ReactiveCommand.CreateFromObservable(
             PlayPauseImpl,
