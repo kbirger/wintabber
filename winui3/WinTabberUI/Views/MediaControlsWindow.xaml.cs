@@ -24,6 +24,7 @@ public sealed partial class MediaControlsWindow : WindowEx
 {
     private readonly IMediaControlsStateService _mediaControlsStateService;
     private readonly nint _hwnd;
+    private bool _hasCenteredOnce;
 
     public MediaControlsViewModel ViewModel { get; }
 
@@ -69,12 +70,22 @@ public sealed partial class MediaControlsWindow : WindowEx
         // unclamped one, and the 1px guard below would never converge (a genuine SizeChanged
         // feedback loop, not just resize-triggered rounding noise).
         var newHeight = Math.Max((int)Math.Ceiling(desiredHeight * scale), (int)Math.Ceiling(MinHeight * scale));
-        if (Math.Abs(newHeight - currentSize.Height) <= 1)
+        if (Math.Abs(newHeight - currentSize.Height) > 1)
         {
-            return;
+            AppWindow.ResizeClient(new Windows.Graphics.SizeInt32(currentSize.Width, newHeight));
         }
 
-        AppWindow.ResizeClient(new Windows.Graphics.SizeInt32(currentSize.Width, newHeight));
+        // WPF original: WindowStartupLocation="CenterScreen", which WPF resolves once, after
+        // SizeToContent settles the window's real size, and never again -- the window's position
+        // then stays fixed even as later session switches change its height (that is WPF's actual
+        // behavior, not an omission here). Centered once for the same reason: this method's first
+        // call is the first point RootGrid has a real DesiredSize to center against, not the
+        // constructor's XAML placeholder size (Width=700, MinHeight=221).
+        if (!_hasCenteredOnce)
+        {
+            _hasCenteredOnce = true;
+            this.CenterOnScreen();
+        }
     }
 
     private void OnActivated(object sender, WindowActivatedEventArgs args)
