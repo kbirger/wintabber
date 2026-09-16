@@ -15,6 +15,7 @@
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
         <PackageReference Include="NAudio.WASAPI" />
+        <PackageReference Include="ReactiveUI" />
         <PackageReference Include="System.Reactive" />
 		<PackageReference Include="Microsoft-WindowsAPICodePack-Shell" />
 		<ProjectReference Include="..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />
