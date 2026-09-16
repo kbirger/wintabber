@@ -50,10 +50,12 @@ WinTabberUI            ← WPF app, MVVM ViewModels, DI bootstrap, window manage
                           IWindowPlacement, IWindowInterop / InteropProxy via CsWin32)
   WinTabber.Infrastructure ← Settings model + persistence, app icon/AUMID cache, hint trie/radix trie
   WinTabber.UI.Common  ← Shared XAML themes, converters, behaviors, hint system
-  WinTabber.UI.Media   ← Media controls views and viewmodels
+  WinTabber.UI.Media   ← Media controls views and their WPF-specific viewmodels (framework-free
+                          media viewmodels and services now live in WinTabber.ViewModels)
   WinTabber.Common.Util← Extension methods (Observable, Process, Debug, Object)
   WinTabber.Generators ← Roslyn source generator: [Lazy] attribute → lazy init code
-  WinTabber.ViewModels ← App ViewModels, no WPF/WinUI dependency; references Api.Media,
+  WinTabber.ViewModels ← App ViewModels and framework-free services (e.g. MediaControlsStateService,
+                          MediaSessionService), no WPF/WinUI dependency; references Api.Media,
                           Api.Windowing, Events, Infrastructure, Interop, Common.Util;
                           consumed by both WinTabberUI and winui3/WinTabberUI
 ```
@@ -92,10 +94,12 @@ UI-framework-agnostic projects above, including the new `WinTabber.ViewModels`.
   `ProcessSuspensionService` depends on) fakes.
 - Win32 that **affects the rendering of our own windows** through **CsWin32-backed** APIs (DWM
   composition, corner preference, cloak/peek, thumbnails, hit-test and resize messages) lives with
-  the WPF code that owns the `HwndSource` — `WinTabber.UI.Common/Chrome/` and `WinTabberUI`, each
-  with its own `NativeMethods.txt` (e.g. `DwmSetWindowAttribute`/`DWM_WINDOW_CORNER_PREFERENCE` in
-  `WinTabber.UI.Common/NativeMethods.txt`). It is not routed through the interfaces above: the
-  surrounding code is WPF and untestable headlessly, so the seam would buy nothing.
+  the WPF code that owns the `HwndSource` — `WinTabber.UI.Common/Chrome/`, `WinTabberUI`, and
+  `WinTabber.UI.Media` (which converts a shell icon's `HBITMAP` into a WPF `ImageSource` for its
+  own display), each with its own `NativeMethods.txt` (e.g. `DwmSetWindowAttribute`/
+  `DWM_WINDOW_CORNER_PREFERENCE` in `WinTabber.UI.Common/NativeMethods.txt`). It is not routed
+  through the interfaces above: the surrounding code is WPF and untestable headlessly, so the seam
+  would buy nothing.
 - `WinTabber.Api.Media` owns its Shell/AUMID bindings for the same reason.
 
 The own-window-rendering carve-out above applies only to **CsWin32-backed** Win32. A **hand-written**

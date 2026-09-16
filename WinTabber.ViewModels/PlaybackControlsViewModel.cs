@@ -1,20 +1,16 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Diagnostics;
 using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
-using System.Text;
-using System.Windows;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using Windows.Foundation;
 using Windows.Media.Control;
 using WinTabber.Api.Media.SMTC.Services;
 using WinTabber.Common.Util;
-using static System.Net.Mime.MediaTypeNames;
 
 namespace WinTabber.UI.Media.ViewModels;
 
