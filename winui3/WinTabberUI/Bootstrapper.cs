@@ -14,6 +14,7 @@ using WinTabber.Events;
 using WinTabber.Events.Shortcuts;
 using WinTabber.Interop;
 using WinTabber.UI.Media.Services;
+using WinTabber.UI.Media.ViewModels;
 using WinTabber.UI.Media.ViewModels.Factories;
 using WinTabberUI.Models.Settings;
 using WinTabber.ViewModels;
@@ -64,9 +65,10 @@ public static class Bootstrapper
     // research (Phase 4c) has cleared the false "WPF-dependent" claim that placeholder's doc
     // comment made about MediaControlsStateService. Mirrors the WPF Bootstrapper's AddDomainModels
     // media registrations 1:1 -- every type here already lives in a framework-free project.
-    // MediaControlsWindow's own view models (MediaControlsViewModel, MediaSessionViewModel,
-    // SessionListItem, and their factories) are not registered here: they are not yet ported, and
-    // are each own-app types (per-app image decode), not shared ones -- that is the next task.
+    // MediaControlsWindow itself and its Coordinator are registered here too, now that both are
+    // ported. MediaSessionViewModel and SessionListItem stay unregistered on purpose: they are
+    // constructed directly (by MediaSessionViewModelFactory and MediaControlsViewModel
+    // respectively), never resolved from the container.
     private static IServiceCollection AddMediaControlsGraph(this IServiceCollection services)
     {
         return services
@@ -92,10 +94,20 @@ public static class Bootstrapper
             .AddSingleton<IShellApplicationSource, WindowsShellApplicationSource>()
             .AddSingleton<IInstalledApplicationRepository, InstalledApplicationRepository>()
             .AddSingleton<AudioDeviceSelectorViewModelFactory>()
+            .AddSingleton<MediaSessionViewModelFactory>()
             .AddSingleton<IMediaControlsStateService>(sp => new MediaControlsStateService(
                 sp.GetRequiredService<WinTabberEventManager>(),
                 sp.GetRequiredService<IWindowInterop>(),
-                () => sp.GetRequiredService<ApplicationSettings>().General.EnableMediaControls));
+                () => sp.GetRequiredService<ApplicationSettings>().General.EnableMediaControls))
+            .AddSingleton<MediaControlsViewModel>()
+            // Singleton, not transient like every other ported window: the WPF coordinator this
+            // is ported from explicitly reuses one instance (ReuseInstances = true) via Show()/
+            // Hide(), never Close() -- see MediaControlsWindowCoordinator's own doc comment.
+            .AddSingleton<Views.MediaControlsWindow>()
+            // Singleton, rooted explicitly in App.xaml.cs's OnLaunched, same reasoning as
+            // ThumbnailWindowCoordinator: its subscription to IMediaControlsStateService must stay
+            // alive for the app's lifetime, not depend on incidental resolution order.
+            .AddSingleton<Coordinators.MediaControlsWindowCoordinator>();
     }
 
     private static IServiceCollection AddSettingsGraph(this IServiceCollection services)

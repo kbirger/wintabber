@@ -20,6 +20,7 @@ public partial class App : Application
     // must not depend on which window happens to be shown first.
     private WinTabberEventManager? _eventManager;
     private ThumbnailWindowCoordinator? _thumbnailWindowCoordinator;
+    private MediaControlsWindowCoordinator? _mediaControlsWindowCoordinator;
 
     public static ServiceProvider Services { get; private set; } = null!;
 
@@ -34,6 +35,7 @@ public partial class App : Application
 
         _eventManager = Services.GetRequiredService<WinTabberEventManager>();
         _thumbnailWindowCoordinator = Services.GetRequiredService<ThumbnailWindowCoordinator>().Init();
+        _mediaControlsWindowCoordinator = Services.GetRequiredService<MediaControlsWindowCoordinator>();
 
         // KNOWN GAP, disclosed rather than silently omitted: the WPF original disposes
         // IWindowThumbnailService from its own OnExit override (restoring any window still

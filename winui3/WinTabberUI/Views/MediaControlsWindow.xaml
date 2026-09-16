@@ -1,0 +1,279 @@
+<winuiex:WindowEx
+    x:Class="WinTabberUI.Views.MediaControlsWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:winuiex="using:WinUIEx"
+    xmlns:c="using:WinTabber.UI.Common.ValueConverters"
+    xmlns:uc="using:WinTabber.UI.Media.UserControls"
+    xmlns:vm="using:WinTabber.UI.Media.ViewModels"
+    xmlns:ca="using:WinTabber.Api.Media.CoreAudio.Dtos"
+    mc:Ignorable="d"
+    Title="MediaControlsWindow"
+    Width="700"
+    MinHeight="221"
+    IsAlwaysOnTop="True"
+    IsShownInSwitchers="False"
+    IsMaximizable="False"
+    IsMinimizable="False"
+    IsResizable="False"
+>
+    <Grid x:Name="RootGrid" Padding="25" Background="#30000000">
+    <Grid.Resources>
+        <c:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
+        <c:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter" />
+        <c:TimeSpanToFloatConverter x:Key="TimeSpanToFloatConverter" />
+
+        <DataTemplate x:Key="DeviceItemTemplate" x:DataType="ca:DeviceDto">
+            <StackPanel Orientation="Horizontal">
+                <TextBlock Text="{Binding DeviceName}" Margin="4" />
+            </StackPanel>
+        </DataTemplate>
+
+        <DataTemplate x:Key="SessionItemTemplate" x:DataType="vm:SessionListItem">
+            <StackPanel Orientation="Horizontal">
+                <Image
+                    Source="{Binding Icon}"
+                    Height="16"
+                    Width="16"
+                    Margin="0,0,10,0"
+                    Visibility="{Binding Icon, Converter={StaticResource NullToVisibilityConverter}}"
+                />
+                <TextBlock Text="{Binding Name}" Margin="10,0,0,0" />
+            </StackPanel>
+        </DataTemplate>
+
+        <Style TargetType="Button" x:Key="MediaButton">
+            <Setter Property="Width" Value="42" />
+            <Setter Property="Height" Value="42" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="FontSize" Value="24" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="RootBorder" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#22666666" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#dd777777" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Opacity" Value="0.4" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter Content="{TemplateBinding Content}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <Style TargetType="ToggleButton" x:Key="PlayPauseMediaButton">
+            <Setter Property="Width" Value="42" />
+            <Setter Property="Height" Value="42" />
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Margin" Value="0" />
+            <Setter Property="Padding" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="HorizontalAlignment" Value="Center" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="RootBorder" Background="{TemplateBinding Background}" CornerRadius="4">
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#22666666" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#dd777777" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                                <VisualStateGroup x:Name="CheckStates">
+                                    <VisualState x:Name="Checked">
+                                        <VisualState.Setters>
+                                            <Setter Target="Icon.Glyph" Value="&#xE769;" />
+                                            <Setter Target="Icon.FontSize" Value="32" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Unchecked">
+                                        <VisualState.Setters>
+                                            <Setter Target="Icon.Glyph" Value="&#xE768;" />
+                                            <Setter Target="Icon.FontSize" Value="28" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <FontIcon x:Name="Icon" Glyph="&#xE768;" FontSize="28" />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </Grid.Resources>
+
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <Grid>
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition />
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition />
+            </Grid.ColumnDefinitions>
+
+            <TextBlock Text="Session" VerticalAlignment="Center" Grid.Row="0" Padding="7,0" />
+            <uc:VolumeControls Grid.Column="1" DataContext="{Binding ActiveSession.SessionVolumeControls}" />
+            <ComboBox
+                Grid.Row="1"
+                Grid.ColumnSpan="2"
+                ItemsSource="{Binding Sessions}"
+                HorizontalAlignment="Stretch"
+                x:Name="SessionSelector"
+                ItemTemplate="{StaticResource SessionItemTemplate}"
+                SelectedItem="{Binding SelectedSessionListItem, Mode=TwoWay}"
+            />
+
+            <TextBlock Text="Playback" VerticalAlignment="Center" Grid.Column="2" Margin="7,0,0,0" Padding="7,0" />
+            <uc:VolumeControls Grid.Column="3" VerticalAlignment="Center" DataContext="{Binding ActiveSession.DeviceVolumeControls}" />
+            <ComboBox
+                Grid.Column="2"
+                Grid.ColumnSpan="2"
+                Grid.Row="1"
+                Margin="7,0,0,0"
+                HorizontalAlignment="Stretch"
+                ItemTemplate="{StaticResource DeviceItemTemplate}"
+                ItemsSource="{Binding Playback.Devices}"
+                SelectedItem="{Binding Playback.SelectedDevice, Mode=TwoWay}"
+            />
+
+            <TextBlock Text="Recording" VerticalAlignment="Center" Grid.Row="0" Grid.Column="4" Margin="7,0,0,0" Padding="7,0" />
+            <ComboBox
+                Margin="7,0,0,0"
+                Grid.Column="4"
+                Grid.ColumnSpan="2"
+                Grid.Row="1"
+                HorizontalAlignment="Stretch"
+                ItemTemplate="{StaticResource DeviceItemTemplate}"
+                ItemsSource="{Binding Recording.Devices}"
+                SelectedItem="{Binding Recording.SelectedDevice, Mode=TwoWay}"
+            />
+        </Grid>
+
+        <Grid Grid.Row="1" Margin="0,10,0,0">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto" />
+                <RowDefinition Height="Auto" />
+            </Grid.RowDefinitions>
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+
+            <Grid Grid.Row="0" Grid.Column="0" HorizontalAlignment="Stretch" VerticalAlignment="Center">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                </Grid.ColumnDefinitions>
+                <Image
+                    Grid.Column="0"
+                    Width="48"
+                    Height="48"
+                    Source="{Binding ActiveSession.Thumbnail}"
+                    Visibility="{Binding ActiveSession.Thumbnail, Converter={StaticResource NullToVisibilityConverter}}"
+                />
+                <StackPanel Margin="15,0,0,0" Grid.Column="1" VerticalAlignment="Center">
+                    <TextBlock
+                        Text="{Binding ActiveSession.Title}"
+                        Visibility="{Binding ActiveSession.Title, Converter={StaticResource NullToVisibilityConverter}}"
+                        FontWeight="Bold"
+                    />
+                    <TextBlock
+                        Text="{Binding ActiveSession.ArtistName}"
+                        Visibility="{Binding ActiveSession.ArtistName, Converter={StaticResource NullToVisibilityConverter}}"
+                    />
+                    <TextBlock
+                        Text="{Binding ActiveSession.AlbumTitle}"
+                        Visibility="{Binding ActiveSession.AlbumTitle, Converter={StaticResource NullToVisibilityConverter}}"
+                    />
+                </StackPanel>
+            </Grid>
+
+            <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="0" HorizontalAlignment="Center">
+                <Button Style="{StaticResource MediaButton}" Command="{Binding ActiveSession.Playback.Prev}">
+                    <FontIcon Glyph="&#xE892;" />
+                </Button>
+                <ToggleButton
+                    Style="{StaticResource PlayPauseMediaButton}"
+                    DataContext="{Binding ActiveSession.Playback}"
+                    Command="{Binding PlayPause}"
+                    x:Name="PlayPauseButton"
+                    IsChecked="{Binding IsPlaying, Mode=OneWay}"
+                />
+                <Button Style="{StaticResource MediaButton}" Command="{Binding ActiveSession.Playback.Next}">
+                    <FontIcon Glyph="&#xE893;" />
+                </Button>
+            </StackPanel>
+
+            <Grid Grid.Row="1" Grid.ColumnSpan="3" VerticalAlignment="Center" Margin="0,8,0,0">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
+                <TextBlock
+                    Grid.Column="0"
+                    Text="{Binding ActiveSession.Playback.Position, Converter={StaticResource TimeSpanToStringConverter}}"
+                    VerticalAlignment="Center"
+                    Margin="0,0,10,0"
+                />
+                <Slider
+                    x:Name="PositionSlider"
+                    Grid.Column="1"
+                    IsEnabled="{Binding ActiveSession.Playback.CanSeek}"
+                    Maximum="{Binding ActiveSession.Playback.Duration, Converter={StaticResource TimeSpanToFloatConverter}}"
+                    Value="{Binding ActiveSession.Playback.Position, Mode=OneWay, Converter={StaticResource TimeSpanToFloatConverter}}"
+                    PointerPressed="PositionSlider_PointerPressed"
+                    PointerReleased="PositionSlider_PointerReleased"
+                />
+                <TextBlock
+                    Grid.Column="2"
+                    Text="{Binding ActiveSession.Playback.Duration, Converter={StaticResource TimeSpanToStringConverter}}"
+                    VerticalAlignment="Center"
+                    Margin="10,0,0,0"
+                />
+            </Grid>
+        </Grid>
+    </Grid>
+</winuiex:WindowEx>
