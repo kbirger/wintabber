@@ -115,6 +115,24 @@ public partial class MediaSessionService(
     }
 
 
+    // NOT a LeftJoin: LeftJoin only computes the joined result once per left item and does not
+    // re-run its result selector when the right side (nativeSessionsWithApps) later gains a key
+    // that item needed -- confirmed live under the debugger, real Brave session, real native audio
+    // session, both independently resolving to the exact same AppUserModelId, yet
+    // AggregateSession.NativeSession stayed null indefinitely. This is a genuine race, not a
+    // WinUI-3-specific defect: the native-session-to-app match (GetApp, walking process ancestry
+    // against a Shell:AppsFolder enumeration that takes real time to complete) frequently loses the
+    // race against the SMTC side, which is available almost immediately. It rarely shows up in the
+    // long-running WPF app, where that enumeration is warm long before any specific session starts,
+    // but can happen there too on a fresh launch with media already playing.
+    //
+    // AggregateSession.UpdateNativeSession/IsComplete/Key already exist specifically for this
+    // (Key includes IsComplete precisely so a DistinctUntilChanged(session => session.Key) consumer
+    // like GetActiveSession sees the None-to-Some transition as a real change) -- this was simply
+    // never wired up. Fixed the same way GetNativeSessionsWithApps solves the identical problem one
+    // level down (a real, already-working pattern in this file, not a new one): construct once with
+    // whatever native match exists yet, then TransformWithInlineUpdate re-checks and calls
+    // UpdateNativeSession every time nativeAppChanges emits, until a match is found.
     [Lazy]
     private IObservableCache<AggregateSession, string> GetMasterSessions()
     {
@@ -122,17 +140,30 @@ public partial class MediaSessionService(
         var nativeAppChanges = nativeSessionsWithApps.Connect();
         return GetSMTCSessionsByAumid()
             .ObserveOn(staScheduler)
-            .LeftJoin(
-                nativeAppChanges,
-                session => session.App!.AppUserModelId,
-                (mediaSession, nativeSession) =>
-                    new AggregateSession(
-                        mediaSession.Session, 
-                        mediaSession.App, 
-                        nativeSession.ValueOrDefault()?.Session
-                    )
-            )
             .AutoRefreshOnObservable(_ => nativeAppChanges)
+            .TransformWithInlineUpdate(
+                mediaSession =>
+                    new AggregateSession(
+                        mediaSession.Session,
+                        mediaSession.App,
+                        nativeSessionsWithApps.Lookup(mediaSession.App!.AppUserModelId).ValueOrDefault()?.Session
+                    ),
+                (aggregate, mediaSession) =>
+                {
+                    // No IsComplete short-circuit here, unlike GetNativeSessionsWithApps's own
+                    // update action: that one matches against a shell-app catalog that only grows,
+                    // so "already matched" really does mean "done forever." Native audio sessions
+                    // churn constantly (confirmed live: CoreAudioSessionRepository.WatchForEnd fired
+                    // AUDCLNT_E_DEVICE_INVALIDATED removals for several apps' sessions in one burst
+                    // during ordinary startup) -- a once-matched NativeSession can go stale (a dead
+                    // CoreAudioSessionWrapper pointing at an ended session) when the underlying
+                    // native session ends and a new one starts. Re-assigning unconditionally on every
+                    // refresh keeps this correct at the cost of a cheap cache lookup.
+                    aggregate.UpdateNativeSession(
+                        nativeSessionsWithApps.Lookup(mediaSession.App!.AppUserModelId).ValueOrDefault()?.Session
+                    );
+                },
+                true)
             .AsObservableCache();
     }
 
