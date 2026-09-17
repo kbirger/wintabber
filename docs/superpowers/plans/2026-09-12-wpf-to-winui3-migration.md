@@ -6241,33 +6241,68 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-## Phase 4c onward — scope note
+## Phase 4c status — both windows ported; here is what is actually left
 
-`WindowSelectorWindow` (Phase 4b) was the last of the three windows this plan's
-original Phase 4 split identified as needing dedicated research passes beyond the
-mechanical Phase 4a pair. Two pieces of Phase 4's original scope remain, in the order
-the original Phase 4 note recommended:
+Both windows Phase 4c originally called out are now ported, committed, and reachable
+via their real hotkeys in the running app. This note replaces the earlier "scope note"
+(which was stale — it still described `ThumbnailWindow` as blocked and
+`MediaControlsWindow` as "not yet read at all," neither true any longer) to avoid the
+exact kind of confusion that prompted this rewrite: checking what is *actually* done
+before assuming a plan document's checkboxes (still showing `[ ]` throughout this whole
+file) reflect current status. They do not — track real status here and in
+`.superpowers/sdd/2026-09-12-wpf-to-winui3-migration/progress.md`, not the checkboxes.
 
-- **`ThumbnailWindow`** — blocked on researching WinUI 3's `WM_NCHITTEST`/`WM_SIZING`
-  subclassing mechanism (`SetWindowSubclass`/`SetWindowLongPtr(GWLP_WNDPROC)`,
-  real and documented, but CsWin32 metadata coverage for it was never checked in this
-  plan) for the hand-tuned resize-grab hit-testing WPF's `HwndSource.AddHook` gave it.
-  Not otherwise blocked — `WindowThumbnail` itself (this window's core control) is
-  already ported and proven (Task 4a.3/4a.4).
-- **`MediaControlsWindow`** — not yet read at all. Flagged early in this migration's
-  design spec as large and complex; should not be assumed simpler than
-  `WindowSelectorWindow` turned out to be just because it hasn't been opened. This is
-  also where the temporary `StubMediaControlsStateService` (Task 4b.1) gets replaced
-  with the real, ported `MediaControlsStateService` — read that stub's doc comment
-  first when starting this window's research.
+- **`ThumbnailWindow`** — DONE. Window, coordinator, and startup wiring ported and
+  committed (`910f564`). WinUI 3's `WM_NCHITTEST`/`WM_SIZING` blocker never
+  materialized: `WinUIEx.Messaging.WindowMessageMonitor` (already a project
+  dependency) covers it, no hand-rolled `SetWindowSubclass` binding needed.
+  **Deferred, not resolved:** in `ThumbnailResizeMode.ResizeSource` mode, (a)
+  restoring after a manual drag-resize lands the source window smaller than expected,
+  cause not yet found, and (b) an unreproduced `STATUS_STOWED_EXCEPTION` crash in a
+  resize-then-close scenario — a `procdump` capture caught the wrong exception once;
+  a fresh `-e` (unhandled-only) capture during an actual repro is the documented next
+  step, in `ApplyZoomFactor`'s own doc comment.
+- **`MediaControlsWindow`** — DONE. `StubMediaControlsStateService` was replaced with
+  the real `MediaControlsStateService`; window, coordinator, and startup wiring are
+  registered in `Bootstrapper.cs` and `App.xaml.cs`, and reachable via its real hotkey
+  (live-verified repeatedly, not just build-clean). Five real bugs found during the
+  user's own hands-on testing were fixed across several sessions: session ComboBox
+  height, session icon alpha, session-volume-disabled (`GetMasterSessions`'s stale
+  `LeftJoin`), device-dropdown losing selection on add/remove, and — the deepest one —
+  the play/pause and mute buttons' icon/hover/pressed-background all freezing after
+  the first toggle, root-caused to the custom `ToggleButton` templates using a
+  WPF-style separate `CheckStates` group instead of the real WinUI 3 `ToggleButton`'s
+  combined `CommonStates` names (`CheckedPointerOver`, `CheckedPressed`); plus a
+  separate bug where the playback volume slider froze after a device switch
+  (`AggregateSession` mutating in place with no change notification). See
+  `winui3-togglebutton-checkstates-bug` and `aggregatesession-mutation-notification-gap`
+  in Claude's cross-session memory for the full writeups.
+  **Deferred, not resolved:** selecting a different item from the Session dropdown has
+  no visible effect. Traced (not fixed) to `activeSessionChanges` re-asserting
+  `SelectedSessionListItem` on every SMTC update in `MediaControlsViewModel` — this
+  logic is identical in the WPF original, so it may not be a porting-specific defect;
+  worth confirming against the WPF app directly before assuming it needs a winui3-side
+  fix.
+
+**Two windows never assigned to any phase, found during this status audit, not
+previously tracked anywhere in this plan or the design spec:**
+- **`RenameWindow`** — confirmed dead code in the WPF app itself: `ShowFor(WindowItem)`
+  has zero call sites anywhere in `WinTabberUI`. Does not need porting unless someone
+  intends to actually wire it up (from `WindowSelectorWindow`'s tile list, presumably)
+  in either app first.
+- **`MediaDebugWindow`** — registered in the WPF `Bootstrapper` (`MediaDebugWindowCoordinator`
+  singleton, `MediaDebugWindow` transient) and not yet checked for real reachability or
+  scope-worthiness in this migration. Not investigated further during this audit;
+  needs a reachability check (does its coordinator actually show it via some hotkey or
+  menu?) before deciding whether it belongs in this plan at all.
 
 Also carried forward from Phase 4a's final review: I3 (non-activating show-path timing)
-remains open — still not exercised, since `WindowSelectorWindow` uses `ShowActivated`-equivalent
-activation like `DockWindow`, not a non-activating show path. M8 (`Bootstrapper` grouping naming)
-was settled during the Phase 4c `ThumbnailWindow` task: kept this port's per-window/feature
-grouping (`AddSettingsGraph`, `AddDockAndSuspendedWindowsGraph`, `AddWindowSelectorGraph`,
-`AddThumbnailWindowGraph`), documented at the new method rather than switching to the WPF
-original's per-kind grouping. Not open any longer.
+remains open — still not exercised, since neither `WindowSelectorWindow` nor
+`ThumbnailWindow`/`MediaControlsWindow` use a non-activating show path. M8
+(`Bootstrapper` grouping naming) was settled during the `ThumbnailWindow` task and is
+not open any longer.
 
 The deferred hint-overlay system (Phase 2c) remains untouched and unresearched since
-its own scope note.
+its own scope note. `SysColorsCommand`/the `SysColor` dialog (Task 0.4) were
+deliberately removed from the tray menu but kept in code for a future revisit — not a
+migration gap, an intentional deferral.
