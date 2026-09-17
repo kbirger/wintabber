@@ -4,6 +4,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using DynamicData;
+using DynamicData.Binding;
 using NAudio.CoreAudioApi;
 using ReactiveUI;
 using WinTabber.Api.Media.CoreAudio.Dtos;
@@ -17,7 +18,20 @@ namespace WinTabber.UI.Media.ViewModels
         {
             _deviceService = deviceService;
             var devices = deviceService.Devices.Connect().Filter(device => device.DataFlow == flow);
-            devices.ObserveOn(RxApp.MainThreadScheduler).Bind(out _devices).Subscribe().DisposeWith(_cleanUp);
+            // ResetThreshold: int.MaxValue, not DynamicData's default (25): a real device add/remove
+            // fires several simultaneous cache changes at once (CoreAudioDeviceRepository.GetDevices's
+            // defaultSubscription alone calls the parameterless cache.Refresh(), refreshing every
+            // device in one changeset), and once a changeset's change count crosses the default
+            // threshold, Bind() collapses it into a single CollectionChanged Reset instead of granular
+            // Add/Remove/Replace notifications. WinUI 3's Selector-derived controls (ComboBox here)
+            // clear SelectedItem on a Reset notification -- confirmed live: the device dropdown loses
+            // its selection specifically when the device list changes (add/remove), not on an ordinary
+            // default-device switch, matching this exact threshold-crossing behavior.
+            devices
+                .ObserveOn(RxApp.MainThreadScheduler)
+                .Bind(out _devices, new BindingOptions(ResetThreshold: int.MaxValue))
+                .Subscribe()
+                .DisposeWith(_cleanUp);
 
             // ObserveOn before Subscribe, not left off like the WPF original tolerated: raising
             // PropertyChanged off the UI thread is harmless in WPF (plain CLR EventArgs), but WinUI
