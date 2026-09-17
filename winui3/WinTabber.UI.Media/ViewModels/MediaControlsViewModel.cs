@@ -4,6 +4,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using DynamicData;
+using DynamicData.Binding;
 using NAudio.CoreAudioApi;
 using ReactiveUI;
 using WinTabber.Common.Util;
@@ -61,7 +62,17 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
                 .MasterSessions.Connect()
                 .Transform(session => new SessionListItem(session));
 
-            sessions.ObserveOn(RxSchedulers.MainThreadScheduler).Bind(out _sessions).Subscribe().DisposeWith(disposables);
+            // ResetThreshold: int.MaxValue, matching AudioDeviceSelectorViewModel's own Devices
+            // binding fix -- Bind() collapses a large-enough simultaneous changeset into a single
+            // CollectionChanged Reset instead of granular Add/Remove, and WinUI 3's Selector-derived
+            // ComboBox clears SelectedItem on Reset. Sessions add/remove in a batch the same way
+            // devices do (MasterSessions.AutoRefreshOnObservable refreshes broadly), so this is
+            // preventive, not (yet) reproduced live the way the device-list case was.
+            sessions
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Bind(out _sessions, new BindingOptions(ResetThreshold: int.MaxValue))
+                .Subscribe()
+                .DisposeWith(disposables);
             // Bind(out _sessions) writes the field directly, bypassing the Sessions property
             // setter -- RaiseAndSetIfChanged never runs, so PropertyChanged(nameof(Sessions)) never
             // fires, and the classic {Binding Sessions} in MediaControlsWindow.xaml (already bound
