@@ -1,4 +1,6 @@
+BITMAP
 DeleteObject
+GetObject
 IShellItem
 IShellItemImageFactory
 SHCreateItemFromParsingName

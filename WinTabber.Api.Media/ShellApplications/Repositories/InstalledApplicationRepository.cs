@@ -3,6 +3,7 @@ using Microsoft.WindowsAPICodePack.Shell;
 using System.Diagnostics;
 using System.Diagnostics.CodeAnalysis;
 using System.Drawing;
+using System.Drawing.Imaging;
 using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
@@ -233,11 +234,15 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
                                 Marshal.ReleaseComObject(imageFactory);
                             }
 
-                            // Bitmap.FromHbitmap copies the pixel data into a managed bitmap, so
-                            // the source HBITMAP is ours to free immediately afterward.
+                            // Not Image.FromHbitmap: it always produces Format32bppRgb, discarding
+                            // whatever alpha channel the source HBITMAP has -- a well-documented
+                            // GDI+ limitation, confirmed live as a solid black box behind every icon
+                            // that should have had a transparent background. IShellItemImageFactory
+                            // returns a 32bpp ARGB DIB section for icon/thumbnail requests, so the
+                            // alpha byte is there; it just needs to be read directly instead.
                             try
                             {
-                                return Image.FromHbitmap(hBitmap);
+                                return CreateBitmapPreservingAlpha(hBitmap);
                             }
                             finally
                             {
@@ -250,6 +255,25 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
             )
             .Replay(1)
             .AutoConnect();
+    }
+
+    /// <summary>
+    /// Reads an HBITMAP's pixel data directly into a Format32bppArgb <see cref="Bitmap"/>, preserving
+    /// alpha -- unlike <see cref="Image.FromHbitmap(nint)"/>, which always produces Format32bppRgb.
+    /// The constructed Bitmap wraps <c>bmp.bmBits</c> directly (not a copy), so it is cloned before
+    /// returning: <c>bmp.bmBits</c> points into the HBITMAP's own DIB section, which the caller frees
+    /// immediately after this returns.
+    /// </summary>
+    private static unsafe Bitmap CreateBitmapPreservingAlpha(HBITMAP hBitmap)
+    {
+        Windows.Win32.Graphics.Gdi.BITMAP bmp;
+        Windows.Win32.ShellPInvoke.GetObject(
+            new HGDIOBJ((nint)hBitmap),
+            sizeof(Windows.Win32.Graphics.Gdi.BITMAP),
+            &bmp
+        );
+        using var view = new Bitmap(bmp.bmWidth, bmp.bmHeight, bmp.bmWidthBytes, PixelFormat.Format32bppArgb, (nint)bmp.bmBits);
+        return new Bitmap(view);
     }
 
     private static string GetAumid(ShellObject shellObject)
