@@ -62,6 +62,13 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
                 .Transform(session => new SessionListItem(session));
 
             sessions.ObserveOn(RxSchedulers.MainThreadScheduler).Bind(out _sessions).Subscribe().DisposeWith(disposables);
+            // Bind(out _sessions) writes the field directly, bypassing the Sessions property
+            // setter -- RaiseAndSetIfChanged never runs, so PropertyChanged(nameof(Sessions)) never
+            // fires, and the classic {Binding Sessions} in MediaControlsWindow.xaml (already bound
+            // by the time this activation runs) never sees the real, live collection. Confirmed live:
+            // Playback/Recording populate correctly because they go through their own property
+            // setters (Playback = playback; below); Sessions did not, and its ComboBox stayed empty.
+            this.RaisePropertyChanged(nameof(Sessions));
             _sessions
                 .ActOnEveryObject(
                     (x) =>
