@@ -1,6 +1,5 @@
 ﻿using DynamicData;
 using NAudio.CoreAudioApi;
-using System.Diagnostics;
 using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
@@ -101,26 +100,20 @@ public partial class AudioDeviceService(CoreAudioDeviceRepository repository) : 
 
     public IObservable<DeviceDto> GetDefaultDevice(DataFlow dataFlow = DataFlow.All, Role role = Role.Multimedia)
     {
+        // Watches Devices (the same IObservableCache<DeviceDto,string> that backs the selector's
+        // ItemsSource) by id, rather than building a fresh DeviceDto via CreateItem as this used to.
+        // DeviceDto has value equality (by DeviceId), so the old version worked fine bound to WPF's
+        // ComboBox.SelectedItem, which matches via Equals -- but WinUI 3's Selector.SelectedItem
+        // requires the exact same object reference as an item in ItemsSource, so a value-equal but
+        // distinct instance silently fails to select anything. Confirmed live: Devices populated
+        // correctly, but nothing was ever highlighted as selected.
         return _defaultDevices
             .Connect()
             .ObserveOn(_repository.Scheduler)
             .Watch(new DefaultDeviceKey(dataFlow, role))
-            .Select(newDefault =>
-                _nativeDevices
-                    .Watch(newDefault.Current.DeviceId)
-                    .Do(x =>
-                    {
-                        Debug.WriteLine($"default {x.Current.FriendlyName}");
-                    })
-                    .Select(change => change.Current)
-                    .Do(x =>
-                    {
-                        Debug.WriteLine($"single default {x.FriendlyName}");
-                    })
-            )
+            .Select(newDefault => Devices.WatchValue(newDefault.Current.DeviceId))
             .Switch()
-            .DistinctUntilChanged(device => device.Id)
-            .Select(CreateItem);
+            .DistinctUntilChanged(device => device.DeviceId);
     }
 
     public IObservable<Unit> SetVolume(string deviceId, float volume)
