@@ -25,6 +25,12 @@
     <UserControl.Resources>
         <c:FloatToPercentageConverter x:Key="FloatToPercentageConverter" />
         <c:InverseBoolConverter x:Key="InverseBoolConverter" />
+        <!-- CommonStates uses the framework's own combined state names (Checked, CheckedPointerOver,
+             CheckedPressed), matching the real ToggleButton default template shipped in the Windows
+             App SDK, see PlayPauseMediaButton in MediaControlsWindow.xaml for the full root-cause
+             explanation. A separate CheckStates group with plain Checked/Unchecked (the earlier,
+             wrong approach here) silently fails to match GoToState("CheckedPointerOver") and similar
+             calls, breaking both the glyph swap and hover. -->
         <Style x:Key="MuteToggle" TargetType="ToggleButton">
             <Setter Property="Width" Value="42" />
             <Setter Property="Background" Value="Transparent" />
@@ -49,16 +55,21 @@
                                             <Setter Target="RootBorder.Background" Value="#dd777777" />
                                         </VisualState.Setters>
                                     </VisualState>
-                                </VisualStateGroup>
-                                <VisualStateGroup x:Name="CheckStates">
                                     <VisualState x:Name="Checked">
                                         <VisualState.Setters>
                                             <Setter Target="Icon.Glyph" Value="&#xE74F;" />
                                         </VisualState.Setters>
                                     </VisualState>
-                                    <VisualState x:Name="Unchecked">
+                                    <VisualState x:Name="CheckedPointerOver">
                                         <VisualState.Setters>
-                                            <Setter Target="Icon.Glyph" Value="&#xE767;" />
+                                            <Setter Target="RootBorder.Background" Value="#22666666" />
+                                            <Setter Target="Icon.Glyph" Value="&#xE74F;" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="CheckedPressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#dd777777" />
+                                            <Setter Target="Icon.Glyph" Value="&#xE74F;" />
                                         </VisualState.Setters>
                                     </VisualState>
                                 </VisualStateGroup>

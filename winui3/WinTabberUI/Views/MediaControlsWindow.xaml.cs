@@ -1,7 +1,11 @@
 // winui3/WinTabberUI/Views/MediaControlsWindow.xaml.cs
+using Microsoft.UI;
+using Microsoft.UI.Composition;
+using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using WinRT;
 using WinRT.Interop;
 using WinTabber.UI.Media.Services;
 using WinTabber.UI.Media.ViewModels;
@@ -27,14 +31,23 @@ public sealed partial class MediaControlsWindow : WindowEx
     private bool _hasCenteredOnce;
 
     public MediaControlsViewModel ViewModel { get; }
+    private DesktopAcrylicController? _desktopAcrylicController;
+    private readonly SystemBackdropConfiguration _configurationSource;
 
     public MediaControlsWindow(MediaControlsViewModel viewModel, IMediaControlsStateService mediaControlsStateService)
     {
         ViewModel = viewModel;
         _mediaControlsStateService = mediaControlsStateService;
         InitializeComponent();
-
-        SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
+        //SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
+        if (DesktopAcrylicController.IsSupported())
+        {
+            _desktopAcrylicController = new DesktopAcrylicController();
+            _configurationSource = new SystemBackdropConfiguration();
+            _desktopAcrylicController.AddSystemBackdropTarget(this.As<ICompositionSupportsSystemBackdrop>());
+            _desktopAcrylicController.SetSystemBackdropConfiguration(_configurationSource);
+        }
+        SetConfigurationSourceTheme();
         RootGrid.DataContext = ViewModel;
 
         Activated += OnActivated;
@@ -50,7 +63,21 @@ public sealed partial class MediaControlsWindow : WindowEx
         // session changes which of the title/artist/album TextBlocks are visible (each collapses via
         // NullToVisibilityConverter), which changes the content's natural height.
         RootGrid.SizeChanged += (_, _) => DispatcherQueue.TryEnqueue(ResizeHeightToContent);
+        ((FrameworkElement)Content).ActualThemeChanged += Window_ThemeChanged;
         ResizeHeightToContent();
+    }
+
+    private void Window_ThemeChanged(FrameworkElement sender, object args)
+    {
+        if (_configurationSource != null)
+            SetConfigurationSourceTheme();
+    }
+
+    private void SetConfigurationSourceTheme()
+    {
+        if (_configurationSource != null)
+            _configurationSource.Theme =
+                (SystemBackdropTheme)((FrameworkElement)Content).ActualTheme;
     }
 
     private void ResizeHeightToContent()

@@ -89,7 +89,7 @@ public partial class MediaSessionService(
                         item.UpdateApp(app);
                     }
 
-                }, 
+                },
                 true)
             .Filter(item => item.IsComplete)
             .ChangeKey(session => session.App!.AppUserModelId)

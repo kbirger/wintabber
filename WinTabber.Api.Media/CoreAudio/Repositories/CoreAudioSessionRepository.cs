@@ -65,7 +65,7 @@ public class CoreAudioSessionRepository : IDisposable
 
                     return new CompositeDisposable(endSubscriptions, subscription);
                 },
-                item => item.CoreAudioSession.GetSessionInstanceIdentifier
+                item => item.Id
             )
             .SubscribeOn(Scheduler)
             .ObserveOn(Scheduler)

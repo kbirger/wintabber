@@ -44,14 +44,40 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
         _sessionService = audioSessionService;
         _deviceService = audioDeviceService;
 
+        var scheduler = RxSchedulers.MainThreadScheduler;
+
         // Replay(1), not Replay(): an unbounded replay hands every late subscriber the whole
         // history of sessions, and each one builds a monitor for every past session.
+        //
+        // Merged with NativeSessionChanged, not just WhenAnyValue(vm => vm.Session) alone: a device
+        // switch mutates the SAME AggregateSession instance in place (UpdateNativeSession), and its
+        // Key/Equals deliberately ignore NativeSession, so RaiseAndSetIfChanged on Session never
+        // fires for that mutation. Confirmed live on the winui3 app (same shared MediaSessionService/
+        // AggregateSession this file uses): the device volume slider updated correctly on the first
+        // device switch after a session was selected, then froze on every switch after that, because
+        // Session's own reference never changed again. NativeSessionChanged is the session's own
+        // notification of that mutation, independent of Session's reference-based change detection.
+        //
+        // ObserveOn(scheduler) here, not left to each downstream consumer: NativeSessionChanged
+        // fires from AggregateSession.UpdateNativeSession, called from GetMasterSessions's
+        // .ObserveOn(staScheduler) pipeline -- the COM STA thread, not the UI thread. Confirmed live
+        // on the winui3 app: without this, monitors.Subscribe(monitor => Playback.Session = monitor)
+        // ran on that STA thread and crashed marshaling a WinRT PropertyChangedEventArgs off the UI
+        // thread. WPF's PropertyChangedEventArgs has no such thread affinity, so this crash would
+        // not reproduce here, but the thread-affinity contract every downstream consumer of
+        // SessionChanged already relies on (see AudioDeviceSelectorViewModel's own comment on the
+        // same hazard) still calls for it.
         SessionChanged = this.WhenAnyValue(vm => vm.Session)
+            .Select(session =>
+                session == null
+                    ? Observable.Return(session)
+                    : Observable.Return(session).Concat(session.NativeSessionChanged.Select(_ => session))
+            )
+            .Switch()
+            .ObserveOn(scheduler)
             .Log(x => $"Session changed before distinct: {x?.Key} - {x?.NativeSession != null}")
             .Replay(1)
             .RefCount();
-
-        var scheduler = RxSchedulers.MainThreadScheduler;
         //var hasNativeSession = session.NativeSession is not null;
         //var smtcSession = session.MediaSession;
         var deviceSession = SessionChanged.Select(session => new ObservableSessionDto(session?.NativeSession));

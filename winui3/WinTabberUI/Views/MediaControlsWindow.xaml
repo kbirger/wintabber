@@ -20,7 +20,7 @@
     IsResizable="False"
     IsTitleBarVisible="False"
 >
-    <Grid x:Name="RootGrid" Padding="25" Background="#30000000">
+    <Grid x:Name="RootGrid" Padding="25" Background="#00ff0000">
     <Grid.Resources>
         <c:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
         <c:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter" />
@@ -32,16 +32,17 @@
             </StackPanel>
         </DataTemplate>
 
+        <!-- Margin matches DeviceItemTemplate's 4px vertical margin so both ComboBoxes report the same closed-state height; the session template's own image+text previously had no vertical margin, making it render shorter. -->
         <DataTemplate x:Key="SessionItemTemplate" x:DataType="vm:SessionListItem">
             <StackPanel Orientation="Horizontal">
                 <Image
                     Source="{Binding Icon}"
                     Height="16"
                     Width="16"
-                    Margin="0,0,10,0"
+                    Margin="4,4,10,4"
                     Visibility="{Binding Icon, Converter={StaticResource NullToVisibilityConverter}}"
                 />
-                <TextBlock Text="{Binding Name}" Margin="10,0,0,0" />
+                <TextBlock Text="{Binding Name}" Margin="10,4,4,4" />
             </StackPanel>
         </DataTemplate>
 
@@ -85,6 +86,17 @@
             </Setter>
         </Style>
 
+        <!-- Root cause found by reading the Windows App SDK's own generic.xaml (the framework's
+             default ToggleButton template): the real ToggleButton drives ONE CommonStates group
+             with COMBINED state names, Normal, PointerOver, Pressed, Checked, CheckedPointerOver,
+             CheckedPressed, not a separate CheckStates group with plain Checked/Unchecked. Every
+             earlier attempt at this bug (a custom ReliableToggleButton calling GoToState
+             explicitly, VisualState.Setters vs Storyboard, forcing Normal/PointerOver in code) was
+             chasing a symptom: GoToState("CheckedPointerOver") was silently failing every time,
+             because no state by that name existed anywhere in the old template. Naming the states
+             the way the framework actually requests them fixes hover and the glyph swap together,
+             using nothing but the framework's own native logic, no code-behind, no custom
+             control needed. -->
         <Style TargetType="ToggleButton" x:Key="PlayPauseMediaButton">
             <Setter Property="Width" Value="42" />
             <Setter Property="Height" Value="42" />
@@ -110,18 +122,24 @@
                                             <Setter Target="RootBorder.Background" Value="#dd777777" />
                                         </VisualState.Setters>
                                     </VisualState>
-                                </VisualStateGroup>
-                                <VisualStateGroup x:Name="CheckStates">
                                     <VisualState x:Name="Checked">
                                         <VisualState.Setters>
                                             <Setter Target="Icon.Glyph" Value="&#xE769;" />
                                             <Setter Target="Icon.FontSize" Value="32" />
                                         </VisualState.Setters>
                                     </VisualState>
-                                    <VisualState x:Name="Unchecked">
+                                    <VisualState x:Name="CheckedPointerOver">
                                         <VisualState.Setters>
-                                            <Setter Target="Icon.Glyph" Value="&#xE768;" />
-                                            <Setter Target="Icon.FontSize" Value="28" />
+                                            <Setter Target="RootBorder.Background" Value="#22666666" />
+                                            <Setter Target="Icon.Glyph" Value="&#xE769;" />
+                                            <Setter Target="Icon.FontSize" Value="32" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="CheckedPressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#dd777777" />
+                                            <Setter Target="Icon.Glyph" Value="&#xE769;" />
+                                            <Setter Target="Icon.FontSize" Value="32" />
                                         </VisualState.Setters>
                                     </VisualState>
                                 </VisualStateGroup>
@@ -214,19 +232,26 @@
                     Source="{Binding ActiveSession.Thumbnail}"
                     Visibility="{Binding ActiveSession.Thumbnail, Converter={StaticResource NullToVisibilityConverter}}"
                 />
-                <StackPanel Margin="15,0,0,0" Grid.Column="1" VerticalAlignment="Center">
+                <!-- MaxWidth caps this column so a long title/artist/album cannot push the play controls to the right; TextTrimming ellipsizes instead of the WPF original's OpacityMask fade, which has no WinUI 3 equivalent. -->
+                <StackPanel Margin="15,0,0,0" Grid.Column="1" VerticalAlignment="Center" MaxWidth="260">
                     <TextBlock
                         Text="{Binding ActiveSession.Title}"
                         Visibility="{Binding ActiveSession.Title, Converter={StaticResource NullToVisibilityConverter}}"
                         FontWeight="Bold"
+                        TextTrimming="CharacterEllipsis"
+                        TextWrapping="NoWrap"
                     />
                     <TextBlock
                         Text="{Binding ActiveSession.ArtistName}"
                         Visibility="{Binding ActiveSession.ArtistName, Converter={StaticResource NullToVisibilityConverter}}"
+                        TextTrimming="CharacterEllipsis"
+                        TextWrapping="NoWrap"
                     />
                     <TextBlock
                         Text="{Binding ActiveSession.AlbumTitle}"
                         Visibility="{Binding ActiveSession.AlbumTitle, Converter={StaticResource NullToVisibilityConverter}}"
+                        TextTrimming="CharacterEllipsis"
+                        TextWrapping="NoWrap"
                     />
                 </StackPanel>
             </Grid>
