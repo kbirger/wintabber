@@ -179,6 +179,7 @@
                 ItemsSource="{Binding Sessions}"
                 HorizontalAlignment="Stretch"
                 x:Name="SessionSelector"
+                AccessKey="A"
                 ItemTemplate="{StaticResource SessionItemTemplate}"
                 SelectedItem="{Binding SelectedSessionListItem, Mode=TwoWay}"
             />
@@ -191,6 +192,8 @@
                 Grid.Row="1"
                 Margin="7,0,0,0"
                 HorizontalAlignment="Stretch"
+                x:Name="PlaybackDeviceSelector"
+                AccessKey="S"
                 ItemTemplate="{StaticResource DeviceItemTemplate}"
                 ItemsSource="{Binding Playback.Devices}"
                 SelectedItem="{Binding Playback.SelectedDevice, Mode=TwoWay}"
@@ -203,6 +206,8 @@
                 Grid.ColumnSpan="2"
                 Grid.Row="1"
                 HorizontalAlignment="Stretch"
+                x:Name="RecordingDeviceSelector"
+                AccessKey="R"
                 ItemTemplate="{StaticResource DeviceItemTemplate}"
                 ItemsSource="{Binding Recording.Devices}"
                 SelectedItem="{Binding Recording.SelectedDevice, Mode=TwoWay}"
@@ -257,7 +262,7 @@
             </Grid>
 
             <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="0" HorizontalAlignment="Center">
-                <Button Style="{StaticResource MediaButton}" Command="{Binding ActiveSession.Playback.Prev}">
+                <Button Style="{StaticResource MediaButton}" AccessKey="B" Command="{Binding ActiveSession.Playback.Prev}">
                     <FontIcon Glyph="&#xE892;" />
                 </Button>
                 <ToggleButton
@@ -265,9 +270,10 @@
                     DataContext="{Binding ActiveSession.Playback}"
                     Command="{Binding PlayPause}"
                     x:Name="PlayPauseButton"
+                    AccessKey="P"
                     IsChecked="{Binding IsPlaying, Mode=OneWay}"
                 />
-                <Button Style="{StaticResource MediaButton}" Command="{Binding ActiveSession.Playback.Next}">
+                <Button Style="{StaticResource MediaButton}" AccessKey="F" Command="{Binding ActiveSession.Playback.Next}">
                     <FontIcon Glyph="&#xE893;" />
                 </Button>
             </StackPanel>
