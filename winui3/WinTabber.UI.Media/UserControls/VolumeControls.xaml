@@ -91,6 +91,7 @@
             Maximum="100"
             StepFrequency="5"
             IsEnabled="{Binding CanSetVolume}"
+            AccessKey="{Binding VolumeHintText}"
             Value="{Binding Volume, Converter={StaticResource FloatToPercentageConverter}, Mode=TwoWay}"
         />
         <ToggleButton
@@ -99,6 +100,7 @@
             Grid.Column="1"
             HorizontalAlignment="Center"
             VerticalAlignment="Stretch"
+            AccessKey="{Binding MuteHintText}"
             IsChecked="{Binding IsMuted, Mode=OneWay}"
             Command="{Binding SetMuted}"
             CommandParameter="{Binding IsMuted, Converter={StaticResource InverseBoolConverter}}"
