@@ -36,10 +36,9 @@ public static class DynamicAccessKeyScope
                         container.AccessKey = (i + 1).ToString();
                         if (wired.Add(container))
                         {
-                            var index = i;
                             container.AccessKeyInvoked += (_, args) =>
                             {
-                                onActivated(container, index);
+                                onActivated(container, owner.IndexFromContainer(container));
                                 args.Handled = true;
                             };
                         }

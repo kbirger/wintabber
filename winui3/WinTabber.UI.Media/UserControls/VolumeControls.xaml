@@ -12,8 +12,9 @@
         - Converters (FloatToPercentageConverter, InverseBoolConverter) are declared locally
           rather than merging WinTabber.UI.Common's ValueConvertersResources.xaml by ms-appx
           Source - that dictionary carries an x:Class, meant to be instantiated, not merged.
-        - b:HintBehavior.HintText is dropped (2 uses). The hint-overlay system remains its own
-          deferred, unresearched Phase 2c task - no ported window uses it yet.
+        - VolumeHintText/MuteHintText are now bound directly to WinUI 3's native AccessKey property
+          (WinUI 3's built-in Alt-triggered hint system) on the Slider and MuteToggle below; custom
+          badge visuals (matching HintAdorner's look) remain a deferred follow-up task.
         - MuteToggle's ControlTemplate is rewritten with VisualStateManager in place of WPF's
           Style.Triggers/ControlTemplate.Triggers - not supported in WinUI 3.
         - Slider drops TickFrequency/AutoToolTipPlacement/AutoToolTipPrecision/IsMoveToPointEnabled
