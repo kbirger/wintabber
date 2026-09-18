@@ -7,6 +7,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using WinRT;
 using WinRT.Interop;
+using WinTabber.UI.Common.AccessKeys;
 using WinTabber.UI.Media.Services;
 using WinTabber.UI.Media.ViewModels;
 using WinTabberUI.Windowing;
@@ -65,6 +66,22 @@ public sealed partial class MediaControlsWindow : WindowEx
         RootGrid.SizeChanged += (_, _) => DispatcherQueue.TryEnqueue(ResizeHeightToContent);
         ((FrameworkElement)Content).ActualThemeChanged += Window_ThemeChanged;
         ResizeHeightToContent();
+
+        DynamicAccessKeyScope.AttachSequentialKeys(SessionSelector, (_, index) =>
+        {
+            SessionSelector.SelectedIndex = index;
+            SessionSelector.IsDropDownOpen = false;
+        });
+        DynamicAccessKeyScope.AttachSequentialKeys(PlaybackDeviceSelector, (_, index) =>
+        {
+            PlaybackDeviceSelector.SelectedIndex = index;
+            PlaybackDeviceSelector.IsDropDownOpen = false;
+        });
+        DynamicAccessKeyScope.AttachSequentialKeys(RecordingDeviceSelector, (_, index) =>
+        {
+            RecordingDeviceSelector.SelectedIndex = index;
+            RecordingDeviceSelector.IsDropDownOpen = false;
+        });
     }
 
     private void Window_ThemeChanged(FrameworkElement sender, object args)
