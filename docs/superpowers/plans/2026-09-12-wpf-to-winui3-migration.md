@@ -6302,7 +6302,34 @@ remains open — still not exercised, since neither `WindowSelectorWindow` nor
 (`Bootstrapper` grouping naming) was settled during the `ThumbnailWindow` task and is
 not open any longer.
 
-The deferred hint-overlay system (Phase 2c) remains untouched and unresearched since
-its own scope note. `SysColorsCommand`/the `SysColor` dialog (Task 0.4) were
-deliberately removed from the tray menu but kept in code for a future revisit — not a
-migration gap, an intentional deferral.
+**Update: Phase 2c is now done.** The hint-overlay system was ported for
+`MediaControlsWindow`/`VolumeControls` using WinUI 3's native `AccessKeyManager` in place
+of a custom `AdornerLayer`-based overlay — no other window uses hints, matching the WPF
+original's real scope. `DynamicAccessKeyScope`
+(`winui3/WinTabber.UI.Common/AccessKeys/DynamicAccessKeyScope.cs`) is the one piece of new
+glue code, for `ComboBox` dynamic per-item hints. Custom badge rendering (matching
+`HintAdorner`'s look, via `AccessKeyDisplayRequested`/`Dismissed`) remains a deferred
+follow-up, deliberately left for later per explicit instruction to ship functionality
+first. Spec: `docs/superpowers/specs/2026-09-17-hint-overlay-winui3-design.md`. Plan:
+`docs/superpowers/plans/2026-09-18-hint-overlay-winui3.md`. Tagged `phase-2c-hint-overlay`.
+
+`SysColorsCommand`/the `SysColor` dialog (Task 0.4) were deliberately removed from the
+tray menu but kept in code for a future revisit — not a migration gap, an intentional
+deferral.
+
+**All five Phase 4 windows are now ported** (`DockWindow`/`SuspendedWindowsWindow` in 4a,
+`WindowSelectorWindow` in 4b, `ThumbnailWindow`/`MediaControlsWindow` in 4c), and Phase 2c
+is done. What remains, with nothing currently planned in detail:
+
+- **Phase 5 (unplanned, unwritten)** — full app bootstrap parity: tray icon, every
+  coordinator wired together in one real running app startup shape, reconciling this
+  `Bootstrapper.cs` with the WPF one's `AutoStartupService`/`BackgroundServiceContainer`/
+  `WindowManager` wiring. Referenced repeatedly throughout this plan as "Phase 5's job"
+  but never itself researched or scoped. This is the largest remaining piece of the
+  migration.
+- **`MediaDebugWindow`** — reachability not yet checked (see above); needs that check
+  before deciding whether it belongs in Phase 5's scope at all.
+- **Deferred bugs, not resolved**: `ThumbnailWindow`'s `ResizeSource` sizing/crash issue;
+  `MediaControlsWindow`'s session-dropdown-selection-has-no-effect bug (may not be
+  porting-specific — same logic exists in the WPF original).
+- **I3** (non-activating show-path timing) — still not exercised by any ported window.
