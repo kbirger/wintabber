@@ -6333,3 +6333,27 @@ is done. What remains, with nothing currently planned in detail:
   `MediaControlsWindow`'s session-dropdown-selection-has-no-effect bug (may not be
   porting-specific — same logic exists in the WPF original).
 - **I3** (non-activating show-path timing) — still not exercised by any ported window.
+
+## Phase 5, sub-project 1 status — tray icon ported; one known bug deferred
+
+Ported using `H.NotifyIcon.WinUI` (spec:
+`docs/superpowers/specs/2026-09-18-tray-icon-winui3-design.md`, plan:
+`docs/superpowers/plans/2026-09-18-tray-icon-winui3.md`). `App.xaml.cs` no longer auto-shows
+`SettingsWindow` at launch — the app now starts quietly in the tray. Live-verified: Exit
+terminates the process cleanly; the icon and its 5-item menu appear correctly; "Show
+Window"/"Settings" are confirmed inert (expected, pending the coordinators sub-project below).
+
+**Deferred, not resolved**: the "Enable Hooks" `ToggleMenuFlyoutItem` does nothing when clicked —
+no checkbox change, no actual hook-pause effect (confirmed via a real global hotkey still firing
+after the click). Root-caused partially, not fully: a live diagnostic (a temporary `Click` event
+handler logging to a file, since VS's debugger bridge was unavailable at the time) showed the
+`Click` event itself never fires for this item in H.NotifyIcon.WinUI's native `PopupMenu`
+rendering mode — this points at the library's `ToggleMenuFlyoutItem` click-routing specifically in
+that mode, not at the `Command`/`DataContext` binding wiring (both independently verified correct
+by the tray-icon plan's own final review, including via decompiling the library). Every other
+menu item (`MenuFlyoutItem`, not `ToggleMenuFlyoutItem`) works — `Exit` was live-verified to
+actually terminate the process. Next step for whoever picks this up: decompile or test
+`H.NotifyIcon.WinUI`'s `PopulateMenu`/`ShowContextMenuInPopupMenuMode` path specifically for how
+it wires up a *checkable* native menu item's click-back, since it may differ from a plain item's
+handling (worth testing with the VS debugger once its bridge is available again, rather than
+guessing further).
