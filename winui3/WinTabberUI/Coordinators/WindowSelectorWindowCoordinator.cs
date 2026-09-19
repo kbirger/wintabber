@@ -4,6 +4,7 @@ using System.Reactive.Linq;
 using WinTabber.Interop;
 using WinTabber.ViewModels;
 using WinTabberUI.Views;
+using WinUIEx;
 
 namespace WinTabberUI.Coordinators;
 
