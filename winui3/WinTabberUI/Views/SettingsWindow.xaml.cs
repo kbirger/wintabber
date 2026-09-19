@@ -17,7 +17,7 @@ public sealed partial class SettingsWindow : WindowEx
     {
         ViewModel = viewModel;
         InitializeComponent();
-
+        ExtendsContentIntoTitleBar = true;
         // TODO(verify) resolution: `SystemBackdrop="{winuiex:MicaBackdrop}"` in XAML compiles in
         // pass1 but crashes this SDK's XamlCompiler pass2 with no diagnostic (confirmed against real
         // compiler output: MSB3073, XamlCompiler.exe exits 1 with zero stdout/stderr; removing only

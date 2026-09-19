@@ -6389,11 +6389,10 @@ is touched again:
   second review pass. `SettingsWindowCoordinator` also had an independent orphaned-window bug
   (double-click "Settings" could leak an untracked, un-closeable window) — also fixed.
 
-**Manual GUI verification still needed from the user, not yet done by anyone**: open the window
-selector via the tray icon (or left-click) and confirm it takes focus and keyboard nav (Alt+Arrow,
-Enter, Escape) works on the *second* and later opens, not just the first; open Settings, close it
-via its own titlebar, and confirm it reopens correctly from the tray menu afterward. No subagent in
-this session had GUI/visual access to perform this check.
+**Manual GUI verification done by the user on 2026-09-19**: both checks pass. The window selector,
+opened via the tray icon or left-click, takes focus and keyboard nav (Alt+Arrow, Enter, Escape)
+works on the second and later opens, not just the first. Settings reopens correctly from the tray
+menu after being closed via its own titlebar.
 
 Spec: `docs/superpowers/specs/2026-09-19-window-coordinators-winui3-design.md`. Plan:
 `docs/superpowers/plans/2026-09-19-window-coordinators-winui3.md`.
