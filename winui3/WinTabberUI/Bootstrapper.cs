@@ -123,7 +123,15 @@ public static class Bootstrapper
                 sp.GetRequiredService<ApplicationSettings>().Shortcuts.ToMap()))
             .AddSingleton<WinTabberEventManager>()
             .AddSingleton<GsudoElevationLauncher>()
-            .AddSingleton<SettingsViewModel>();
+            .AddSingleton<SettingsViewModel>()
+            // Transient, matching the WPF original's own SettingsWindowViewCoordinator, which
+            // explicitly sets ReuseInstances = false: a fresh window each time, closed (not
+            // reused) after use, unlike the switcher's singleton reuse.
+            .AddTransient<Views.SettingsWindow>()
+            // Singleton, rooted explicitly in App.xaml.cs's OnLaunched, same reasoning as every
+            // other coordinator: its subscription to SettingsViewModel must stay alive for the
+            // app's lifetime.
+            .AddSingleton<Coordinators.SettingsWindowCoordinator>();
     }
 
     private static IServiceCollection AddDockAndSuspendedWindowsGraph(this IServiceCollection services)
@@ -148,10 +156,15 @@ public static class Bootstrapper
             .AddSingleton<ApplicationStateViewModelFactory>()
             .AddSingleton(sp => sp.GetRequiredService<ApplicationStateViewModelFactory>().CreateApplicationStateViewModel())
             .AddSingleton<WindowSelectorViewModel>()
-            // Transient, same reasoning as DockWindow/SuspendedWindowsWindow (Task 4a.4's fix, reapplied
-            // to every window since): a WinUI 3 Window can only be shown once, so the container must
-            // hand back a fresh instance on every resolve rather than a disposed singleton.
-            .AddTransient<Views.WindowSelectorWindow>();
+            // Singleton, not transient like every other window registered before this one: unlike a
+            // per-source-window ThumbnailWindow, this is a single global switcher shown/hidden
+            // repeatedly by WindowSelectorWindowCoordinator, matching the WPF original's own
+            // ReuseInstances = true -- see that coordinator's own doc comment.
+            .AddSingleton<Views.WindowSelectorWindow>()
+            // Singleton, rooted explicitly in App.xaml.cs's OnLaunched, same reasoning as
+            // ThumbnailWindowCoordinator: its subscription to WindowSelectorViewModel must stay
+            // alive for the app's lifetime, not depend on incidental resolution order.
+            .AddSingleton<Coordinators.WindowSelectorWindowCoordinator>();
     }
 
     // Settles the carried-forward M8 review item (Phase 4a's final review): this port groups DI

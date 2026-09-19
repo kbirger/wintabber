@@ -10,9 +10,7 @@ namespace WinTabberUI;
 
 public partial class App : Application
 {
-    private Window? _window;
-
-    // Rooted explicitly, not left to whatever gets resolved transitively through _window's own
+    // Rooted explicitly, not left to whatever gets resolved transitively through some window's own
     // constructor chain -- see AddThumbnailWindowGraph's doc comment. WinTabberEventManager is
     // resolved here for the same reason even though SettingsWindow's own SettingsViewModel dependency
     // already resolves it today: that's an incidental path, not a guarantee, and this app's global
@@ -22,6 +20,8 @@ public partial class App : Application
     private ThumbnailWindowCoordinator? _thumbnailWindowCoordinator;
     private MediaControlsWindowCoordinator? _mediaControlsWindowCoordinator;
     private NotifyIconCoordinator? _notifyIconCoordinator;
+    private WindowSelectorWindowCoordinator? _windowSelectorWindowCoordinator;
+    private SettingsWindowCoordinator? _settingsWindowCoordinator;
 
     public static ServiceProvider Services { get; private set; } = null!;
 
@@ -63,6 +63,8 @@ public partial class App : Application
         _thumbnailWindowCoordinator = Services.GetRequiredService<ThumbnailWindowCoordinator>().Init();
         _mediaControlsWindowCoordinator = Services.GetRequiredService<MediaControlsWindowCoordinator>();
         _notifyIconCoordinator = Services.GetRequiredService<NotifyIconCoordinator>();
+        _windowSelectorWindowCoordinator = Services.GetRequiredService<WindowSelectorWindowCoordinator>();
+        _settingsWindowCoordinator = Services.GetRequiredService<SettingsWindowCoordinator>();
 
         // KNOWN GAP, disclosed rather than silently omitted: the WPF original disposes
         // IWindowThumbnailService from its own OnExit override (restoring any window still
@@ -77,9 +79,8 @@ public partial class App : Application
         AppDomain.CurrentDomain.ProcessExit += (_, _) =>
             Services.GetRequiredService<IWindowThumbnailService>().Dispose();
 
-        // No window is shown at launch: the app now starts quietly in the tray. SettingsWindow
-        // and WindowSelectorWindow are shown on demand once their coordinators exist (a following,
-        // separate task) -- until then there is intentionally no way to open a window from the
-        // running app, per this plan's explicit startup-lifecycle scope change.
+        // No window is shown at launch: the app starts quietly in the tray. SettingsWindow and
+        // WindowSelectorWindow are now shown on demand, driven by WindowSelectorWindowCoordinator/
+        // SettingsWindowCoordinator reacting to their view models' own IObservable<bool> signals.
     }
 }
