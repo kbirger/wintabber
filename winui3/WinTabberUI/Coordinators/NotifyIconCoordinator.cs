@@ -74,6 +74,7 @@ public sealed class NotifyIconCoordinator : IDisposable
             IconSource = new BitmapImage(new Uri("ms-appx:///Assets/logo.ico")),
             ToolTipText = "WinTabber",
             ContextFlyout = menu,
+            NoLeftClickDelay = true,
         };
         BindingOperations.SetBinding(view, TaskbarIcon.LeftClickCommandProperty, new Binding
         {
