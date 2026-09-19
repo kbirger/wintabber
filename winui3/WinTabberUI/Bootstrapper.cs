@@ -33,6 +33,7 @@ public static class Bootstrapper
             .AddMediaControlsGraph()
             .AddWindowSelectorGraph()
             .AddThumbnailWindowGraph()
+            .AddTrayIconGraph()
             .BuildServiceProvider();
     }
 
@@ -174,5 +175,20 @@ public static class Bootstrapper
             // subscriptions must stay alive for the app's lifetime, the same requirement WPF's
             // BackgroundServiceContainer existed to guarantee.
             .AddSingleton<Coordinators.ThumbnailWindowCoordinator>();
+    }
+
+    private static IServiceCollection AddTrayIconGraph(this IServiceCollection services)
+    {
+        return services
+            .AddSingleton<IAppLifecycle, WinUIAppLifecycle>()
+            .AddSingleton<ISysColorsWindowLauncher, WinUISysColorsWindowLauncher>()
+            // Not part of the task brief's AddTrayIconGraph, but required: NotifyIconViewModel's
+            // constructor takes MediaDebugStateService, and nothing else in this Bootstrapper
+            // registers it yet (WinTabberUI's WPF Bootstrapper registers it alongside its media
+            // graph; the winui3 MediaDebugWindow port, when it lands, may want to move this there
+            // instead). Omitting it throws at NotifyIconCoordinator resolution time in OnLaunched.
+            .AddSingleton<MediaDebugStateService>()
+            .AddSingleton<NotifyIconViewModel>()
+            .AddSingleton<Coordinators.NotifyIconCoordinator>();
     }
 }

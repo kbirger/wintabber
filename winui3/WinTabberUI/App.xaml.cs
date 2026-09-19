@@ -21,6 +21,7 @@ public partial class App : Application
     private WinTabberEventManager? _eventManager;
     private ThumbnailWindowCoordinator? _thumbnailWindowCoordinator;
     private MediaControlsWindowCoordinator? _mediaControlsWindowCoordinator;
+    private NotifyIconCoordinator? _notifyIconCoordinator;
 
     public static ServiceProvider Services { get; private set; } = null!;
 
@@ -61,6 +62,7 @@ public partial class App : Application
         _eventManager = Services.GetRequiredService<WinTabberEventManager>();
         _thumbnailWindowCoordinator = Services.GetRequiredService<ThumbnailWindowCoordinator>().Init();
         _mediaControlsWindowCoordinator = Services.GetRequiredService<MediaControlsWindowCoordinator>();
+        _notifyIconCoordinator = Services.GetRequiredService<NotifyIconCoordinator>();
 
         // KNOWN GAP, disclosed rather than silently omitted: the WPF original disposes
         // IWindowThumbnailService from its own OnExit override (restoring any window still
@@ -75,7 +77,9 @@ public partial class App : Application
         AppDomain.CurrentDomain.ProcessExit += (_, _) =>
             Services.GetRequiredService<IWindowThumbnailService>().Dispose();
 
-        _window = new SettingsWindow(Services.GetRequiredService<SettingsViewModel>());
-        _window.Activate();
+        // No window is shown at launch: the app now starts quietly in the tray. SettingsWindow
+        // and WindowSelectorWindow are shown on demand once their coordinators exist (a following,
+        // separate task) -- until then there is intentionally no way to open a window from the
+        // running app, per this plan's explicit startup-lifecycle scope change.
     }
 }
