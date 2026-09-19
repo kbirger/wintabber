@@ -49,7 +49,7 @@ public class WindowSelectorWindowCoordinator : IDisposable
                 }
                 else
                 {
-                    _window?.Close();
+                    _window?.Hide();
                 }
             });
     }

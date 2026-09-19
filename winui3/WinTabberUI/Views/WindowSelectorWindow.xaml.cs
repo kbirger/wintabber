@@ -421,6 +421,15 @@ public sealed partial class WindowSelectorWindow : WindowEx
     }
 
     /// <summary>
+    /// Hides the window by closing it. Used by the WindowSelectorWindowCoordinator to hide the
+    /// switcher after a selection or cancellation.
+    /// </summary>
+    public void Hide()
+    {
+        Close();
+    }
+
+    /// <summary>
     /// Retries <paramref name="attempt"/> on <paramref name="interval"/> until it returns true or
     /// <paramref name="maxAttempts"/> is reached, then stops -- a bounded, self-terminating retry
     /// for a known one-shot operation (this window's own initial realization, or reacting to one
