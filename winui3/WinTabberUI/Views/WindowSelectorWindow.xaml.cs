@@ -232,12 +232,17 @@ public sealed partial class WindowSelectorWindow : WindowEx
     /// EventHandler like WPF's), so RevealWhenComposed's signature below is `object? sender, object e`.
     /// The Dispatcher.BeginInvoke(DispatcherPriority.Render, ...) fallback is NOT ported: WinUI 3's
     /// DispatcherQueue has no Render-specific priority (only High/Normal/Low -- confirmed, no
-    /// intermediate "after layout, before input" priority exists), and unlike the fallback's WPF
-    /// justification, this window is NOT reused across opens (a fresh transient instance is resolved
-    /// per open per Bootstrapper's `.AddTransient&lt;Views.WindowSelectorWindow&gt;()` registration --
-    /// see the DI registration comment), so the stale-surface-reuse problem the fallback guarded
-    /// against does not apply here structurally, not just probabilistically. If a future change makes
-    /// this window a reused singleton, revisit this.
+    /// intermediate "after layout, before input" priority exists).
+    /// <para>
+    /// UPDATE: this window is now a reused DI singleton (a later change in this same migration plan
+    /// moved it off `.AddTransient&lt;Views.WindowSelectorWindow&gt;()`), so the stale-surface-reuse
+    /// problem the fallback above guarded against in WPF is back, structurally, not just
+    /// probabilistically -- a reused window can already be showing the previous open's rendered
+    /// surface (and previous tile order) when <see cref="ShowWindowSelector"/> runs again. That is
+    /// exactly why <see cref="ShowWindowSelector"/> now calls `Show()` followed by
+    /// `RootGrid.UpdateLayout()` before `Activate()`: forcing a fresh layout pass against the current
+    /// ViewModel state before the window is activated, rather than activating (and revealing) whatever
+    /// was last composed.
     /// </para>
     /// </summary>
     private void ArmReveal()
@@ -388,6 +393,7 @@ public sealed partial class WindowSelectorWindow : WindowEx
     public void ShowWindowSelector()
     {
         _screenBounds = null;
+        _focusAcquired = false;
         var bounds = GetScreenBounds();
 
         ScaleTiles();
@@ -400,6 +406,12 @@ public sealed partial class WindowSelectorWindow : WindowEx
             (int)(bounds.Left * scale), (int)((bounds.Top - bounds.Height) * scale)));
 
         ArmReveal();
+
+        // This window is now a reused DI singleton (see ArmReveal's doc comment below), so it may
+        // already be Hide()-den from a previous close. Show() must run before Activate() so a
+        // previously hidden window is actually un-hidden, not just re-activated in place.
+        this.Show();
+        RootGrid.UpdateLayout();
         Activate();
 
         // REAL BUG found via live verification (this task's own follow-up): Alt+Arrow (and every

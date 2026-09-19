@@ -57,6 +57,13 @@ public class SettingsWindowCoordinator : IDisposable
 
     private void ShowWindow()
     {
+        if (_window is not null)
+        {
+            // A window is already showing -- resolving another transient here would overwrite
+            // _window and orphan the one already open (see OnWindowClosed's doc note).
+            return;
+        }
+
         _window = _serviceProvider.GetRequiredService<SettingsWindow>();
         _window.Closed += OnWindowClosed;
         _window.Show();
@@ -70,9 +77,24 @@ public class SettingsWindowCoordinator : IDisposable
         _interop.ForceForeground((int)handle);
     }
 
+    // Checks sender rather than trusting the _window field: if a stale _window were ever
+    // overwritten (see ShowWindow's guard against exactly that), blindly nulling _window here on
+    // any Closed event could detach and drop the reference to a *different*, still-open window
+    // that this coordinator would then never be able to close again.
     private void OnWindowClosed(object sender, WindowEventArgs args)
     {
-        _window!.Closed -= OnWindowClosed;
+        if (sender is not SettingsWindow closed)
+        {
+            return;
+        }
+
+        closed.Closed -= OnWindowClosed;
+
+        if (!ReferenceEquals(_window, closed))
+        {
+            return;
+        }
+
         _window = null;
         _vm.Hide();
     }
