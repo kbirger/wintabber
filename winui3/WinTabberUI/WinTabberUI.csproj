@@ -30,6 +30,7 @@
         <PackageReference Include="ReactiveUI" />
         <PackageReference Include="ReactiveUI.WinUI" />
         <PackageReference Include="CommunityToolkit.WinUI.Controls.Primitives" />
+        <PackageReference Include="H.NotifyIcon.WinUI" />
     </ItemGroup>
 
     <ItemGroup>
