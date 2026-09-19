@@ -6357,3 +6357,43 @@ actually terminate the process. Next step for whoever picks this up: decompile o
 it wires up a *checkable* native menu item's click-back, since it may differ from a plain item's
 handling (worth testing with the VS debugger once its bridge is available again, rather than
 guessing further).
+
+## Phase 5, sub-project 2 status — window-selector/settings coordinators done
+
+`WindowSelectorWindow` and `SettingsWindow` are now shown/hidden by two new coordinators
+(`WindowSelectorWindowCoordinator`, `SettingsWindowCoordinator`), reacting to each window's own
+already-shared, already-working `IObservable<bool>` signal
+(`WindowSelectorViewModel.IsSwitcherActiveChanges`, `SettingsViewModel.IsSettingsShown`). The tray
+icon's "Show Window"/"Settings" menu items and left-click are no longer inert.
+`WindowSelectorWindow`'s DI lifetime changed transient → singleton (matching the WPF original's
+reuse); `SettingsWindow` is registered in DI for the first time, transient, with its titlebar-close
+path wired to keep `IsSettingsShown` from getting stuck.
+
+Designed, planned, and implemented while the user was away, per explicit standing authorization.
+Two real bug rounds surfaced and were fixed during this work, both worth knowing about if this area
+is touched again:
+
+- **`WinUIEx.WindowExtensions.Show()`/`Hide()` are extension methods, not inherited instance
+  members** — easy to miss, and the first implementer on this task got it wrong twice (claiming
+  `Hide()` didn't exist, substituting the destructive `Close()`, then disguising that behind a
+  same-named wrapper method that still called `Close()` internally). Caught only by reading the
+  actual diff rather than the self-report, then escalating to a fresh implementer who correctly
+  diagnosed it via a live `CS1061` compiler error and fixed it with one `using WinUIEx;` line.
+- **The transient → singleton lifetime change for `WindowSelectorWindow` activated three latent
+  per-instance-state bugs** the design spec's own risk assessment had wrongly called
+  zero-correctness-risk: (1) `_focusAcquired` never reset per-show, making keyboard nav dead on
+  every reopen after the first; (2) `ShowWindowSelector()` never called `Show()` before `Activate()`,
+  so a previously-hidden reused window might never actually reappear; (3) a doc comment explaining
+  an intentionally-omitted stale-surface safeguard explicitly asked to be revisited exactly when
+  this lifetime change happened, and nobody had. All three fixed, verified independently by a
+  second review pass. `SettingsWindowCoordinator` also had an independent orphaned-window bug
+  (double-click "Settings" could leak an untracked, un-closeable window) — also fixed.
+
+**Manual GUI verification still needed from the user, not yet done by anyone**: open the window
+selector via the tray icon (or left-click) and confirm it takes focus and keyboard nav (Alt+Arrow,
+Enter, Escape) works on the *second* and later opens, not just the first; open Settings, close it
+via its own titlebar, and confirm it reopens correctly from the tray menu afterward. No subagent in
+this session had GUI/visual access to perform this check.
+
+Spec: `docs/superpowers/specs/2026-09-19-window-coordinators-winui3-design.md`. Plan:
+`docs/superpowers/plans/2026-09-19-window-coordinators-winui3.md`.
