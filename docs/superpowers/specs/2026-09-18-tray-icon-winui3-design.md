@@ -101,6 +101,22 @@ lands immediately after this one.
   `WinTabberUI/Images/logo.ico`, the tray icon's image source. The winui3
   app has no `Assets/` folder yet; this creates it.
 
+## Startup lifecycle change
+
+`App.xaml.cs`'s `OnLaunched` currently constructs and shows `SettingsWindow`
+directly on every launch — a temporary stand-in, by its own doc comment,
+until a real tray-app startup lifecycle exists. This task removes that
+auto-show: `OnLaunched` resolves and activates `NotifyIconCoordinator` (see
+below) and stops there, so the app starts quietly in the tray instead of
+always popping a visible window.
+
+Accepted, explicit trade-off: until the coordinators sub-project (next)
+wires "Show Window"/"Settings" to their events, there is no way to open any
+window from the running app at all — not even `SettingsWindow`, which this
+task removes the only current path to. This is intentional: the point of
+this change is to reach the real "quiet tray app" starting shape now,
+rather than deferring it alongside the coordinators work.
+
 ## Package reference
 
 Add `H.NotifyIcon.WinUI` to `winui3/WinTabberUI/WinTabberUI.csproj`.
