@@ -6396,3 +6396,53 @@ menu after being closed via its own titlebar.
 
 Spec: `docs/superpowers/specs/2026-09-19-window-coordinators-winui3-design.md`. Plan:
 `docs/superpowers/plans/2026-09-19-window-coordinators-winui3.md`.
+
+## Phase 5 follow-up — WindowSelectorWindow sizing and tile-selection look fixed (2026-09-20)
+
+**Real bug found via user report, root-caused via decompile**: the window selector opened far too
+big. Root cause: the WPF original relies on `SizeToContent="WidthAndHeight"` (a Style setter in
+`WindowSelectorResources.xaml`) to auto-fit the window to its wrapped tiles, capped by
+`MaxWidth`/`MaxHeight`. WinUI 3's `Window` has no `SizeToContent` equivalent, and decompiling
+`WinUIEx.dll` confirmed `WindowEx.MaxWidth`/`MaxHeight` only clamp interactive resize — they never
+shrink the window to fit content. Nothing in the port ever resized the window, so it kept whatever
+oversized default `AppWindow` client size it started with. Fixed the same way
+`SuspendedWindowsWindow`'s port already fixed the identical gap: measure `RootGrid` with an
+unbounded constraint (its own `MaxWidth`/`MaxHeight`, now set in `ApplyScreenBounds` to reproduce
+the WPF Window-level clamp, since `Window` isn't a `FrameworkElement` and never participates in
+layout) and `AppWindow.ResizeClient` to match, called from `WireRealizedTiles` so it re-runs
+whenever tile sizing or wiring changes. Guards the resulting feedback loop (`ResizeClient` changes
+`RootGrid`'s bounds → refires `RootGrid.SizeChanged` → back into `WireRealizedTiles`) against the
+size this method itself last requested, not `AppWindow.Size` — client vs. outer-window size can
+differ by a rounding pixel at fractional DPI, which would make an `AppWindow.Size` comparison never
+match and loop every layout pass. Also resizes once while still parked off-screen (best-effort; the
+retry paths still correct it if tiles aren't realized that early), matching the WPF original's own
+care about a `MaxWidth` arriving after `Show()` visibly rearranging tiles in front of the user.
+
+Two further real gaps found via the same live-verification pass, once the user could actually see
+the resized window clearly: (1) the WPF original's window-level `Padding="15"` plus its `ListView`'s
+`Margin="40"` (55px total from window edge to tile content) were never ported — fixed by giving
+`TabListView` `Margin="55"` directly, since WinUI 3's `Grid` has no `Padding` property to split the
+55px across two elements the way WPF did. (2) tile selection used WinUI 3's default `ListViewItem`
+look (a left accent bar) instead of the WPF original's full rounded border — fixed with a
+`WindowTileItemStyle` replicating `WindowSelectorResources.xaml`'s `WindowItemList`
+`ItemContainerStyle` (`BorderThickness` 4, `CornerRadius` 10, `Padding` 10, `#aa444444` selected
+background with an accent-color border), using combined `CommonStates` state names
+(`PointerOverSelected`, `PressedSelected`) per this migration's own WinUI3 ToggleButton
+CheckStates finding. That surfaced one more real bug: WinUI 3's automatic system focus visual (a
+Windows 11 accent outline drawn on top of any control's template, independent of what that
+template renders) was still showing alongside the new custom border — fixed with
+`UseSystemFocusVisuals="False"` on the style, the WinUI 3 equivalent of the WPF original's own
+`FocusVisualStyle="{StaticResource FocusVisual}"` suppression.
+
+A large multi-line XML comment placed in `WindowSelectorWindow.xaml` (documenting the border-style
+rationale, directly before its `Style` element) reproduced this file's already-documented
+"XamlCompiler pass2 crashes with zero diagnostic on certain XAML comments" class — confirmed by
+bisection (shortening the comment to one line, with no other change, fixed the build). Rationale
+for both the sizing fix and the border/focus-visual fix now lives in
+`WindowSelectorWindow.xaml.cs`'s file-level doc comment instead, per that finding's own established
+convention.
+
+All four fixes (oversized window, missing padding, default selection look, extra focus outline)
+were live-verified by the user against a running build. A backdrop concern raised during the same
+session (flat/solid instead of acrylic, on both this window and Settings) turned out to be a stale
+running instance, not a real gap — resolved after a rebuild+relaunch, no code change needed.

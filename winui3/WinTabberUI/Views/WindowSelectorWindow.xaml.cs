@@ -25,6 +25,20 @@ namespace WinTabberUI.Views;
 //      is unaffected and used throughout. NOTE: a classic {Binding ElementName=..., Path=(attached
 //      property)} was also tried for per-tile MaxWidth/MaxHeight and found to crash the process
 //      natively (see ScaleTiles' doc comment) -- that path is no longer used in this file at all.
+//   1b. WindowSelectorWindow.xaml's "WindowTileItemStyle" ListViewItem style replicates the WPF
+//      original's WindowSelectorResources.xaml "WindowItemList" ItemContainerStyle: a full rounded
+//      Border (BorderThickness 4, CornerRadius 10, Padding 10) instead of the default ListViewItem's
+//      left accent bar (ListViewItemPresenter's own SelectionIndicatorMode), with the same selected
+//      look (#aa444444 background, accent-color border). Per this migration's own WinUI3
+//      ToggleButton CheckStates finding: combined state names (PointerOverSelected, PressedSelected)
+//      belong in the single CommonStates group, not a separate group -- a second group is simply
+//      never looked at by ListViewItem's own state-transition logic. REAL BUG found via live
+//      verification: WinUI 3's automatic system focus visual (a Windows 11 accent-colored outline,
+//      drawn on top of ANY control's template regardless of what that template itself renders) was
+//      still showing around the selected/focused tile alongside the custom Border above -- the WPF
+//      original's own equivalent (`FocusVisualStyle="{StaticResource FocusVisual}"`, a blank
+//      Rectangle) suppressed the same thing there. Fixed with `UseSystemFocusVisuals="False"` on
+//      the style, WinUI 3's own suppression switch for this.
 //   2. A large multi-line XML comment placed directly before the root Grid element in this file's XAML
 //      reproducibly made XamlCompiler.exe exit 1 with zero output on both stdout/stderr and in
 //      output.json's MSBuildLogEntries -- the same "no diagnostic at all" pass2 crash class
@@ -39,6 +53,8 @@ public sealed partial class WindowSelectorWindow : WindowEx
     private Rect? _screenBounds;
     private bool _parked;
     private int _framesBeforeReveal;
+    private int? _lastRequestedClientWidth;
+    private int? _lastRequestedClientHeight;
 
     public WindowSelectorViewModel ViewModel { get; }
 
@@ -200,7 +216,53 @@ public sealed partial class WindowSelectorWindow : WindowEx
             }
         }
 
+        ResizeToContent();
+
         return realizedCount > 0 && realizedCount == wiredCount && realizedCount == ViewModel.WindowItems.Length;
+    }
+
+    /// <summary>
+    /// WPF's original relied on <c>SizeToContent="WidthAndHeight"</c> (set on the Window itself via
+    /// a Style in <c>WindowSelectorResources.xaml</c>) to auto-fit the window to its wrapped tiles,
+    /// clamped by <c>MaxWidth</c>/<c>MaxHeight</c>. WinUI 3's Window has no SizeToContent equivalent,
+    /// and <see cref="WinUIEx.WindowEx.MaxWidth"/>/<c>MaxHeight</c> (set in <see cref="ApplyScreenBounds"/>)
+    /// only clamp interactive resize -- they never shrink the window to fit content (confirmed by
+    /// decompiling WinUIEx.dll: both delegate straight to WindowManager with no resize side effect).
+    /// Without this, the window keeps whatever oversized default AppWindow client size it started
+    /// with -- the same gap <see cref="SuspendedWindowsWindow"/>'s port already found and fixed the
+    /// same way: measure the content root with an unbounded constraint (RootGrid's own MaxWidth/
+    /// MaxHeight, set in <see cref="ApplyScreenBounds"/>, clamp that measurement exactly like the WPF
+    /// Window's MaxWidth/MaxHeight clamped its auto-size) and resize the real AppWindow client area to
+    /// match. Called from <see cref="WireRealizedTiles"/> so it re-runs every time tile sizing or
+    /// wiring changes, the same choke point already used for that.
+    /// </summary>
+    private void ResizeToContent()
+    {
+        RootGrid.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+        var desired = RootGrid.DesiredSize;
+        if (desired.Width <= 0 || desired.Height <= 0)
+        {
+            return;
+        }
+
+        var scale = DesktopHelper.GetScaleForWindow(_hwnd);
+        var targetWidth = (int)Math.Ceiling(desired.Width * scale);
+        var targetHeight = (int)Math.Ceiling(desired.Height * scale);
+
+        // Guard against reassigning the identical size -- see WireRealizedTiles' feedback-loop doc
+        // comment for why: ResizeClient changes RootGrid's own outer bounds, which re-fires
+        // RootGrid.SizeChanged, which calls back into WireRealizedTiles/ResizeToContent again.
+        // Compared against the size THIS METHOD last requested, not AppWindow.Size/ClientSize: the
+        // OS-granted client size can differ from what was asked for by a DPI-rounding pixel or two,
+        // which would make an AppWindow.Size comparison never match and loop every layout pass.
+        if (_lastRequestedClientWidth == targetWidth && _lastRequestedClientHeight == targetHeight)
+        {
+            return;
+        }
+
+        _lastRequestedClientWidth = targetWidth;
+        _lastRequestedClientHeight = targetHeight;
+        AppWindow.ResizeClient(new Windows.Graphics.SizeInt32(targetWidth, targetHeight));
     }
 
     private static IEnumerable<T> FindDescendants<T>(DependencyObject root, System.Func<T, bool>? predicate = null)
@@ -373,6 +435,15 @@ public sealed partial class WindowSelectorWindow : WindowEx
         var bounds = GetScreenBounds();
         MaxHeight = bounds.Height * FillPercent;
         MaxWidth = bounds.Width * FillPercent;
+
+        // The Window-level MaxWidth/MaxHeight above only clamp interactive resize (see
+        // ResizeToContent's doc comment) -- Microsoft.UI.Xaml.Window is not a FrameworkElement, so it
+        // never participates in layout. RootGrid is what actually gets measured, so the WPF original's
+        // Window-level MaxWidth/MaxHeight clamp (which the WrapPanel's measure pass saw directly) has
+        // to be reproduced here on RootGrid instead, for ResizeToContent's RootGrid.Measure call to
+        // respect the same 80%-of-screen cap.
+        RootGrid.MaxHeight = MaxHeight;
+        RootGrid.MaxWidth = MaxWidth;
     }
 
     private void CenterWindow()
@@ -393,6 +464,8 @@ public sealed partial class WindowSelectorWindow : WindowEx
     public void ShowWindowSelector()
     {
         _screenBounds = null;
+        _lastRequestedClientWidth = null;
+        _lastRequestedClientHeight = null;
         _focusAcquired = false;
         var bounds = GetScreenBounds();
 
@@ -412,6 +485,16 @@ public sealed partial class WindowSelectorWindow : WindowEx
         // previously hidden window is actually un-hidden, not just re-activated in place.
         this.Show();
         RootGrid.UpdateLayout();
+
+        // Best-effort resize while still parked off-screen, so the first frame the user actually
+        // sees (once RevealNow's CenterWindow runs) is already the right size, matching the WPF
+        // original's own "a MaxWidth arriving after Show() rearranges every tile in front of the
+        // user" concern -- see ResizeToContent's doc comment. Not guaranteed to catch every tile:
+        // WrapPanel containers may not be realized yet this early (the same reason TryFocusTabList
+        // below needs a retry). The RootGrid.SizeChanged/WindowItems-changed handlers still correct
+        // the size afterward if this pass finds nothing.
+        WireRealizedTiles();
+
         Activate();
 
         // REAL BUG found via live verification (this task's own follow-up): Alt+Arrow (and every

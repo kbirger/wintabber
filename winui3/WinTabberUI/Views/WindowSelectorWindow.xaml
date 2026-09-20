@@ -19,10 +19,68 @@
         <Grid.Resources>
             <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
             <c:DimIfTrueConverter x:Key="DimIfTrueConverter" />
+
+            <!-- Full-border tile selection look; see WindowSelectorWindow.xaml.cs for rationale. -->
+            <Style x:Key="WindowTileItemStyle" TargetType="ListViewItem">
+                <Setter Property="Margin" Value="4" />
+                <Setter Property="Padding" Value="0" />
+                <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+                <Setter Property="VerticalContentAlignment" Value="Stretch" />
+                <Setter Property="Background" Value="Transparent" />
+                <Setter Property="UseSystemFocusVisuals" Value="False" />
+                <Setter Property="Template">
+                    <Setter.Value>
+                        <ControlTemplate TargetType="ListViewItem">
+                            <Border
+                                x:Name="TileBorder"
+                                Background="Transparent"
+                                BorderBrush="Transparent"
+                                BorderThickness="4"
+                                CornerRadius="10"
+                                Padding="10"
+                            >
+                                <VisualStateManager.VisualStateGroups>
+                                    <VisualStateGroup x:Name="CommonStates">
+                                        <VisualState x:Name="Normal" />
+                                        <VisualState x:Name="PointerOver" />
+                                        <VisualState x:Name="Pressed" />
+                                        <VisualState x:Name="Selected">
+                                            <VisualState.Setters>
+                                                <Setter Target="TileBorder.Background" Value="#aa444444" />
+                                                <Setter Target="TileBorder.BorderBrush" Value="{ThemeResource SystemAccentColorLight2}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="PointerOverSelected">
+                                            <VisualState.Setters>
+                                                <Setter Target="TileBorder.Background" Value="#aa444444" />
+                                                <Setter Target="TileBorder.BorderBrush" Value="{ThemeResource SystemAccentColorLight2}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                        <VisualState x:Name="PressedSelected">
+                                            <VisualState.Setters>
+                                                <Setter Target="TileBorder.Background" Value="#aa444444" />
+                                                <Setter Target="TileBorder.BorderBrush" Value="{ThemeResource SystemAccentColorLight2}" />
+                                            </VisualState.Setters>
+                                        </VisualState>
+                                    </VisualStateGroup>
+                                </VisualStateManager.VisualStateGroups>
+                                <ContentPresenter
+                                    Content="{TemplateBinding Content}"
+                                    ContentTemplate="{TemplateBinding ContentTemplate}"
+                                    HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                    VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}"
+                                />
+                            </Border>
+                        </ControlTemplate>
+                    </Setter.Value>
+                </Setter>
+            </Style>
         </Grid.Resources>
 
         <controls:SpatialNavigationListView
             x:Name="TabListView"
+            Margin="55"
+            ItemContainerStyle="{StaticResource WindowTileItemStyle}"
             SelectionMode="Single"
             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
             ItemsSource="{x:Bind ViewModel.WindowItems, Mode=OneWay}"
