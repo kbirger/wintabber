@@ -76,16 +76,14 @@
                     Command="{x:Bind ViewModel.SuspendCommand, Mode=OneWay}"
                     ToolTipService.ToolTip="Sleep this process"
                     Visibility="{x:Bind ViewModel.IsSuspendButtonVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <!-- TODO(icon): originally FontAwesome.Sharp Moon -->
-                    <FontIcon Glyph="&#xE897;" />
+                    <FontIcon Glyph="&#xE708;" />
                 </Button>
                 <Button
                     x:Name="ThumbnailButton"
                     Command="{x:Bind ViewModel.ThumbnailCommand, Mode=OneWay}"
                     ToolTipService.ToolTip="Show as floating thumbnail"
                     Visibility="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                    <!-- TODO(icon): originally FontAwesome.Sharp ExternalLinkAlt -->
-                    <FontIcon Glyph="&#xE897;" />
+                    <FontIcon Glyph="&#xEA5F;" />
                 </Button>
                 <Button
                     x:Name="AcceptButton"
