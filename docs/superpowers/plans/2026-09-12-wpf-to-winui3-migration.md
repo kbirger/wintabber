@@ -6503,3 +6503,34 @@ debuggee is still attached, and never launch a second instance of this app outsi
 already running under the debugger (it did not error, it just silently exited — the first,
 undebugged instance kept running and any manual testing was against that one, wasting a full round
 of diagnosis until noticed).
+
+## Phase 5 follow-up 3 — thumbnail-close COM crash, settings dropdowns not showing their value (2026-09-21)
+
+**Real bug, `winui3/WinTabberUI/Controls/WindowThumbnail.cs`'s `Thumbnail_LayoutUpdated`**:
+un-thumbnailing (closing `ThumbnailWindow`) threw `System.Runtime.InteropServices.COMException:
+"The operation identifier is not valid. The WinUI Desktop Window object has already been closed."`
+from `window.Content`'s getter (caught live via an attached VS debugger). Root cause: a
+`LayoutUpdated` pass can still be delivered after `Window.Close()` begins tearing down its native
+counterpart but before this control's own `Unloaded` event has fired to release the thumbnail.
+WPF's equivalent "are we still hosted" check (`_target.RootVisual.IsAncestorOf(this)`) is a plain
+managed reference and never touches live native state; WinUI 3's `Window.Content` getter, by
+contrast, reaches into the (possibly already-destroyed) native `Window` object. Fixed by wrapping
+just that access in a `try`/`catch (COMException)`, treating it the same as "the window is gone"
+(`ReleaseThumbnail()` then return) rather than the softer "retry next pass" handling the pre-existing
+`root is null` branch already had.
+
+**Real bug, `winui3/WinTabberUI/Views/GeneralSettingsPage.xaml`**: none of the five settings
+`ComboBox`es (Startup mode, Thumbnail resize mode, Focus Select Modifier, Focus Select Scope,
+Elevation backend) showed their current value on open — every one bound only `ItemsSource`, never a
+selection. Three (`FocusSelectModifierList`/`FocusSelectScopeList`/`ElevationBackendList`) had no
+selection binding at all, ported from a WPF original that used a plain XAML
+`SelectedValue="{Binding ...}"`. The other two (`StartupList`/`ThumbnailResizeModeList`) had a
+ReactiveUI code-behind `this.Bind(..., view => view.List.SelectedValue, signalViewUpdate: ...)`
+against `ComboBox.SelectedValue` (ported from the WPF original's own code-behind, which used the
+same pattern for reasons not documented there) — this compiled and ran with no error, but did not
+actually populate the initial selection on WinUI 3's `ComboBox` (not fully root-caused beyond that;
+not worth pursuing further given the fix below). Fixed all five uniformly with plain
+`SelectedItem="{x:Bind ViewModel.PropertyName, Mode=TwoWay}"`, removing the two non-working
+code-behind bindings and their now-unneeded `ReactiveUI`/`System.Reactive.Linq` usings from
+`GeneralSettingsPage.xaml.cs`. All property/collection names already existed on the shared
+`GeneralSettingsViewModel`; live-verified all five now show correctly on open. 136/136 tests pass.
