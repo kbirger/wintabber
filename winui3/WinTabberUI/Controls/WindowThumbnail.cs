@@ -271,7 +271,28 @@ public class WindowThumbnail : FrameworkElement
                 return;
             }
 
-            var root = window.Content;
+            // REAL BUG found via live verification: un-thumbnailing (closing ThumbnailWindow) threw
+            // a COMException here ("The operation identifier is not valid. The WinUI Desktop Window
+            // object has already been closed."). WPF's equivalent check (_target.RootVisual.IsAncestorOf(this))
+            // is a plain managed reference and never touches live native state; WinUI 3's
+            // Window.Content getter, by contrast, reaches into the native Window object and throws
+            // once it has already been closed. A LayoutUpdated pass can still be delivered here
+            // after Window.Close() begins tearing down its native counterpart but before this
+            // control's own Unloaded event has fired to release the thumbnail. Treated the same as
+            // "the window is gone": release the thumbnail so no further LayoutUpdated pass repeats
+            // this crash, rather than just invalidating arrange (which would retry against a Window
+            // that will never respond again).
+            Microsoft.UI.Xaml.UIElement? root;
+            try
+            {
+                root = window.Content;
+            }
+            catch (System.Runtime.InteropServices.COMException)
+            {
+                ReleaseThumbnail();
+                return;
+            }
+
             if (root is null)
             {
                 InvalidateArrange();

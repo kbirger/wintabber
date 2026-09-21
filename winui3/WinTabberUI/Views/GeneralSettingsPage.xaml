@@ -25,7 +25,8 @@
                         MinWidth="220"
                         FontSize="14"
                         VerticalAlignment="Center"
-                        ItemsSource="{x:Bind ViewModel.StartupModes, Mode=OneWay}" />
+                        ItemsSource="{x:Bind ViewModel.StartupModes, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.StartupMode, Mode=TwoWay}" />
                 </controls:SettingsCard>
                 <controls:SettingsCard
                     Margin="0,8,0,0"
@@ -39,7 +40,8 @@
                         MinWidth="220"
                         FontSize="14"
                         VerticalAlignment="Center"
-                        ItemsSource="{x:Bind ViewModel.ThumbnailResizeModes, Mode=OneWay}" />
+                        ItemsSource="{x:Bind ViewModel.ThumbnailResizeModes, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.ThumbnailResizeMode, Mode=TwoWay}" />
                 </controls:SettingsCard>
             </StackPanel>
             <TextBlock Margin="0,20,0,0" FontSize="24" Foreground="White" Text="Features" />
@@ -75,7 +77,8 @@
                                 MinWidth="220"
                                 FontSize="14"
                                 VerticalAlignment="Center"
-                                ItemsSource="{x:Bind ViewModel.FocusSelectModifiers, Mode=OneWay}" />
+                                ItemsSource="{x:Bind ViewModel.FocusSelectModifiers, Mode=OneWay}"
+                                SelectedItem="{x:Bind ViewModel.FocusSelectModifier, Mode=TwoWay}" />
                         </controls:SettingsCard>
                         <controls:SettingsCard Header="Scope" Description="Which windows get minimized: only the ones the switcher showed, or every other window">
                             <ComboBox
@@ -83,7 +86,8 @@
                                 MinWidth="220"
                                 FontSize="14"
                                 VerticalAlignment="Center"
-                                ItemsSource="{x:Bind ViewModel.FocusSelectScopes, Mode=OneWay}" />
+                                ItemsSource="{x:Bind ViewModel.FocusSelectScopes, Mode=OneWay}"
+                                SelectedItem="{x:Bind ViewModel.FocusSelectScope, Mode=TwoWay}" />
                         </controls:SettingsCard>
                     </controls:SettingsExpander.Items>
                 </controls:SettingsExpander>
@@ -96,7 +100,8 @@
                         MinWidth="220"
                         FontSize="14"
                         VerticalAlignment="Center"
-                        ItemsSource="{x:Bind ViewModel.ElevationBackends, Mode=OneWay}" />
+                        ItemsSource="{x:Bind ViewModel.ElevationBackends, Mode=OneWay}"
+                        SelectedItem="{x:Bind ViewModel.ElevationBackend, Mode=TwoWay}" />
                 </controls:SettingsCard>
                 <controls:SettingsCard
                     Margin="0,8,0,0"
