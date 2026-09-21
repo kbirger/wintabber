@@ -6446,3 +6446,60 @@ All four fixes (oversized window, missing padding, default selection look, extra
 were live-verified by the user against a running build. A backdrop concern raised during the same
 session (flat/solid instead of acrylic, on both this window and Settings) turned out to be a stale
 running instance, not a real gap — resolved after a rebuild+relaunch, no code change needed.
+
+## Phase 5 follow-up 2 — window-selector rename was entirely non-functional, two real bugs found (2026-09-20/21)
+
+**Real bug 1, in `winui3/WinTabberUI/Views/EditableTextBlock.xaml.cs`**: the WPF original's
+click-to-edit wiring (`BorderContainer_MouseDown`: check `WindowItem.CanEdit`, execute
+`StartEditCommand`, focus the `TextBox`) was dropped entirely from this port — nothing anywhere in
+the winui3 tree ever called `StartEditCommand`, so `WindowItem.IsEditing` could never become true.
+Fixed by adding an `OnStartEditPointerPressed` handler doing the same three things, on both
+`BorderContainer` and `TitleTextBox`.
+
+**Real bug 2, found only after fixing bug 1 (a direct hit-test diagnostic —
+`VisualTreeHelper.FindElementsInHostCoordinates` at the click point, logged to a temp file — ruled
+out any layout/hit-testing problem; the click was landing exactly on `TitleTextBox` as expected)**:
+wiring that new handler via the obvious XAML `PointerPressed="OnStartEditPointerPressed"` attribute
+compiled to a plain `+=` subscription, which WinUI 3's routed-event bubbling skips once something
+already marked the event `Handled` further down the tree — and `TextBox`'s own internal pointer
+handling (caret/focus placement) does exactly that before the event ever reaches an ancestor's
+plain-subscribed handler. The WPF original never hit this because it used `PreviewMouseDown`
+(tunneling, always fires first, before any bubbling handling can mark it Handled); WinUI 3 has no
+tunneling pointer event, but `UIElement.AddHandler(RoutedEvent, handler, handledEventsToo: true)` is
+the documented equivalent — it fires regardless of what already marked the event Handled. Fixed by
+wiring `OnStartEditPointerPressed` via `AddHandler(..., true)` in the constructor instead of the
+XAML attribute (which has no way to express `handledEventsToo`).
+
+**Real bug 3, shared code, `WinTabber.ViewModels/WindowSelectorViewModel.cs`'s
+`GetIsSwitcherActiveChanges`**: once bug 1 was fixed enough to observe the *next* symptom, releasing
+the modifiers that opened the switcher (the ordinary way to commit a selection) closed the switcher
+unconditionally while a rename was in progress, discarding the edit. `EventType.CmdAppHide` already
+special-cased this (`=> isEditing`, added in an earlier phase) but `EventType.CmdCommitSelection`
+never got the same treatment (`=> false` unconditionally). This is shared code — the WPF app has the
+identical gap, just harder to notice: it visibly flashes closed then reopens instead of cleanly
+staying open (a separate, not-fully-explained WPF-specific side effect papering over the same
+missing gate, not the gate itself working there). Fixed by changing `CmdCommitSelection`'s mapping
+to `=> isEditing`, matching `CmdAppHide`. Verified via a temporary trace log
+(`%TEMP%\wsvm-trace.log`, all diagnostic code since removed) showing `isEditing=True` at the exact
+commit event and the switcher correctly staying open.
+
+All three fixes verified live end-to-end: click a tile's title, release the modifier, type a new
+name, commit with Enter — window selector now behaves like the WPF original with no flash. 136/136
+tests still pass (this touches shared `WinTabber.ViewModels` code consumed by both apps).
+
+Diagnostic method worth reusing: when a click-driven interaction silently does nothing, don't trust
+assumptions about *why* — a direct `VisualTreeHelper.FindElementsInHostCoordinates` hit-test dump at
+the actual click point (logged to a temp file, or inspected live via the VS debugger once attached)
+settles "is this a layout/hit-testing problem or an event-routing problem" in one shot, before
+guessing further. A live VS debugger session is also available in this environment for exactly this
+kind of investigation (`vs_attach`/`vs_start_debugging`, `vs_set_breakpoint` by function name or
+file:line, `vs_debug_state`, `vs_evaluate`) — but note two traps hit while using it here: (1) this
+app's global keyboard/mouse hooks can crash a debugger session that's paused on a breakpoint for too
+long (Windows unhooks a low-level hook that doesn't respond quickly) — the user's own guidance was
+to disable hooks before debugging, or avoid pausing on breakpoints in hook-adjacent code; (2) issuing
+a build through Visual Studio's own `vs_build` tool while a debug session is running silently stops
+that session first — always check `vs_debug_state` after any build call before assuming the
+debuggee is still attached, and never launch a second instance of this app outside VS while one is
+already running under the debugger (it did not error, it just silently exited — the first,
+undebugged instance kept running and any manual testing was against that one, wasting a full round
+of diagnosis until noticed).

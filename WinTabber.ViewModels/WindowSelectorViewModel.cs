@@ -119,7 +119,13 @@ public partial class WindowSelectorViewModel : ReactiveObject, IDisposable, IAct
                     EventType.CmdNextWindow => true,
                     EventType.CmdPreviousWindow => true,
                     EventType.WindowSelected => false,
-                    EventType.CmdCommitSelection => false,
+                    // Releasing the modifiers that opened the switcher is the ordinary way to commit
+                    // a selection, but while a tile's title is being renamed that release must not
+                    // also dismiss the switcher out from under the in-progress edit -- same reasoning
+                    // CmdAppHide already had below, just never extended here until this was found to
+                    // be the reason rename appeared to not work: the switcher closed before the user
+                    // could finish typing.
+                    EventType.CmdCommitSelection => isEditing,
                     // CmdAppHide keeps its existing isEditing mapping. Now that ObserveKeyCommands
                     // is gone its only producer is App.xaml.cs (app exit/hide), and that path must
                     // still dismiss the switcher.
