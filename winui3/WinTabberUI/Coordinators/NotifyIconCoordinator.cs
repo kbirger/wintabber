@@ -3,6 +3,8 @@ using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media.Imaging;
+using ReactiveUI;
+using System.Reactive.Linq;
 using WinTabber.ViewModels;
 
 namespace WinTabberUI.Coordinators;
@@ -18,6 +20,7 @@ namespace WinTabberUI.Coordinators;
 public sealed class NotifyIconCoordinator : IDisposable
 {
     private readonly TaskbarIcon _view;
+    private readonly IDisposable _hooksLabelSubscription;
 
     public NotifyIconCoordinator(NotifyIconViewModel vm)
     {
@@ -37,16 +40,22 @@ public sealed class NotifyIconCoordinator : IDisposable
         });
         menu.Items.Add(settingsItem);
 
-        var enableHooksItem = new ToggleMenuFlyoutItem { Text = "Enable Hooks" };
-        BindingOperations.SetBinding(enableHooksItem, ToggleMenuFlyoutItem.CommandProperty, new Binding
+        // Plain MenuFlyoutItem, not ToggleMenuFlyoutItem: H.NotifyIcon.WinUI's native PopupMenu
+        // rendering mode never routes clicks back for a ToggleMenuFlyoutItem (confirmed: every
+        // plain MenuFlyoutItem in this menu works, this was the one exception) -- root cause not
+        // pinned (decompiling H.NotifyIcon.WinUI's PopulateMenu/PopupMenu found no defect in the
+        // native Win32 menu construction, click-to-ID routing, or ToggleMenuFlyoutItem's cast to
+        // MenuFlyoutItem, all of which checked out fine), and this app has no way to click a native
+        // tray context menu to test further live. Sidesteps the whole code path instead of
+        // continuing to guess at it: the label itself carries the state, so no IsChecked binding is
+        // needed at all.
+        var enableHooksItem = new MenuFlyoutItem { Text = "Pause Hooks" };
+        BindingOperations.SetBinding(enableHooksItem, MenuFlyoutItem.CommandProperty, new Binding
         {
             Path = new PropertyPath(nameof(NotifyIconViewModel.PauseHooksCommand)),
         });
-        BindingOperations.SetBinding(enableHooksItem, ToggleMenuFlyoutItem.IsCheckedProperty, new Binding
-        {
-            Path = new PropertyPath(nameof(NotifyIconViewModel.AreHooksActive)),
-            Mode = BindingMode.OneWay,
-        });
+        _hooksLabelSubscription = vm.WhenAnyValue(x => x.AreHooksActive)
+            .Subscribe(areActive => enableHooksItem.Text = areActive ? "Pause Hooks" : "Resume Hooks");
         menu.Items.Add(enableHooksItem);
 
         var resumeAllItem = new MenuFlyoutItem { Text = "Resume all suspended" };
@@ -87,6 +96,7 @@ public sealed class NotifyIconCoordinator : IDisposable
 
     public void Dispose()
     {
+        _hooksLabelSubscription.Dispose();
         _view?.Dispose();
     }
 }
