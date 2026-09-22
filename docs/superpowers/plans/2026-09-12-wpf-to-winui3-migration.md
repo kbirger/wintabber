@@ -6577,3 +6577,31 @@ app rather than the WPF-specific idiom. Registered in the `Bootstrapper` and roo
 unported. Verified: full solution build (0 errors), full test suite (136/136 pass), live launch with
 no crash logged. The hotkeys' actual behavior (minimize/maximize/suspend/close-app-windows firing
 correctly) has not been live-verified by a human pass yet.
+
+## Phase 5, sub-project 5 status — SuspendedWindowsViewCoordinator ported (2026-09-22)
+
+`winui3/WinTabberUI/Coordinators/SuspendedWindowsWindowCoordinator.cs` ports the WPF app's own
+`SuspendedWindowsViewCoordinator` (renamed to match this app's `...WindowCoordinator` convention).
+Same visibility logic as the WPF original: visible while the switcher is open and something is
+actually suspended, or pinned open independently via the "sleeping windows" hotkey
+(`Ctrl+Alt+S`, distinct from `Ctrl+Alt+Shift+S`'s "sleep active window"). Follows
+`WindowSelectorWindowCoordinator`'s shape (singleton, lazily constructed once, `Show()`/`Hide()`)
+rather than porting `ViewCoordinatorBase<T>`, this app's established pattern for coordinators of this
+kind. `SuspendedWindowsWindow`'s DI registration was corrected from transient to singleton in the
+same change: an earlier task's comment wrongly assumed a future coordinator would construct a fresh
+instance per show, but the WPF original reuses one instance via `Show()`/`Hide()`, never `Close()` —
+the same reuse precedent already established for `WindowSelectorWindow`.
+
+**`DockWindow` reachability, checked as part of this work**: confirmed dead code in the WPF app too,
+same status as `RenameWindow` — `CmdDockWindow` fires from its shortcut (`Win+Ctrl+Left`) in both
+apps, but no coordinator anywhere subscribes to it. Left unwired in winui3; no action needed unless
+someone wires it up in either app first. `SuspendedWindowsViewCoordinator` never depended on
+`DockWindow` in the first place — they only shipped together in Phase 4a as two separate windows,
+not because either needs the other.
+
+Verified: full solution build (0 errors), full test suite (136/136 pass), live launch with no crash
+logged. Not yet live-verified: the bar's actual on-screen behavior (showing while the switcher is
+open with something suspended, pinning open via its hotkey).
+
+What remains of Phase 5: `StartupCoordinator` (needs `AutoStartupService` relocated to a shared
+project first), `MediaDebugWindowCoordinator` (needs a `MediaDebugWindow` reachability check first).
