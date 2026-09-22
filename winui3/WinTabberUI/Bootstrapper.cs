@@ -61,6 +61,7 @@ public static class Bootstrapper
             .AddSingleton<IProcessSuspensionService, ProcessSuspensionService>()
             .AddSingleton<IWindowThumbnailService, WindowThumbnailService>()
             .AddSingleton<AppCache>()
+            .AddSingleton<Coordinators.WindowCommandCoordinator>()
             .AddSingleton<BackgroundServiceContainer>();
     }
 
