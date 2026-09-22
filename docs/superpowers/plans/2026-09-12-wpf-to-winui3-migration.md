@@ -6605,3 +6605,35 @@ open with something suspended, pinning open via its hotkey).
 
 What remains of Phase 5: `StartupCoordinator` (needs `AutoStartupService` relocated to a shared
 project first), `MediaDebugWindowCoordinator` (needs a `MediaDebugWindow` reachability check first).
+
+## Phase 5, sub-project 6 status — AutoStartupService relocated, StartupCoordinator ported (2026-09-22)
+
+**`MediaDebugWindow` reachability, checked**: unlike `DockWindow`, it IS reachable in the WPF app —
+via a checkable tray-menu item ("Media debug view", `IsCheckable="True"`) bound to
+`NotifyIconViewModel.MediaDebugCommand`/`IsMediaDebugEnabled`. That is the same shape
+(`ToggleMenuFlyoutItem`) as the tray icon's "Enable Hooks" item, already known-broken in winui3 (its
+`Click` never fires in `H.NotifyIcon.WinUI`'s `PopupMenu` mode — see the tray-icon sub-project's own
+status note). Porting `MediaDebugWindowCoordinator` now would add a second toggle hitting the same
+bug. Per explicit user decision, this is deferred until that library bug is actually root-caused, not
+ported into a known-broken state.
+
+**`AutoStartupService` relocated**: moved from the WPF-only `WinTabberUI` project into the shared
+`WinTabber.Infrastructure` project, alongside `StartupMode` which already lived there. Framework-free
+(registry + Task Scheduler I/O only), so this was a straight relocation — same namespace
+(`WinTabberUI.Services`), same code, one new `TaskScheduler` package reference on the Infrastructure
+project. The WPF app already referenced `WinTabber.Infrastructure`, so nothing else changed on that
+side.
+
+**`StartupCoordinator` ported** to `winui3/WinTabberUI/Coordinators/`, unchanged from the WPF
+original: applies the settings page's chosen `StartupMode` via `AutoStartupService` whenever it
+changes. No thread marshal needed (registry/Task Scheduler I/O, not UI). Rooted first in
+`BackgroundServiceContainer`'s composite, matching the WPF original's own ordering.
+
+Verified: full solution build (both apps, 0 errors), full test suite (136/136 pass), live launch with
+no crash logged (registry/Task Scheduler I/O on startup did not throw). Not yet live-verified:
+actually changing the startup mode in Settings and confirming the registry key or scheduled task is
+created/removed correctly.
+
+**Phase 5 is now complete except `MediaDebugWindowCoordinator`**, which is blocked on the
+`ToggleMenuFlyoutItem` click-routing bug, not on any remaining design work.
+
