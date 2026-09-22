@@ -46,6 +46,19 @@ namespace WinTabberUI.Views;
 //      content this time, confirmed by bisection (removing just that comment, with no other change,
 //      made the build succeed). Keep XAML comments in this file short; put detailed rationale in this
 //      .cs file instead, as this comment block does.
+//   3. REAL REGRESSION, reported by the user, traced to 1b above: before that commit, tiles used the
+//      platform-default ListViewItem style, whose ListViewItemPresenter shows a real pointer-over
+//      glow (the ListViewItemBackgroundPointerOver theme resource) on any hover, independent of
+//      selection. 1b's custom Border-based ControlTemplate defined a "PointerOver" VisualState with
+//      no setters at all -- faithful to the WPF original's own hover behavior (which also has no
+//      separate hover glow, only hover-triggered selection via the HoverSelect behavior), but it
+//      silently dropped the native glow WinUI 3's default style provided, which nothing in this port
+//      had ever supplied a replacement for. Fixed by giving that VisualState a real setter (a
+//      translucent white tile background), independent of the Selected-family states, restoring
+//      visible feedback on any hover rather than only on hover-selected tiles. SpatialNavigationListView.cs's
+//      own hover-select logic (SelectedItem = item on PointerEntered) is unrelated and unchanged --
+//      confirmed via git history to be untouched since its original port, so it was not the source
+//      of this regression.
 public sealed partial class WindowSelectorWindow : WindowEx
 {
     private readonly nint _hwnd;
@@ -70,6 +83,7 @@ public sealed partial class WindowSelectorWindow : WindowEx
         ViewModel = viewModel;
         _settings = settings;
         InitializeComponent();
+        AppWindow.SetIcon(DesktopHelper.AppIconPath);
 
         SystemBackdrop = new DesktopAcrylicBackdrop();
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);

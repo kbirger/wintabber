@@ -42,7 +42,12 @@
                                 <VisualStateManager.VisualStateGroups>
                                     <VisualStateGroup x:Name="CommonStates">
                                         <VisualState x:Name="Normal" />
-                                        <VisualState x:Name="PointerOver" />
+                                        <!-- See WindowSelectorWindow.xaml.cs for why this has setters now. -->
+                                        <VisualState x:Name="PointerOver">
+                                            <VisualState.Setters>
+                                                <Setter Target="TileBorder.Background" Value="#33ffffff" />
+                                            </VisualState.Setters>
+                                        </VisualState>
                                         <VisualState x:Name="Pressed" />
                                         <VisualState x:Name="Selected">
                                             <VisualState.Setters>
