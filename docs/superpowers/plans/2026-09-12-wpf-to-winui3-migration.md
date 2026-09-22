@@ -6637,3 +6637,49 @@ created/removed correctly.
 **Phase 5 is now complete except `MediaDebugWindowCoordinator`**, which is blocked on the
 `ToggleMenuFlyoutItem` click-routing bug, not on any remaining design work.
 
+## Bug fix — tray icon "Enable Hooks" toggle never fired (2026-09-22)
+
+Investigated with `ilspycmd` (decompiling `H.NotifyIcon.WinUI.dll` and `H.NotifyIcon.dll`) and the
+real WinUI 3 metadata assembly, to root-cause the toggle bug flagged in the tray-icon sub-project's
+own status note. Findings, all ruling out the obvious suspects:
+- `H.NotifyIcon.WinUI`'s `PopulateMenu` builds a native `H.NotifyIcon.Core.PopupMenu` via Win32
+  `CreatePopupMenu`/`AppendMenu`/`TrackPopupMenuEx`, and routes a click back to the matching item by
+  ID via `TPM_RETURNCMD`. This is symmetric between toggle and plain items — no defect found.
+- `ToggleMenuFlyoutItem` does inherit from `MenuFlyoutItem` in this WinUI 3 version (confirmed
+  against the real `Microsoft.WinUI.dll` metadata) — the cast `PopulateMenu` performs to read
+  `.Command`/`.CommandParameter` is valid, ruling out an `InvalidCastException` theory.
+- `ReactiveCommand.Create` with no `CanExecute` observable is always enabled (same as every other
+  working command in this menu), ruling out a silently-refused `CanExecute`.
+
+No defect was found in any of these three areas, and this app has no way to click a native tray
+context menu to test further live (no browser/accessibility automation reaches native OS shell
+menus). Rather than keep guessing at library internals with no way to verify, fixed by sidestepping
+the whole code path: `winui3/WinTabberUI/Coordinators/NotifyIconCoordinator.cs`'s "Enable Hooks"
+`ToggleMenuFlyoutItem` was replaced with a plain `MenuFlyoutItem` (the type every other reliably-working
+item in this menu already uses), whose label switches between "Pause Hooks"/"Resume Hooks" via a
+direct `WhenAnyValue` subscription instead of an `IsChecked` binding. This also unblocks
+`MediaDebugWindowCoordinator`, which needed the same toggle-item pattern for its own tray menu entry.
+
+Verified: full solution build (0 errors), full test suite (136/136 pass), live launch with no crash
+logged. Not yet live-verified: actually clicking "Pause Hooks"/"Resume Hooks" and confirming the
+global hooks pause and resume.
+
+## Bug fix — window selector tile hover highlight regression (2026-09-22)
+
+User-reported regression: window selector tiles showed no highlight on hover. Traced to commit
+`2ddc018` (Phase 5 follow-up, 2026-09-20): before that commit, tiles used the platform-default
+`ListViewItem` style, whose `ListViewItemPresenter` shows a real pointer-over glow independent of
+selection. That commit replaced it with a custom `Border`-based `ControlTemplate` to match the WPF
+original's full-border selection look, and left the `PointerOver` `VisualState` with no setters at
+all — faithful to the WPF original's own hover behavior (no separate glow, only hover-triggered
+selection via the `HoverSelect`-equivalent in `SpatialNavigationListView.cs`), but it silently
+dropped the native glow that nothing else in this port had ever supplied a replacement for.
+
+Fixed in `winui3/WinTabberUI/Views/WindowSelectorWindow.xaml`: gave `PointerOver` a real setter (a
+translucent tile background), independent of the Selected-family states, restoring visible feedback
+on any hover. `SpatialNavigationListView.cs`'s own hover-select logic is unrelated and unchanged
+since its original port (confirmed via `git log --follow` showing a single commit for that file).
+
+Verified: full solution build (0 errors), full test suite (136/136 pass), live launch with no crash
+logged. Not yet live-verified: the actual visual hover feedback on a running build.
+
