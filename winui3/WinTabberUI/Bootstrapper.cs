@@ -135,7 +135,11 @@ public static class Bootstrapper
             // Singleton, rooted explicitly in App.xaml.cs's OnLaunched, same reasoning as every
             // other coordinator: its subscription to SettingsViewModel must stay alive for the
             // app's lifetime.
-            .AddSingleton<Coordinators.SettingsWindowCoordinator>();
+            .AddSingleton<Coordinators.SettingsWindowCoordinator>()
+            // AutoStartupService: framework-free, now shared (moved from the WPF-only project into
+            // WinTabber.Infrastructure alongside StartupMode, which already lived there).
+            .AddSingleton<AutoStartupService>()
+            .AddSingleton<Coordinators.StartupCoordinator>();
     }
 
     private static IServiceCollection AddDockAndSuspendedWindowsGraph(this IServiceCollection services)

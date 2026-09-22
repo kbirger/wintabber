@@ -19,9 +19,9 @@ namespace WinTabberUI;
 /// <see cref="IProcessSuspensionService"/> (resumes every frozen process), then
 /// <see cref="IWindowThumbnailService"/> (restores every off-screen thumbnailed window) last -- so
 /// exiting the app never strands suspended or thumbnailed windows with no UI left to bring them back.
-/// <see cref="StartupCoordinator"/> and <see cref="MediaDebugWindowCoordinator"/> are not ported to
-/// this app yet -- deliberately left out of this composite, not forgotten; add them here when they
-/// land.
+/// <see cref="MediaDebugWindowCoordinator"/> is not ported to this app yet -- deliberately left out
+/// of this composite, not forgotten (blocked on the same ToggleMenuFlyoutItem click bug already
+/// tracked for the tray icon's "Enable Hooks" item); add it here when that is resolved.
 /// </summary>
 public class BackgroundServiceContainer : IDisposable
 {
@@ -34,6 +34,7 @@ public class BackgroundServiceContainer : IDisposable
         ioc.GetRequiredService<AppCache>().Load();
 
         _cleanup = new CompositeDisposable(
+            ioc.GetRequiredService<StartupCoordinator>(),
             ioc.GetRequiredService<ThumbnailWindowCoordinator>().Init(),
             ioc.GetRequiredService<MediaControlsWindowCoordinator>(),
             ioc.GetRequiredService<NotifyIconCoordinator>(),
