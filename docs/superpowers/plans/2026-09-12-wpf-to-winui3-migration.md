@@ -6563,3 +6563,17 @@ thumbnailed, then Exit clicked from the tray menu — not yet checked by a live 
 What remains of Phase 5: the four coordinators listed above as out of scope, plus everything already
 open going into this round — `MediaDebugWindow` reachability, `RenameWindow` (confirmed dead, no
 action needed), the deferred `ThumbnailWindow`/`MediaControlsWindow` bugs, and I3.
+
+## Phase 5, sub-project 4 status — WindowCommandCoordinator ported (2026-09-22)
+
+`winui3/WinTabberUI/Coordinators/WindowCommandCoordinator.cs` ports the WPF app's own coordinator of
+the same name: the global minimize/maximize/suspend-window/close-application-windows hotkeys.
+Framework-free, unchanged from the WPF original except the thread marshal — `RxApp.MainThreadScheduler`
+in place of `SynchronizationContext.Current`, matching every other coordinator already ported in this
+app rather than the WPF-specific idiom. Registered in the `Bootstrapper` and rooted in
+`BackgroundServiceContainer`'s composite alongside the other coordinators.
+
+`StartupCoordinator`, `SuspendedWindowsViewCoordinator`, and `MediaDebugWindowCoordinator` remain
+unported. Verified: full solution build (0 errors), full test suite (136/136 pass), live launch with
+no crash logged. The hotkeys' actual behavior (minimize/maximize/suspend/close-app-windows firing
+correctly) has not been live-verified by a human pass yet.
