@@ -6534,3 +6534,32 @@ not worth pursuing further given the fix below). Fixed all five uniformly with p
 code-behind bindings and their now-unneeded `ReactiveUI`/`System.Reactive.Linq` usings from
 `GeneralSettingsPage.xaml.cs`. All property/collection names already existed on the shared
 `GeneralSettingsViewModel`; live-verified all five now show correctly on open. 136/136 tests pass.
+
+## Phase 5, sub-project 3 status — startup/shutdown lifecycle ported (2026-09-22)
+
+`winui3/WinTabberUI/BackgroundServiceContainer.cs` ports the WPF app's own class of the same name:
+preloads `WindowManager`, `ApplicationStateViewModel`, and `AppCache`, then holds one
+`CompositeDisposable` of the five already-ported coordinators (`ThumbnailWindowCoordinator`,
+`MediaControlsWindowCoordinator`, `NotifyIconCoordinator`, `WindowSelectorWindowCoordinator`,
+`SettingsWindowCoordinator`), `WinTabberEventManager`, `IProcessSuspensionService`, and
+`IWindowThumbnailService`, disposed in that same order the WPF original uses (coordinators first,
+suspension-resume and thumbnail-restore last). `App.xaml.cs`'s five separate coordinator fields
+collapsed into one container field; the existing `ProcessExit` hook now disposes the whole container
+instead of only `IWindowThumbnailService`, so exiting the app resumes suspended processes on the way
+out for the first time, not just restores thumbnailed windows.
+
+**Deliberately out of scope, not forgotten** (per explicit user scoping): `StartupCoordinator`
+(registry/logon-task auto-start), `WindowCommandCoordinator` (global minimize/maximize/suspend/
+close-app hotkeys), `SuspendedWindowsViewCoordinator` (the suspended-windows bar — `DockWindow` and
+`SuspendedWindowsWindow` still have no coordinator wiring them up in either app), and
+`MediaDebugWindowCoordinator` (reachability still unchecked) remain unported. The composite is built
+so adding any of them later is one line each, no restructuring.
+
+**Verified**: full solution build (0 errors), full test suite (136/136 pass), and a live launch —
+the app starts quietly in the tray with no crash logged. **Not verified**: the actual exit-resumes-
+suspended-process and exit-restores-thumbnail behavior, which needs a window actually suspended or
+thumbnailed, then Exit clicked from the tray menu — not yet checked by a live human pass.
+
+What remains of Phase 5: the four coordinators listed above as out of scope, plus everything already
+open going into this round — `MediaDebugWindow` reachability, `RenameWindow` (confirmed dead, no
+action needed), the deferred `ThumbnailWindow`/`MediaControlsWindow` bugs, and I3.
