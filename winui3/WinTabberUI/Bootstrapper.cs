@@ -16,6 +16,7 @@ using WinTabber.Interop;
 using WinTabber.UI.Media.Services;
 using WinTabber.UI.Media.ViewModels;
 using WinTabber.UI.Media.ViewModels.Factories;
+using WinTabberUI.Infrastructure;
 using WinTabberUI.Models.Settings;
 using WinTabber.ViewModels;
 using WinTabberUI.Services;
@@ -58,7 +59,9 @@ public static class Bootstrapper
             .AddSingleton<ISuspensionStrategy, ThreadSuspensionStrategy>()
             .AddSingleton<ISuspendedWindowStore>(_ => new SuspendedWindowFileStore(Paths.SuspensionDirectory))
             .AddSingleton<IProcessSuspensionService, ProcessSuspensionService>()
-            .AddSingleton<IWindowThumbnailService, WindowThumbnailService>();
+            .AddSingleton<IWindowThumbnailService, WindowThumbnailService>()
+            .AddSingleton<AppCache>()
+            .AddSingleton<BackgroundServiceContainer>();
     }
 
     // The real media/audio service graph WindowSelectorViewModel's IMediaControlsStateService
