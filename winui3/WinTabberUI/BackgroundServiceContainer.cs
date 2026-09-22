@@ -19,9 +19,9 @@ namespace WinTabberUI;
 /// <see cref="IProcessSuspensionService"/> (resumes every frozen process), then
 /// <see cref="IWindowThumbnailService"/> (restores every off-screen thumbnailed window) last -- so
 /// exiting the app never strands suspended or thumbnailed windows with no UI left to bring them back.
-/// <see cref="StartupCoordinator"/>, <see cref="SuspendedWindowsViewCoordinator"/>, and
-/// <see cref="MediaDebugWindowCoordinator"/> are not ported to this app yet -- deliberately left out
-/// of this composite, not forgotten; add them here when they land.
+/// <see cref="StartupCoordinator"/> and <see cref="MediaDebugWindowCoordinator"/> are not ported to
+/// this app yet -- deliberately left out of this composite, not forgotten; add them here when they
+/// land.
 /// </summary>
 public class BackgroundServiceContainer : IDisposable
 {
@@ -39,6 +39,7 @@ public class BackgroundServiceContainer : IDisposable
             ioc.GetRequiredService<NotifyIconCoordinator>(),
             ioc.GetRequiredService<WindowSelectorWindowCoordinator>(),
             ioc.GetRequiredService<SettingsWindowCoordinator>(),
+            ioc.GetRequiredService<SuspendedWindowsWindowCoordinator>(),
             ioc.GetRequiredService<WindowCommandCoordinator>(),
             ioc.GetRequiredService<WinTabberEventManager>(),
             // Disposing this resumes every frozen process on exit. Order within the composite is

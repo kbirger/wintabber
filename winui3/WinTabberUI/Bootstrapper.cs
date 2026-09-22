@@ -143,14 +143,21 @@ public static class Bootstrapper
         return services
             .AddSingleton<DockWindowViewModel>()
             .AddSingleton<SuspendedWindowsViewModel>()
-            // Transient: DockWindow and SuspendedWindowsWindow are WinUI 3 Windows, and a Window can
-            // only be shown once — a future coordinator (Phase 5) needs to be able to construct a
-            // fresh one each time it docks a new application or shows the suspended-windows bar, not
-            // reuse a disposed Window instance from the container. Task 4a.1 registered
-            // SuspendedWindowsViewModel but never the window itself — same gap Task 4a.4 found and
-            // fixed for DockWindow; fixed here for SuspendedWindowsWindow before it ships.
+            // DockWindow: confirmed dead code, same status as RenameWindow -- CmdDockWindow fires
+            // from its shortcut in both apps, but nothing anywhere subscribes to it (no coordinator
+            // in either the WPF or winui3 Bootstrapper). Left transient and unwired: no coordinator
+            // to construct it, so its lifetime is moot until something actually shows it.
             .AddTransient<DockWindow>()
-            .AddTransient<SuspendedWindowsWindow>();
+            // Singleton, not transient (correcting this registration's earlier comment, which
+            // wrongly assumed a future coordinator would construct a fresh instance per show): the
+            // WPF original's own SuspendedWindowsViewCoordinator sets ReuseInstances = true and only
+            // ever calls Show()/Hide(), never Close() -- same reuse precedent already established for
+            // WindowSelectorWindow. See SuspendedWindowsWindowCoordinator's own doc comment.
+            .AddSingleton<SuspendedWindowsWindow>()
+            // Singleton, rooted explicitly in App.xaml.cs's OnLaunched via BackgroundServiceContainer,
+            // same reasoning as every other coordinator: its subscriptions must stay alive for the
+            // app's lifetime.
+            .AddSingleton<Coordinators.SuspendedWindowsWindowCoordinator>();
     }
 
     private static IServiceCollection AddWindowSelectorGraph(this IServiceCollection services)
