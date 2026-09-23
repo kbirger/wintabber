@@ -31,4 +31,19 @@ public static class ObservableExtensions
             return source.Select(value => value ?? Observable.Return(defaultValue));
         }
     }
+
+    extension<TToggle>(IObservable<TToggle> source)
+    {
+        /// <summary>
+        /// A bool that flips on every <paramref name="source"/> emission and resets to false on
+        /// every <paramref name="resetSource"/> emission, starting false. Element values on both
+        /// streams are ignored -- only their timing matters.
+        /// </summary>
+        public IObservable<bool> ToggleWithReset<TReset>(IObservable<TReset> resetSource)
+        {
+            var toggles = source.Select(_ => (Func<bool, bool>)(isOn => !isOn));
+            var resets = resetSource.Select(_ => (Func<bool, bool>)(_ => false));
+            return toggles.Merge(resets).Scan(false, (isOn, apply) => apply(isOn)).StartWith(false);
+        }
+    }
 }

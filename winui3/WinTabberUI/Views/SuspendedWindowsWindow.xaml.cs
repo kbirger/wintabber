@@ -15,7 +15,8 @@ namespace WinTabberUI;
 /// edge, leaving a thin band of untinted acrylic around it -- a visibly two-toned box, unlike the WPF
 /// original's own uniform window-level <c>Background="#30000000"</c> with no such inset. Fixed by
 /// moving the tint's own Margin off <c>RootGrid</c> (so it now fills the window edge to edge) and
-/// giving each child its own <c>Margin="10"</c> instead, matching the same "Grid has no Padding
+/// wrapping the two mutually-exclusive content children in one inner <c>Grid Margin="10"</c> instead
+/// of repeating the Margin on each child individually, matching the same "Grid has no Padding
 /// property to split it" workaround already established elsewhere in this migration (e.g.
 /// WindowSelectorWindow.xaml.cs).
 /// </summary>

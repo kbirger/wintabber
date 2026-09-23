@@ -68,36 +68,39 @@
             </ResourceDictionary>
         </Grid.Resources>
 
-        <TextBlock
-            Margin="10"
-            HorizontalAlignment="Center"
-            VerticalAlignment="Center"
-            FontStyle="Italic"
-            Foreground="White"
-            Opacity="0.7"
-            Text="No windows are sleeping"
-            Visibility="{Binding Items.Count, Mode=OneWay, Converter={StaticResource EmptyCountToVisibilityConverter}}" />
+        <!-- Single wrapper for the 10px inset, instead of repeating Margin="10" on each of the two
+             mutually-exclusive children below (RootGrid itself has no Margin — see its own comment). -->
+        <Grid Margin="10">
+            <TextBlock
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                FontStyle="Italic"
+                Foreground="White"
+                Opacity="0.7"
+                Text="No windows are sleeping"
+                Visibility="{Binding Items.Count, Mode=OneWay, Converter={StaticResource EmptyCountToVisibilityConverter}}" />
 
-        <ItemsControl Margin="10" HorizontalAlignment="Center" ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}">
-            <ItemsControl.ItemsPanel>
-                <ItemsPanelTemplate>
-                    <StackPanel Orientation="Horizontal" />
-                </ItemsPanelTemplate>
-            </ItemsControl.ItemsPanel>
-            <ItemsControl.ItemTemplate>
-                <DataTemplate x:DataType="vm:SuspendedWindowItemViewModel">
-                    <Button Style="{StaticResource ResumeTileButton}" Command="{x:Bind ResumeCommand}" ToolTipService.ToolTip="Click to resume">
-                        <StackPanel Orientation="Horizontal">
-                            <!-- Gear glyph (Symbol.Setting, E713) — WPF original used fontawesome.sharp's Sun. -->
-                            <FontIcon Margin="0,0,8,0" VerticalAlignment="Center" Glyph="&#xE713;" />
-                            <StackPanel Orientation="Vertical">
-                                <TextBlock FontWeight="Bold" Text="{x:Bind ProcessName}" />
-                                <TextBlock MaxWidth="220" Opacity="0.8" Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+            <ItemsControl HorizontalAlignment="Center" ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}">
+                <ItemsControl.ItemsPanel>
+                    <ItemsPanelTemplate>
+                        <StackPanel Orientation="Horizontal" />
+                    </ItemsPanelTemplate>
+                </ItemsControl.ItemsPanel>
+                <ItemsControl.ItemTemplate>
+                    <DataTemplate x:DataType="vm:SuspendedWindowItemViewModel">
+                        <Button Style="{StaticResource ResumeTileButton}" Command="{x:Bind ResumeCommand}" ToolTipService.ToolTip="Click to resume">
+                            <StackPanel Orientation="Horizontal">
+                                <!-- Gear glyph (Symbol.Setting, E713) — WPF original used fontawesome.sharp's Sun. -->
+                                <FontIcon Margin="0,0,8,0" VerticalAlignment="Center" Glyph="&#xE713;" />
+                                <StackPanel Orientation="Vertical">
+                                    <TextBlock FontWeight="Bold" Text="{x:Bind ProcessName}" />
+                                    <TextBlock MaxWidth="220" Opacity="0.8" Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
+                                </StackPanel>
                             </StackPanel>
-                        </StackPanel>
-                    </Button>
-                </DataTemplate>
-            </ItemsControl.ItemTemplate>
-        </ItemsControl>
+                        </Button>
+                    </DataTemplate>
+                </ItemsControl.ItemTemplate>
+            </ItemsControl>
+        </Grid>
     </Grid>
 </winuiex:WindowEx>
