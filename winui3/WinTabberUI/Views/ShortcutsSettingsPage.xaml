@@ -6,6 +6,7 @@
     xmlns:settingsvm="using:WinTabber.ViewModels.Settings"
     xmlns:controls="using:WinTabber.UI.Common.Controls"
     xmlns:c="using:WinTabber.UI.Common.ValueConverters"
+    xmlns:conv="using:WinTabberUI.ValueConverters"
     xmlns:ui="using:CommunityToolkit.WinUI.Controls"
 >
     <Page.Resources>
@@ -19,13 +20,14 @@
             </ResourceDictionary.MergedDictionaries>
 
             <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+            <conv:IconKeyToGlyphConverter x:Key="IconKeyToGlyphConverter" />
 
             <!-- Editing and deleting both happen in ShortcutCaptureDialog (opened from code-behind).
                  The whole combination is one clickable frame — there is no separate pencil icon. -->
             <DataTemplate x:Key="BindingRowTemplate" x:DataType="settingsvm:ShortcutBindingViewModel">
                 <StackPanel Margin="0,2" HorizontalAlignment="Right" Orientation="Horizontal">
                     <Button Click="OnEditShortcutClick" Style="{StaticResource ShortcutEditButtonStyle}" ToolTipService.ToolTip="Click to change">
-                        <controls:ShortcutPresenter EmptyText="Click to set shortcut" Trigger="{x:Bind Trigger, Mode=OneWay}" />
+                        <controls:ShortcutPresenter EmptyText="Click to set shortcut" Trigger="{x:Bind Trigger, Mode=OneWay}" Orientation="Horizontal" />
                     </Button>
 
                     <!-- Conflicts warn, they never block saving (§6.1). -->
@@ -42,15 +44,24 @@
             <DataTemplate x:Key="CommandRowTemplate" x:DataType="settingsvm:ShortcutCommandViewModel">
                 <ui:SettingsCard Margin="0,4,0,0" Description="{x:Bind Desscription, Mode=OneWay}" Header="{x:Bind DisplayName, Mode=OneWay}">
                     <ui:SettingsCard.HeaderIcon>
-                        <!-- TODO(icon): originally iNKORE FluentSystemIcons via IconKeyToFontIconDataConverter; real mapping is Phase 6 -->
-                        <FontIcon Glyph="&#xE897;" />
+                        <FontIcon Glyph="{x:Bind Icon, Mode=OneWay, Converter={StaticResource IconKeyToGlyphConverter}}" />
                     </ui:SettingsCard.HeaderIcon>
                     <StackPanel MinWidth="320">
                         <ItemsControl HorizontalAlignment="Right" ItemTemplate="{StaticResource BindingRowTemplate}" ItemsSource="{x:Bind Bindings, Mode=OneWay}" />
                         <StackPanel Margin="0,4,0,0" HorizontalAlignment="Right" Orientation="Horizontal">
-                            <Button Width="40" Height="28" Click="OnAddShortcutClick" ToolTipService.ToolTip="Add shortcut">
-                                <!-- TODO(icon): originally iNKORE FluentSystemIcons.Add_32_Filled; real mapping is Phase 6 -->
-                                <FontIcon Glyph="&#xE897;" />
+                            <Button
+                                Width="40"
+                                Height="28"
+                                Padding="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Click="OnAddShortcutClick"
+                                ToolTipService.ToolTip="Add shortcut">
+                                <!-- REAL BUG found via live verification: the default Button style's
+                                     Padding (11,5,11,6) left too little vertical room for a
+                                     default-FontSize (20) FontIcon inside a 28px-tall button, clipping
+                                     it. Padding="0" plus a smaller FontSize fits it cleanly. -->
+                                <FontIcon FontSize="16" Glyph="&#xE710;" />
                             </Button>
                         </StackPanel>
                     </StackPanel>

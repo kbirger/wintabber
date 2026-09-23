@@ -90,15 +90,13 @@
                     Command="{x:Bind ViewModel.SaveTitleCommand, Mode=OneWay}"
                     CommandParameter="{x:Bind ViewModel.Title, Mode=OneWay}"
                     Visibility="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <!-- TODO(icon): originally FontAwesome.Sharp Check -->
-                    <FontIcon Glyph="&#xE897;" />
+                    <FontIcon Glyph="&#xF78C;" />
                 </Button>
                 <Button
                     x:Name="CancelButton"
                     Command="{x:Bind ViewModel.CancelEditTitleCommand, Mode=OneWay}"
                     Visibility="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <!-- TODO(icon): originally FontAwesome.Sharp Ban -->
-                    <FontIcon Glyph="&#xE897;" />
+                    <FontIcon Glyph="&#xF78A;" />
                 </Button>
             </StackPanel>
         </Grid>

@@ -36,7 +36,6 @@
         PaneDisplayMode="Left"
         SelectionChanged="OnNavigationSelectionChanged">
         <NavigationView.Resources>
-            <conv:IconKeyToGlyphConverter x:Key="IconKeyToGlyphConverter" />
             <DataTemplate x:Key="GeneralTemplate" x:DataType="settingsvm:GeneralSettingsViewModel">
                 <views:GeneralSettingsPage />
             </DataTemplate>
@@ -56,7 +55,14 @@
             <DataTemplate x:DataType="settingsvm:SettingsViewModelBase">
                 <NavigationViewItem Content="{x:Bind Name}">
                     <NavigationViewItem.Icon>
-                        <FontIcon Glyph="{Binding Icon, Converter={StaticResource IconKeyToGlyphConverter}}" />
+                        <!-- REAL BUG found via live verification: the classic {Binding Icon,
+                             Converter=...} this file's own comment above describes compiled and ran
+                             with no error, but never actually showed an icon (not fully root-caused,
+                             not worth pursuing further given this working alternative). An x:Bind
+                             static function call sidesteps both known failure modes: it needs no
+                             StaticResource converter lookup (avoiding SetConverterLookupRoot) and it
+                             is a real compiled binding, not a classic runtime one. -->
+                        <FontIcon Glyph="{x:Bind conv:IconKeyToGlyphConverter.ToGlyph(Icon)}" />
                     </NavigationViewItem.Icon>
                 </NavigationViewItem>
             </DataTemplate>

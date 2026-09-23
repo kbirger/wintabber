@@ -26,7 +26,7 @@ public class ShortcutPresenter : Control
         nameof(Orientation),
         typeof(Orientation),
         typeof(ShortcutPresenter),
-        new PropertyMetadata(Orientation.Horizontal)
+        new PropertyMetadata(Orientation.Horizontal, OnOrientationChanged)
     );
 
     public static readonly DependencyProperty ShowEdgeHintProperty = DependencyProperty.Register(
@@ -95,7 +95,37 @@ public class ShortcutPresenter : Control
     {
         base.OnApplyTemplate();
         VisualStateManager.GoToState(this, IsEmpty ? "Empty" : "HasChips", false);
+
+        // REAL BUG found via live verification (reported by the user, traced to Generic.xaml's
+        // ItemsPanelTemplate): TemplateBinding does not resolve inside a nested ItemsPanelTemplate --
+        // it has its own template scope, separate from the ControlTemplate whose TargetType matches
+        // this control. A classic Binding with RelativeSource=TemplatedParent was tried next and
+        // failed identically (same underlying scope limitation), leaving the inner StackPanel at its
+        // own default (Vertical) regardless of this control's Orientation. Set directly in code
+        // instead, the only mechanism that reliably reaches a nested ItemsPanelTemplate's realized
+        // panel. ItemsPanelRoot may not exist yet at OnApplyTemplate time (the panel is realized
+        // lazily, during layout) -- Loaded is used, not a direct call here, so this reruns once the
+        // panel actually exists; ApplyOrientation's own null-check makes an extra call harmless.
+        if (GetTemplateChild("PART_Chips") is ItemsControl chips)
+        {
+            _chipsItemsControl = chips;
+            chips.Loaded += (_, _) => ApplyOrientation();
+            ApplyOrientation();
+        }
     }
+
+    private ItemsControl? _chipsItemsControl;
+
+    private void ApplyOrientation()
+    {
+        if (_chipsItemsControl?.ItemsPanelRoot is StackPanel panel)
+        {
+            panel.Orientation = Orientation;
+        }
+    }
+
+    private static void OnOrientationChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        ((ShortcutPresenter)d).ApplyOrientation();
 
     private static void OnVisualInputChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
         ((ShortcutPresenter)d).Rebuild();

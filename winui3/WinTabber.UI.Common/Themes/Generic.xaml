@@ -84,7 +84,13 @@
                             ItemsSource="{TemplateBinding Chips}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <StackPanel Orientation="{TemplateBinding Orientation}" />
+                                    <!-- Orientation is set from ShortcutPresenter.OnApplyTemplate, not
+                                         bound here - neither TemplateBinding nor a classic Binding
+                                         with RelativeSource=TemplatedParent resolves inside a nested
+                                         ItemsPanelTemplate (its own template scope), so both left this
+                                         panel stuck at its own default (Vertical) regardless of the
+                                         control's actual Orientation. See ShortcutPresenter.cs. -->
+                                    <StackPanel />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
@@ -126,7 +132,13 @@
                             ItemsSource="{TemplateBinding Chips}">
                             <ItemsControl.ItemsPanel>
                                 <ItemsPanelTemplate>
-                                    <StackPanel Orientation="{TemplateBinding Orientation}" />
+                                    <!-- Orientation is set from ShortcutPresenter.OnApplyTemplate, not
+                                         bound here - neither TemplateBinding nor a classic Binding
+                                         with RelativeSource=TemplatedParent resolves inside a nested
+                                         ItemsPanelTemplate (its own template scope), so both left this
+                                         panel stuck at its own default (Vertical) regardless of the
+                                         control's actual Orientation. See ShortcutPresenter.cs. -->
+                                    <StackPanel />
                                 </ItemsPanelTemplate>
                             </ItemsControl.ItemsPanel>
                         </ItemsControl>
