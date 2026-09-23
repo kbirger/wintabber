@@ -25,6 +25,4 @@ public interface IInstalledApplicationRepository : IDisposable
     /// is the only signal a failure reaches a consumer through.
     /// </summary>
     IObservable<Exception> AcquisitionErrors { get; }
-
-    void Refresh();
 }

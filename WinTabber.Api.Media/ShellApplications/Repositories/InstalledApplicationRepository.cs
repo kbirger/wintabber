@@ -33,16 +33,10 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
     private IReadOnlyDictionary<string, CachedApplicationEntry> _previousEntriesByAumid =
         new Dictionary<string, CachedApplicationEntry>();
     private readonly IDisposable _liveAcquisitionSubscription;
-    private readonly Subject<Unit> _refreshSubject = new Subject<Unit>();
     // ReplaySubject(1), not Subject: AsObservableCache() below subscribes eagerly in this
     // constructor, so background acquisition can fail and emit here before any consumer has had a
     // chance to subscribe — a plain Subject would drop that notification on the floor.
     private readonly ReplaySubject<Exception> _acquisitionErrors = new ReplaySubject<Exception>(1);
-
-    public void Refresh()
-    {
-        _refreshSubject.OnNext(Unit.Default);
-    }
 
     public InstalledApplicationRepository(IShellApplicationSource shellSource, IInstalledApplicationCacheStore cacheStore)
     {
@@ -73,6 +67,14 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         // synchronous cache-seed snapshot; every later subscription in this constructor would see
         // only future changes, leaving ApplicationsByPath empty until the next live update.
         var primaryAumidCache = _apps.Connect();
+
+        // AutoRefreshOnObservable's reevaluator runs per item; a bare _apps.Connect() there would open one
+        // connection (and replay the full snapshot) per item, which is O(N) connections each materializing
+        // an N-item changeset. This trigger only needs to TICK when _apps changes -- the reevaluator
+        // ignores the item passed to it (`_ =>`) -- so sharing one hot connection via Publish().RefCount()
+        // is correct and cheap, unlike the sharing above (primaryAumidCache) that incorrectly drops the
+        // seed snapshot for content-consuming subscribers.
+        var refreshTrigger = _apps.Connect().Publish().RefCount();
 
         // TryPersistCache (not MergeFreshApps) is what's pushed off the inline scan-delivery path:
         // MergeFreshApps (fast, in-memory) runs directly here; TryPersistCache (icon PNG-encoding,
@@ -112,22 +114,14 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
             .Filter(app => app.TargetPath!.Contains(@"\"))
             .ChangeKey(app => Path.GetFileName(app.TargetPath!));
 
-        ApplicationsByAumid = primaryAumidCache.Or(partialAumidCache).AutoRefreshOnObservable(_ => primaryAumidCache).AsObservableCache();
+        ApplicationsByAumid = primaryAumidCache.Or(partialAumidCache).AutoRefreshOnObservable(_ => refreshTrigger).AsObservableCache();
 
         ApplicationsByPath = partialAumidCache
-            .AutoRefreshOnObservable(_ => primaryAumidCache)
+            .AutoRefreshOnObservable(_ => refreshTrigger)
             .Or(partialPackagePathCache)
             .Or(targetPathCache)
             .Or(partialTargetPathCache)
             .AsObservableCache();
-    }
-
-    private IObservable<Unit> GetRefreshEvents()
-    {
-        return Observable.Merge(
-            Observable.Interval(TimeSpan.FromMinutes(30)).Select(_ => Unit.Default),
-            _refreshSubject
-        );
     }
 
     public void Dispose()
@@ -159,14 +153,22 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         try
         {
             entries = _cacheStore.Load();
+
+            // Tolerate duplicate AUMIDs in the cache file (last one wins) instead of throwing --
+            // GetAumid collapses any backslash-containing ParsingName to just its filename, so two
+            // distinct Shell items (e.g. a per-user and a per-machine shortcut with the same
+            // filename) can legitimately produce the same AUMID during a scan. A corrupt/duplicate
+            // cache file must degrade to empty, not crash every future launch of the app.
+            _previousEntriesByAumid = entries
+                .GroupBy(entry => entry.AppUserModelId, StringComparer.Ordinal)
+                .ToDictionary(group => group.Key, group => group.Last(), StringComparer.Ordinal);
         }
         catch (Exception ex)
         {
             Debug.WriteLine($"Failed to load installed-application cache: {ex.Message}");
             entries = [];
+            _previousEntriesByAumid = new Dictionary<string, CachedApplicationEntry>();
         }
-
-        _previousEntriesByAumid = entries.ToDictionary(entry => entry.AppUserModelId);
 
         return entries
             .Select(entry => new InstalledApplicationInfo
@@ -203,6 +205,15 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
     /// </summary>
     internal void MergeFreshApps(IReadOnlyList<InstalledApplicationInfo> freshApps)
     {
+        // An empty fresh list is untrustworthy, not a legitimate "everything got uninstalled"
+        // result: the live Shell scan runs exactly once per process, so there is no later scan
+        // that could ever correct a mistakenly-emptied cache. Discarding a good seeded cache in
+        // favor of an empty result is worse than doing nothing, so treat it as a no-op.
+        if (freshApps.Count == 0)
+        {
+            return;
+        }
+
         var freshKeys = new HashSet<string>(freshApps.Select(app => app.AppUserModelId), StringComparer.Ordinal);
         _apps.Edit(updater =>
         {
@@ -211,10 +222,7 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
             updater.AddOrUpdate(freshApps);
         });
 
-        if (freshApps.Count > 0)
-        {
-            _ = Task.Run(() => TryPersistCache(freshApps));
-        }
+        _ = Task.Run(() => TryPersistCache(freshApps));
     }
 
     /// <summary>
@@ -225,24 +233,30 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
     {
         try
         {
-            var entries = new List<CachedApplicationEntry>(freshApps.Count);
+            // Deduped by AppUserModelId (last one wins) so a Shell scan that produces two entries
+            // with the same AUMID (GetAumid collapses any backslash-containing ParsingName to just
+            // its filename, so a per-user and a per-machine shortcut with the same filename collide)
+            // never gets written to the cache file -- LoadCachedApplications tolerates a duplicate
+            // that's already on disk, but this process must never produce one in the first place.
+            var entriesByAumid = new Dictionary<string, CachedApplicationEntry>(freshApps.Count, StringComparer.Ordinal);
             var iconBytesByAumid = new Dictionary<string, byte[]?>(freshApps.Count);
 
             foreach (var app in freshApps)
             {
-                entries.Add(new CachedApplicationEntry
+                entriesByAumid[app.AppUserModelId] = new CachedApplicationEntry
                 {
                     AppUserModelId = app.AppUserModelId,
                     Name = app.Name,
                     TargetPath = app.TargetPath,
                     PackageInstallPath = app.PackageInstallPath,
-                });
+                };
 
                 if (
                     _previousEntriesByAumid.TryGetValue(app.AppUserModelId, out var previous)
                     && previous.Name == app.Name
                     && previous.TargetPath == app.TargetPath
                     && previous.PackageInstallPath == app.PackageInstallPath
+                    && previous.IconLength > 0
                 )
                 {
                     // Unchanged since the last successful write -- reuse the icon bytes already on
@@ -258,7 +272,7 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
                 }
             }
 
-            _cacheStore.Save(entries, iconBytesByAumid);
+            _cacheStore.Save(entriesByAumid.Values.ToArray(), iconBytesByAumid);
         }
         catch (Exception ex)
         {

@@ -1,5 +1,6 @@
 using System.Drawing;
 using System.Drawing.Imaging;
+using System.Linq;
 using System.Reactive.Linq;
 using WinTabber.Api.Media.ShellApplications.Caching;
 using WinTabber.Api.Media.ShellApplications.Models;
@@ -65,7 +66,77 @@ public class InstalledApplicationRepositoryPersistenceTests
 
         repository.MergeFreshApps([]);
 
-        await Assert.That(repository.ApplicationsByAumid.Count).IsEqualTo(0);
+        // An empty fresh list is untrustworthy (no later scan could ever fix a mistakenly-emptied
+        // cache), so MergeFreshApps must leave the cache-seeded entry alone rather than remove it.
+        await Assert.That(repository.ApplicationsByAumid.Count).IsEqualTo(1);
+        await Assert.That(repository.ApplicationsByAumid.Lookup("App.Uninstalled").HasValue).IsTrue();
+    }
+
+    [Test]
+    public async Task MergeFreshApps_RemovesOnlyTheUninstalledApp_WhenTheOtherSurvives()
+    {
+        using var repository = CreateRepository(
+            [
+                new CachedApplicationEntry { AppUserModelId = "App.Uninstalled", Name = "Gone" },
+                new CachedApplicationEntry { AppUserModelId = "App.Survivor", Name = "Still Here" },
+            ],
+            out _
+        );
+
+        repository.MergeFreshApps([
+            new InstalledApplicationInfo
+            {
+                AppUserModelId = "App.Survivor",
+                Name = "Still Here",
+                Icon = Observable.Return((Bitmap?)null),
+            },
+        ]);
+
+        await Assert.That(repository.ApplicationsByAumid.Count).IsEqualTo(1);
+        await Assert.That(repository.ApplicationsByAumid.Lookup("App.Survivor").HasValue).IsTrue();
+        await Assert.That(repository.ApplicationsByAumid.Lookup("App.Uninstalled").HasValue).IsFalse();
+    }
+
+    [Test]
+    public async Task Constructor_DoesNotThrow_WhenCacheStoreReturnsDuplicateAumidEntries()
+    {
+        using var repository = CreateRepository(
+            [
+                new CachedApplicationEntry { AppUserModelId = "App.Dup", Name = "First" },
+                new CachedApplicationEntry { AppUserModelId = "App.Dup", Name = "Second" },
+            ],
+            out _
+        );
+
+        await Assert.That(repository.ApplicationsByAumid.Count).IsEqualTo(1);
+    }
+
+    [Test]
+    public async Task TryPersistCache_DoesNotThrow_AndDedupesEntries_WhenFreshAppsShareAnAumid()
+    {
+        using var repository = CreateRepository(out var cacheStore);
+        var apps = new[]
+        {
+            new InstalledApplicationInfo
+            {
+                AppUserModelId = "App.Dup",
+                Name = "Per-User Shortcut",
+                TargetPath = @"C:\Users\someone\App.exe",
+                Icon = Observable.Return((Bitmap?)null),
+            },
+            new InstalledApplicationInfo
+            {
+                AppUserModelId = "App.Dup",
+                Name = "Per-Machine Shortcut",
+                TargetPath = @"C:\ProgramData\App.exe",
+                Icon = Observable.Return((Bitmap?)null),
+            },
+        };
+
+        repository.TryPersistCache(apps);
+
+        await Assert.That(cacheStore.SavedEntries).IsNotNull();
+        await Assert.That(cacheStore.SavedEntries!.Count(entry => entry.AppUserModelId == "App.Dup")).IsEqualTo(1);
     }
 
     [Test]
@@ -123,6 +194,10 @@ public class InstalledApplicationRepositoryPersistenceTests
             AppUserModelId = "App.Unchanged",
             Name = "Unchanged",
             TargetPath = @"C:\Apps\Unchanged.exe",
+            // IconLength > 0 -- the previous entry actually had a cached icon, so the carry-forward
+            // path applies. See TryPersistCache_ReEncodesIcon_WhenPreviousIconWasMissing for the
+            // complementary case where it must NOT apply.
+            IconLength = 3,
         };
         using var repository = CreateRepository([previousEntry], out var cacheStore);
         cacheStore.IconBytesByAumid["App.Unchanged"] = [9, 9, 9];
@@ -179,6 +254,37 @@ public class InstalledApplicationRepositoryPersistenceTests
 
         // Not the carried-forward [9, 9, 9] -- proves a changed TargetPath forces re-encoding.
         await Assert.That(cacheStore.SavedIconBytesByAumid!["App.Moved"]).IsNotEquivalentTo(new byte[] { 9, 9, 9 });
+    }
+
+    [Test]
+    public async Task TryPersistCache_ReEncodesIcon_WhenPreviousIconWasMissing()
+    {
+        var previousEntry = new CachedApplicationEntry
+        {
+            AppUserModelId = "App.NoIconYet",
+            Name = "No Icon Yet",
+            TargetPath = @"C:\Apps\NoIconYet.exe",
+            // IconLength defaults to 0: the previous run's icon failed to encode (or timed out).
+            // Metadata is otherwise unchanged below, so the carry-forward branch would normally
+            // apply -- but there is nothing to carry forward, so this app must get another chance
+            // at encoding instead of staying iconless forever.
+        };
+        using var repository = CreateRepository([previousEntry], out var cacheStore);
+        using var bitmap = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
+        var apps = new[]
+        {
+            new InstalledApplicationInfo
+            {
+                AppUserModelId = "App.NoIconYet",
+                Name = "No Icon Yet",
+                TargetPath = @"C:\Apps\NoIconYet.exe", // unchanged
+                Icon = Observable.Return<Bitmap?>(bitmap),
+            },
+        };
+
+        repository.TryPersistCache(apps);
+
+        await Assert.That(cacheStore.SavedIconBytesByAumid!["App.NoIconYet"]).IsNotNull();
     }
 
     [Test]

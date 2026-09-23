@@ -15,7 +15,7 @@ Deliberately narrow. Covered:
   fake), keeps `ApplicationsByAumid`/`ApplicationsByPath` empty (rather than erroring — DynamicData's
   `Or()` combinator they're built on silently drops an upstream `OnError`), and is reported on the
   repository's `AcquisitionErrors` observable instead. See
-  `ShellApplications/InstalledApplicationRepositoryTests.cs` for the full explanation.
+  `InstalledApplicationRepository.cs`'s constructor comment for the full explanation.
 - `InstalledApplicationRepository`'s disk-cache seeding, merge, and persistence logic — via
   `Fakes/FakeShellApplicationSource.cs` and `ShellApplications/Caching/FakeInstalledApplicationCacheStore.cs`:
   a cache seed appears in `ApplicationsByAumid` immediately (synchronously, before the live Shell
