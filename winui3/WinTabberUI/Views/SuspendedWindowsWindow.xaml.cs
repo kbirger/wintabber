@@ -20,6 +20,7 @@ public sealed partial class SuspendedWindowsWindow : WinUIEx.WindowEx
         _windowInterop = windowInterop;
 
         InitializeComponent();
+        AppWindow.SetIcon(DesktopHelper.AppIconPath);
 
         // The empty-state TextBlock's Visibility uses a classic Binding (see SuspendedWindowsWindow.xaml's
         // comment for why: an x:Bind with a StaticResource converter can't compile at this file's root

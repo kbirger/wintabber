@@ -40,6 +40,7 @@ public sealed partial class MediaControlsWindow : WindowEx
         ViewModel = viewModel;
         _mediaControlsStateService = mediaControlsStateService;
         InitializeComponent();
+        AppWindow.SetIcon(DesktopHelper.AppIconPath);
         //SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
         if (DesktopAcrylicController.IsSupported())
         {

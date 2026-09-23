@@ -88,6 +88,7 @@ public sealed partial class ThumbnailWindow : WinUIEx.WindowEx
         ViewModel = viewModel;
 
         InitializeComponent();
+        AppWindow.SetIcon(DesktopHelper.AppIconPath);
 
         _hwnd = WindowNative.GetWindowHandle(this);
 

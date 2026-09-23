@@ -3,6 +3,7 @@ using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Media;
 using WinTabber.ViewModels;
 using WinTabber.ViewModels.Settings;
+using WinTabberUI.Windowing;
 using WinUIEx;
 
 namespace WinTabberUI.Views;
@@ -17,6 +18,7 @@ public sealed partial class SettingsWindow : WindowEx
     {
         ViewModel = viewModel;
         InitializeComponent();
+        AppWindow.SetIcon(DesktopHelper.AppIconPath);
         ExtendsContentIntoTitleBar = true;
         // TODO(verify) resolution: `SystemBackdrop="{winuiex:MicaBackdrop}"` in XAML compiles in
         // pass1 but crashes this SDK's XamlCompiler pass2 with no diagnostic (confirmed against real

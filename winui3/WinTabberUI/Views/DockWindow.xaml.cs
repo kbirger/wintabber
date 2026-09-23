@@ -33,6 +33,11 @@ public sealed partial class DockWindow : WinUIEx.WindowEx
 
         InitializeComponent();
 
+        // Every window shares the same icon (the tray icon's own logo.ico) rather than each
+        // defaulting to a different generic icon — see DesktopHelper.AppIconPath's doc comment for
+        // why this needs a real filesystem path rather than the tray icon's ms-appx URI.
+        AppWindow.SetIcon(DesktopHelper.AppIconPath);
+
         _hwnd = WindowNative.GetWindowHandle(this);
 
         // Per the brief and the design spec's backdrop table: WindowEx + DesktopAcrylicBackdrop.

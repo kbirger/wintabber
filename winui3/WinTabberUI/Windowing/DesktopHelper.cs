@@ -8,6 +8,16 @@ namespace WinTabberUI.Windowing;
 internal static class DesktopHelper
 {
     /// <summary>
+    /// The app's single icon file, shared by every window and the tray icon
+    /// (<see cref="Coordinators.NotifyIconCoordinator" />'s own <c>ms-appx:///Assets/logo.ico</c>
+    /// reference). Unlike that tray icon's <c>BitmapImage</c>, <c>AppWindow.SetIcon</c> takes a real
+    /// filesystem path, not an ms-appx URI -- this app is unpackaged, so <c>AppContext.BaseDirectory</c>
+    /// (where csproj-default Assets content is copied alongside the exe) is the correct root.
+    /// </summary>
+    public static readonly string AppIconPath = System.IO.Path.Combine(AppContext.BaseDirectory, "Assets", "logo.ico");
+
+
+    /// <summary>
     /// Converts a device-pixel screen rectangle to WinUI 3 logical (effective-pixel) units using
     /// the DPI in effect for the window at <paramref name="hwnd"/> right now. Queried live rather
     /// than cached, so centering is always correct even if the window's own DPI bookkeeping is stale.
