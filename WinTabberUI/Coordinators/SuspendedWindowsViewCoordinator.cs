@@ -40,9 +40,20 @@ namespace WinTabberUI.Coordinators
             // CmdSuspendedWindows pins the window open independently of the switcher; pressing it
             // again unpins. Seeded with StartWith(false) so the combined stream still emits when the
             // command is never used, leaving the behavior above untouched.
+            //
+            // REAL BUG fixed here: resuming a window via one of this bar's own tiles sends the same
+            // WindowSelected event the switcher uses to close, which correctly unpins this window
+            // when it is showing because the switcher is up (followsSwitcher above reacts to it via
+            // IsSwitcherActiveChanges). But a bar pinned open independently of the switcher never saw
+            // WindowSelected reset pinnedOpen at all, so resuming an item while pinned left the bar
+            // open with no way to auto-close. Also resets on WindowSelected now, same event, same
+            // effect pinning or unpinning already has.
             var pinnedOpen = _eventManager
-                .CommandEvents.Where(evt => evt.Type == EventType.CmdSuspendedWindows && _settings.EnableWindowSuspension)
-                .Scan(false, (isPinned, _) => !isPinned)
+                .CommandEvents.Where(evt =>
+                    (evt.Type == EventType.CmdSuspendedWindows && _settings.EnableWindowSuspension)
+                    || evt.Type == EventType.WindowSelected
+                )
+                .Scan(false, (isPinned, evt) => evt.Type == EventType.WindowSelected ? false : !isPinned)
                 .StartWith(false);
 
             return followsSwitcher
