@@ -88,8 +88,8 @@
                 <DataTemplate x:DataType="vm:SuspendedWindowItemViewModel">
                     <Button Style="{StaticResource ResumeTileButton}" Command="{x:Bind ResumeCommand}" ToolTipService.ToolTip="Click to resume">
                         <StackPanel Orientation="Horizontal">
-                            <!-- TODO(icon): originally fontawesome.sharp FontAwesomeIcon.Sun -->
-                            <FontIcon Margin="0,0,8,0" VerticalAlignment="Center" Glyph="&#xE897;" />
+                            <!-- Gear glyph (Symbol.Setting, E713) — WPF original used fontawesome.sharp's Sun. -->
+                            <FontIcon Margin="0,0,8,0" VerticalAlignment="Center" Glyph="&#xE713;" />
                             <StackPanel Orientation="Vertical">
                                 <TextBlock FontWeight="Bold" Text="{x:Bind ProcessName}" />
                                 <TextBlock MaxWidth="220" Opacity="0.8" Text="{x:Bind Title}" TextTrimming="CharacterEllipsis" />
