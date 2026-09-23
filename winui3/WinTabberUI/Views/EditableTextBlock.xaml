@@ -37,6 +37,60 @@
         <c:InverseBoolToVisibilityConverter x:Key="InverseBoolToVisibilityConverter" />
         <c:BoolToThicknessConverter x:Key="BoolToThicknessConverter" />
         <c:BoolToBrushConverter x:Key="BorderBrushConverter" EditBrush="#ff666666" ViewBrush="Transparent" />
+
+        <!-- Ported from the WPF original's EditableTextBlockResources.xaml "InlineButton" style,
+             declared locally rather than merged, matching this file's own established precedent
+             above. Never ported before this: SuspendButton/ThumbnailButton/AcceptButton/CancelButton
+             had been rendering with the plain default WinUI 3 Button chrome (full padding, default
+             hover/pressed visuals) instead of this transparent-until-hover, minimal-chrome look. -->
+        <Style x:Key="InlineButton" TargetType="Button">
+            <Setter Property="Background" Value="Transparent" />
+            <Setter Property="Foreground" Value="White" />
+            <Setter Property="Margin" Value="2,0,0,0" />
+            <Setter Property="Padding" Value="6,0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="UseSystemFocusVisuals" Value="False" />
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border
+                            x:Name="RootBorder"
+                            Background="{TemplateBinding Background}"
+                            Padding="{TemplateBinding Padding}"
+                        >
+                            <VisualStateManager.VisualStateGroups>
+                                <VisualStateGroup x:Name="CommonStates">
+                                    <VisualState x:Name="Normal" />
+                                    <VisualState x:Name="PointerOver">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#dd666666" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Pressed">
+                                        <VisualState.Setters>
+                                            <Setter Target="RootBorder.Background" Value="#dd666666" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                    <VisualState x:Name="Disabled">
+                                        <VisualState.Setters>
+                                            <Setter Target="ContentPresenter.Foreground" Value="#dd333333" />
+                                        </VisualState.Setters>
+                                    </VisualState>
+                                </VisualStateGroup>
+                            </VisualStateManager.VisualStateGroups>
+                            <ContentPresenter
+                                x:Name="ContentPresenter"
+                                Content="{TemplateBinding Content}"
+                                Foreground="{TemplateBinding Foreground}"
+                                HorizontalAlignment="Center"
+                                VerticalAlignment="Center"
+                            />
+                        </Border>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
     </local:EditableTextBlockBase.Resources>
 
     <Border
@@ -73,6 +127,7 @@
             <StackPanel Grid.Column="1" Orientation="Horizontal" VerticalAlignment="Center">
                 <Button
                     x:Name="SuspendButton"
+                    Style="{StaticResource InlineButton}"
                     Command="{x:Bind ViewModel.SuspendCommand, Mode=OneWay}"
                     ToolTipService.ToolTip="Sleep this process"
                     Visibility="{x:Bind ViewModel.IsSuspendButtonVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -80,6 +135,7 @@
                 </Button>
                 <Button
                     x:Name="ThumbnailButton"
+                    Style="{StaticResource InlineButton}"
                     Command="{x:Bind ViewModel.ThumbnailCommand, Mode=OneWay}"
                     ToolTipService.ToolTip="Show as floating thumbnail"
                     Visibility="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
@@ -87,6 +143,7 @@
                 </Button>
                 <Button
                     x:Name="AcceptButton"
+                    Style="{StaticResource InlineButton}"
                     Command="{x:Bind ViewModel.SaveTitleCommand, Mode=OneWay}"
                     CommandParameter="{x:Bind ViewModel.Title, Mode=OneWay}"
                     Visibility="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
@@ -94,6 +151,7 @@
                 </Button>
                 <Button
                     x:Name="CancelButton"
+                    Style="{StaticResource InlineButton}"
                     Command="{x:Bind ViewModel.CancelEditTitleCommand, Mode=OneWay}"
                     Visibility="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
                     <FontIcon Glyph="&#xF78A;" />
