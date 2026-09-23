@@ -1,9 +1,11 @@
 using Microsoft.Extensions.DependencyInjection;
+using System.IO;
 using System.Reactive.Concurrency;
 using WinTabber.Api.Media.CoreAudio;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Api.Media.CoreAudio.Services;
 using WinTabber.Api.Media.ShellApplications;
+using WinTabber.Api.Media.ShellApplications.Caching;
 using WinTabber.Api.Media.ShellApplications.Repositories;
 using WinTabber.Api.Media.SMTC;
 using WinTabber.Api.Media.SMTC.Repositories;
@@ -60,7 +62,6 @@ public static class Bootstrapper
             .AddSingleton<ISuspendedWindowStore>(_ => new SuspendedWindowFileStore(Paths.SuspensionDirectory))
             .AddSingleton<IProcessSuspensionService, ProcessSuspensionService>()
             .AddSingleton<IWindowThumbnailService, WindowThumbnailService>()
-            .AddSingleton<AppCache>()
             .AddSingleton<Coordinators.WindowCommandCoordinator>()
             .AddSingleton<BackgroundServiceContainer>();
     }
@@ -96,6 +97,9 @@ public static class Bootstrapper
             .AddSingleton<IMediaSessionService, MediaSessionService>()
             .AddSingleton<IAudioSessionService, AudioSessionService>()
             .AddSingleton<IAudioDeviceService, AudioDeviceService>()
+            .AddSingleton<IInstalledApplicationCacheStore>(
+                _ => new FileInstalledApplicationCacheStore(Path.Combine(Paths.RoamingDataPath, "InstalledApplications"))
+            )
             .AddSingleton<IShellApplicationSource, WindowsShellApplicationSource>()
             .AddSingleton<IInstalledApplicationRepository, InstalledApplicationRepository>()
             .AddSingleton<AudioDeviceSelectorViewModelFactory>()

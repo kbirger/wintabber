@@ -6,13 +6,12 @@ using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Events;
 using WinTabber.ViewModels;
 using WinTabberUI.Coordinators;
-using WinTabberUI.Infrastructure;
 
 namespace WinTabberUI;
 
 /// <summary>
 /// Ported from the WPF app's own <c>BackgroundServiceContainer</c>. Preloads the same shared state
-/// (<see cref="AppCache"/>, <see cref="WindowManager"/>, <see cref="ApplicationStateViewModel"/>)
+/// (<see cref="WindowManager"/>, <see cref="ApplicationStateViewModel"/>)
 /// and roots every already-ported coordinator behind one <see cref="CompositeDisposable"/>, replacing
 /// the five separate fields <c>App.xaml.cs</c> used to hold individually. Disposal order matches the
 /// WPF original: coordinators first, then <see cref="WinTabberEventManager"/>, then
@@ -30,7 +29,6 @@ public class BackgroundServiceContainer : IDisposable
     {
         ioc.GetRequiredService<WindowManager>();
         ioc.GetRequiredService<ApplicationStateViewModel>();
-        ioc.GetRequiredService<AppCache>().Load();
 
         _cleanup = new CompositeDisposable(
             ioc.GetRequiredService<StartupCoordinator>(),
