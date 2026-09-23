@@ -6657,12 +6657,22 @@ menus). Rather than keep guessing at library internals with no way to verify, fi
 the whole code path: `winui3/WinTabberUI/Coordinators/NotifyIconCoordinator.cs`'s "Enable Hooks"
 `ToggleMenuFlyoutItem` was replaced with a plain `MenuFlyoutItem` (the type every other reliably-working
 item in this menu already uses), whose label switches between "Pause Hooks"/"Resume Hooks" via a
-direct `WhenAnyValue` subscription instead of an `IsChecked` binding. This also unblocks
-`MediaDebugWindowCoordinator`, which needed the same toggle-item pattern for its own tray menu entry.
+direct `WhenAnyValue` subscription instead of an `IsChecked` binding.
 
-Verified: full solution build (0 errors), full test suite (136/136 pass), live launch with no crash
-logged. Not yet live-verified: actually clicking "Pause Hooks"/"Resume Hooks" and confirming the
-global hooks pause and resume.
+**Live verification found this fix necessary but not sufficient**: the click now genuinely executes
+`PauseHooksCommand` (confirmed — hooks actually pause and resume), but the label still did not
+update. Two further fix attempts based on plausible-but-wrong theories both failed live:
+`.ObserveOn(RxApp.MainThreadScheduler)` (assumed a threading issue; it wasn't) and, separately,
+losing an entire testing round to a build/run path mismatch (`dotnet build WinTabber.slnx` writes to
+`bin/Debug/`, but `dotnet run --no-build` on this project executes `bin/x64/Debug/` — two different
+output directories for the same project; a solution-level build silently leaves the actually-run exe
+stale). The real root cause, found only after adding a temporary trace log and reading it back: see
+the next entry below. **`MediaDebugWindowCoordinator` is not actually unblocked by the
+`ToggleMenuFlyoutItem` swap** — that theory turned out unconfirmed and likely wrong; revisit its own
+toggle item on its own merits when that coordinator is ported.
+
+Verified (this round only — see below for the fix that actually resolved the visible symptom): full
+solution build (0 errors), full test suite (136/136 pass), live launch with no crash logged.
 
 ## Bug fix — window selector tile hover highlight regression (2026-09-22)
 
@@ -6682,4 +6692,36 @@ since its original port (confirmed via `git log --follow` showing a single commi
 
 Verified: full solution build (0 errors), full test suite (136/136 pass), live launch with no crash
 logged. Not yet live-verified: the actual visual hover feedback on a running build.
+
+## Bug fix — the real "Enable Hooks" label bug: WinTabberEventManager never raised PropertyChanged (2026-09-22)
+
+Following up on the tray-icon toggle fix above: live verification showed `PauseHooksCommand` now
+genuinely executes (hooks actually pause and resume), but the label never updated from "Pause Hooks"
+to "Resume Hooks". Root cause, found by adding a temporary trace log to the label subscription and
+reading it back after a live click rather than guessing further: `WinTabber.Events/WinTabberEventManager.cs`'s
+`Pause()`/`Start()` call `_enabled.OnNext(...)` directly on the backing `BehaviorSubject`, completely
+bypassing the `IsRunning` property's own `private set` — the *only* place that ever raised
+`PropertyChanged` for it. `WhenAnyValue(em => em.IsRunning)` therefore only ever saw the value
+ReactiveUI reads once at subscribe time, never a real update — on either app, since this is shared
+code, not a winui3-specific bug. The trace log showed exactly one emission (at subscribe time) across
+several real clicks, confirming this precisely.
+
+Fixed by subscribing to `_enabled` directly in `Init()` and raising `PropertyChanged` from there
+(`Skip(1)` to not fire on the BehaviorSubject's own initial replay), and deleting the now-fully-dead
+private setter. Two earlier fix attempts in this same investigation were real but did not address
+this: the `ToggleMenuFlyoutItem` → `MenuFlyoutItem` swap (previous entry above) fixed a genuinely
+separate problem (the click not executing the command at all), and an `.ObserveOn(RxApp.MainThreadScheduler)`
+addition was a defensive no-op, not a fix (kept anyway, matching this app's own convention).
+
+**Process note worth keeping**: one full round of live-testing during this investigation was wasted
+on a stale build. `dotnet build WinTabber.slnx` (solution-level) writes this project's output to
+`bin/Debug/`, but `dotnet run --project ... --no-build` on this exact project executes
+`bin/x64/Debug/` — two different output directories for the same project, and only a project-level
+`dotnet build winui3/WinTabberUI/WinTabberUI.csproj` (not a solution-level build) reliably updates the
+one that actually runs. Worth checking exe timestamps directly (`stat`) before trusting a live test
+again, rather than assuming "build succeeded" means "the running instance changed."
+
+Live-verified by the user: clicking "Pause Hooks" now flips the label to "Resume Hooks" and back
+correctly. Full solution build (0 errors), full test suite (136/136 pass, both `WinTabberUI.csproj`
+(WPF) and `winui3/WinTabberUI/WinTabberUI.csproj` build clean independently too).
 
