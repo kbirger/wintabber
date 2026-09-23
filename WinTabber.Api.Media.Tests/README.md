@@ -16,6 +16,17 @@ Deliberately narrow. Covered:
   `Or()` combinator they're built on silently drops an upstream `OnError`), and is reported on the
   repository's `AcquisitionErrors` observable instead. See
   `ShellApplications/InstalledApplicationRepositoryTests.cs` for the full explanation.
+- `InstalledApplicationRepository`'s disk-cache seeding, merge, and persistence logic — via
+  `Fakes/FakeShellApplicationSource.cs` and `ShellApplications/Caching/FakeInstalledApplicationCacheStore.cs`:
+  a cache seed appears in `ApplicationsByAumid` immediately (synchronously, before the live Shell
+  scan even starts), and survives a failed live scan rather than being cleared. The merge
+  (`InstalledApplicationRepository.MergeFreshApps`) and cache-write (`TryPersistCache`) logic that a
+  successful scan would otherwise drive are made `internal` so tests can call them directly with a
+  plain `InstalledApplicationInfo` list, sidestepping the same no-accessible-constructor limitation
+  `ShellObject` has everywhere else in this project — see
+  `ShellApplications/InstalledApplicationRepositoryPersistenceTests.cs`. The file-backed store itself
+  (`FileInstalledApplicationCacheStore`) is covered in
+  `ShellApplications/Caching/FileInstalledApplicationCacheStoreTests.cs`.
 
 **Not covered, and why:**
 

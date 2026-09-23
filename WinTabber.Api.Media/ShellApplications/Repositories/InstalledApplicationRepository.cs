@@ -13,6 +13,7 @@ using System.Runtime.InteropServices;
 using Windows.Win32.Foundation;
 using Windows.Win32.Graphics.Gdi;
 using Windows.Win32.UI.Shell;
+using WinTabber.Api.Media.ShellApplications.Caching;
 using WinTabber.Api.Media.ShellApplications.Models;
 
 namespace WinTabber.Api.Media.ShellApplications.Repositories;
@@ -25,9 +26,13 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
 
     private static readonly HRESULT S_PATHNOTFOUND = (HRESULT)0x8004B205;
     private readonly IShellApplicationSource _shellSource;
+    private readonly IInstalledApplicationCacheStore _cacheStore;
     private readonly SourceCache<InstalledApplicationInfo, string> _apps = new(static app =>
         app.AppUserModelId
     );
+    private IReadOnlyDictionary<string, CachedApplicationEntry> _previousEntriesByAumid =
+        new Dictionary<string, CachedApplicationEntry>();
+    private readonly IDisposable _liveAcquisitionSubscription;
     private readonly Subject<Unit> _refreshSubject = new Subject<Unit>();
     // ReplaySubject(1), not Subject: AsObservableCache() below subscribes eagerly in this
     // constructor, so background acquisition can fail and emit here before any consumer has had a
@@ -39,35 +44,44 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         _refreshSubject.OnNext(Unit.Default);
     }
 
-    public InstalledApplicationRepository(IShellApplicationSource shellSource)
+    public InstalledApplicationRepository(IShellApplicationSource shellSource, IInstalledApplicationCacheStore cacheStore)
     {
         _shellSource = shellSource;
-        //var primaryAumidCache = GetRefreshEvents()
-        //    .StartWith(Unit.Default)
-        //    .ExhaustMap(_ => GetInstalledApplicationsObservable())
+        _cacheStore = cacheStore;
+
+        // Seeded synchronously -- a small JSON read, fast enough not to delay construction -- so
+        // ApplicationsByAumid/ApplicationsByPath have content immediately, before the live Shell
+        // scan below (which runs on the task pool, in the background) produces anything.
+        _apps.AddOrUpdate(LoadCachedApplications());
+
         // DynamicData's Or() combinator (used below to merge this cache with its derived
         // partial/package/target caches) silently drops an OnError from its source instead of
         // propagating it to Connect() subscribers — confirmed with a reduced repro independent of
         // this class's own composition, not just an artifact of subscribing to the same cold
-        // source multiple times. So a failure is caught here, before it ever reaches Or(), and
-        // reported on AcquisitionErrors instead; the changeset itself completes as if acquisition
-        // returned an empty list, keeping Or()/AutoRefreshOnObservable on their normal path.
-        // Publish().RefCount() then shares that one execution across every downstream subscriber
-        // (Or() directly, AutoRefreshOnObservable, and the partial/package/target caches derived
-        // from it) so a failure is reported once, not once per subscriber. Proven by
+        // source multiple times. That risk no longer applies to _apps.Connect() itself: _apps is a
+        // plain mutable cache that never errors, and every failure path below is fully absorbed by
+        // Catch before this repository's own Subscribe -- Or() never sees it. AcquisitionErrors is
+        // still how a consumer learns about it. Proven by
         // InstalledApplicationRepositoryTests.AcquisitionErrors_Emits_WhenAppsFolderAcquisitionFails.
-        var primaryAumidCache = GetInstalledApplicationsObservable()
+        var primaryAumidCache = _apps.Connect().Publish().RefCount();
+
+        // MergeFreshApps and TryPersistCache are NOT run inline with this scan -- MergeFreshApps
+        // (fast, in-memory) runs directly here; TryPersistCache (icon PNG-encoding, disk I/O) is
+        // pushed to Task.Run inside MergeFreshApps so a slow persist never delays the changeset this
+        // scan just produced from reaching ApplicationsByAumid's subscribers.
+        //
+        // A failed scan (the Catch below) reports on AcquisitionErrors and produces no further
+        // action -- deliberately not a call to MergeFreshApps([]), which would otherwise remove
+        // every cache-seeded entry (MergeFreshApps treats "not present in the fresh list" as
+        // "uninstalled"). Proven by
+        // InstalledApplicationRepositoryTests.ApplicationsByAumid_KeepsCachedEntries_WhenShellAcquisitionFails.
+        _liveAcquisitionSubscription = GetInstalledApplicationsObservable()
             .Catch<IReadOnlyList<InstalledApplicationInfo>, Exception>(ex =>
             {
                 _acquisitionErrors.OnNext(ex);
-                return Observable.Return<IReadOnlyList<InstalledApplicationInfo>>([]);
+                return Observable.Empty<IReadOnlyList<InstalledApplicationInfo>>();
             })
-            .ToObservableChangeSet(
-                keySelector: app => app.AppUserModelId,
-                expireAfter: item => TimeSpan.FromDays(1)
-            )
-            .Publish()
-            .RefCount();
+            .Subscribe(MergeFreshApps);
 
         var partialAumidCache = primaryAumidCache
             .Filter(app => app.AppUserModelId.Contains(@"\"))
@@ -109,8 +123,10 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
 
     public void Dispose()
     {
+        _liveAcquisitionSubscription.Dispose();
         ApplicationsByAumid.Dispose();
         ApplicationsByPath.Dispose();
+        _apps.Dispose();
         _acquisitionErrors.Dispose();
     }
 
@@ -126,6 +142,139 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
             },
             TaskPoolScheduler.Default
         );
+    }
+
+    private IReadOnlyList<InstalledApplicationInfo> LoadCachedApplications()
+    {
+        IReadOnlyList<CachedApplicationEntry> entries;
+        try
+        {
+            entries = _cacheStore.Load();
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to load installed-application cache: {ex.Message}");
+            entries = [];
+        }
+
+        _previousEntriesByAumid = entries.ToDictionary(entry => entry.AppUserModelId);
+
+        return entries
+            .Select(entry => new InstalledApplicationInfo
+            {
+                AppUserModelId = entry.AppUserModelId,
+                Name = entry.Name,
+                TargetPath = entry.TargetPath,
+                PackageInstallPath = entry.PackageInstallPath,
+                Icon = GetCachedIcon(entry),
+            })
+            .ToArray();
+    }
+
+    private IObservable<Bitmap?> GetCachedIcon(CachedApplicationEntry entry)
+    {
+        return Observable
+            .Defer(() => Observable.Start(() => _cacheStore.LoadIcon(entry), TaskPoolScheduler.Default))
+            .Replay(1)
+            .AutoConnect();
+    }
+
+    /// <summary>
+    /// Replaces <see cref="_apps"/>'s contents with <paramref name="freshApps"/>: an app not in
+    /// <paramref name="freshApps"/> is removed (it is no longer installed), an app already present
+    /// is overwritten with the fresh value regardless of <see cref="InstalledApplicationInfo.Equals"/>
+    /// (which compares only the AUMID, so it cannot be relied on to detect a changed Icon/TargetPath/Name),
+    /// and a new app is added. Deliberately not built on <c>ToObservableChangeSet</c> over a
+    /// concatenated cached-then-fresh sequence -- that operator was verified (see the plan's "Design
+    /// decisions verified empirically" section) to be additive only, never removing a key absent from
+    /// a later emission, which would leave an uninstalled app in the cache until its 1-day expiry.
+    /// Internal so a test can drive it directly without needing a real successful Shell scan (not
+    /// producible from a test -- <c>ShellObject</c> has no accessible constructor; see this project's
+    /// README.md).
+    /// </summary>
+    internal void MergeFreshApps(IReadOnlyList<InstalledApplicationInfo> freshApps)
+    {
+        var freshKeys = new HashSet<string>(freshApps.Select(app => app.AppUserModelId), StringComparer.Ordinal);
+        _apps.Edit(updater =>
+        {
+            var staleKeys = updater.Keys.Where(key => !freshKeys.Contains(key)).ToArray();
+            updater.Remove(staleKeys);
+            updater.AddOrUpdate(freshApps);
+        });
+
+        if (freshApps.Count > 0)
+        {
+            _ = Task.Run(() => TryPersistCache(freshApps));
+        }
+    }
+
+    /// <summary>
+    /// Internal so a test can call it directly and synchronously, instead of through the
+    /// fire-and-forget <see cref="Task.Run(Action)"/> <see cref="MergeFreshApps"/> wraps it in.
+    /// </summary>
+    internal void TryPersistCache(IReadOnlyList<InstalledApplicationInfo> freshApps)
+    {
+        try
+        {
+            var entries = new List<CachedApplicationEntry>(freshApps.Count);
+            var iconBytesByAumid = new Dictionary<string, byte[]?>(freshApps.Count);
+
+            foreach (var app in freshApps)
+            {
+                entries.Add(new CachedApplicationEntry
+                {
+                    AppUserModelId = app.AppUserModelId,
+                    Name = app.Name,
+                    TargetPath = app.TargetPath,
+                    PackageInstallPath = app.PackageInstallPath,
+                });
+
+                if (
+                    _previousEntriesByAumid.TryGetValue(app.AppUserModelId, out var previous)
+                    && previous.Name == app.Name
+                    && previous.TargetPath == app.TargetPath
+                    && previous.PackageInstallPath == app.PackageInstallPath
+                )
+                {
+                    // Unchanged since the last successful write -- reuse the icon bytes already on
+                    // disk instead of forcing GetIcon's COM extraction to run again. Without this,
+                    // every launch would eagerly decode every installed app's icon up front, turning
+                    // today's lazy, on-demand load into a full-catalog decode -- the opposite of what
+                    // this cache exists to avoid.
+                    iconBytesByAumid[app.AppUserModelId] = _cacheStore.LoadIconBytes(previous);
+                }
+                else
+                {
+                    iconBytesByAumid[app.AppUserModelId] = TryEncodeIcon(app.Icon);
+                }
+            }
+
+            _cacheStore.Save(entries, iconBytesByAumid);
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to persist installed-application cache: {ex.Message}");
+        }
+    }
+
+    private static byte[]? TryEncodeIcon(IObservable<Bitmap?> icon)
+    {
+        try
+        {
+            var bitmap = icon.Timeout(TimeSpan.FromSeconds(5)).FirstOrDefaultAsync().Wait();
+            if (bitmap is null)
+            {
+                return null;
+            }
+
+            using var memoryStream = new MemoryStream();
+            bitmap.Save(memoryStream, ImageFormat.Png);
+            return memoryStream.ToArray();
+        }
+        catch (Exception)
+        {
+            return null;
+        }
     }
 
     private IKnownFolder GetAppImageFolder() => _shellSource.GetAppsFolder();
