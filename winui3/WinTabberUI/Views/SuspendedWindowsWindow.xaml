@@ -26,7 +26,8 @@
         below aren't affected — none of them resolve a converter via StaticResource at this file's
         root binding scope.
     -->
-    <Grid x:Name="RootGrid" Margin="10" Background="#30000000">
+    <!-- Background has no Margin here — see SuspendedWindowsWindow.xaml.cs's class doc comment. -->
+    <Grid x:Name="RootGrid" Background="#30000000">
         <Grid.Resources>
             <ResourceDictionary>
                 <c:EmptyCountToVisibilityConverter x:Key="EmptyCountToVisibilityConverter" />
@@ -68,6 +69,7 @@
         </Grid.Resources>
 
         <TextBlock
+            Margin="10"
             HorizontalAlignment="Center"
             VerticalAlignment="Center"
             FontStyle="Italic"
@@ -76,7 +78,7 @@
             Text="No windows are sleeping"
             Visibility="{Binding Items.Count, Mode=OneWay, Converter={StaticResource EmptyCountToVisibilityConverter}}" />
 
-        <ItemsControl HorizontalAlignment="Center" ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}">
+        <ItemsControl Margin="10" HorizontalAlignment="Center" ItemsSource="{x:Bind ViewModel.Items, Mode=OneWay}">
             <ItemsControl.ItemsPanel>
                 <ItemsPanelTemplate>
                     <StackPanel Orientation="Horizontal" />

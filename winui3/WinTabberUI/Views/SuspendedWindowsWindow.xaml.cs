@@ -7,6 +7,18 @@ using WinTabberUI.Windowing;
 
 namespace WinTabberUI;
 
+/// <summary>
+/// REAL BUG fixed via live report: <c>SuspendedWindowsWindow.xaml</c>'s <c>RootGrid</c> used to carry
+/// both its <c>Background="#30000000"</c> tint and a <c>Margin="10"</c>. Since the window resizes to
+/// fit <c>RootGrid</c>'s own <see cref="Windows.Foundation.Size"/> (which already includes that
+/// Margin -- see <see cref="ResizeToContent"/>), the tint ended up inset 10px from the window's true
+/// edge, leaving a thin band of untinted acrylic around it -- a visibly two-toned box, unlike the WPF
+/// original's own uniform window-level <c>Background="#30000000"</c> with no such inset. Fixed by
+/// moving the tint's own Margin off <c>RootGrid</c> (so it now fills the window edge to edge) and
+/// giving each child its own <c>Margin="10"</c> instead, matching the same "Grid has no Padding
+/// property to split it" workaround already established elsewhere in this migration (e.g.
+/// WindowSelectorWindow.xaml.cs).
+/// </summary>
 public sealed partial class SuspendedWindowsWindow : WinUIEx.WindowEx
 {
     private const double BottomMargin = 24;
