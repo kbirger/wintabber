@@ -54,7 +54,15 @@ public sealed class NotifyIconCoordinator : IDisposable
         {
             Path = new PropertyPath(nameof(NotifyIconViewModel.PauseHooksCommand)),
         });
+        // ObserveOn(RxApp.MainThreadScheduler): defensive, matching every other coordinator's own
+        // convention -- not the fix for the label never updating. That bug was in shared code:
+        // WinTabberEventManager.Pause()/Start() pushed directly onto its backing BehaviorSubject,
+        // bypassing the IsRunning property setter entirely, so PropertyChanged never fired and
+        // WhenAnyValue(x => x.AreHooksActive) never re-emitted after its initial value -- confirmed
+        // via a temporary trace log showing exactly one emission, at subscribe time, across several
+        // real clicks. Fixed at the source in WinTabberEventManager.cs.
         _hooksLabelSubscription = vm.WhenAnyValue(x => x.AreHooksActive)
+            .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(areActive => enableHooksItem.Text = areActive ? "Pause Hooks" : "Resume Hooks");
         menu.Items.Add(enableHooksItem);
 

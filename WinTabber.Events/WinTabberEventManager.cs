@@ -95,6 +95,16 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
         WindowChange = CreateWindowChangeObservable(scheduler);
         ApplicationChange = CreateApplicaionChangeObservable(scheduler);
 
+        // REAL BUG fixed here: Pause()/Start() push directly onto _enabled (BehaviorSubject.OnNext),
+        // never through a property setter, so nothing ever raised PropertyChanged for IsRunning --
+        // WhenAnyValue(em => em.IsRunning) only ever saw the value ReactiveUI reads once at
+        // subscribe time, never a live update, on either app. Skip(1): the BehaviorSubject replays
+        // its current value immediately on subscribe here too; that first replay is not a real
+        // change and would fire a redundant PropertyChanged with the pipeline barely constructed.
+        _resources.Add(
+            _enabled.Skip(1).Subscribe(_ => PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRunning))))
+        );
+
         return this;
     }
 
@@ -103,25 +113,7 @@ public class WinTabberEventManager : IDisposable, IWinTabberEventManager, INotif
     /// <c>_hooksConnection != null</c>, a field that was never assigned, so this always reported
     /// false and the tray toggle could never show the running state.
     /// </summary>
-    public bool IsRunning
-    {
-        get => _enabled.Value;
-        private set
-        {
-            if (value != IsRunning)
-            {
-                if (value)
-                {
-                    Start();
-                }
-                else
-                {
-                    Pause();
-                }
-                PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(nameof(IsRunning)));
-            }
-        }
-    }
+    public bool IsRunning => _enabled.Value;
 
     private IObservable<InputListenerEvents> GetConnection()
     {
