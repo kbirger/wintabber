@@ -6725,3 +6725,14 @@ Live-verified by the user: clicking "Pause Hooks" now flips the label to "Resume
 correctly. Full solution build (0 errors), full test suite (136/136 pass, both `WinTabberUI.csproj`
 (WPF) and `winui3/WinTabberUI/WinTabberUI.csproj` build clean independently too).
 
+## Enable Hooks: checkbox restored (2026-09-22)
+
+With the real bug fixed above, `ToggleMenuFlyoutItem` was restored in place of the plain-`MenuFlyoutItem`
+workaround: the original suspicion that the library never routes clicks back for a checkable item was
+never actually correct, just untested at the time. Live-verified by the user: both the click
+(hooks actually pause/resume) and the checkbox (reflects current state) now work correctly. Full
+solution build (0 errors), full test suite (136/136 pass).
+
+**This closes out the "Enable Hooks" investigation entirely.** `MediaDebugWindowCoordinator` should
+not be assumed blocked by any `ToggleMenuFlyoutItem` limitation — there never was one.
+

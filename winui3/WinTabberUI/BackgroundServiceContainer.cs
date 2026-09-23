@@ -20,8 +20,7 @@ namespace WinTabberUI;
 /// <see cref="IWindowThumbnailService"/> (restores every off-screen thumbnailed window) last -- so
 /// exiting the app never strands suspended or thumbnailed windows with no UI left to bring them back.
 /// <see cref="MediaDebugWindowCoordinator"/> is not ported to this app yet -- deliberately left out
-/// of this composite, not forgotten (blocked on the same ToggleMenuFlyoutItem click bug already
-/// tracked for the tray icon's "Enable Hooks" item); add it here when that is resolved.
+/// of this composite, not forgotten; add it here when it is ported.
 /// </summary>
 public class BackgroundServiceContainer : IDisposable
 {
