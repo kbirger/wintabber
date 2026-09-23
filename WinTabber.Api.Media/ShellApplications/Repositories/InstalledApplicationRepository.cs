@@ -63,12 +63,21 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         // Catch before this repository's own Subscribe -- Or() never sees it. AcquisitionErrors is
         // still how a consumer learns about it. Proven by
         // InstalledApplicationRepositoryTests.AcquisitionErrors_Emits_WhenAppsFolderAcquisitionFails.
-        var primaryAumidCache = _apps.Connect().Publish().RefCount();
+        // Deliberately not .Publish().RefCount(): that combinator was carried over from the old code,
+        // where it existed to share a single execution of an expensive, cold Observable.Start-based
+        // Shell scan across multiple subscribers. _apps is now a hot, already-multicast SourceCache,
+        // so Connect() is cheap and safe for every subscriber below to call independently -- and
+        // multiple subscribers is exactly what happens here (ApplicationsByAumid, then
+        // ApplicationsByPath's partial/package/target caches, all derived from primaryAumidCache).
+        // With .Publish().RefCount(), only the first subscription would receive Connect()'s
+        // synchronous cache-seed snapshot; every later subscription in this constructor would see
+        // only future changes, leaving ApplicationsByPath empty until the next live update.
+        var primaryAumidCache = _apps.Connect();
 
-        // MergeFreshApps and TryPersistCache are NOT run inline with this scan -- MergeFreshApps
-        // (fast, in-memory) runs directly here; TryPersistCache (icon PNG-encoding, disk I/O) is
-        // pushed to Task.Run inside MergeFreshApps so a slow persist never delays the changeset this
-        // scan just produced from reaching ApplicationsByAumid's subscribers.
+        // TryPersistCache (not MergeFreshApps) is what's pushed off the inline scan-delivery path:
+        // MergeFreshApps (fast, in-memory) runs directly here; TryPersistCache (icon PNG-encoding,
+        // disk I/O) is pushed to Task.Run inside MergeFreshApps so a slow persist never delays the
+        // changeset this scan just produced from reaching ApplicationsByAumid's subscribers.
         //
         // A failed scan (the Catch below) reports on AcquisitionErrors and produces no further
         // action -- deliberately not a call to MergeFreshApps([]), which would otherwise remove

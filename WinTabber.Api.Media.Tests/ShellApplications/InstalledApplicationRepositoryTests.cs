@@ -53,6 +53,26 @@ public class InstalledApplicationRepositoryTests
     }
 
     [Test]
+    public async Task ApplicationsByPath_IsSeededFromCache_BeforeShellAcquisitionCompletes()
+    {
+        var cachedEntry = new CachedApplicationEntry { AppUserModelId = @"App\App.exe", Name = "Cached App" };
+        var cacheStore = new FakeInstalledApplicationCacheStore([cachedEntry]);
+        var source = new FakeShellApplicationSource(() =>
+            throw new InvalidOperationException("Shell unavailable")
+        );
+
+        using var repository = new InstalledApplicationRepository(source, cacheStore);
+
+        // Regression test: primaryAumidCache used to be _apps.Connect().Publish().RefCount(), which
+        // multicasts the synchronous cache-seed snapshot to only the FIRST subscriber. ApplicationsByPath
+        // is built from a later subscription (via partialAumidCache) than ApplicationsByAumid, so it used
+        // to receive nothing from the cache seed even though the cache had content. No wait is needed
+        // here -- the seed is applied synchronously during construction.
+        await Assert.That(repository.ApplicationsByPath.Count).IsEqualTo(1);
+        await Assert.That(repository.ApplicationsByPath.Lookup("App.exe").HasValue).IsTrue();
+    }
+
+    [Test]
     public async Task ApplicationsByAumid_KeepsCachedEntries_WhenShellAcquisitionFails()
     {
         var cachedEntry = new CachedApplicationEntry { AppUserModelId = "App.Cached", Name = "Cached App" };
