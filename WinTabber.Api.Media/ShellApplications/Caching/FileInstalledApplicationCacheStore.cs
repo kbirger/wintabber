@@ -23,11 +23,7 @@ public sealed class FileInstalledApplicationCacheStore : IInstalledApplicationCa
             using var fileStream = OpenReadTolerantOfConcurrentReplace(_metadataFilePath);
             return JsonSerializer.Deserialize<IReadOnlyList<CachedApplicationEntry>>(fileStream) ?? [];
         }
-        catch (IOException ex) when (ex is FileNotFoundException or DirectoryNotFoundException)
-        {
-            return [];
-        }
-        catch (JsonException)
+        catch (Exception)
         {
             return [];
         }
@@ -78,10 +74,11 @@ public sealed class FileInstalledApplicationCacheStore : IInstalledApplicationCa
             using var streamBackedBitmap = new Bitmap(memoryStream);
             return new Bitmap(streamBackedBitmap);
         }
-        catch (ArgumentException)
+        catch (Exception)
         {
             // Thrown by the Bitmap constructor when the bytes are not a valid image (a corrupt or
-            // truncated blob file) -- treat exactly like a missing icon.
+            // truncated blob file), or by System.Drawing.Common for other decode issues (e.g.
+            // OutOfMemoryException on corrupt data) -- treat exactly like a missing icon.
             return null;
         }
     }
