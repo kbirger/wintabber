@@ -93,6 +93,17 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
                 )
                 .DisposeWith(disposables);
             // Watch for SMTC session changes and match against known sessions.
+            //
+            // REAL BUG fixed here: no DistinctUntilChanged gate on the watched key meant every
+            // property-level republish of the currently active session's own SessionListItem
+            // (playback state, position, etc. -- MasterSessions.Connect().Transform(...) constructs a
+            // new SessionListItem on each such update) re-emitted here too, which the subscription
+            // below used to reassign SelectedSessionListItem unconditionally. Selecting a different
+            // session from the dropdown appeared to have no effect: the very next SMTC update for the
+            // truly-active session snapped the selection straight back, almost instantly. Gated on
+            // Session.Key -- the same key selector the downstream ActiveSession-updating subscription
+            // already applies -- so this only re-fires when the SMTC-active session's identity
+            // actually changes, not on every update to the one already selected.
             var activeSessionChanges = _mediaSessionService
                 .ActiveSession.Select(session =>
                     sessions
@@ -100,6 +111,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
                         .Log(s => $"Session watch update: {s.Aumid} - {s.Session.NativeSession != null}")
                 )
                 .Switch()
+                .DistinctUntilChanged(session => session?.Session.Key)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Publish()
                 .RefCount();
