@@ -36,6 +36,16 @@ public sealed class AccessKeyBadgeLayer
     {
         var underlineLength = AccessKeyBadge.ComputeUnderlineLength(sender.AccessKey, args.PressedKeys);
 
+        if (_badges.TryGetValue(sender, out var existingBadge) && existingBadge.Text != sender.AccessKey)
+        {
+            // sender's AccessKey changed since this badge was created (DynamicAccessKeyScope
+            // reassigns a reused ComboBoxItem's key on every DropDownOpened) -- the cached badge's
+            // text is now stale and must not be reused with an underline length computed for a
+            // different string.
+            _overlay.Children.Remove(existingBadge.Visual);
+            _badges.Remove(sender);
+        }
+
         if (!_badges.TryGetValue(sender, out var badge))
         {
             if (underlineLength < 0)

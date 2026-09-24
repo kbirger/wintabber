@@ -61,6 +61,12 @@ internal sealed class AccessKeyBadge
 
     public UIElement Visual => _border;
 
+    /// <summary>The AccessKey text this badge was created for -- used by AccessKeyBadgeLayer to
+    /// detect when a reused element's AccessKey has changed (DynamicAccessKeyScope reassigns a
+    /// ComboBoxItem's key on every DropDownOpened) and the badge needs to be recreated rather than
+    /// reused with stale text.</summary>
+    public string Text => _fullText;
+
     private static T? TryGetResource<T>(string key)
         where T : class
     {
