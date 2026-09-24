@@ -1,14 +1,17 @@
 using Microsoft.UI.Xaml.Media.Imaging;
 using ReactiveUI;
 using System.Diagnostics;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using System.Runtime.InteropServices.WindowsRuntime;
 using WinTabber.UI.Media.Models;
 
 namespace WinTabber.UI.Media.ViewModels;
 
-public class SessionListItem : ReactiveObject, IEquatable<SessionListItem>
+public class SessionListItem : ReactiveObject, IEquatable<SessionListItem>, IDisposable
 {
+    private readonly CompositeDisposable _disposables = new();
+
     public SessionListItem(AggregateSession session)
     {
         Name = session.App.Name;
@@ -19,10 +22,11 @@ public class SessionListItem : ReactiveObject, IEquatable<SessionListItem>
         Aumid = session.MediaSession.SourceAppUserModelId;
         Session = session;
 
-        _icon.ThrownExceptions.Subscribe(ex =>
+        _disposables.Add(_icon);
+        _disposables.Add(_icon.ThrownExceptions.Subscribe(ex =>
         {
             Debug.WriteLine("Error getting session app icon {0}", ex);
-        });
+        }));
     }
 
     /// <summary>
@@ -74,5 +78,14 @@ public class SessionListItem : ReactiveObject, IEquatable<SessionListItem>
     public override int GetHashCode()
     {
         return Aumid.GetHashCode();
+    }
+
+    // Disposes the icon ObservableAsPropertyHelper's subscription to session.App.Icon.
+    // DisposeMany() in MediaControlsViewModel calls this when the item leaves the sessions
+    // cache; without it, every SessionListItem ever created stays subscribed to the shared,
+    // Replay(1)/AutoConnect() icon observable, which pins both the item and its bitmap forever.
+    public void Dispose()
+    {
+        _disposables.Dispose();
     }
 }

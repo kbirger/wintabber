@@ -60,7 +60,12 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
 
             var sessions = _mediaSessionService
                 .MasterSessions.Connect()
-                .Transform(session => new SessionListItem(session));
+                .Transform(session => new SessionListItem(session))
+                // DisposeMany: disposes a SessionListItem when its session leaves the cache, and
+                // disposes every remaining item when the activation ends. WhenActivated's
+                // `disposables` only tears down the collection binding below, not the per-item
+                // icon subscription each SessionListItem opens in its constructor.
+                .DisposeMany();
 
             // ResetThreshold: int.MaxValue, matching AudioDeviceSelectorViewModel's own Devices
             // binding fix -- Bind() collapses a large-enough simultaneous changeset into a single
