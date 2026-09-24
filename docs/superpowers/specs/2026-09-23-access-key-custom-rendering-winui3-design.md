@@ -116,6 +116,11 @@ internal sealed class AccessKeyBadge
     public AccessKeyBadge(string text);
     public UIElement Visual { get; }
     public void UpdatePrefix(int underlineLength); // -1 hides the badge entirely
+
+    /// <summary>Pure logic, unit-tested independent of any visual: how much of <paramref name="accessKey"/>
+    /// to underline given what has been typed so far, or -1 if <paramref name="pressedKeys"/> is not
+    /// a prefix of it.</summary>
+    internal static int ComputeUnderlineLength(string accessKey, string pressedKeys);
 }
 ```
 
@@ -127,13 +132,18 @@ within it). `UpdatePrefix` sets the `TextBlock`'s `TextDecorations` to underline
 `underlineLength == -1` (the "typed input diverged from this element's key" case,
 matching `HintAdorner.OnInput`'s `_selectionLength = -1` early return).
 
-Color mapping from WPF to WinUI 3, same accent-based palette:
+Color mapping from WPF to WinUI 3, same accent-based palette. Verified directly against the
+SDK's own `generic.xaml` (e.g. `AcrylicBrush.TintColor="{ThemeResource SystemAccentColorDark1}"`):
+`SystemAccentColorLight2`/`SystemAccentColorDark1` are `Color` resources, not `Brush`
+resources, so building the badge in code (not XAML) means looking each up as a `Color` and
+wrapping it in `new SolidColorBrush(...)`. `TextOnAccentFillColorPrimaryBrush` is already a
+full `SolidColorBrush` resource and is used directly.
 
-| WPF (`HintAdorner`) | WinUI 3 |
-|---|---|
-| `SystemColors.AccentColorLight2Brush` (fill) | `{ThemeResource SystemAccentColorLight2}` |
-| `SystemColors.AccentColorDark1Brush` (border) | `{ThemeResource SystemAccentColorDark1}` |
-| `SystemColors.HighlightTextBrush` (text) | `{ThemeResource TextOnAccentFillColorPrimaryBrush}` — WinUI 3's standard brush for text drawn on an accent-filled surface, the semantic equivalent of "text that reads against a highlight/accent background" |
+| WPF (`HintAdorner`) | WinUI 3 | Resource kind |
+|---|---|---|
+| `SystemColors.AccentColorLight2Brush` (fill) | `SystemAccentColorLight2` | `Color` — wrap in `SolidColorBrush` |
+| `SystemColors.AccentColorDark1Brush` (border) | `SystemAccentColorDark1` | `Color` — wrap in `SolidColorBrush` |
+| `SystemColors.HighlightTextBrush` (text) | `TextOnAccentFillColorPrimaryBrush` | Already a `SolidColorBrush` — WinUI 3's standard brush for text drawn on an accent-filled surface, the semantic equivalent of "text that reads against a highlight/accent background" |
 
 `SystemColors.AccentColorLight1Brush` (`_highlightTextBrush`) has no user in the final
 `OnRender` — its only use, the substring-highlight draw call, is commented-out dead code
@@ -176,16 +186,27 @@ any other hinted element — `AccessKeyBadgeLayer` does not need to know `ComboB
 ## Testing
 
 Matching the parent spec's own testing philosophy (framework behavior — chord matching,
-scope ownership, display-mode transitions — is not re-tested; only new logic is):
+scope ownership, display-mode transitions — is not re-tested; only new logic is), refined
+against one fact checked during this design rather than assumed: this repo's WinUI 3 test
+projects (`winui3/WinTabber.UI.Common.Tests` and siblings) have no existing test anywhere
+that constructs a real `Window`/`XamlRoot` — every test so far is headless, pure-logic.
+Constructing a live WinUI 3 window inside TUnit's plain console test host (no
+`Application.Start`, no message loop) is unproven in this codebase, so this design does not
+gate on it:
 
 - **`AccessKeyBadge`'s prefix-to-underline-length mapping is pure string logic** (given an
   element's `AccessKey` and a `PressedKeys` value, does the badge show the full text
-  underlined to the right length, or hide entirely) — headless unit tests, no window
-  required.
-- **`AccessKeyBadgeLayer`'s create/position/remove-on-dismiss behavior** needs a real
-  `Window`/`Canvas`/`Button` with real `AccessKeyDisplayRequested`/`Dismissed` events
-  firing — a desktop-requiring test, the same category as the existing
-  `DynamicAccessKeyScope.AttachSequentialKeys` test described in the parent spec.
+  underlined to the right length, or hide entirely) — extracted as an
+  `internal static int ComputeUnderlineLength(string accessKey, string pressedKeys)`
+  (-1 means hide), headless unit tests, no window required. This is the one piece of new
+  logic with real branching to get wrong.
+- **`AccessKeyBadgeLayer`'s create/position/remove-on-dismiss behavior against a real
+  window is verified manually, live, in the running app** — the same fallback this
+  migration's own plans use elsewhere when an automated desktop test has no established
+  precedent to build on (e.g. the main migration plan's UI-Automation-with-a-screenshot-
+  fallback pattern). `MediaControlsWindow` already exists and is already the live
+  verification target the parent spec's own port was checked against. A concrete script
+  for this is in the implementation plan's verification task, not hand-waved.
 - No test targets `AccessKeyManager`/`AccessKeyInvoked` themselves, or anything in
   `DynamicAccessKeyScope` — both are unchanged by this work.
 
