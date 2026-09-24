@@ -1,6 +1,7 @@
 using System.Drawing;
 using System.Drawing.Imaging;
 using System.Linq;
+using System.Reactive.Disposables;
 using System.Reactive.Linq;
 using WinTabber.Api.Media.ShellApplications.Caching;
 using WinTabber.Api.Media.ShellApplications.Models;
@@ -304,5 +305,49 @@ public class InstalledApplicationRepositoryPersistenceTests
         repository.TryPersistCache(apps);
 
         await Assert.That(cacheStore.SavedIconBytesByAumid!["App.BadIcon"]).IsNull();
+    }
+
+    [Test]
+    public async Task TryPersistCache_UsesIconSource_AndReleasesItsSubscription()
+    {
+        using var repository = CreateRepository(out var cacheStore);
+        using var bitmap = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
+        var iconSourceSubscribeCount = 0;
+        var iconSourceUnsubscribeCount = 0;
+        var iconWasSubscribedTo = false;
+        var apps = new[]
+        {
+            new InstalledApplicationInfo
+            {
+                AppUserModelId = "App.ColdIcon",
+                Name = "Cold Icon",
+                // Icon is the shared, Replay(1)/AutoConnect() observable -- subscribing to it here
+                // would latch AutoConnect() connected for the life of the process, exactly the leak
+                // this fix removes. TryPersistCache swallows any exception from the icon observable
+                // it does end up subscribing to (see its catch block), so a subscribed-flag -- not a
+                // throw -- is what actually fails this test if the wrong observable gets used.
+                Icon = Observable.Defer(() =>
+                {
+                    iconWasSubscribedTo = true;
+                    return Observable.Return((Bitmap?)null);
+                }),
+                // Cold: counts its own subscribe/dispose instead of replaying, so this test can
+                // prove TryPersistCache subscribes exactly once and releases the subscription
+                // afterward, rather than latching it open.
+                IconSource = Observable.Create<Bitmap?>(observer =>
+                {
+                    iconSourceSubscribeCount++;
+                    observer.OnNext(bitmap);
+                    observer.OnCompleted();
+                    return Disposable.Create(() => iconSourceUnsubscribeCount++);
+                }),
+            },
+        };
+
+        repository.TryPersistCache(apps);
+
+        await Assert.That(iconWasSubscribedTo).IsFalse();
+        await Assert.That(iconSourceSubscribeCount).IsEqualTo(1);
+        await Assert.That(iconSourceUnsubscribeCount).IsEqualTo(1);
     }
 }

@@ -268,7 +268,15 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
                 }
                 else
                 {
-                    iconBytesByAumid[app.AppUserModelId] = TryEncodeIcon(app.Icon);
+                    // app.IconSource, not app.Icon: Icon is Replay(1)/AutoConnect(), so the first
+                    // subscriber latches it connected for the life of the process -- persisting
+                    // the whole catalog on a cold launch would retain every installed app's icon
+                    // forever. IconSource is the same underlying extraction, cold, so this
+                    // subscription completes and releases. The cost: an app with a live media
+                    // session later gets a second shell extraction when its own Icon is first
+                    // subscribed -- one extra COM call for the few apps that actually have a
+                    // session, versus retaining the entire catalog's bitmaps indefinitely.
+                    iconBytesByAumid[app.AppUserModelId] = TryEncodeIcon(app.IconSource ?? app.Icon);
                 }
             }
 
@@ -336,11 +344,13 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
             .Properties.GetProperty<string>(PackageInstallPath)
             .Value;
         string? path = packageInstallPath ?? targetParsingPath;
+        var iconSource = GetIcon(shellObject, path);
         return new InstalledApplicationInfo
         {
             AppUserModelId = GetAumid(shellObject),
             //Icon = Observable.Defer(() => Observable.Concat(LoadingImage, GetIcon(shellObject))),
-            Icon = GetIcon(shellObject, path),
+            Icon = iconSource.Replay(1).AutoConnect(),
+            IconSource = iconSource,
             Name = shellObject.Name,
             TargetPath = targetParsingPath,
             PackageInstallPath = packageInstallPath,
@@ -424,9 +434,7 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
                     },
                     Scheduler.CurrentThread
                 )
-            )
-            .Replay(1)
-            .AutoConnect();
+            );
     }
 
     /// <summary>
