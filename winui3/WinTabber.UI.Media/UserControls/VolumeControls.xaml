@@ -88,6 +88,7 @@
             <ColumnDefinition Width="Auto" />
         </Grid.ColumnDefinitions>
         <Slider
+            x:Name="VolumeSlider"
             Minimum="0"
             Maximum="100"
             StepFrequency="5"
@@ -96,6 +97,7 @@
             Value="{Binding Volume, Converter={StaticResource FloatToPercentageConverter}, Mode=TwoWay}"
         />
         <ToggleButton
+            x:Name="MuteToggleButton"
             Style="{StaticResource MuteToggle}"
             Margin="7 0 0 0"
             Grid.Column="1"

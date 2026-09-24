@@ -172,7 +172,7 @@
             </Grid.ColumnDefinitions>
 
             <TextBlock Text="Session" VerticalAlignment="Center" Grid.Row="0" Padding="7,0" />
-            <uc:VolumeControls Grid.Column="1" DataContext="{Binding ActiveSession.SessionVolumeControls}" />
+            <uc:VolumeControls x:Name="SessionVolumeControls" Grid.Column="1" DataContext="{Binding ActiveSession.SessionVolumeControls}" />
             <ComboBox
                 Grid.Row="1"
                 Grid.ColumnSpan="2"
@@ -185,7 +185,7 @@
             />
 
             <TextBlock Text="Playback" VerticalAlignment="Center" Grid.Column="2" Margin="7,0,0,0" Padding="7,0" />
-            <uc:VolumeControls Grid.Column="3" VerticalAlignment="Center" DataContext="{Binding ActiveSession.DeviceVolumeControls}" />
+            <uc:VolumeControls x:Name="DeviceVolumeControls" Grid.Column="3" VerticalAlignment="Center" DataContext="{Binding ActiveSession.DeviceVolumeControls}" />
             <ComboBox
                 Grid.Column="2"
                 Grid.ColumnSpan="2"
@@ -262,7 +262,7 @@
             </Grid>
 
             <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="0" HorizontalAlignment="Center">
-                <Button Style="{StaticResource MediaButton}" AccessKey="B" Command="{Binding ActiveSession.Playback.Prev}">
+                <Button x:Name="PrevButton" Style="{StaticResource MediaButton}" AccessKey="B" Command="{Binding ActiveSession.Playback.Prev}">
                     <FontIcon Glyph="&#xE892;" />
                 </Button>
                 <ToggleButton
@@ -273,7 +273,7 @@
                     AccessKey="P"
                     IsChecked="{Binding IsPlaying, Mode=OneWay}"
                 />
-                <Button Style="{StaticResource MediaButton}" AccessKey="F" Command="{Binding ActiveSession.Playback.Next}">
+                <Button x:Name="NextButton" Style="{StaticResource MediaButton}" AccessKey="F" Command="{Binding ActiveSession.Playback.Next}">
                     <FontIcon Glyph="&#xE893;" />
                 </Button>
             </StackPanel>
@@ -307,5 +307,11 @@
                 />
             </Grid>
         </Grid>
+
+        <!-- Topmost: AccessKeyBadgeLayer (constructed in code-behind) draws custom access-key
+             badges here. IsHitTestVisible=False so it never intercepts clicks meant for the real
+             controls beneath it. Grid.RowSpan covers both of RootGrid's rows so a badge anywhere
+             in the window can be positioned onto it. -->
+        <Canvas x:Name="AccessKeyOverlay" Grid.RowSpan="2" IsHitTestVisible="False" />
     </Grid>
 </winuiex:WindowEx>

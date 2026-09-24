@@ -17,9 +17,15 @@ public static class DynamicAccessKeyScope
     /// key into its items' keys -- without both, the user must press Alt a second time after the
     /// drop-down opens. The HashSet dedup is required because DropDownOpened fires on every open
     /// and containers can be reused; without it, AccessKeyInvoked handlers stack across repeated
-    /// opens.
+    /// opens. <paramref name="badgeLayer"/> gets the same <c>Watch</c> registration a static element
+    /// would, since AccessKeyDisplayRequested/Dismissed do not bubble and a ComboBoxItem is
+    /// otherwise invisible to it.
     /// </summary>
-    public static void AttachSequentialKeys(ComboBox owner, Action<ComboBoxItem, int> onActivated)
+    public static void AttachSequentialKeys(
+        ComboBox owner,
+        AccessKeyBadgeLayer badgeLayer,
+        Action<ComboBoxItem, int> onActivated
+    )
     {
         owner.IsAccessKeyScope = true;
         owner.ExitDisplayModeOnAccessKeyInvoked = false;
@@ -36,6 +42,13 @@ public static class DynamicAccessKeyScope
                         container.AccessKey = (i + 1).ToString();
                         if (wired.Add(container))
                         {
+                            // AccessKeyBadgeLayer only learns an element exists via Watch -- there
+                            // is no bubbling to rely on here either, so a dynamically-realized
+                            // ComboBoxItem needs the same explicit registration a static XAML
+                            // element gets. Guarded by the same wired-dedup as AccessKeyInvoked
+                            // just below it, for the same reason: DropDownOpened fires on every
+                            // open and containers can be reused.
+                            badgeLayer.Watch(container);
                             container.AccessKeyInvoked += (_, args) =>
                             {
                                 onActivated(container, owner.IndexFromContainer(container));

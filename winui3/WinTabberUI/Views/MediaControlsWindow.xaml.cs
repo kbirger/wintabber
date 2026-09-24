@@ -68,17 +68,27 @@ public sealed partial class MediaControlsWindow : WindowEx
         ((FrameworkElement)Content).ActualThemeChanged += Window_ThemeChanged;
         ResizeHeightToContent();
 
-        DynamicAccessKeyScope.AttachSequentialKeys(SessionSelector, (_, index) =>
+        var accessKeyBadgeLayer = new AccessKeyBadgeLayer(AccessKeyOverlay);
+        accessKeyBadgeLayer.Watch(SessionSelector);
+        accessKeyBadgeLayer.Watch(PlaybackDeviceSelector);
+        accessKeyBadgeLayer.Watch(RecordingDeviceSelector);
+        accessKeyBadgeLayer.Watch(PrevButton);
+        accessKeyBadgeLayer.Watch(PlayPauseButton);
+        accessKeyBadgeLayer.Watch(NextButton);
+        SessionVolumeControls.RegisterAccessKeyBadges(accessKeyBadgeLayer);
+        DeviceVolumeControls.RegisterAccessKeyBadges(accessKeyBadgeLayer);
+
+        DynamicAccessKeyScope.AttachSequentialKeys(SessionSelector, accessKeyBadgeLayer, (_, index) =>
         {
             SessionSelector.SelectedIndex = index;
             SessionSelector.IsDropDownOpen = false;
         });
-        DynamicAccessKeyScope.AttachSequentialKeys(PlaybackDeviceSelector, (_, index) =>
+        DynamicAccessKeyScope.AttachSequentialKeys(PlaybackDeviceSelector, accessKeyBadgeLayer, (_, index) =>
         {
             PlaybackDeviceSelector.SelectedIndex = index;
             PlaybackDeviceSelector.IsDropDownOpen = false;
         });
-        DynamicAccessKeyScope.AttachSequentialKeys(RecordingDeviceSelector, (_, index) =>
+        DynamicAccessKeyScope.AttachSequentialKeys(RecordingDeviceSelector, accessKeyBadgeLayer, (_, index) =>
         {
             RecordingDeviceSelector.SelectedIndex = index;
             RecordingDeviceSelector.IsDropDownOpen = false;

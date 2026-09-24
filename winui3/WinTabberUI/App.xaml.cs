@@ -1,5 +1,6 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Input;
 using WinTabberUI.Views;
 
 namespace WinTabberUI;
@@ -45,6 +46,12 @@ public partial class App : Application
 
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
+        // Must stay false: AccessKeyBadgeLayer (WinTabber.UI.Common.AccessKeys) draws its own
+        // custom badge for every AccessKeyDisplayRequested. Leaving this true would draw the
+        // framework's own default badge on top of it -- see
+        // docs/superpowers/specs/2026-09-23-access-key-custom-rendering-winui3-design.md.
+        AccessKeyManager.AreKeyTipsEnabled = false;
+
         Services = Bootstrapper.Init();
 
         _backgroundServices = Services.GetRequiredService<BackgroundServiceContainer>();
