@@ -18,12 +18,14 @@ public class InstalledApplicationInfo : IEquatable<InstalledApplicationInfo>
     public required IObservable<Bitmap?> Icon { get; init; }
 
     /// <summary>
-    /// A cold, non-replaying source for the same icon as <see cref="Icon"/>. Consumers that need
-    /// the value exactly once (cache persistence) subscribe here, so they do not latch the
-    /// shared replaying <see cref="Icon"/> for the process lifetime. <see langword="null"/> for
-    /// an entry restored from the on-disk cache.
+    /// The cold extraction behind <see cref="Icon"/>. Each subscription runs a fresh shell
+    /// extraction and produces a new <see cref="Bitmap"/>; nothing here is shared or replayed.
+    /// Cache persistence subscribes here so that taking one value does not latch
+    /// <see cref="Icon"/>'s <c>Replay(1)</c>/<c>AutoConnect()</c> open for the process lifetime.
+    /// <see langword="null"/> for an entry restored from the on-disk cache.
+    /// Internal: a consumer that displays an icon uses <see cref="Icon"/>.
     /// </summary>
-    public IObservable<Bitmap?>? IconSource { get; init; }
+    internal IObservable<Bitmap?>? IconSource { get; init; }
 
     public bool Equals(InstalledApplicationInfo? other)
     {
