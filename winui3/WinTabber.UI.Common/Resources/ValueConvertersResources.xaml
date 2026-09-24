@@ -13,4 +13,6 @@
     <c:TimeSpanToFloatConverter x:Key="TimeSpanToFloatConverter" />
     <c:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter" />
     <c:FloatToPercentageConverter x:Key="FloatToPercentageConverter" />
+    <c:BitmapToImageSourceConverter x:Key="BitmapToImageSourceConverter" />
+    <c:ImageBytesToImageSourceConverter x:Key="ImageBytesToImageSourceConverter" />
 </ResourceDictionary>

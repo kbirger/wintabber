@@ -3,6 +3,9 @@ using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Data;
 using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Imaging;
+using System.IO;
+using System.Runtime.InteropServices.WindowsRuntime;
 
 namespace WinTabber.UI.Common.ValueConverters;
 
@@ -175,4 +178,66 @@ public class BoolToContentConverter : IValueConverter
 
     public object ConvertBack(object value, Type targetType, object parameter, string language)
         => throw new NotSupportedException();
+}
+
+// The Bitmap and byte[] payloads these two converters decode come from the framework-neutral
+// media view models (WinTabber.ViewModels): SessionListItem.Icon and
+// MediaSessionViewModel.Thumbnail. Decoding into a WinUI 3-bindable BitmapImage lives here, in
+// UI.Common, instead of in the view model, so the view model has no WinUI dependency.
+public class BitmapToImageSourceConverter : IValueConverter
+{
+    // Never dispose the input Bitmap. InstalledApplicationRepository still owns it through
+    // Replay(1).AutoConnect() and shares one instance across every subscriber for that AUMID. A
+    // `using` here would break every other subscriber.
+    //
+    // This runs on every binding evaluation, not once per view model emission: property change,
+    // template re-application, and container realization in an ItemsControl. That is acceptable
+    // for a session list of one to five items. If it ever shows up in a profile, memoize inside
+    // the converter keyed on the source instance with a ConditionalWeakTable. Do not build that
+    // now.
+    //
+    // BitmapSource.SetSource (inherited by BitmapImage) is confirmed synchronous in the pinned
+    // Windows App SDK 1.8.251105000 metadata (Microsoft.UI.Xaml.winmd): it returns void, not
+    // IAsyncAction, unlike the SetSourceAsync overload the async-decode WinUI view models used
+    // to call directly. That lets this converter, like its WPF counterpart, decode and return
+    // synchronously from Convert.
+    public object? Convert(object value, Type targetType, object parameter, string language)
+    {
+        if (value is not System.Drawing.Bitmap bitmap)
+        {
+            return null;
+        }
+
+        using var stream = new MemoryStream();
+        bitmap.Save(stream, System.Drawing.Imaging.ImageFormat.Png);
+        stream.Position = 0;
+
+        var image = new BitmapImage();
+        image.SetSource(stream.AsRandomAccessStream());
+        return image;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotImplementedException();
+}
+
+public class ImageBytesToImageSourceConverter : IValueConverter
+{
+    // See BitmapToImageSourceConverter above for why this decode runs on every binding
+    // evaluation rather than once per view model emission, and why that is acceptable here.
+    public object? Convert(object value, Type targetType, object parameter, string language)
+    {
+        if (value is not byte[] { Length: > 0 } bytes)
+        {
+            return null;
+        }
+
+        using var stream = new MemoryStream(bytes);
+        var image = new BitmapImage();
+        image.SetSource(stream.AsRandomAccessStream());
+        return image;
+    }
+
+    public object ConvertBack(object value, Type targetType, object parameter, string language)
+        => throw new NotImplementedException();
 }
