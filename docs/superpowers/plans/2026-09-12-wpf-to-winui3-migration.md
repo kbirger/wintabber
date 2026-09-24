@@ -6736,3 +6736,21 @@ solution build (0 errors), full test suite (136/136 pass).
 **This closes out the "Enable Hooks" investigation entirely.** `MediaDebugWindowCoordinator` should
 not be assumed blocked by any `ToggleMenuFlyoutItem` limitation — there never was one.
 
+
+## Follow-up task: review two WinUI binding workarounds (2026-09-24)
+
+`winui3/WinTabber.UI.Media/ViewModels/MediaControlsViewModel.cs` carries two workarounds that the
+WPF copy does not need:
+
+1. `Bind(out _sessions, new BindingOptions(ResetThreshold: int.MaxValue))`. The comment records this
+   as preventive, copied from the `AudioDeviceSelectorViewModel` device-list fix. It was never
+   reproduced live for the session list.
+2. An explicit `this.RaisePropertyChanged(nameof(Sessions))` after `Bind`, because `Bind` writes the
+   field directly and skips the property setter. This one was confirmed live: without it the
+   ComboBox stayed empty.
+
+Both survive the view model unification, behind the framework seam. Neither is understood well
+enough to call correct. Review them together once the shared view models land. Item 1 may be
+unnecessary. Item 2 points at a real mismatch between `Bind(out ...)` and a classic `{Binding}` that
+is already resolved by the time activation runs, which may deserve a better fix than a manual
+notification.
