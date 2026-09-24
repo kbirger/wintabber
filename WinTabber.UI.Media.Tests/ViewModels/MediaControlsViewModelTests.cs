@@ -26,7 +26,6 @@ public class MediaControlsViewModelTests
         RxSchedulers.MainThreadScheduler = CurrentThreadScheduler.Instance;
         return new MediaControlsViewModel(
             new FakeMediaSessionService(),
-            new FakeMediaControlsStateService(),
             new MediaSessionViewModelFactory(new FakeAudioSessionService(), deviceService),
             new AudioDeviceSelectorViewModelFactory(deviceService),
             // Stored nowhere: MediaControlsViewModel takes this but has no field for it.

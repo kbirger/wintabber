@@ -4,6 +4,7 @@ using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using DynamicData;
+using DynamicData.Binding;
 using NAudio.CoreAudioApi;
 using ReactiveUI;
 using WinTabber.Common.Util;
@@ -19,11 +20,9 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
         new ReadOnlyObservableCollection<SessionListItem>([]);
     private MediaSessionViewModel? _activeSession;
     private readonly IMediaSessionService _mediaSessionService;
-    private readonly IMediaControlsStateService _mediaControlsStateService;
     private readonly MediaSessionViewModelFactory _mediaSessionViewModelFactory;
     private readonly AudioDeviceSelectorViewModelFactory _deviceSelectorViewModelFactory;
 
-    //private readonly IAudioDeviceManager _audioDeviceManager;
     private AudioDeviceSelectorViewModel? _playback;
     private AudioDeviceSelectorViewModel? _recording;
 
@@ -40,14 +39,8 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
 
     public ViewModelActivator Activator { get; } = new ViewModelActivator();
 
-    //public ReactiveCommand<Unit, Unit> PlayPause { get; private set; }
-    //public ReactiveCommand<Unit, Unit> Next { get; private set; }
-    //public ReactiveCommand<Unit, Unit> Prev { get; private set; }
-    //public ReactiveCommand<Unit, Unit> Mute { get; private set; }
-
     public MediaControlsViewModel(
         IMediaSessionService mediaSessionService,
-        IMediaControlsStateService mediaControlsStateService,
         MediaSessionViewModelFactory mediaSessionViewModelFactory,
         AudioDeviceSelectorViewModelFactory deviceSelectorViewModelFactory,
         WinTabberEventManager eventManager
@@ -55,7 +48,6 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
     {
         PropertyChanged += MediaControlsViewModel_PropertyChanged;
         _mediaSessionService = mediaSessionService;
-        _mediaControlsStateService = mediaControlsStateService;
         _mediaSessionViewModelFactory = mediaSessionViewModelFactory;
         _deviceSelectorViewModelFactory = deviceSelectorViewModelFactory;
         var scheduler = RxSchedulers.MainThreadScheduler;
@@ -75,7 +67,28 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
                 // icon subscription each SessionListItem opens in its constructor.
                 .DisposeMany();
 
-            sessions.ObserveOn(RxSchedulers.MainThreadScheduler).Bind(out _sessions).Subscribe().DisposeWith(disposables);
+            // ResetThreshold: int.MaxValue, matching AudioDeviceSelectorViewModel's own Devices
+            // binding fix -- Bind() collapses a large-enough simultaneous changeset into a single
+            // CollectionChanged Reset instead of granular Add/Remove, and WinUI 3's Selector-derived
+            // ComboBox clears SelectedItem on Reset. Sessions add/remove in a batch the same way
+            // devices do (MasterSessions.AutoRefreshOnObservable refreshes broadly), so this is
+            // preventive, not (yet) reproduced live the way the device-list case was.
+            //
+            // Both this and the RaisePropertyChanged(nameof(Sessions)) call below are kept under
+            // review, see the follow-up section dated 2026-09-24 in
+            // docs/superpowers/plans/2026-09-12-wpf-to-winui3-migration.md.
+            sessions
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
+                .Bind(out _sessions, new BindingOptions(ResetThreshold: int.MaxValue))
+                .Subscribe()
+                .DisposeWith(disposables);
+            // Bind(out _sessions) writes the field directly, bypassing the Sessions property
+            // setter -- RaiseAndSetIfChanged never runs, so PropertyChanged(nameof(Sessions)) never
+            // fires, and the classic {Binding Sessions} in MediaControlsWindow.xaml (already bound
+            // by the time this activation runs) never sees the real, live collection. Confirmed live:
+            // Playback/Recording populate correctly because they go through their own property
+            // setters (Playback = playback; below); Sessions did not, and its ComboBox stayed empty.
+            this.RaisePropertyChanged(nameof(Sessions));
             _sessions
                 .ActOnEveryObject(
                     (x) =>
@@ -188,12 +201,6 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
         System.ComponentModel.PropertyChangedEventArgs e
     )
     {
-        //throw new NotImplementedException();
-    }
-
-    private void HandleDeactivation()
-    {
-        _mediaControlsStateService.HideView();
     }
 
     public MediaSessionViewModel? ActiveSession

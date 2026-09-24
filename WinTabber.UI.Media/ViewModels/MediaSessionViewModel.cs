@@ -3,8 +3,6 @@ using System.IO;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using Windows.Storage.Streams;
@@ -21,7 +19,7 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
     private readonly ObservableAsPropertyHelper<string> _artistName;
     private readonly ObservableAsPropertyHelper<string> _albumTitle;
     private readonly ObservableAsPropertyHelper<string> _title;
-    private readonly ObservableAsPropertyHelper<ImageSource?> _thumbnail;
+    private readonly ObservableAsPropertyHelper<byte[]?> _thumbnail;
 
     private readonly IAudioSessionService _sessionService;
     private readonly IAudioDeviceService _deviceService;
@@ -118,7 +116,7 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
             .Select(monitor => monitor?.ThumbnailChanges)
             .OrDefault<IRandomAccessStreamReference?>(null)
             .Switch()
-            .SelectMany(GetCurrentMediaAlbumArt)
+            .SelectMany(ReadAlbumArtBytes)
             .ObserveOn(scheduler)
             .ToProperty(this, vm => vm.Thumbnail, initialValue: null)
             .DisposeWith(_disposable);
@@ -159,36 +157,23 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
     public string ArtistName => _artistName.Value;
     public string AlbumTitle => _albumTitle.Value;
     public string Title => _title.Value;
-    public ImageSource? Thumbnail => _thumbnail?.Value;
+    public byte[]? Thumbnail => _thumbnail?.Value;
 
-    public static async Task<ImageSource?> GetCurrentMediaAlbumArt(IRandomAccessStreamReference? imageStream)
+    // Framework-neutral: reads the SMTC thumbnail stream into a byte[] payload. Decoding those
+    // bytes into a WPF ImageSource happens in ImageBytesToImageSourceConverter
+    // (WinTabber.UI.Common) on the UI thread during binding, not here.
+    public static async Task<byte[]?> ReadAlbumArtBytes(IRandomAccessStreamReference? imageStream)
     {
-        if (imageStream is not null)
+        if (imageStream is null)
         {
-            // The Thumbnail property is a RandomAccessStreamReference
-            IRandomAccessStreamWithContentType streamRef = await imageStream.OpenReadAsync();
-
-            // You can now read the stream into a byte array or process it directly
-            using (var inputStream = streamRef.AsStreamForRead())
-            {
-                var imageSource = new BitmapImage { CacheOption = BitmapCacheOption.OnLoad };
-                imageSource.BeginInit();
-                imageSource.StreamSource = inputStream;
-                imageSource.EndInit();
-                return imageSource;
-
-                // Example 2: Load into a UI framework's Image source (e.g., WPF, WinForms, UWP)
-                // The exact code varies by framework, but you use the 'inputStream'.
-                // Example for System.Drawing.Bitmap (WinForms/GDI+):
-                // var bitmap = new System.Drawing.Bitmap(inputStream);
-            }
-        }
-        else
-        {
-            Console.WriteLine("No album art available for the current media.");
+            return null;
         }
 
-        return null;
+        using IRandomAccessStreamWithContentType streamRef = await imageStream.OpenReadAsync();
+        using var inputStream = streamRef.AsStreamForRead();
+        using var memoryStream = new MemoryStream();
+        await inputStream.CopyToAsync(memoryStream);
+        return memoryStream.ToArray();
     }
 
     public void Dispose()
