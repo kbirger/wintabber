@@ -164,7 +164,8 @@ internal sealed class AccessKeyBadge
             Child = _textBlock,
         };
 
-        SetText(text);
+        _fullText = text;
+        Render(0);
     }
 
     public UIElement Visual => _border;
@@ -200,19 +201,20 @@ internal sealed class AccessKeyBadge
         }
 
         _border.Visibility = Visibility.Visible;
-        SetText(_fullText, underlineLength);
+        Render(underlineLength);
     }
 
-    private string _fullText = "";
-
-    private void SetText(string text, int underlineLength = 0)
+    /// <summary>Redraws _textBlock's Inlines for the current _fullText, underlining the first
+    /// underlineLength characters. Takes no text parameter and never assigns _fullText -- setting
+    /// the text (constructor only) and rendering it (constructor and every later UpdatePrefix
+    /// call) are kept as two separate jobs.</summary>
+    private void Render(int underlineLength)
     {
-        _fullText = text;
         _textBlock.Inlines.Clear();
 
         if (underlineLength <= 0)
         {
-            _textBlock.Inlines.Add(new Run { Text = text });
+            _textBlock.Inlines.Add(new Run { Text = _fullText });
             return;
         }
 
@@ -222,12 +224,12 @@ internal sealed class AccessKeyBadge
         // the same partial-underline effect.
         _textBlock.Inlines.Add(new Run
         {
-            Text = text[..underlineLength],
+            Text = _fullText[..underlineLength],
             TextDecorations = TextDecorations.Underline,
         });
-        if (underlineLength < text.Length)
+        if (underlineLength < _fullText.Length)
         {
-            _textBlock.Inlines.Add(new Run { Text = text[underlineLength..] });
+            _textBlock.Inlines.Add(new Run { Text = _fullText[underlineLength..] });
         }
     }
 
@@ -261,18 +263,16 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ---
 
-### Task 2: `AccessKeyBadgeLayer` and `DynamicAccessKeyScope` — event wiring and positioning
+### Task 2: `AccessKeyBadgeLayer` — event wiring and positioning
 
 **Files:**
 - Create: `winui3/WinTabber.UI.Common/AccessKeys/AccessKeyBadgeLayer.cs`
-- Modify: `winui3/WinTabber.UI.Common/AccessKeys/DynamicAccessKeyScope.cs`
 
 **Interfaces:**
 - Consumes: `AccessKeyBadge` from Task 1 (`AccessKeyBadge(string)`, `.Visual`, `.UpdatePrefix(int)`, `AccessKeyBadge.ComputeUnderlineLength(string, string)`).
-- Produces: `public sealed class AccessKeyBadgeLayer` with `public AccessKeyBadgeLayer(Canvas overlay)` and `public void Watch(UIElement element)` — Task 3 consumes both from `MediaControlsWindow.xaml.cs` and `VolumeControls.xaml.cs`.
-- Produces: `DynamicAccessKeyScope.AttachSequentialKeys`'s new signature (`ComboBox owner, AccessKeyBadgeLayer badgeLayer, Action<ComboBoxItem, int> onActivated`) — Task 3's three call sites in `MediaControlsWindow.xaml.cs` pass the layer they just constructed.
+- Produces: `public sealed class AccessKeyBadgeLayer` with `public AccessKeyBadgeLayer(Canvas overlay)` and `public void Watch(UIElement element)` — Task 3 consumes both from `MediaControlsWindow.xaml.cs`, `VolumeControls.xaml.cs`, and (via a parameter added to `DynamicAccessKeyScope.AttachSequentialKeys`, also in Task 3) `DynamicAccessKeyScope.cs`.
 
-`AccessKeyDisplayRequested`/`AccessKeyDisplayDismissed` do **not** bubble (see Global Constraints) — `AccessKeyBadgeLayer` has no "attach at a root" concept; every hinted element is registered individually via `Watch`.
+`AccessKeyDisplayRequested`/`AccessKeyDisplayDismissed` do **not** bubble (see Global Constraints) — `AccessKeyBadgeLayer` has no "attach at a root" concept; every hinted element is registered individually via `Watch`. This task only adds the class; nothing calls `Watch` yet, so it has no other file to touch and no existing call site to break. `DynamicAccessKeyScope`'s own change is Task 3's job, folded in there together with the call sites it affects, so that task's diff is the complete, buildable set of changes needed to actually pass a layer around — see that task's own note on why.
 
 This task has no automated test (see Global Constraints — no WinUI 3 test in this codebase constructs a real `Window`). Its deliverable is verified by compiling cleanly; its actual runtime behavior is verified live in Task 3, once real elements exist to watch.
 
@@ -353,7 +353,71 @@ public sealed class AccessKeyBadgeLayer
 }
 ```
 
-- [ ] **Step 2: Update `DynamicAccessKeyScope.AttachSequentialKeys`**
+- [ ] **Step 2: Build to verify it compiles**
+
+Run: `dotnet build winui3/WinTabber.UI.Common/WinTabber.UI.Common.csproj`
+Expected: Build succeeds with no errors — nothing calls `AccessKeyBadgeLayer` yet, so this is a clean, standalone addition.
+
+- [ ] **Step 3: Commit**
+
+```bash
+git add winui3/WinTabber.UI.Common/AccessKeys/AccessKeyBadgeLayer.cs
+git commit -m "feat: add AccessKeyBadgeLayer to wire custom badges into a window
+
+Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
+```
+
+---
+
+### Task 3: Wire into `MediaControlsWindow`/`VolumeControls`, disable default badges, verify live
+
+**Files:**
+- Modify: `winui3/WinTabberUI/App.xaml.cs`
+- Modify: `winui3/WinTabber.UI.Common/AccessKeys/DynamicAccessKeyScope.cs`
+- Modify: `winui3/WinTabberUI/Views/MediaControlsWindow.xaml`
+- Modify: `winui3/WinTabberUI/Views/MediaControlsWindow.xaml.cs`
+- Modify: `winui3/WinTabber.UI.Media/UserControls/VolumeControls.xaml`
+- Modify: `winui3/WinTabber.UI.Media/UserControls/VolumeControls.xaml.cs`
+
+**Interfaces:**
+- Consumes: `AccessKeyBadgeLayer(Canvas)`, `.Watch(UIElement)` from Task 2.
+- Consumes: `Microsoft.UI.Xaml.Input.AccessKeyManager.AreKeyTipsEnabled` (framework API, verified in the spec).
+- Produces: `DynamicAccessKeyScope.AttachSequentialKeys`'s new `AccessKeyBadgeLayer badgeLayer` parameter (Step 2) — consumed by this same task's three call-site rewrites (Step 6).
+- Produces: `VolumeControls.RegisterAccessKeyBadges(AccessKeyBadgeLayer)` (Step 3) — consumed by `MediaControlsWindow.xaml.cs`'s constructor (Step 6).
+
+`DynamicAccessKeyScope`'s change is folded into this task, not Task 2, so that every commit in this plan leaves the solution building — Task 2's `AccessKeyBadgeLayer` has no caller yet and needs none to compile; the moment something calls `AttachSequentialKeys` with the old two-parameter signature is also the moment this task rewrites that call site to the new one, in the same commit.
+
+- [ ] **Step 1: Disable the default key-tip badge at startup**
+
+In `winui3/WinTabberUI/App.xaml.cs`, add to the `using` block:
+
+```csharp
+using Microsoft.UI.Xaml.Input;
+```
+
+Replace the start of `OnLaunched`:
+
+```csharp
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        Services = Bootstrapper.Init();
+```
+
+with:
+
+```csharp
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
+    {
+        // Must stay false: AccessKeyBadgeLayer (WinTabber.UI.Common.AccessKeys) draws its own
+        // custom badge for every AccessKeyDisplayRequested. Leaving this true would draw the
+        // framework's own default badge on top of it -- see
+        // docs/superpowers/specs/2026-09-23-access-key-custom-rendering-winui3-design.md.
+        AccessKeyManager.AreKeyTipsEnabled = false;
+
+        Services = Bootstrapper.Init();
+```
+
+- [ ] **Step 2: Give `DynamicAccessKeyScope.AttachSequentialKeys` a badge-layer parameter**
 
 Replace the whole method (the file's only method) in `winui3/WinTabber.UI.Common/AccessKeys/DynamicAccessKeyScope.cs`:
 
@@ -438,70 +502,9 @@ with:
 
 Also update the class's doc comment (directly above `AttachSequentialKeys`) to mention the new parameter — append one sentence: "`badgeLayer` gets the same `Watch` registration a static element would, since `AccessKeyDisplayRequested`/`Dismissed` do not bubble and a `ComboBoxItem` is otherwise invisible to it."
 
-- [ ] **Step 3: Build to verify it compiles**
+Do not build yet — this method's three existing call sites, in `MediaControlsWindow.xaml.cs`, are rewritten in Step 6, in the same commit as this change (Step 7 is the first build).
 
-Run: `dotnet build winui3/WinTabber.UI.Common/WinTabber.UI.Common.csproj`
-Expected: FAIL — `AttachSequentialKeys`'s two existing call sites in `winui3/WinTabberUI/Views/MediaControlsWindow.xaml.cs` don't pass the new `badgeLayer` argument yet. This is expected; Task 3 updates those call sites. Confirm the failure is exactly this (a missing-argument compile error at those three call sites), not something else.
-
-- [ ] **Step 4: Commit**
-
-```bash
-git add winui3/WinTabber.UI.Common/AccessKeys/AccessKeyBadgeLayer.cs winui3/WinTabber.UI.Common/AccessKeys/DynamicAccessKeyScope.cs
-git commit -m "feat: add AccessKeyBadgeLayer; DynamicAccessKeyScope registers items with it
-
-Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
-```
-
-This commit leaves the solution non-building until Task 3's next commit fixes the three call sites — acceptable here since both changes are one reviewable unit of work at the source level (Task 2 adds the capability, Task 3 wires it up), and the plan's own tasks are reviewed by diff, not by intermediate green builds. If your process requires every commit to build, squash Task 2 and Task 3's first commit together instead of committing Task 2 alone.
-
----
-
-### Task 3: Wire into `MediaControlsWindow`/`VolumeControls`, disable default badges, verify live
-
-**Files:**
-- Modify: `winui3/WinTabberUI/App.xaml.cs`
-- Modify: `winui3/WinTabberUI/Views/MediaControlsWindow.xaml`
-- Modify: `winui3/WinTabberUI/Views/MediaControlsWindow.xaml.cs`
-- Modify: `winui3/WinTabber.UI.Media/UserControls/VolumeControls.xaml`
-- Modify: `winui3/WinTabber.UI.Media/UserControls/VolumeControls.xaml.cs`
-
-**Interfaces:**
-- Consumes: `AccessKeyBadgeLayer(Canvas)`, `.Watch(UIElement)` from Task 2.
-- Consumes: `DynamicAccessKeyScope.AttachSequentialKeys(ComboBox, AccessKeyBadgeLayer, Action<ComboBoxItem, int>)` from Task 2.
-- Consumes: `Microsoft.UI.Xaml.Input.AccessKeyManager.AreKeyTipsEnabled` (framework API, verified in the spec).
-- Produces: `VolumeControls.RegisterAccessKeyBadges(AccessKeyBadgeLayer)` — consumed by `MediaControlsWindow.xaml.cs`'s constructor, in this same task.
-
-- [ ] **Step 1: Disable the default key-tip badge at startup**
-
-In `winui3/WinTabberUI/App.xaml.cs`, add to the `using` block:
-
-```csharp
-using Microsoft.UI.Xaml.Input;
-```
-
-Replace the start of `OnLaunched`:
-
-```csharp
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
-    {
-        Services = Bootstrapper.Init();
-```
-
-with:
-
-```csharp
-    protected override void OnLaunched(LaunchActivatedEventArgs args)
-    {
-        // Must stay false: AccessKeyBadgeLayer (WinTabber.UI.Common.AccessKeys) draws its own
-        // custom badge for every AccessKeyDisplayRequested. Leaving this true would draw the
-        // framework's own default badge on top of it -- see
-        // docs/superpowers/specs/2026-09-23-access-key-custom-rendering-winui3-design.md.
-        AccessKeyManager.AreKeyTipsEnabled = false;
-
-        Services = Bootstrapper.Init();
-```
-
-- [ ] **Step 2: Add `x:Name` to `VolumeControls`'s `Slider`/`ToggleButton`, and a registration method**
+- [ ] **Step 3: Add `x:Name` to `VolumeControls`'s `Slider`/`ToggleButton`, and a registration method**
 
 In `winui3/WinTabber.UI.Media/UserControls/VolumeControls.xaml`, add `x:Name` to both controls. Replace:
 
@@ -580,7 +583,7 @@ public sealed partial class VolumeControls : UserControl
 }
 ```
 
-- [ ] **Step 3: Add `x:Name` to the remaining hinted elements in `MediaControlsWindow.xaml`**
+- [ ] **Step 4: Add `x:Name` to the remaining hinted elements in `MediaControlsWindow.xaml`**
 
 Add `x:Name` to the prev/next `Button`s and both `VolumeControls` instances. Replace:
 
@@ -640,7 +643,7 @@ with:
 
 (`PlayPauseButton` already has an `x:Name`; the three `ComboBox`es already have `x:Name`s — `SessionSelector`, `PlaybackDeviceSelector`, `RecordingDeviceSelector`.)
 
-- [ ] **Step 4: Add the overlay `Canvas` to `MediaControlsWindow.xaml`**
+- [ ] **Step 5: Add the overlay `Canvas` to `MediaControlsWindow.xaml`**
 
 The root `Grid` (`RootGrid`) has two rows and two `Grid` children (one per row). Add the overlay as a third child, after both, so it is topmost (later XAML children render on top in a `Grid`). Replace the closing of `RootGrid` (the line right before `</winuiex:WindowEx>`):
 
@@ -664,7 +667,7 @@ with:
 </winuiex:WindowEx>
 ```
 
-- [ ] **Step 5: Construct the layer, watch every hinted element, in `MediaControlsWindow.xaml.cs`**
+- [ ] **Step 6: Construct the layer, watch every hinted element, in `MediaControlsWindow.xaml.cs`**
 
 Replace the three existing `DynamicAccessKeyScope.AttachSequentialKeys` calls at the end of the constructor:
 
@@ -720,33 +723,35 @@ with:
 
 (`using WinTabber.UI.Common.AccessKeys;` is already present in this file's `using` block.)
 
-- [ ] **Step 6: Build**
+- [ ] **Step 7: Build**
 
 Run: `dotnet build WinTabber.slnx`
-Expected: Build succeeds with no errors — this is also where Task 2's deliberately-left compile error (the two old `AttachSequentialKeys` call sites) gets resolved.
+Expected: Build succeeds with no errors.
 
-- [ ] **Step 7: Run the full test suite to check for regressions**
+- [ ] **Step 8: Run the full test suite to check for regressions**
 
 Run: `dotnet test --solution WinTabber.slnx`
 Expected: PASS across all test projects, including the 5 new `AccessKeyBadgeTests`.
 
-- [ ] **Step 8: Live verification in the running app**
+- [ ] **Step 9: Live verification in the running app**
 
 This is the real proof for `AccessKeyBadgeLayer` (see Global Constraints — no automated test covers this). Launch the WinUI 3 app (`dotnet run --project winui3/WinTabberUI/WinTabberUI.csproj`, or however this migration's other live-verification steps launch it — check `docs/superpowers/plans/2026-09-12-wpf-to-winui3-migration.md`'s established method if unsure), open `MediaControlsWindow` via its real hotkey, and confirm:
 
 1. Pressing Alt shows a custom badge (rounded rect, accent-color fill, bold text) over every control that has an `AccessKey` — the three `ComboBox`es ("A"/"S"/"R"), the play/pause/prev/next controls ("P"/"B"/"F"), and the volume/mute controls in each `VolumeControls` instance — **not** the framework's plain default badge.
 2. No badge appears anywhere that isn't a real hinted control (confirming `AreKeyTipsEnabled = false` didn't leave any stray default badge behind, and that every hinted element in this window really did get a `Watch` call — a missed one shows no badge at all for that control, which is exactly the failure mode this step exists to catch).
-3. Typing part of a multi-character key underlines the typed prefix on every badge still matching, and hides every badge that no longer matches (e.g. if any control's key shares a prefix with another's).
-4. Opening a `ComboBox`'s drop-down while its own badge is showing (continuing the `DynamicAccessKeyScope` chord) shows numbered badges on its items, styled the same as the top-level badges — proving `AttachSequentialKeys`'s new `Watch` call actually reaches dynamically-keyed `ComboBoxItem`s.
-5. Completing a key sequence, or pressing Escape mid-sequence, removes every visible badge (no leftover badge stuck on screen).
-6. Re-opening the same `ComboBox`'s drop-down a second time in the same session still shows correctly-drawn item badges — this is the "Known accepted gap" the parent spec accepted (default badges stopped redrawing after a `ComboBox`'s first open); confirming it here proves custom rendering incidentally fixed it, per the spec's Purpose section.
+3. Every `VolumeControls` badge shows real text ("V"/"M" or whatever `VolumeHintText`/`MuteHintText` actually resolve to at runtime), not an empty rounded rect — `ComputeUnderlineLength("", "")` returns `0`, not `-1`, so an empty/null `AccessKey` binding would silently produce a visible-but-blank badge rather than no badge at all, which check 2 alone would not catch.
+4. Typing part of a multi-character key underlines the typed prefix on every badge still matching, and hides every badge that no longer matches (e.g. if any control's key shares a prefix with another's).
+5. Opening a `ComboBox`'s drop-down while its own badge is showing (continuing the `DynamicAccessKeyScope` chord) shows numbered badges on its items, styled the same as the top-level badges — proving `AttachSequentialKeys`'s new `Watch` call actually reaches dynamically-keyed `ComboBoxItem`s.
+6. Completing a key sequence, or pressing Escape mid-sequence, removes every visible badge (no leftover badge stuck on screen).
+7. Re-opening the same `ComboBox`'s drop-down a second time in the same session still shows correctly-drawn item badges — this is the "Known accepted gap" the parent spec accepted (default badges stopped redrawing after a `ComboBox`'s first open); confirming it here proves custom rendering incidentally fixed it, per the spec's Purpose section.
 
-If any of these 6 checks fails, treat it as a real bug in this plan's implementation and fix it before considering this task done — do not defer any of them.
+If any of these 7 checks fails, treat it as a real bug in this plan's implementation and fix it before considering this task done — do not defer any of them.
 
-- [ ] **Step 9: Commit**
+- [ ] **Step 10: Commit**
 
 ```bash
-git add winui3/WinTabberUI/App.xaml.cs winui3/WinTabberUI/Views/MediaControlsWindow.xaml winui3/WinTabberUI/Views/MediaControlsWindow.xaml.cs \
+git add winui3/WinTabberUI/App.xaml.cs winui3/WinTabber.UI.Common/AccessKeys/DynamicAccessKeyScope.cs \
+        winui3/WinTabberUI/Views/MediaControlsWindow.xaml winui3/WinTabberUI/Views/MediaControlsWindow.xaml.cs \
         winui3/WinTabber.UI.Media/UserControls/VolumeControls.xaml winui3/WinTabber.UI.Media/UserControls/VolumeControls.xaml.cs
 git commit -m "feat: wire custom access-key badges into MediaControlsWindow/VolumeControls
 
@@ -757,7 +762,7 @@ Co-Authored-By: Claude Sonnet 5 <noreply@anthropic.com>"
 
 ## Self-Review Notes
 
-- **Spec coverage:** replace default badge with a `HintAdorner`-styled visual (Task 1) — done; position via `TransformToVisual` (Task 2) — done, using the exact `HintPosition.TopLeft` offset ported from the WPF original; live prefix-underline via `PressedKeys` (Task 1's `ComputeUnderlineLength` + Task 2's per-request call) — done; incidentally resolve the default-badge-redraw gap (Task 3, Step 8 check 6) — done, verified explicitly rather than assumed; `AreKeyTipsEnabled = false` exactly once, app-wide (Task 3, Step 1) — done; every hinted element individually registered via `Watch`, since the display events don't bubble (Task 3, Steps 2-5) — done, covering both `VolumeControls` instances, the prev/play-pause/next buttons, all three `ComboBox`es, and (via `DynamicAccessKeyScope`'s updated signature, Task 2 Step 2) every dynamically-keyed `ComboBoxItem`.
-- **Placeholder scan:** no TBDs. Step 8's "however it launches" hedge is the one place phrased as a check rather than a fixed command, because the exact launch command may have changed since this plan was written — it tells the implementer exactly what document to check rather than guessing; every actual verification criterion in that step is concrete and enumerated.
-- **Type consistency:** `AccessKeyBadge`'s constructor, `Visual`, `UpdatePrefix`, and `ComputeUnderlineLength` signatures in Task 1 match exactly what Task 2's `AccessKeyBadgeLayer` calls. `AccessKeyBadgeLayer`'s constructor and `Watch(UIElement)` in Task 2 match every call site added in Task 3 (`MediaControlsWindow.xaml.cs`'s six direct `Watch` calls, `VolumeControls.RegisterAccessKeyBadges`'s two, and `DynamicAccessKeyScope.AttachSequentialKeys`'s one per realized `ComboBoxItem`). `DynamicAccessKeyScope.AttachSequentialKeys`'s new three-parameter signature (Task 2 Step 2) matches all three call sites Task 3 Step 5 rewrites.
-- **A note on build ordering across Task 2 and Task 3:** Task 2's own commit (Step 4) intentionally leaves the solution non-building — its two changed files compile individually, but `MediaControlsWindow.xaml.cs`'s three old-signature call sites don't get fixed until Task 3 Step 5. This was a deliberate choice (see the note after Task 2 Step 4) so each task stays reviewable as one coherent unit; it is called out explicitly here so it isn't mistaken for an oversight when someone runs `dotnet build` between the two tasks' commits.
+- **Spec coverage:** replace default badge with a `HintAdorner`-styled visual (Task 1) — done; position via `TransformToVisual` (Task 2) — done, using the exact `HintPosition.TopLeft` offset ported from the WPF original; live prefix-underline via `PressedKeys` (Task 1's `ComputeUnderlineLength` + Task 2's per-request call) — done; incidentally resolve the default-badge-redraw gap (Task 3, Step 9 check 7) — done, verified explicitly rather than assumed; `AreKeyTipsEnabled = false` exactly once, app-wide (Task 3, Step 1) — done; every hinted element individually registered via `Watch`, since the display events don't bubble (Task 3, Steps 2-6) — done, covering both `VolumeControls` instances, the prev/play-pause/next buttons, all three `ComboBox`es, and (via `DynamicAccessKeyScope`'s updated signature, Task 3 Step 2) every dynamically-keyed `ComboBoxItem`.
+- **Placeholder scan:** no TBDs. Step 9's "however it launches" hedge is the one place phrased as a check rather than a fixed command, because the exact launch command may have changed since this plan was written — it tells the implementer exactly what document to check rather than guessing; every actual verification criterion in that step is concrete and enumerated.
+- **Type consistency:** `AccessKeyBadge`'s constructor, `Visual`, `UpdatePrefix`, and `ComputeUnderlineLength` signatures in Task 1 match exactly what Task 2's `AccessKeyBadgeLayer` calls. `AccessKeyBadgeLayer`'s constructor and `Watch(UIElement)` in Task 2 match every call site added in Task 3 (`MediaControlsWindow.xaml.cs`'s six direct `Watch` calls, `VolumeControls.RegisterAccessKeyBadges`'s two, and `DynamicAccessKeyScope.AttachSequentialKeys`'s one per realized `ComboBoxItem`). `DynamicAccessKeyScope.AttachSequentialKeys`'s new three-parameter signature (Task 3 Step 2) matches all three call sites Task 3 Step 6 rewrites.
+- **A note on why `DynamicAccessKeyScope` moved into Task 3:** an earlier draft of this plan put that change in Task 2, deliberately leaving the solution non-building until Task 3 fixed the call sites. Corrected during review: every implementer in this plan is expected to run the full test suite before committing, so a task that can't build would fail that step for no real reason. `AccessKeyBadgeLayer` (Task 2) has no caller and needs none to compile; `DynamicAccessKeyScope`'s signature change and its two call-site rewrites are one atomic, always-buildable unit, so they now live together in Task 3.
