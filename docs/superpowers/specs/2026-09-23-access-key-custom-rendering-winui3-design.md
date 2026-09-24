@@ -42,11 +42,20 @@ shape directly instead of guessing from WPF familiarity:
   `Control.IsTemplateKeyTipTarget`) — nothing that reaches the badge's visual template.
   This rules out "restyle the default badge in place" as an approach; genuinely custom
   drawing is the only way to change its look.
-- **`UIElement.AccessKeyDisplayRequested`/`AccessKeyDisplayDismissed` bubble.** Both events
-  are declared on `UIElement` (and separately on `Documents.TextElement`), consistent with
-  the rest of WinUI 3's routed-event model — subscribing once at a window's root element
-  catches every hinted descendant, the same one-attachment-point model
-  `HintBehavior` used in the WPF app.
+- **`UIElement.AccessKeyDisplayRequested`/`AccessKeyDisplayDismissed` do NOT bubble.**
+  Corrected after review: an earlier draft of this design assumed they did, "consistent
+  with the rest of WinUI 3's routed-event model." That was wrong, caught before
+  implementation rather than discovered live. The actual evidence: `AccessKeyInvokedEventArgs`
+  (a sibling event already in use, in `DynamicAccessKeyScope.cs`) has a `Handled` property —
+  the standard signal for a routed event a handler can intercept mid-route. Neither
+  `AccessKeyDisplayRequestedEventArgs` nor `AccessKeyDisplayDismissedEventArgs` has one —
+  `AccessKeyDisplayRequestedEventArgs` has only `PressedKeys`, and
+  `AccessKeyDisplayDismissedEventArgs` has no members at all beyond a constructor. This
+  matches a worked example's own wiring pattern, which attaches both handlers directly on
+  the specific element (`<Button AccessKeyDisplayRequested="..." .../>`), not at a
+  container. **Every element that should get a custom badge must be individually
+  registered** — there is no single root-level subscription that reaches every hinted
+  descendant the way `HintBehavior`'s one attachment point did in WPF.
 - **`AccessKeyDisplayRequestedEventArgs.PressedKeys`** — "Gets the keys that were pressed
   to start the access key sequence." Confirmed (via a worked example the user supplied,
   consistent with the documented member) to refire per keystroke as a chord is typed: on
@@ -85,23 +94,64 @@ namespace WinTabber.UI.Common.AccessKeys;
 
 public sealed class AccessKeyBadgeLayer
 {
-    public static AccessKeyBadgeLayer Attach(UIElement root, Canvas overlay);
+    public AccessKeyBadgeLayer(Canvas overlay);
+
+    /// <summary>Registers one element to get a custom badge. Since AccessKeyDisplayRequested/
+    /// Dismissed do not bubble, every hinted element in a window needs its own call.</summary>
+    public void Watch(UIElement element);
 }
 ```
 
-- `root` is the window's root element (or any ancestor of every hinted control) — the
-  layer subscribes `AccessKeyDisplayRequested`/`AccessKeyDisplayDismissed` there once,
-  relying on bubbling to reach every descendant with an `AccessKey` set, including
-  `ComboBoxItem`s that `DynamicAccessKeyScope` assigns keys to dynamically.
 - `overlay` is the `Canvas` badges are added to and positioned within, via
   `Canvas.SetLeft`/`Canvas.SetTop`.
-- Returns the instance so a caller can dispose/detach if the window's lifetime requires
-  it (`MediaControlsWindow` does not currently need this, since the window and its layer
-  share one lifetime, but the seam costs nothing to include).
+- `Watch` is called once per hinted element — every `Button`/`ToggleButton`/`Slider`/
+  `ComboBox` with a static `AccessKey` in a window's XAML, plus, for the dynamic case,
+  once per `ComboBoxItem` at the point `DynamicAccessKeyScope` assigns it a key (see
+  below). There is no "attach at the root and let it bubble" shortcut.
 
-Internal state: a `Dictionary<UIElement, AccessKeyBadge>` mapping a hinted element to its
+Internal state: a `Dictionary<UIElement, AccessKeyBadge>` mapping a watched element to its
 currently-visible badge, so `AccessKeyDisplayRequested` can find-or-create and
 `AccessKeyDisplayDismissed` can find-and-remove.
+
+### `DynamicAccessKeyScope` gains one new parameter
+
+Since `ComboBoxItem`s are only reachable once a drop-down opens, and each one needs its own
+`Watch` call the same as any static element, `AttachSequentialKeys` takes the badge layer
+and calls `Watch` on each newly-realized container, guarded by the same `wired` `HashSet`
+dedup that already protects `AccessKeyInvoked` from stacking across repeated opens:
+
+```csharp
+public static void AttachSequentialKeys(
+    ComboBox owner,
+    AccessKeyBadgeLayer badgeLayer,
+    Action<ComboBoxItem, int> onActivated)
+{
+    // ... unchanged up to the wired.Add(container) check ...
+    if (wired.Add(container))
+    {
+        badgeLayer.Watch(container);
+        container.AccessKeyInvoked += (_, args) => { /* unchanged */ };
+    }
+    // ... unchanged ...
+}
+```
+
+### Every window's hinted elements need a name to register
+
+`MediaControlsWindow.xaml` today has two `Button`s (prev/next) and two `VolumeControls`
+instances with no `x:Name` — nothing to call `Watch` on from code-behind without one.
+`VolumeControls.xaml`'s `Slider`/`ToggleButton` are in the same position. All four gain an
+`x:Name`, and `VolumeControls` gains a small method so its window doesn't need to reach
+into its internals:
+
+```csharp
+// VolumeControls.xaml.cs
+public void RegisterAccessKeyBadges(AccessKeyBadgeLayer layer)
+{
+    layer.Watch(VolumeSlider);
+    layer.Watch(MuteToggleButton);
+}
+```
 
 ### `AccessKeyBadge`
 
@@ -168,9 +218,10 @@ in the WPF original per the parent spec's "Explicit exclusions." It is not porte
 both the dictionary and the `Canvas`. A dismiss for an element with no active badge (e.g.
 dismissed twice) is a no-op, not an error.
 
-**`ComboBox` chords need no special-case code here.** Once `DynamicAccessKeyScope.AttachSequentialKeys`
-assigns `AccessKey` on each `ComboBoxItem`, those items raise the same bubbling events as
-any other hinted element — `AccessKeyBadgeLayer` does not need to know `ComboBox` exists.
+**`ComboBox` chords need one extra `Watch` call, nothing more.** `DynamicAccessKeyScope.AttachSequentialKeys`
+calls `badgeLayer.Watch(container)` at the point it assigns each `ComboBoxItem`'s key; once
+registered, that item's events reach `AccessKeyBadgeLayer` exactly like any other hinted
+element's — `AccessKeyBadgeLayer` itself does not need to know `ComboBox` exists.
 
 ## Error handling
 
