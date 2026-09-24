@@ -18,7 +18,7 @@ public class SessionListItem : ReactiveObject, IEquatable<SessionListItem>, IDis
         // so this no longer needs to run before a Select step that touches the Bitmap off-thread.
         _icon = session.App.Icon
             .ObserveOn(RxSchedulers.MainThreadScheduler)
-            .ToProperty(this, vm  => vm.Icon, scheduler: RxSchedulers.MainThreadScheduler);
+            .ToProperty(this, vm => vm.Icon, scheduler: RxSchedulers.MainThreadScheduler);
         Aumid = session.MediaSession.SourceAppUserModelId;
         Session = session;
 
@@ -27,7 +27,6 @@ public class SessionListItem : ReactiveObject, IEquatable<SessionListItem>, IDis
         {
             Debug.WriteLine("Error getting session app icon {0}", ex);
         }));
-
     }
 
     public AggregateSession Session { get; init; }

@@ -9,7 +9,6 @@
         <Compile Update="Views\MediaControlsWindow.xaml.cs">
             <SubType>Code</SubType>
         </Compile>
-        <AdditionalFiles Include="NativeMethods.txt" />
     </ItemGroup>
 
     <ItemGroup>

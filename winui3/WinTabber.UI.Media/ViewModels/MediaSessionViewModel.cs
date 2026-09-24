@@ -50,20 +50,23 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
         // Merged with NativeSessionChanged, not just WhenAnyValue(vm => vm.Session) alone: a device
         // switch mutates the SAME AggregateSession instance in place (UpdateNativeSession), and its
         // Key/Equals deliberately ignore NativeSession, so RaiseAndSetIfChanged on Session never
-        // fires for that mutation. Confirmed live: the device volume slider (DeviceVolumeControls,
-        // built from SessionChanged below) updated correctly on the first device switch after a
-        // session was selected, then froze on every switch after that, because Session's own
-        // reference never changed again. NativeSessionChanged is the session's own notification of
-        // that mutation, independent of Session's reference-based change detection.
+        // fires for that mutation. Confirmed live on the WinUI 3 app; this file is shared, so the
+        // WPF app runs the same code. The device volume slider (DeviceVolumeControls, built from
+        // SessionChanged below) updated correctly on the first device switch after a session was
+        // selected, then froze on every switch after that, because Session's own reference never
+        // changed again. NativeSessionChanged is the session's own notification of that mutation,
+        // independent of Session's reference-based change detection.
         //
         // ObserveOn(scheduler) here, not left to each downstream consumer: NativeSessionChanged
         // fires from AggregateSession.UpdateNativeSession, called from GetMasterSessions's
         // .ObserveOn(staScheduler) pipeline -- the COM STA thread, not the UI thread. Confirmed
-        // live: without this, monitors.Subscribe(monitor => Playback.Session = monitor) ran on that
-        // STA thread and crashed with a COMException while WinUI 3 tried to marshal the WinRT
-        // PropertyChangedEventArgs off the UI thread. Every consumer of SessionChanged relied on
-        // Session's own reassignment always arriving via MediaControlsViewModel's own
-        // ObserveOn(scheduler); NativeSessionChanged has no such guarantee of its own.
+        // live on the WinUI 3 app: without this, monitors.Subscribe(monitor => Playback.Session =
+        // monitor) ran on that STA thread and crashed with a COMException while WinUI 3 marshaled
+        // the WinRT PropertyChangedEventArgs off the UI thread. WPF's PropertyChangedEventArgs has
+        // no such thread affinity, so the crash does not reproduce on the WPF app, but both apps
+        // share this file and every downstream consumer of SessionChanged relies on the same
+        // thread-affinity contract (see AudioDeviceSelectorViewModel's own comment on the same
+        // hazard).
         SessionChanged = this.WhenAnyValue(vm => vm.Session)
             .Select(session =>
                 session == null
@@ -76,6 +79,7 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
             .Replay(1)
             .RefCount();
         var deviceSession = SessionChanged.Select(session => new ObservableSessionDto(session?.NativeSession));
+        // todo: this is incorrect. need device
         var device = SessionChanged.Select(session => audioDeviceService.WatchDevice(session?.NativeSession?.Device));
 
         // Replay(1).RefCount() is required, not decoration. The projection builds a monitor, and

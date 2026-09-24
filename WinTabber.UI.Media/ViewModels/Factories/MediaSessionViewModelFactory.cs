@@ -1,5 +1,4 @@
 ﻿using WinTabber.Api.Media.CoreAudio.Services;
-using WinTabber.UI.Media.Models;
 using WinTabber.UI.Media.ViewModels;
 
 namespace WinTabber.UI.Media.ViewModels.Factories;
