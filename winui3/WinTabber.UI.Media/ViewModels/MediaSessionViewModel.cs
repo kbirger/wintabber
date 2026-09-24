@@ -1,8 +1,8 @@
 using System.Diagnostics;
+using System.IO;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
-using Microsoft.UI.Xaml.Media.Imaging;
 using ReactiveUI;
 using ReactiveUI.SourceGenerators;
 using Windows.Storage.Streams;
@@ -19,7 +19,7 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
     private readonly ObservableAsPropertyHelper<string> _artistName;
     private readonly ObservableAsPropertyHelper<string> _albumTitle;
     private readonly ObservableAsPropertyHelper<string> _title;
-    private readonly ObservableAsPropertyHelper<BitmapImage?> _thumbnail;
+    private readonly ObservableAsPropertyHelper<byte[]?> _thumbnail;
 
     private readonly IAudioSessionService _sessionService;
     private readonly IAudioDeviceService _deviceService;
@@ -107,16 +107,12 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
             .ToProperty(this, vm => vm.Title, initialValue: "")
             .DisposeWith(_disposable);
 
-        // ObserveOn before SelectMany, not after (the reverse of the WPF original's order):
-        // BitmapImage.SetSourceAsync is DispatcherQueue-affine in WinUI 3, unlike WPF's
-        // stream-based BitmapImage construction, which is safe off the UI thread. The decode must
-        // already be on scheduler before it runs.
         _thumbnail = monitors
             .Select(monitor => monitor?.ThumbnailChanges)
             .OrDefault<IRandomAccessStreamReference?>(null)
             .Switch()
+            .SelectMany(ReadAlbumArtBytes)
             .ObserveOn(scheduler)
-            .SelectMany(GetCurrentMediaAlbumArt)
             .ToProperty(this, vm => vm.Thumbnail, initialValue: null)
             .DisposeWith(_disposable);
 
@@ -156,9 +152,12 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
     public string ArtistName => _artistName.Value;
     public string AlbumTitle => _albumTitle.Value;
     public string Title => _title.Value;
-    public BitmapImage? Thumbnail => _thumbnail?.Value;
+    public byte[]? Thumbnail => _thumbnail?.Value;
 
-    public static async Task<BitmapImage?> GetCurrentMediaAlbumArt(IRandomAccessStreamReference? imageStream)
+    // Framework-neutral: reads the SMTC thumbnail stream into a byte[] payload. Decoding those
+    // bytes into a UI-framework-specific ImageSource happens in ImageBytesToImageSourceConverter
+    // (WinTabber.UI.Common) on the UI thread during binding, not here.
+    public static async Task<byte[]?> ReadAlbumArtBytes(IRandomAccessStreamReference? imageStream)
     {
         if (imageStream is null)
         {
@@ -166,9 +165,10 @@ public partial class MediaSessionViewModel : ReactiveObject, IDisposable
         }
 
         using IRandomAccessStreamWithContentType streamRef = await imageStream.OpenReadAsync();
-        var imageSource = new BitmapImage();
-        await imageSource.SetSourceAsync(streamRef);
-        return imageSource;
+        using var inputStream = streamRef.AsStreamForRead();
+        using var memoryStream = new MemoryStream();
+        await inputStream.CopyToAsync(memoryStream);
+        return memoryStream.ToArray();
     }
 
     public void Dispose()

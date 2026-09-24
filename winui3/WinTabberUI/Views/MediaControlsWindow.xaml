@@ -36,7 +36,7 @@
         <DataTemplate x:Key="SessionItemTemplate" x:DataType="vm:SessionListItem">
             <StackPanel Orientation="Horizontal">
                 <Image
-                    Source="{Binding Icon}"
+                    Source="{Binding Icon, Converter={StaticResource BitmapToImageSourceConverter}}"
                     Height="16"
                     Width="16"
                     Margin="4,4,10,4"
@@ -234,7 +234,7 @@
                     Grid.Column="0"
                     Width="48"
                     Height="48"
-                    Source="{Binding ActiveSession.Thumbnail}"
+                    Source="{Binding ActiveSession.Thumbnail, Converter={StaticResource ImageBytesToImageSourceConverter}}"
                     Visibility="{Binding ActiveSession.Thumbnail, Converter={StaticResource NullToVisibilityConverter}}"
                 />
                 <!-- MaxWidth caps this column so a long title/artist/album cannot push the play controls to the right; TextTrimming ellipsizes instead of the WPF original's OpacityMask fade, which has no WinUI 3 equivalent. -->

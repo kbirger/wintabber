@@ -73,6 +73,10 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
             // ComboBox clears SelectedItem on Reset. Sessions add/remove in a batch the same way
             // devices do (MasterSessions.AutoRefreshOnObservable refreshes broadly), so this is
             // preventive, not (yet) reproduced live the way the device-list case was.
+            //
+            // Both this and the RaisePropertyChanged(nameof(Sessions)) call below are kept under
+            // review, see the follow-up section dated 2026-09-24 in
+            // docs/superpowers/plans/2026-09-12-wpf-to-winui3-migration.md.
             sessions
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Bind(out _sessions, new BindingOptions(ResetThreshold: int.MaxValue))
