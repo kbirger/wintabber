@@ -229,9 +229,9 @@
                 <RowDefinition Height="Auto" />
             </Grid.RowDefinitions>
             <Grid.ColumnDefinitions>
-                <ColumnDefinition Width="Auto" />
                 <ColumnDefinition Width="*" />
                 <ColumnDefinition Width="Auto" />
+                <ColumnDefinition Width="*" />
             </Grid.ColumnDefinitions>
 
             <Grid Grid.Row="0" Grid.Column="0" HorizontalAlignment="Stretch" VerticalAlignment="Center">
@@ -270,7 +270,7 @@
                 </StackPanel>
             </Grid>
 
-            <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="0" HorizontalAlignment="Center">
+            <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="0">
                 <Button x:Name="PrevButton" Style="{StaticResource MediaButton}" AccessKey="B" Command="{Binding ActiveSession.Playback.Prev}">
                     <FontIcon Glyph="&#xE892;" />
                 </Button>
