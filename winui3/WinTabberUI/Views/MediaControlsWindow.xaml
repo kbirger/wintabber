@@ -25,6 +25,12 @@
         <c:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
         <c:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter" />
         <c:TimeSpanToFloatConverter x:Key="TimeSpanToFloatConverter" />
+        <!-- Declared here, not merged. This window has no MergedDictionaries, unlike the WPF
+             MediaControlsWindow, which pulls in ValueConvertersResources.xaml. WinUI resolves
+             StaticResource at parse time, so a key registered only in that dictionary throws
+             E_XAMLPARSEFAILED when this window is created. It crashed the app on open. -->
+        <c:BitmapToImageSourceConverter x:Key="BitmapToImageSourceConverter" />
+        <c:ImageBytesToImageSourceConverter x:Key="ImageBytesToImageSourceConverter" />
 
         <DataTemplate x:Key="DeviceItemTemplate" x:DataType="ca:DeviceDto">
             <StackPanel Orientation="Horizontal">
