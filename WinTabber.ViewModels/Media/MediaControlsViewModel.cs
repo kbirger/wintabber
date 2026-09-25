@@ -3,6 +3,7 @@ using System.Diagnostics;
 using System.Reactive.Disposables;
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
+using System.Reactive.Subjects;
 using DynamicData;
 using DynamicData.Binding;
 using NAudio.CoreAudioApi;
@@ -25,6 +26,11 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
 
     private AudioDeviceSelectorViewModel? _playback;
     private AudioDeviceSelectorViewModel? _recording;
+    private SessionListItem? _selectedSessionListItem;
+
+    // The user's pick input channel. Assigned in WhenActivated, cleared on deactivation --
+    // the public setter cannot see the activation closure, so this needs to be a field.
+    private BehaviorSubject<string?>? _userPick;
 
     public AudioDeviceSelectorViewModel? Playback
     {
@@ -50,13 +56,26 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
         _mediaSessionService = mediaSessionService;
         _mediaSessionViewModelFactory = mediaSessionViewModelFactory;
         _deviceSelectorViewModelFactory = deviceSelectorViewModelFactory;
-        var scheduler = RxSchedulers.MainThreadScheduler;
 
         Debug.WriteLine("Created");
         this.WhenActivated((disposables) =>
         {
-            Debug.WriteLine("Activated");
             ActiveSession = null;
+
+            // The user's pick, as an AUMID. A string, not a SessionListItem: the item object is
+            // rebuilt whenever the session leaves and re-enters the cache, which a track skip does
+            // for anywhere between 62ms and 950ms (measured). An AUMID survives that; an object
+            // reference does not.
+            //
+            // Null means "follow whatever SMTC reports as active".
+            //
+            // Disposed explicitly in the teardown below, after _userPick is nulled out -- not via
+            // DisposeWith(disposables) here, which would race the field clear: CompositeDisposable
+            // has no ordering guarantee against a second, separately-registered disposable, so the
+            // setter could observe a non-null _userPick pointing at an already-disposed subject and
+            // throw ObjectDisposedException on OnNext.
+            var userPick = new BehaviorSubject<string?>(null);
+            _userPick = userPick;
 
             // Materialized into a cache, not left as a cold chain: Bind below and every
             // WatchValue in the ActiveSession pipeline read from this one cache, so Transform runs
@@ -116,62 +135,52 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
                     }
                 )
                 .DisposeWith(disposables);
-            // Watch for SMTC session changes and match against known sessions.
+            var activeAumid = _mediaSessionService.ActiveSession.Select(session =>
+                session.MediaSession.SourceAppUserModelId
+            );
+
+            // The effective selection: the user's pick when that session is in the cache, otherwise
+            // the SMTC-active one. Re-resolved on every cache change, so a session that leaves and
+            // returns simply resolves again -- no timer, no remembered key, nothing timing-dependent.
             //
-            // REAL BUG fixed here: no DistinctUntilChanged gate on the watched key meant every
-            // property-level republish of the currently active session's own SessionListItem
-            // (playback state, position, etc. -- MasterSessions.Connect().Transform(...) constructs a
-            // new SessionListItem on each such update) re-emitted here too, which the subscription
-            // below used to reassign SelectedSessionListItem unconditionally. Selecting a different
-            // session from the dropdown appeared to have no effect: the very next SMTC update for the
-            // truly-active session snapped the selection straight back, almost instantly. Gated on
-            // Session.Key -- the same key selector the downstream ActiveSession-updating subscription
-            // already applies -- so this only re-fires when the SMTC-active session's identity
-            // actually changes, not on every update to the one already selected.
-            var activeSessionChanges = _mediaSessionService
-                .ActiveSession.Select(session =>
+            // Replaces DistinctUntilChanged(session => session?.Session.Key). That gate could only
+            // let a restore through when the key happened to change, and Key is (IsComplete, Aumid)
+            // -- so recovery depended on whether the native audio session incidentally dropped
+            // alongside the SMTC one. Verified in a trace: identical removals, opposite outcomes,
+            // decided by that flap.
+            var effectiveSelection = Observable
+                .CombineLatest(userPick, activeAumid, (pick, active) => (Pick: pick, Active: active))
+                .Select(inputs =>
                     sessionCache
-                        .WatchValue(session.MediaSession.SourceAppUserModelId)
-                        .Log(s => $"Session watch update: {s.Aumid} - {s.Session.NativeSession != null}")
+                        .Connect()
+                        .ToCollection()
+                        .Select(items => Resolve(items, i => i.Aumid, inputs.Pick, inputs.Active))
                 )
                 .Switch()
-                .DistinctUntilChanged(session => session?.Session.Key)
+                // Reference equality, explicit: SessionListItem.Equals compares by Aumid, so the
+                // default comparer would swallow a same-Aumid-different-instance rebuild (a same-
+                // batch Remove+Add with no intervening null) instead of picking up the new instance.
+                // A Refresh rebuilds no instances, so on the ordinary path this suppresses only the
+                // churn (770 refreshes in one 90-second trace); ReferenceEqualityComparer keeps that
+                // guarantee honest instead of accidentally depending on Aumid equality too.
+                .DistinctUntilChanged<SessionListItem?>(ReferenceEqualityComparer.Instance)
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Publish()
                 .RefCount();
 
-            // Update selected session when active session changes
-            activeSessionChanges
+            effectiveSelection
                 .Subscribe(
-                    changedSession =>
-                    {
-                        SelectedSessionListItem = changedSession;
-                    },
-                    ex =>
-                    {
-                        Debug.WriteLine("Error in ActiveSession pipeline: {0}", ex);
-                    }
+                    SetSelectionFromModel,
+                    ex => Debug.WriteLine("Error in selection pipeline: {0}", ex)
                 )
                 .DisposeWith(disposables);
 
-            // Create or dispose session view model when active session changes
-            // or when user selects a different session from the list
             var activeSession = _mediaSessionViewModelFactory.Create();
             ActiveSession = activeSession;
-            this.WhenAnyValue(vm => vm.SelectedSessionListItem)
-                .Merge(activeSessionChanges)
-                .Throttle(TimeSpan.FromMilliseconds(250))
-                .DistinctUntilChanged(session => session?.Session.Key)
-                .ObserveOn(scheduler)
+            effectiveSelection
                 .Subscribe(
-                    viewModel =>
-                    {
-                        ActiveSession.Session = viewModel?.Session;
-                    },
-                    ex =>
-                    {
-                        Debug.WriteLine("Error in ActiveSession pipeline2: {0}", ex);
-                    }
+                    item => ActiveSession.Session = item?.Session,
+                    ex => Debug.WriteLine("Error in ActiveSession pipeline: {0}", ex)
                 )
                 .DisposeWith(disposables);
 
@@ -194,6 +203,8 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
                     Playback = null;
                     Recording = null;
                     ActiveSession = null;
+                    _userPick = null;
+                    userPick.Dispose();
                 })
                 .DisposeWith(disposables);
         });
@@ -232,8 +243,57 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
 
     public SessionListItem? SelectedSessionListItem
     {
-        get => field;
-        set => this.RaiseAndSetIfChanged(ref field, value);
+        get => _selectedSessionListItem;
+        set
+        {
+            // Only the view writes here. A null is never user intent: this ComboBox has no empty
+            // entry, so null only ever arrives when the bound item left the collection, which
+            // happens on every track skip. Dropping it is the whole point -- the derived pipeline
+            // decides what is selected.
+            if (value is null)
+            {
+                return;
+            }
+
+            _userPick?.OnNext(value.Aumid);
+            this.RaiseAndSetIfChanged(ref _selectedSessionListItem, value);
+        }
     }
 
+    /// <summary>
+    /// Writes the derived selection without treating it as a user pick. The public setter is the
+    /// view's input channel; this is the model's output channel. Keeping them separate is what
+    /// removes the need to guess where a write came from.
+    /// </summary>
+    private void SetSelectionFromModel(SessionListItem? item)
+    {
+        this.RaiseAndSetIfChanged(ref _selectedSessionListItem, item, nameof(SelectedSessionListItem));
+    }
+
+    // The pick wins while its session exists. It is deliberately NOT cleared when the session
+    // is briefly absent -- that absence is exactly the track-skip gap this fix exists for.
+    //
+    // internal, not private, and generic over the AUMID projection rather than tied to
+    // SessionListItem directly: WinTabber.UI.Media.Tests exercises this directly (see the "Known
+    // risk" note in the selection-model plan), but SessionListItem's own constructor takes a real
+    // AggregateSession, which wraps a WinRT session type the test project cannot build (the same
+    // constraint FakeMediaSessionService documents). The projection lets a test pass a trivial
+    // stand-in instead of a reflection-built SessionListItem, without changing what the pipeline
+    // passes in at the real call site.
+    internal static T? Resolve<T>(IReadOnlyCollection<T> items, Func<T, string> aumid, string? pick, string? active)
+        where T : class
+    {
+        var picked =
+            pick is null
+                ? null
+                : items.FirstOrDefault(i => string.Equals(aumid(i), pick, StringComparison.OrdinalIgnoreCase));
+        if (picked is not null)
+        {
+            return picked;
+        }
+
+        return active is null
+            ? null
+            : items.FirstOrDefault(i => string.Equals(aumid(i), active, StringComparison.OrdinalIgnoreCase));
+    }
 }

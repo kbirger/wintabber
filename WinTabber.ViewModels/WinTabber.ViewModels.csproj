@@ -26,5 +26,6 @@
 
     <ItemGroup>
         <InternalsVisibleTo Include="WinTabberUI" />
+        <InternalsVisibleTo Include="WinTabber.UI.Media.Tests" />
     </ItemGroup>
 </Project>
