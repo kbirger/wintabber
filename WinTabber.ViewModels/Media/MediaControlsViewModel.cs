@@ -58,14 +58,29 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
             Debug.WriteLine("Activated");
             ActiveSession = null;
 
-            var sessions = _mediaSessionService
+            // Materialized into a cache, not left as a cold chain: Bind below and every
+            // WatchValue in the ActiveSession pipeline read from this one cache, so Transform runs
+            // once and there is exactly one SessionListItem per session. SelectedSessionListItem
+            // then holds the same instance the ComboBox shows, instead of an equal-by-Aumid twin.
+            //
+            // REAL BUG this fixes: with a cold chain, each subscriber ran its own Transform, so the
+            // WatchValue chain built a parallel set of SessionListItems. Switch disposing the
+            // previous WatchValue subscription made DisposeMany dispose the very item
+            // SelectedSessionListItem pointed at -- on every ActiveSession emission, which includes
+            // a track skip. Verified with a reduced DynamicData repro of this exact shape: three
+            // instances for two emissions, the selected one disposed each time, while the bound
+            // item was a different object that DisposeMany never touched.
+            //
+            // DisposeMany sits upstream of AsObservableCache, so disposing the cache (tied to this
+            // activation via disposables) still disposes every SessionListItem, as before.
+            var sessionCache = _mediaSessionService
                 .MasterSessions.Connect()
                 .Transform(session => new SessionListItem(session))
-                // DisposeMany: disposes a SessionListItem when its session leaves the cache, and
-                // disposes every remaining item when the activation ends. WhenActivated's
-                // `disposables` only tears down the collection binding below, not the per-item
-                // icon subscription each SessionListItem opens in its constructor.
-                .DisposeMany();
+                .DisposeMany()
+                .AsObservableCache();
+            sessionCache.DisposeWith(disposables);
+
+            var sessions = sessionCache.Connect();
 
             // ResetThreshold: int.MaxValue, matching AudioDeviceSelectorViewModel's own Devices
             // binding fix -- Bind() collapses a large-enough simultaneous changeset into a single
@@ -115,7 +130,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
             // actually changes, not on every update to the one already selected.
             var activeSessionChanges = _mediaSessionService
                 .ActiveSession.Select(session =>
-                    sessions
+                    sessionCache
                         .WatchValue(session.MediaSession.SourceAppUserModelId)
                         .Log(s => $"Session watch update: {s.Aumid} - {s.Session.NativeSession != null}")
                 )
