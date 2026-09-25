@@ -38,7 +38,7 @@
             </StackPanel>
         </DataTemplate>
 
-        <!-- Margin matches DeviceItemTemplate's 4px vertical margin so both ComboBoxes report the same closed-state height; the session template's own image+text previously had no vertical margin, making it render shorter. -->
+        <!-- Margin matches DeviceItemTemplate's 4px vertical margin so both ComboBoxes report the same closed-state height; the session template's own image+text previously had no vertical margin, making it render shorter. The matched margins are no longer the only thing keeping the heights equal: the three ComboBoxes below also share an explicit MinHeight, so an empty Session list (with nothing to measure) still agrees with the populated device lists. -->
         <DataTemplate x:Key="SessionItemTemplate" x:DataType="vm:SessionListItem">
             <StackPanel Orientation="Horizontal">
                 <Image
@@ -184,6 +184,7 @@
                 Grid.ColumnSpan="2"
                 ItemsSource="{Binding Sessions}"
                 HorizontalAlignment="Stretch"
+                MinHeight="34"
                 x:Name="SessionSelector"
                 AccessKey="A"
                 ItemTemplate="{StaticResource SessionItemTemplate}"
@@ -198,6 +199,7 @@
                 Grid.Row="1"
                 Margin="7,0,0,0"
                 HorizontalAlignment="Stretch"
+                MinHeight="34"
                 x:Name="PlaybackDeviceSelector"
                 AccessKey="S"
                 ItemTemplate="{StaticResource DeviceItemTemplate}"
@@ -212,6 +214,7 @@
                 Grid.ColumnSpan="2"
                 Grid.Row="1"
                 HorizontalAlignment="Stretch"
+                MinHeight="34"
                 x:Name="RecordingDeviceSelector"
                 AccessKey="R"
                 ItemTemplate="{StaticResource DeviceItemTemplate}"
