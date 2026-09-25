@@ -613,6 +613,7 @@ Padding="7 0 7 0"
                     >
                         <TextBlock
                             Text="{Binding ActiveSession.Playback.Position, Converter={StaticResource TimeSpanToStringConverter}}"
+                            Visibility="{Binding ActiveSession.Playback.HasProgress, Converter={StaticResource BoolToVisibilityConverter}}"
                             Grid.Row="1"
                             d:Text="00:00"
                             DockPanel.Dock="Left"
@@ -621,6 +622,7 @@ Padding="7 0 7 0"
                         />
                         <TextBlock
                             Text="{Binding ActiveSession.Playback.Duration, Converter={StaticResource TimeSpanToStringConverter}}"
+                            Visibility="{Binding ActiveSession.Playback.HasProgress, Converter={StaticResource BoolToVisibilityConverter}}"
                             Grid.Row="1"
                             Grid.Column="1"
                             IsEnabled="{Binding ActiveSession.Playback.CanSeek}"
@@ -630,18 +632,28 @@ Padding="7 0 7 0"
                             VerticalAlignment="Center"
                             Margin="10 0 0 0"
                         />
-                        <Slider
-                            Grid.ColumnSpan="5"
-                            Grid.Column="0"
-                            ValueChanged="Slider_ValueChanged"
-                            IsEnabled="{Binding ActiveSession.Playback.CanSeek}"
-                            AutoToolTipPlacement="None"
-                            Thumb.DragStarted="Slider_DragStarted"
-                            Thumb.DragCompleted="Slider_DragCompleted"
-                            IsMoveToPointEnabled="true"
-                            Maximum="{Binding ActiveSession.Playback.Duration, Converter={StaticResource TimeSpanToFloatConverter}}"
-                            Value="{Binding ActiveSession.Playback.Position, Mode=OneWay, Converter={StaticResource TimeSpanToFloatConverter}}"
-                        ></Slider>
+                        <!-- Slider and ProgressBar share this cell and toggle visibility on
+                             HasProgress/IsProgressIndeterminate; Height is fixed to the Slider's
+                             own natural height so the window does not resize when the source's
+                             position-reporting state changes. -->
+                        <Grid Height="24">
+                            <Slider
+                                ValueChanged="Slider_ValueChanged"
+                                IsEnabled="{Binding ActiveSession.Playback.CanSeek}"
+                                Visibility="{Binding ActiveSession.Playback.HasProgress, Converter={StaticResource BoolToVisibilityConverter}}"
+                                AutoToolTipPlacement="None"
+                                Thumb.DragStarted="Slider_DragStarted"
+                                Thumb.DragCompleted="Slider_DragCompleted"
+                                IsMoveToPointEnabled="true"
+                                Maximum="{Binding ActiveSession.Playback.Duration, Converter={StaticResource TimeSpanToFloatConverter}}"
+                                Value="{Binding ActiveSession.Playback.Position, Mode=OneWay, Converter={StaticResource TimeSpanToFloatConverter}}"
+                            />
+                            <ProgressBar
+                                VerticalAlignment="Center"
+                                IsIndeterminate="True"
+                                Visibility="{Binding ActiveSession.Playback.IsProgressIndeterminate, Converter={StaticResource BoolToVisibilityConverter}}"
+                            />
+                        </Grid>
                     </DockPanel>
                 </Grid>
             </Grid>

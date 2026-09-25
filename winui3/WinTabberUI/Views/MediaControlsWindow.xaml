@@ -31,6 +31,7 @@
              E_XAMLPARSEFAILED when this window is created. It crashed the app on open. -->
         <c:BitmapToImageSourceConverter x:Key="BitmapToImageSourceConverter" />
         <c:ImageBytesToImageSourceConverter x:Key="ImageBytesToImageSourceConverter" />
+        <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
 
         <DataTemplate x:Key="DeviceItemTemplate" x:DataType="ca:DeviceDto">
             <StackPanel Orientation="Horizontal">
@@ -287,7 +288,11 @@
                 </Button>
             </StackPanel>
 
-            <Grid Grid.Row="1" Grid.ColumnSpan="3" VerticalAlignment="Center" Margin="0,8,0,0">
+            <!-- Height is fixed to the Slider's own natural height: Slider and ProgressBar occupy
+                 the same cell (Grid.Column="1") and toggle visibility on HasProgress/
+                 IsProgressIndeterminate, and without a fixed height here the window would resize
+                 when the source's position-reporting state changes. -->
+            <Grid Grid.Row="1" Grid.ColumnSpan="3" Height="32" VerticalAlignment="Center" Margin="0,8,0,0">
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
@@ -296,6 +301,7 @@
                 <TextBlock
                     Grid.Column="0"
                     Text="{Binding ActiveSession.Playback.Position, Converter={StaticResource TimeSpanToStringConverter}}"
+                    Visibility="{Binding ActiveSession.Playback.HasProgress, Converter={StaticResource BoolToVisibilityConverter}}"
                     VerticalAlignment="Center"
                     Margin="0,0,10,0"
                 />
@@ -303,14 +309,22 @@
                     x:Name="PositionSlider"
                     Grid.Column="1"
                     IsEnabled="{Binding ActiveSession.Playback.CanSeek}"
+                    Visibility="{Binding ActiveSession.Playback.HasProgress, Converter={StaticResource BoolToVisibilityConverter}}"
                     Maximum="{Binding ActiveSession.Playback.Duration, Converter={StaticResource TimeSpanToFloatConverter}}"
                     Value="{Binding ActiveSession.Playback.Position, Mode=OneWay, Converter={StaticResource TimeSpanToFloatConverter}}"
                     PointerPressed="PositionSlider_PointerPressed"
                     PointerReleased="PositionSlider_PointerReleased"
                 />
+                <ProgressBar
+                    Grid.Column="1"
+                    VerticalAlignment="Center"
+                    IsIndeterminate="True"
+                    Visibility="{Binding ActiveSession.Playback.IsProgressIndeterminate, Converter={StaticResource BoolToVisibilityConverter}}"
+                />
                 <TextBlock
                     Grid.Column="2"
                     Text="{Binding ActiveSession.Playback.Duration, Converter={StaticResource TimeSpanToStringConverter}}"
+                    Visibility="{Binding ActiveSession.Playback.HasProgress, Converter={StaticResource BoolToVisibilityConverter}}"
                     VerticalAlignment="Center"
                     Margin="10,0,0,0"
                 />

@@ -23,6 +23,8 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
     private readonly ObservableAsPropertyHelper<float> _progress;
     private readonly ObservableAsPropertyHelper<bool> _isPlaying;
     private readonly ObservableAsPropertyHelper<bool> _canSeek;
+    private readonly ObservableAsPropertyHelper<bool> _hasProgress;
+    private readonly ObservableAsPropertyHelper<bool> _isProgressIndeterminate;
     private readonly CompositeDisposable _disposable;
 
     public PlaybackControlsViewModel(IScheduler scheduler)
@@ -81,6 +83,27 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
             .Select(SelectProgress)
             .ToProperty(this, vm => vm.Progress, initialValue: 0, scheduler: scheduler);
 
+        // HasProgress/IsProgressIndeterminate are a fourth and fifth representation of the same
+        // duration/position data as Progress (the existing float) -- Progress is not what these
+        // drive. A source that never publishes a position (Nora is the known case: it accepts
+        // seek commands and silently drops them) reports Duration == TimeSpan.Zero forever, so
+        // HasProgress tells the view whether the position/duration labels and slider mean
+        // anything at all.
+        var hasProgressObservable = durationObservable.Select(duration => duration > TimeSpan.Zero);
+        _hasProgress = hasProgressObservable.ToProperty(
+            this,
+            vm => vm.HasProgress,
+            initialValue: false,
+            scheduler: scheduler
+        );
+
+        // Indeterminate only while playing: a bar that keeps marching while paused states
+        // something false. Deliberately not CanSeek -- CanSeek answers whether seeking is
+        // permitted, a different question from whether a position exists at all.
+        _isProgressIndeterminate = this.WhenAnyValue(vm => vm.IsPlaying)
+            .CombineLatest(hasProgressObservable, (isPlaying, hasProgress) => isPlaying && !hasProgress)
+            .ToProperty(this, vm => vm.IsProgressIndeterminate, initialValue: false, scheduler: scheduler);
+
         PlayPause = ReactiveCommand.CreateFromObservable(
             PlayPauseImpl,
             canExecute: CanPlayPauseImpl(),
@@ -110,7 +133,9 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
             _canSeek,
             _duration,
             _position,
-            _progress
+            _progress,
+            _hasProgress,
+            _isProgressIndeterminate
         );
     }
 
@@ -165,6 +190,10 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
     public bool IsPlaying => _isPlaying.Value;
 
     public bool CanSeek => _canSeek.Value;
+
+    public bool HasProgress => _hasProgress.Value;
+
+    public bool IsProgressIndeterminate => _isProgressIndeterminate.Value;
 
     private bool _isSeeking = false;
     public bool IsSeeking
