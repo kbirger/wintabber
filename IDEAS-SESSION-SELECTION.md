@@ -124,7 +124,9 @@ so none of them is tried again.
 `SMTCSessionRepository.ToSessionChangeSet` would hide a transient absence from
 every consumer. Rejected on measurement: a window wide enough for 950 ms delays
 every add and remove by about a second, and a closed app lingers even longer
-than it already does.
+than it already does. **A narrower variant did ship later** -- see "Where this
+landed". Delaying only removals costs nothing on the add path, and once the
+selection model was fixed the window no longer carried any correctness weight.
 
 **B. Repair the selection in the view model.** Keep the gate; when the
 selection goes null, wait for the session to return and put it back. Rejected
@@ -205,3 +207,29 @@ probes that mattered:
 Reproduce with the media window's **own** next button, not the player's. Any
 click into the player moves the foreground, and `MediaControlsStateService`
 hides the window, which stops the trace.
+
+## Where this landed
+
+Two commits, in this order. The split is deliberate: the first fixes the bug,
+the second is cosmetic and can be reverted on its own.
+
+**The selection model.** `MediaControlsViewModel` now takes two inputs -- the
+user's pick as an AUMID, and the SMTC-active AUMID -- and derives the effective
+selection against `sessionCache`. The public setter is the view's input channel
+and drops nulls; `SetSelectionFromModel` is the model's output channel. Both
+gates are gone. Verified live: six skips, six deterministic recoveries.
+
+After this, the selection always returned to the right session, but the ComboBox
+still went blank for the 233 ms to 950 ms the item was missing from the list.
+
+**Delayed removals.** `ToSessionChangeSet` gained `removalDelay` (default 1.5 s)
+and an `IScheduler`. Adds and updates apply at once; a removal is a proposal
+that must survive the window. Built from per-key presence events, `GroupBy`, and
+`Select`/`Delay`/`Switch` -- `Switch` cancels a pending removal when the key
+returns, so there is no timer dictionary and no cancellation bookkeeping.
+`EditDiff` is no longer used.
+
+A test capturing changeset reasons showed a skip-shaped round trip now produces
+exactly one changeset, `Add`, with no `Remove` and no `Update`. Confirmed live:
+no blank, and the list itself stays stable. A genuinely closed app lingers up to
+1.5 s longer, which is small beside the several seconds SMTC already takes.
