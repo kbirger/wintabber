@@ -185,7 +185,7 @@
                 Grid.ColumnSpan="2"
                 ItemsSource="{Binding Sessions}"
                 HorizontalAlignment="Stretch"
-                MinHeight="34"
+                Height="40"
                 x:Name="SessionSelector"
                 AccessKey="A"
                 ItemTemplate="{StaticResource SessionItemTemplate}"
@@ -200,7 +200,7 @@
                 Grid.Row="1"
                 Margin="7,0,0,0"
                 HorizontalAlignment="Stretch"
-                MinHeight="34"
+                Height="40"
                 x:Name="PlaybackDeviceSelector"
                 AccessKey="S"
                 ItemTemplate="{StaticResource DeviceItemTemplate}"
@@ -215,7 +215,7 @@
                 Grid.ColumnSpan="2"
                 Grid.Row="1"
                 HorizontalAlignment="Stretch"
-                MinHeight="34"
+                Height="40"
                 x:Name="RecordingDeviceSelector"
                 AccessKey="R"
                 ItemTemplate="{StaticResource DeviceItemTemplate}"
@@ -292,7 +292,17 @@
                  the same cell (Grid.Column="1") and toggle visibility on HasProgress/
                  IsProgressIndeterminate, and without a fixed height here the window would resize
                  when the source's position-reporting state changes. -->
-            <Grid Grid.Row="1" Grid.ColumnSpan="3" Height="32" VerticalAlignment="Center" Margin="0,8,0,0">
+            <!-- Height is fixed so the row does not change size when a source switches between
+                 known and unknown position. Visibility collapses the whole row when there is no
+                 session at all, so the fixed height never holds empty space open. -->
+            <Grid
+                Grid.Row="1"
+                Grid.ColumnSpan="3"
+                Height="32"
+                VerticalAlignment="Center"
+                Margin="0,8,0,0"
+                Visibility="{Binding ActiveSession, Converter={StaticResource NullToVisibilityConverter}}"
+            >
                 <Grid.ColumnDefinitions>
                     <ColumnDefinition Width="Auto" />
                     <ColumnDefinition Width="*" />
