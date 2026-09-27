@@ -118,29 +118,36 @@ public sealed class AccessKeyBadgeLayer
     }
 
     /// <summary>
-    /// Locates a popup-owning control's own drop-down/flyout Popup right after it opens, by
-    /// snapshotting the open popups just before <paramref name="popupOwnerOpening"/> runs and diffing
-    /// against the open popups right after. Hands the caller that popup's content Panel via
-    /// <paramref name="onPopupOpened"/> so item badges can be added as direct children of it -- sharing
-    /// the SAME popup as the drop-down, not a sibling one -- which is required for them to draw above
-    /// the drop-down's own content: a ComboBox drop-down is a light-dismiss Popup, and WinUI keeps
-    /// light-dismiss popups on a stacking layer above ordinary Popups regardless of open order, so no
-    /// sibling Popup (however recently opened) can ever draw above it. Confirmed live via
-    /// VisualTreeHelper.GetOpenPopupsForXamlRoot: the drop-down's Popup was listed ahead of badge
-    /// Popups opened strictly earlier.
+    /// Snapshots the popups currently open for this layer's XamlRoot -- call this BEFORE a
+    /// popup-owning control's own popup opens, so InjectIntoNewPopup can later diff against it to
+    /// find the newly opened one. Split into two methods (this one and InjectIntoNewPopup) instead
+    /// of one bracketing call, because a control like ComboBox opens its own drop-down
+    /// asynchronously, driven by the framework -- by the time DropDownOpened fires, the popup has
+    /// ALREADY opened, so a single "snapshot before, run an action, snapshot after" call has
+    /// nothing to bracket: both snapshots would already include the new popup (confirmed live: this
+    /// was the root cause of item badges never appearing). The caller must snapshot at the true
+    /// "about to open" moment (for a ComboBox, AccessKeyInvoked -- which the framework raises
+    /// before it opens the drop-down) and inject at the "opened" moment (DropDownOpened).
+    /// </summary>
+    public IReadOnlyList<Popup> SnapshotOpenPopups(UIElement owner)
+    {
+        return VisualTreeHelper.GetOpenPopupsForXamlRoot(_overlay.XamlRoot).ToList();
+    }
+
+    /// <summary>
+    /// Finds the one Popup that opened since <paramref name="before"/> was captured (see
+    /// SnapshotOpenPopups) and hands its content Panel to <paramref name="onPopupOpened"/> so item
+    /// badges can be added as direct children of it -- sharing the SAME popup as the drop-down, not
+    /// a sibling one -- required for them to draw above the drop-down's own content: a ComboBox
+    /// drop-down is a light-dismiss Popup, and WinUI keeps light-dismiss popups on a stacking layer
+    /// above ordinary Popups regardless of open order, so no sibling Popup can ever draw above it.
+    /// Confirmed live via VisualTreeHelper.GetOpenPopupsForXamlRoot.
     ///
     /// Does nothing (onPopupOpened is not called) if no new Popup is found, or if the new Popup's
-    /// Child is not a Panel -- both are silent no-ops, not errors: a badge that fails to place itself
-    /// is a visible-but-recoverable gap, not a crash, and future Windows App SDK versions could change
-    /// the drop-down's internal Child type without warning (see this method's caller-facing risk note
-    /// in the plan/spec).
+    /// Child is not a Panel -- both are silent no-ops, not errors.
     /// </summary>
-    public void WatchPopupOwner(UIElement owner, Action popupOwnerOpening, Action<Panel> onPopupOpened)
+    public void InjectIntoNewPopup(IReadOnlyList<Popup> before, Action<Panel> onPopupOpened)
     {
-        var before = VisualTreeHelper.GetOpenPopupsForXamlRoot(_overlay.XamlRoot).ToList();
-
-        popupOwnerOpening();
-
         var after = VisualTreeHelper.GetOpenPopupsForXamlRoot(_overlay.XamlRoot).ToList();
         var newPopup = FindNewPopup(before, after);
 

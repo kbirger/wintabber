@@ -19,10 +19,13 @@ public static class DynamicAccessKeyScope
     /// drop-down opens. The HashSet dedup is required because DropDownOpened fires on every open
     /// and containers can be reused; without it, badges would be added to the drop-down panel
     /// again on every re-open, duplicating them. Item badges are added directly into the
-    /// drop-down's own Popup panel via badgeLayer.WatchPopupOwner, not through badgeLayer.Watch --
-    /// a ComboBox drop-down is a light-dismiss Popup and always draws above a badge's own sibling
-    /// Popup regardless of open order, so an item badge must live inside the SAME Popup as the
-    /// drop-down to be visible over it.
+    /// drop-down's own Popup panel via badgeLayer.SnapshotOpenPopups/InjectIntoNewPopup, not
+    /// through badgeLayer.Watch -- a ComboBox drop-down is a light-dismiss Popup and always draws
+    /// above a badge's own sibling Popup regardless of open order, so an item badge must live
+    /// inside the SAME Popup as the drop-down to be visible over it. The snapshot/inject split
+    /// (rather than a single bracketing call) exists because the drop-down's Popup opens
+    /// asynchronously, driven by the framework, before DropDownOpened fires -- so the "before"
+    /// snapshot must be captured earlier, at AccessKeyInvoked.
     /// </summary>
     public static void AttachSequentialKeys(
         ComboBox owner,
@@ -36,50 +39,59 @@ public static class DynamicAccessKeyScope
         var wired = new HashSet<ComboBoxItem>();
 
         // Set only when the owner's own access key opened the drop-down, so a mouse or arrow-key
-        // open does not start an access-key display session the user never asked for.
+        // open does not start an access-key display session the user never asked for. The popup
+        // snapshot is captured HERE, not in DropDownOpened below -- AccessKeyInvoked is the last
+        // point before the drop-down's own Popup opens; DropDownOpened fires after it already has,
+        // by which point there is nothing left to diff against (see AccessKeyBadgeLayer's
+        // SnapshotOpenPopups/InjectIntoNewPopup doc comments for why this two-point split exists).
         var openedByAccessKey = false;
-        owner.AccessKeyInvoked += (_, _) => openedByAccessKey = true;
+        IReadOnlyList<Popup>? popupsBeforeOpen = null;
+        owner.AccessKeyInvoked += (_, _) =>
+        {
+            openedByAccessKey = true;
+            popupsBeforeOpen = badgeLayer.SnapshotOpenPopups(owner);
+        };
 
         owner.DropDownOpened += (_, _) =>
         {
             var continueChord = openedByAccessKey;
+            var before = popupsBeforeOpen;
             openedByAccessKey = false;
+            popupsBeforeOpen = null;
 
             owner.DispatcherQueue.TryEnqueue(() =>
             {
-                // The drop-down's Popup is already open by the time DropDownOpened fires, so the
-                // "opening" action WatchPopupOwner performs between its before/after snapshots is a
-                // no-op here -- the snapshot-before-open ordering only matters for a popup owner
-                // that opens asynchronously after this call, which a ComboBox is not.
-                badgeLayer.WatchPopupOwner(
-                    owner,
-                    popupOwnerOpening: () => { },
-                    onPopupOpened: panel =>
+                Panel? dropDownPanel = null;
+                if (continueChord && before != null)
+                {
+                    badgeLayer.InjectIntoNewPopup(before, panel => dropDownPanel = panel);
+                }
+
+                for (int i = 0; i < owner.Items.Count; i++)
+                {
+                    if (owner.ContainerFromIndex(i) is not ComboBoxItem container)
                     {
-                        for (int i = 0; i < owner.Items.Count; i++)
-                        {
-                            if (owner.ContainerFromIndex(i) is not ComboBoxItem container)
-                            {
-                                continue;
-                            }
-
-                            container.AccessKey = (i + 1).ToString();
-
-                            if (!wired.Add(container))
-                            {
-                                continue;
-                            }
-
-                            container.AccessKeyInvoked += (_, args) =>
-                            {
-                                onActivated(container, owner.IndexFromContainer(container));
-                                args.Handled = true;
-                            };
-
-                            AccessKeyBadgeLayer.AddItemBadge(panel, container);
-                        }
+                        continue;
                     }
-                );
+
+                    container.AccessKey = (i + 1).ToString();
+
+                    if (!wired.Add(container))
+                    {
+                        continue;
+                    }
+
+                    container.AccessKeyInvoked += (_, args) =>
+                    {
+                        onActivated(container, owner.IndexFromContainer(container));
+                        args.Handled = true;
+                    };
+
+                    if (dropDownPanel != null)
+                    {
+                        AccessKeyBadgeLayer.AddItemBadge(dropDownPanel, container);
+                    }
+                }
 
                 if (continueChord)
                 {
