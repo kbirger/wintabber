@@ -1,6 +1,7 @@
 using System.Linq;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
 using Windows.Foundation;
@@ -20,8 +21,13 @@ namespace WinTabber.UI.Common.AccessKeys;
 public sealed class AccessKeyBadgeLayer
 {
     private readonly Canvas _overlay;
-    private readonly Dictionary<UIElement, AccessKeyBadge> _badges = new();
+    private readonly Dictionary<UIElement, (AccessKeyBadge Badge, Popup Popup)> _badges = new();
 
+    // Each static badge lives in its own Popup, not as a child of the overlay Canvas. A ComboBox
+    // drop-down is itself a Popup, and WinUI draws every open Popup in the PopupRoot above all
+    // normal window content, so a Canvas child can never draw above it -- confirmed live: this
+    // Canvas-child version was the original form of this bug (badges drawing behind an open
+    // drop-down). The overlay Canvas stays only as the anchor supplying XamlRoot.
     public AccessKeyBadgeLayer(Canvas overlay)
     {
         _overlay = overlay;
@@ -38,17 +44,17 @@ public sealed class AccessKeyBadgeLayer
     {
         var underlineLength = AccessKeyBadge.ComputeUnderlineLength(sender.AccessKey, args.PressedKeys);
 
-        if (_badges.TryGetValue(sender, out var existingBadge) && existingBadge.Text != sender.AccessKey)
+        if (_badges.TryGetValue(sender, out var existing) && existing.Badge.Text != sender.AccessKey)
         {
             // sender's AccessKey changed since this badge was created (DynamicAccessKeyScope
             // reassigns a reused ComboBoxItem's key on every DropDownOpened) -- the cached badge's
             // text is now stale and must not be reused with an underline length computed for a
             // different string.
-            _overlay.Children.Remove(existingBadge.Visual);
+            existing.Popup.IsOpen = false;
             _badges.Remove(sender);
         }
 
-        if (!_badges.TryGetValue(sender, out var badge))
+        if (!_badges.TryGetValue(sender, out var entry))
         {
             if (underlineLength < 0)
             {
@@ -57,28 +63,37 @@ public sealed class AccessKeyBadgeLayer
                 return;
             }
 
-            badge = new AccessKeyBadge(sender.AccessKey);
-            _badges[sender] = badge;
-            _overlay.Children.Add(badge.Visual);
+            var newBadge = new AccessKeyBadge(sender.AccessKey);
+            var popup = new Popup
+            {
+                XamlRoot = _overlay.XamlRoot,
+                Child = newBadge.Visual,
+                IsHitTestVisible = false,
+                ShouldConstrainToRootBounds = false,
+            };
+            entry = (newBadge, popup);
+            _badges[sender] = entry;
         }
 
         // Recomputed on every request, not cached, so the badge stays correctly placed even if
         // layout shifts mid-sequence. Matches HintPosition.TopLeft's exact offset (bounds.Left - 4,
-        // bounds.Top - 4), ported from WPF's HintPosition.cs.
-        var point = sender.TransformToVisual(_overlay).TransformPoint(new Point(0, 0));
-        Canvas.SetLeft(badge.Visual, point.X - 4);
-        Canvas.SetTop(badge.Visual, point.Y - 4);
+        // bounds.Top - 4), ported from WPF's HintPosition.cs. A Popup with a XamlRoot and no parent
+        // is positioned in window-content coordinates, which TransformToVisual(null) yields.
+        var point = sender.TransformToVisual(null).TransformPoint(new Point(0, 0));
+        entry.Popup.HorizontalOffset = point.X - 4;
+        entry.Popup.VerticalOffset = point.Y - 4;
+        entry.Popup.IsOpen = true;
 
-        badge.UpdatePrefix(underlineLength);
+        entry.Badge.UpdatePrefix(underlineLength);
     }
 
     private void OnAccessKeyDisplayDismissed(UIElement sender, AccessKeyDisplayDismissedEventArgs args)
     {
         // A dismiss for an element with no active badge (e.g. dismissed twice) is a no-op, not an
         // error -- Dictionary.Remove's bool return makes that the natural shape here.
-        if (_badges.Remove(sender, out var badge))
+        if (_badges.Remove(sender, out var entry))
         {
-            _overlay.Children.Remove(badge.Visual);
+            entry.Popup.IsOpen = false;
         }
     }
 
