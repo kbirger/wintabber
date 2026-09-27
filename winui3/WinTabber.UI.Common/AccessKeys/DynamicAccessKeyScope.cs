@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 
 namespace WinTabber.UI.Common.AccessKeys;
@@ -16,10 +17,12 @@ public static class DynamicAccessKeyScope
     /// access-key badge/chord session continuous across the transition from the ComboBox's own
     /// key into its items' keys -- without both, the user must press Alt a second time after the
     /// drop-down opens. The HashSet dedup is required because DropDownOpened fires on every open
-    /// and containers can be reused; without it, AccessKeyInvoked handlers stack across repeated
-    /// opens. <paramref name="badgeLayer"/> gets the same <c>Watch</c> registration a static element
-    /// would, since AccessKeyDisplayRequested/Dismissed do not bubble and a ComboBoxItem is
-    /// otherwise invisible to it.
+    /// and containers can be reused; without it, badges would be added to the drop-down panel
+    /// again on every re-open, duplicating them. Item badges are added directly into the
+    /// drop-down's own Popup panel via badgeLayer.WatchPopupOwner, not through badgeLayer.Watch --
+    /// a ComboBox drop-down is a light-dismiss Popup and always draws above a badge's own sibling
+    /// Popup regardless of open order, so an item badge must live inside the SAME Popup as the
+    /// drop-down to be visible over it.
     /// </summary>
     public static void AttachSequentialKeys(
         ComboBox owner,
@@ -31,34 +34,57 @@ public static class DynamicAccessKeyScope
         owner.ExitDisplayModeOnAccessKeyInvoked = false;
 
         var wired = new HashSet<ComboBoxItem>();
+
+        // Set only when the owner's own access key opened the drop-down, so a mouse or arrow-key
+        // open does not start an access-key display session the user never asked for.
+        var openedByAccessKey = false;
+        owner.AccessKeyInvoked += (_, _) => openedByAccessKey = true;
+
         owner.DropDownOpened += (_, _) =>
         {
+            var continueChord = openedByAccessKey;
+            openedByAccessKey = false;
+
             owner.DispatcherQueue.TryEnqueue(() =>
             {
-                for (int i = 0; i < owner.Items.Count; i++)
-                {
-                    if (owner.ContainerFromIndex(i) is ComboBoxItem container)
+                // The drop-down's Popup is already open by the time DropDownOpened fires, so the
+                // "opening" action WatchPopupOwner performs between its before/after snapshots is a
+                // no-op here -- the snapshot-before-open ordering only matters for a popup owner
+                // that opens asynchronously after this call, which a ComboBox is not.
+                badgeLayer.WatchPopupOwner(
+                    owner,
+                    popupOwnerOpening: () => { },
+                    onPopupOpened: panel =>
                     {
-                        container.AccessKey = (i + 1).ToString();
-                        if (wired.Add(container))
+                        for (int i = 0; i < owner.Items.Count; i++)
                         {
-                            // AccessKeyBadgeLayer only learns an element exists via Watch -- there
-                            // is no bubbling to rely on here either, so a dynamically-realized
-                            // ComboBoxItem needs the same explicit registration a static XAML
-                            // element gets. Guarded by the same wired-dedup as AccessKeyInvoked
-                            // just below it, for the same reason: DropDownOpened fires on every
-                            // open and containers can be reused.
-                            badgeLayer.Watch(container);
+                            if (owner.ContainerFromIndex(i) is not ComboBoxItem container)
+                            {
+                                continue;
+                            }
+
+                            container.AccessKey = (i + 1).ToString();
+
+                            if (!wired.Add(container))
+                            {
+                                continue;
+                            }
+
                             container.AccessKeyInvoked += (_, args) =>
                             {
                                 onActivated(container, owner.IndexFromContainer(container));
                                 args.Handled = true;
                             };
+
+                            AccessKeyBadgeLayer.AddItemBadge(panel, container);
                         }
                     }
-                }
+                );
 
-                AccessKeyManager.EnterDisplayMode(owner.XamlRoot);
+                if (continueChord)
+                {
+                    AccessKeyManager.EnterDisplayMode(owner.XamlRoot);
+                }
             });
         };
     }

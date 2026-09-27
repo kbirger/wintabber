@@ -134,4 +134,39 @@ public sealed class AccessKeyBadgeLayer
             onPopupOpened(panel);
         }
     }
+
+    /// <summary>
+    /// Creates one AccessKeyBadge for a dynamically-keyed ComboBoxItem and adds it as a direct
+    /// child of dropDownPanel -- the drop-down's own Popup content, located by WatchPopupOwner --
+    /// rather than through the normal Watch/_badges path, which places a badge in its own sibling
+    /// Popup that a ComboBox drop-down (a light-dismiss Popup) always draws above regardless of
+    /// open order. Wires the container's own AccessKeyDisplayRequested/Dismissed directly,
+    /// bypassing OnAccessKeyDisplayRequested/Dismissed entirely, since those methods assume the
+    /// sibling-Popup shape this badge does not use.
+    /// </summary>
+    public static void AddItemBadge(Panel dropDownPanel, ComboBoxItem container)
+    {
+        var badge = new AccessKeyBadge(container.AccessKey);
+        dropDownPanel.Children.Add(badge.Visual);
+
+        container.AccessKeyDisplayRequested += (sender, args) =>
+        {
+            var underlineLength = AccessKeyBadge.ComputeUnderlineLength(sender.AccessKey, args.PressedKeys);
+
+            // Position is relative to dropDownPanel, not the window -- container and dropDownPanel
+            // share that panel as a common ancestor once the drop-down is open, so
+            // TransformToVisual(dropDownPanel) gives coordinates already in the right space, matching
+            // the -4/-4 offset the window-level path uses (see OnAccessKeyDisplayRequested).
+            var point = container.TransformToVisual(dropDownPanel).TransformPoint(new Point(0, 0));
+            Canvas.SetLeft(badge.Visual, point.X - 4);
+            Canvas.SetTop(badge.Visual, point.Y - 4);
+
+            badge.UpdatePrefix(underlineLength);
+        };
+
+        container.AccessKeyDisplayDismissed += (_, _) =>
+        {
+            badge.UpdatePrefix(-1);
+        };
+    }
 }
