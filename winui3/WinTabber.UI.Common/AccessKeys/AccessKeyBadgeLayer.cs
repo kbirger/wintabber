@@ -79,4 +79,24 @@ public sealed class AccessKeyBadgeLayer
             _overlay.Children.Remove(badge.Visual);
         }
     }
+
+    /// <summary>
+    /// Finds the one item present in <paramref name="after"/> but not in <paramref name="before"/> --
+    /// used to identify a ComboBox's own drop-down Popup right after it opens, by diffing the set of
+    /// open popups just before and just after DropDownOpened fires. Returns null if nothing new opened
+    /// (should not happen when called right after DropDownOpened, but is not this method's job to
+    /// assert -- the caller decides what a null means for it).
+    /// </summary>
+    internal static T? FindNewPopup<T>(IReadOnlyList<T> before, IReadOnlyList<T> after) where T : class
+    {
+        foreach (var item in after)
+        {
+            if (!before.Contains(item))
+            {
+                return item;
+            }
+        }
+
+        return null;
+    }
 }
