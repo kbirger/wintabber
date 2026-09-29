@@ -1,6 +1,8 @@
+using System.Runtime.InteropServices;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Controls;
+using Windows.Foundation;
 using Windows.Graphics;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -74,6 +76,28 @@ public sealed class AccessKeyOverlayWindow : WinUIEx.WindowEx
     {
         AppWindow.Hide();
     }
+
+    /// <summary>
+    /// Converts elementLocal (an element's position in its own window's coordinates, as
+    /// TransformToVisual(null) already gives it) into this overlay's own coordinate space. Both
+    /// ownerPosition and overlayPosition are each window's AppWindow.Position -- top-left in
+    /// physical screen pixels -- so their difference is already in the same physical-pixel space;
+    /// dividing by scale converts that difference into the DIPs elementLocal and the overlay's own
+    /// Canvas positions are both expressed in. See
+    /// docs/superpowers/specs/2026-09-28-access-key-overlay-window-design.md's Coordinate placement
+    /// section for the full derivation.
+    /// </summary>
+    internal static Point ComputeOverlayLocalPosition(
+        Point elementLocal,
+        PointInt32 ownerPosition,
+        PointInt32 overlayPosition,
+        double scale
+    )
+    {
+        var offsetX = (ownerPosition.X - overlayPosition.X) / scale;
+        var offsetY = (ownerPosition.Y - overlayPosition.Y) / scale;
+        return new Point(elementLocal.X + offsetX, elementLocal.Y + offsetY);
+    }
 }
 
 /// <summary>
@@ -87,6 +111,15 @@ public sealed class AccessKeyOverlayWindow : WinUIEx.WindowEx
 /// </summary>
 internal static class AccessKeyOverlayInterop
 {
+    private const int GWL_EXSTYLE = -20;
+    private const int GWLP_HWNDPARENT = -8;
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern nint GetWindowLongPtr(nint hWnd, int nIndex);
+
+    [DllImport("user32.dll", SetLastError = true)]
+    private static extern nint SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong);
+
     public static void MakeClickThroughAndOwned(nint overlayHwnd, nint ownerHwnd)
     {
         // Per the design spec's Error handling section: no logging infrastructure exists anywhere
@@ -97,16 +130,18 @@ internal static class AccessKeyOverlayInterop
         // above-owner z-order guarantees would be missing.
         try
         {
-            var hwnd = new HWND(overlayHwnd);
+            const int WS_EX_LAYERED = 0x00080000;
+            const int WS_EX_TRANSPARENT = 0x00000020;
+            const int WS_EX_NOACTIVATE = 0x08000000;
 
-            var currentExStyle = PInvoke.GetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
+            var currentExStyle = GetWindowLongPtr(overlayHwnd, GWL_EXSTYLE);
             var newExStyle = currentExStyle
-                | (nint)WINDOW_EX_STYLE.WS_EX_LAYERED
-                | (nint)WINDOW_EX_STYLE.WS_EX_TRANSPARENT
-                | (nint)WINDOW_EX_STYLE.WS_EX_NOACTIVATE;
-            PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE, newExStyle);
+                | (nint)WS_EX_LAYERED
+                | (nint)WS_EX_TRANSPARENT
+                | (nint)WS_EX_NOACTIVATE;
+            SetWindowLongPtr(overlayHwnd, GWL_EXSTYLE, newExStyle);
 
-            PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWLP_HWNDPARENT, ownerHwnd);
+            SetWindowLongPtr(overlayHwnd, GWLP_HWNDPARENT, ownerHwnd);
         }
         catch (Exception)
         {
