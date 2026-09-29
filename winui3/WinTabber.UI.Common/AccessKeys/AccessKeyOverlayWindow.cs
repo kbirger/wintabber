@@ -1,4 +1,3 @@
-using System.Runtime.InteropServices;
 using Microsoft.UI;
 using Microsoft.UI.Windowing;
 using Microsoft.UI.Xaml.Controls;
@@ -111,15 +110,6 @@ public sealed class AccessKeyOverlayWindow : WinUIEx.WindowEx
 /// </summary>
 internal static class AccessKeyOverlayInterop
 {
-    private const int GWL_EXSTYLE = -20;
-    private const int GWLP_HWNDPARENT = -8;
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern nint GetWindowLongPtr(nint hWnd, int nIndex);
-
-    [DllImport("user32.dll", SetLastError = true)]
-    private static extern nint SetWindowLongPtr(nint hWnd, int nIndex, nint dwNewLong);
-
     public static void MakeClickThroughAndOwned(nint overlayHwnd, nint ownerHwnd)
     {
         // Per the design spec's Error handling section: no logging infrastructure exists anywhere
@@ -130,18 +120,16 @@ internal static class AccessKeyOverlayInterop
         // above-owner z-order guarantees would be missing.
         try
         {
-            const int WS_EX_LAYERED = 0x00080000;
-            const int WS_EX_TRANSPARENT = 0x00000020;
-            const int WS_EX_NOACTIVATE = 0x08000000;
+            var hwnd = new HWND(overlayHwnd);
 
-            var currentExStyle = GetWindowLongPtr(overlayHwnd, GWL_EXSTYLE);
+            var currentExStyle = PInvoke.GetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
             var newExStyle = currentExStyle
-                | (nint)WS_EX_LAYERED
-                | (nint)WS_EX_TRANSPARENT
-                | (nint)WS_EX_NOACTIVATE;
-            SetWindowLongPtr(overlayHwnd, GWL_EXSTYLE, newExStyle);
+                | (nint)WINDOW_EX_STYLE.WS_EX_LAYERED
+                | (nint)WINDOW_EX_STYLE.WS_EX_TRANSPARENT
+                | (nint)WINDOW_EX_STYLE.WS_EX_NOACTIVATE;
+            PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE, newExStyle);
 
-            SetWindowLongPtr(overlayHwnd, GWLP_HWNDPARENT, ownerHwnd);
+            PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWLP_HWNDPARENT, ownerHwnd);
         }
         catch (Exception)
         {
