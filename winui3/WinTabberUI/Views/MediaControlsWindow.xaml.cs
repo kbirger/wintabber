@@ -5,6 +5,9 @@ using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
+using System.Windows.Forms;
+using System.Windows.Input;
+using Windows.UI;
 using WinRT;
 using WinRT.Interop;
 using WinTabber.UI.Common.AccessKeys;
@@ -33,7 +36,7 @@ public sealed partial class MediaControlsWindow : WindowEx
 
     public MediaControlsViewModel ViewModel { get; }
     private DesktopAcrylicController? _desktopAcrylicController;
-    private readonly SystemBackdropConfiguration _configurationSource;
+    private SystemBackdropConfiguration _configurationSource;
 
     public MediaControlsWindow(MediaControlsViewModel viewModel, IMediaControlsStateService mediaControlsStateService)
     {
@@ -41,11 +44,23 @@ public sealed partial class MediaControlsWindow : WindowEx
         _mediaControlsStateService = mediaControlsStateService;
         InitializeComponent();
         AppWindow.SetIcon(DesktopHelper.AppIconPath);
-        //SystemBackdrop = new Microsoft.UI.Xaml.Media.DesktopAcrylicBackdrop();
         if (DesktopAcrylicController.IsSupported())
         {
-            _desktopAcrylicController = new DesktopAcrylicController();
-            _configurationSource = new SystemBackdropConfiguration();
+            _desktopAcrylicController?.Dispose();
+            _desktopAcrylicController = new DesktopAcrylicController()
+            {
+                LuminosityOpacity = .3f,
+                TintColor = Color.FromArgb(255, 0, 0, 0),
+                TintOpacity = 0f
+            };
+            _configurationSource = new SystemBackdropConfiguration()
+            {
+                IsInputActive = true,
+                Theme = SystemBackdropTheme.Dark
+            };
+
+
+
             _desktopAcrylicController.AddSystemBackdropTarget(this.As<ICompositionSupportsSystemBackdrop>());
             _desktopAcrylicController.SetSystemBackdropConfiguration(_configurationSource);
         }
@@ -68,7 +83,7 @@ public sealed partial class MediaControlsWindow : WindowEx
         ((FrameworkElement)Content).ActualThemeChanged += Window_ThemeChanged;
         ResizeHeightToContent();
 
-        var accessKeyBadgeLayer = new AccessKeyBadgeLayer(AccessKeyOverlay);
+        var accessKeyBadgeLayer = new AccessKeyBadgeLayer(this);
         accessKeyBadgeLayer.Watch(SessionSelector);
         accessKeyBadgeLayer.Watch(PlaybackDeviceSelector);
         accessKeyBadgeLayer.Watch(RecordingDeviceSelector);
@@ -94,7 +109,7 @@ public sealed partial class MediaControlsWindow : WindowEx
             RecordingDeviceSelector.IsDropDownOpen = false;
         });
     }
-
+ 
     private void Window_ThemeChanged(FrameworkElement sender, object args)
     {
         if (_configurationSource != null)
@@ -183,5 +198,11 @@ public sealed partial class MediaControlsWindow : WindowEx
             ViewModel.ActiveSession.Playback.IsSeeking = false;
             ViewModel.ActiveSession.Playback.Seek.Execute(TimeSpan.FromSeconds(slider.Value)).Subscribe();
         }
+    }
+
+    private void RootGrid_PreviewKeyDown(object sender, KeyRoutedEventArgs e)
+    {
+        
+        // Handle key down events for the root grid
     }
 }
