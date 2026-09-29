@@ -8,6 +8,10 @@
 
     <ItemGroup>
         <PackageReference Include="Microsoft.WindowsAppSDK" />
+        <PackageReference Include="Microsoft.Windows.CsWin32">
+            <PrivateAssets>all</PrivateAssets>
+            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
+        </PackageReference>
         <PackageReference Include="CommunityToolkit.WinUI.Controls.SettingsControls" />
         <PackageReference Include="WinUIEx" />
     </ItemGroup>
@@ -16,6 +20,14 @@
         <ProjectReference Include="..\..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />
         <ProjectReference Include="..\..\WinTabber.Events\WinTabber.Events.csproj" />
         <ProjectReference Include="..\..\WinTabber.Interop\WinTabber.Interop.csproj" />
+    </ItemGroup>
+
+    <!-- CsWin32 only auto-discovers a NativeMethods.txt at the project root (or
+         $(ProjectName).NativeMethods.txt); AccessKeys/NativeMethods.txt needs an explicit
+         AdditionalFiles entry, matching WinTabber.Interop's own explicit inclusion. -->
+    <ItemGroup>
+        <None Remove="AccessKeys\NativeMethods.txt" />
+        <AdditionalFiles Include="AccessKeys\NativeMethods.txt" />
     </ItemGroup>
 
     <ItemGroup>
