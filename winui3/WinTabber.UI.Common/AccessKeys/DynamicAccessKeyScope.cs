@@ -1,5 +1,4 @@
 using Microsoft.UI.Xaml.Controls;
-using Microsoft.UI.Xaml.Controls.Primitives;
 using Microsoft.UI.Xaml.Input;
 
 namespace WinTabber.UI.Common.AccessKeys;
@@ -14,18 +13,14 @@ public static class DynamicAccessKeyScope
 {
     /// <summary>
     /// ExitDisplayModeOnAccessKeyInvoked=false plus the explicit EnterDisplayMode call keep the
-    /// access-key badge/chord session continuous across the transition from the ComboBox's own
-    /// key into its items' keys -- without both, the user must press Alt a second time after the
-    /// drop-down opens. The HashSet dedup is required because DropDownOpened fires on every open
-    /// and containers can be reused; without it, badges would be added to the drop-down panel
-    /// again on every re-open, duplicating them. Item badges are added directly into the
-    /// drop-down's own Popup panel via badgeLayer.SnapshotOpenPopups/InjectIntoNewPopup, not
-    /// through badgeLayer.Watch -- a ComboBox drop-down is a light-dismiss Popup and always draws
-    /// above a badge's own sibling Popup regardless of open order, so an item badge must live
-    /// inside the SAME Popup as the drop-down to be visible over it. The snapshot/inject split
-    /// (rather than a single bracketing call) exists because the drop-down's Popup opens
-    /// asynchronously, driven by the framework, before DropDownOpened fires -- so the "before"
-    /// snapshot must be captured earlier, at AccessKeyInvoked.
+    /// access-key badge/chord session continuous across the transition from the ComboBox's own key
+    /// into its items' keys -- without both, the user must press Alt a second time after the
+    /// drop-down opens. The HashSet dedup is required because DropDownOpened fires on every open and
+    /// containers can be reused; without it, AccessKeyInvoked handlers would stack across repeated
+    /// opens. Item badges use the SAME badgeLayer.Watch(container) call any static element uses --
+    /// no special popup-aware path needed, since badges now draw on a separate overlay window that
+    /// sits above the drop-down regardless (see
+    /// docs/superpowers/specs/2026-09-28-access-key-overlay-window-design.md).
     /// </summary>
     public static void AttachSequentialKeys(
         ComboBox owner,
@@ -39,34 +34,17 @@ public static class DynamicAccessKeyScope
         var wired = new HashSet<ComboBoxItem>();
 
         // Set only when the owner's own access key opened the drop-down, so a mouse or arrow-key
-        // open does not start an access-key display session the user never asked for. The popup
-        // snapshot is captured HERE, not in DropDownOpened below -- AccessKeyInvoked is the last
-        // point before the drop-down's own Popup opens; DropDownOpened fires after it already has,
-        // by which point there is nothing left to diff against (see AccessKeyBadgeLayer's
-        // SnapshotOpenPopups/InjectIntoNewPopup doc comments for why this two-point split exists).
+        // open does not start an access-key display session the user never asked for.
         var openedByAccessKey = false;
-        IReadOnlyList<Popup>? popupsBeforeOpen = null;
-        owner.AccessKeyInvoked += (_, _) =>
-        {
-            openedByAccessKey = true;
-            popupsBeforeOpen = badgeLayer.SnapshotOpenPopups(owner);
-        };
+        owner.AccessKeyInvoked += (_, _) => openedByAccessKey = true;
 
         owner.DropDownOpened += (_, _) =>
         {
             var continueChord = openedByAccessKey;
-            var before = popupsBeforeOpen;
             openedByAccessKey = false;
-            popupsBeforeOpen = null;
 
             owner.DispatcherQueue.TryEnqueue(() =>
             {
-                Panel? dropDownPanel = null;
-                if (continueChord && before != null)
-                {
-                    badgeLayer.InjectIntoNewPopup(before, panel => dropDownPanel = panel);
-                }
-
                 for (int i = 0; i < owner.Items.Count; i++)
                 {
                     if (owner.ContainerFromIndex(i) is not ComboBoxItem container)
@@ -81,16 +59,12 @@ public static class DynamicAccessKeyScope
                         continue;
                     }
 
+                    badgeLayer.Watch(container);
                     container.AccessKeyInvoked += (_, args) =>
                     {
                         onActivated(container, owner.IndexFromContainer(container));
                         args.Handled = true;
                     };
-
-                    if (dropDownPanel != null)
-                    {
-                        AccessKeyBadgeLayer.AddItemBadge(dropDownPanel, container);
-                    }
                 }
 
                 if (continueChord)
