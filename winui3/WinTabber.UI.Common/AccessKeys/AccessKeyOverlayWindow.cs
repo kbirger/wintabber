@@ -39,6 +39,13 @@ public sealed class AccessKeyOverlayWindow : WinUIEx.WindowEx
         IsResizable = false;
         IsMinimizable = false;
         IsMaximizable = false;
+        // WinUIEx.TransparentTintBackdrop has no TintOpacity/DarkTintOpacity properties (verified
+        // via direct inspection of the installed WinUIEx 2.9.3 package's metadata -- only a
+        // settable TintColor of type Windows.UI.Color exists). Its parameterless constructor
+        // already initializes TintColor to Microsoft.UI.Colors.Transparent (alpha 0), which is
+        // exactly the fully-transparent backdrop this window needs, so no further configuration
+        // is required.
+        SystemBackdrop = new WinUIEx.TransparentTintBackdrop();
 
         base.Content = _canvas;
 
@@ -68,7 +75,9 @@ public sealed class AccessKeyOverlayWindow : WinUIEx.WindowEx
         }
 
         AppWindow.MoveAndResize(displayArea.OuterBounds);
-        AppWindow.Show();
+
+        var hwnd = WindowNative.GetWindowHandle(this);
+        PInvoke.ShowWindow(new HWND(hwnd), SHOW_WINDOW_CMD.SW_SHOWNOACTIVATE);
     }
 
     public void HideOverlay()

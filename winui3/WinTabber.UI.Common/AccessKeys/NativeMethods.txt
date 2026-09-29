@@ -1,3 +1,4 @@
 SetWindowLongPtr
 GetWindowLongPtr
 WINDOW_EX_STYLE
+ShowWindow
