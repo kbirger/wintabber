@@ -76,8 +76,25 @@ public sealed class AccessKeyOverlayWindow : WinUIEx.WindowEx
 
         AppWindow.MoveAndResize(displayArea.OuterBounds);
 
-        var hwnd = WindowNative.GetWindowHandle(this);
-        PInvoke.ShowWindow(new HWND(hwnd), SHOW_WINDOW_CMD.SW_SHOWNOACTIVATE);
+        var hwnd = new HWND(WindowNative.GetWindowHandle(this));
+        PInvoke.ShowWindow(hwnd, SHOW_WINDOW_CMD.SW_SHOWNOACTIVATE);
+
+        // ShowWindow only changes visibility, not z-order -- the owned-window relationship
+        // (GWLP_HWNDPARENT, set in the constructor) keeps this window grouped with its owner but
+        // does not guarantee it is brought to the top of that group every time it is shown,
+        // especially since the owner (not this window) is what keeps receiving real activation.
+        // HWND_TOP (not HWND_TOPMOST) brings it to the top of the normal z-order band only --
+        // enough given the owned-window grouping, and consistent with this plan's decision against
+        // a system-wide-topmost mechanism. CsWin32 does not generate a named HWND_TOP constant (it
+        // is a Win32 header macro, ((HWND)0), not a metadata member -- confirmed: neither
+        // HWND.HWND_TOP nor PInvoke.HWND_TOP compiles against the generated bindings), so it is
+        // passed as default(HWND), matching InteropProxy.cs's existing SetWindowPos calls.
+        PInvoke.SetWindowPos(
+            hwnd,
+            default(HWND),
+            0, 0, 0, 0,
+            SET_WINDOW_POS_FLAGS.SWP_NOMOVE | SET_WINDOW_POS_FLAGS.SWP_NOSIZE | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE
+        );
     }
 
     public void HideOverlay()
