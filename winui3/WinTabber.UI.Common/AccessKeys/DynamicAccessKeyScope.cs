@@ -69,6 +69,14 @@ public static class DynamicAccessKeyScope
 
                 if (continueChord)
                 {
+                    // EnterDisplayMode alone is a no-op here -- display mode is already on (the
+                    // user's own Alt press turned it on before this ComboBox's key was pressed), so
+                    // the framework never re-scans and never asks the newly-assigned item keys to
+                    // display (confirmed live: zero AccessKeyDisplayRequested events ever fired for
+                    // any ComboBoxItem without this). Exiting first forces a re-scan on entry, which
+                    // does ask every element in scope -- root elements included, which is why they
+                    // blink off and back on for one frame; accepted trade-off, see the plan/spec.
+                    AccessKeyManager.ExitDisplayMode();
                     AccessKeyManager.EnterDisplayMode(owner.XamlRoot);
                 }
             });
