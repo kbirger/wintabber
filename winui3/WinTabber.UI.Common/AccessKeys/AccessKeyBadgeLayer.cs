@@ -25,6 +25,26 @@ public sealed class AccessKeyBadgeLayer
     {
         _owner = owner;
         _overlay = new AccessKeyOverlayWindow(owner);
+
+        // An owned window is hidden by the window manager when its owner is minimized, but NOT when
+        // the owner is hidden via SW_HIDE (how this app's own show/hide toggle works) -- nothing else
+        // tells this layer the owner went away, so badges could otherwise linger visible over nothing.
+        _owner.AppWindow.Changed += OnOwnerAppWindowChanged;
+    }
+
+    private void OnOwnerAppWindowChanged(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowChangedEventArgs args)
+    {
+        if (!args.DidVisibilityChange || sender.IsVisible)
+        {
+            return;
+        }
+
+        foreach (var badge in _badges.Values)
+        {
+            _overlay.Content.Children.Remove(badge.Visual);
+        }
+        _badges.Clear();
+        _overlay.HideOverlay();
     }
 
     /// <summary>Registers one element to get a custom badge instead of the (disabled) default one.</summary>

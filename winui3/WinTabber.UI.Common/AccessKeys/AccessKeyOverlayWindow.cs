@@ -52,6 +52,7 @@ public sealed class AccessKeyOverlayWindow : WinUIEx.WindowEx
         var hwnd = WindowNative.GetWindowHandle(this);
         var ownerHwnd = WindowNative.GetWindowHandle(_owner);
         AccessKeyOverlayInterop.MakeClickThroughAndOwned(hwnd, ownerHwnd);
+        AccessKeyOverlayInterop.ClearBorder(new HWND(hwnd));
     }
 
     public new Canvas Content => _canvas;
@@ -79,6 +80,8 @@ public sealed class AccessKeyOverlayWindow : WinUIEx.WindowEx
         var hwnd = new HWND(WindowNative.GetWindowHandle(this));
         PInvoke.ShowWindow(hwnd, SHOW_WINDOW_CMD.SW_SHOWNOACTIVATE);
 
+        AccessKeyOverlayInterop.ClearBorder(hwnd);
+
         // ShowWindow only changes visibility, not z-order -- the owned-window relationship
         // (GWLP_HWNDPARENT, set in the constructor) keeps this window grouped with its owner but
         // does not guarantee it is brought to the top of that group every time it is shown,
@@ -97,13 +100,14 @@ public sealed class AccessKeyOverlayWindow : WinUIEx.WindowEx
             hwnd,
             (HWND)(-1),
             0, 0, 0, 0,
-            SET_WINDOW_POS_FLAGS.SWP_NOMOVE | SET_WINDOW_POS_FLAGS.SWP_NOSIZE | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE
+            SET_WINDOW_POS_FLAGS.SWP_NOMOVE | SET_WINDOW_POS_FLAGS.SWP_NOSIZE | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE | SET_WINDOW_POS_FLAGS.SWP_FRAMECHANGED
         );
     }
 
     public void HideOverlay()
     {
-        AppWindow.Hide();
+        var hwnd = new HWND(WindowNative.GetWindowHandle(this));
+        PInvoke.ShowWindow(hwnd, SHOW_WINDOW_CMD.SW_HIDE);
     }
 
     /// <summary>
@@ -162,14 +166,24 @@ internal static class AccessKeyOverlayInterop
             PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE, newExStyle);
 
             PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWLP_HWNDPARENT, ownerHwnd);
+        }
+        catch (Exception)
+        {
+            // Intentionally swallowed -- see the comment above this try block.
+        }
+    }
 
+    public static void ClearBorder(HWND hwnd)
+    {
+        try
+        {
             var currentStyle = PInvoke.GetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE);
             var newStyle = currentStyle & ~(nint)WINDOW_STYLE.WS_CAPTION;
             PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE, newStyle);
         }
         catch (Exception)
         {
-            // Intentionally swallowed -- see the comment above this try block.
+            // Intentionally swallowed -- same silent-degrade rationale as MakeClickThroughAndOwned.
         }
     }
 }
