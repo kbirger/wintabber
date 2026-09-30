@@ -30,7 +30,7 @@ public class InstalledApplicationRepositoryPersistenceTests
         var source = new FakeShellApplicationSource(() =>
             throw new InvalidOperationException("Not exercised by these tests")
         );
-        return new InstalledApplicationRepository(source, cacheStore);
+        return new InstalledApplicationRepository(source, cacheStore, TimeSpan.Zero);
     }
 
     [Test]
@@ -135,6 +135,7 @@ public class InstalledApplicationRepositoryPersistenceTests
         };
 
         repository.TryPersistCache(apps);
+        await repository.FlushCacheAsync();
 
         await Assert.That(cacheStore.SavedEntries).IsNotNull();
         await Assert.That(cacheStore.SavedEntries!.Count(entry => entry.AppUserModelId == "App.Dup")).IsEqualTo(1);
@@ -156,6 +157,7 @@ public class InstalledApplicationRepositoryPersistenceTests
         };
 
         repository.TryPersistCache(apps);
+        await repository.FlushCacheAsync();
 
         await Assert.That(cacheStore.SavedEntries).IsNotNull();
         await Assert.That(cacheStore.SavedEntries!.Count).IsEqualTo(1);
@@ -164,40 +166,45 @@ public class InstalledApplicationRepositoryPersistenceTests
     }
 
     [Test]
-    public async Task TryPersistCache_EncodesIconAsPng_ForANewApp()
+    public async Task TryPersistCache_DoesNotSubscribeToAnyIcon()
     {
+        var iconWasSubscribedTo = false;
         using var repository = CreateRepository(out var cacheStore);
-        using var bitmap = new Bitmap(2, 2, PixelFormat.Format32bppArgb);
-        bitmap.SetPixel(0, 0, Color.FromArgb(255, 1, 2, 3));
         var apps = new[]
         {
             new InstalledApplicationInfo
             {
-                AppUserModelId = "App.WithIcon",
-                Name = "With Icon",
-                Icon = Observable.Return<Bitmap?>(bitmap),
+                AppUserModelId = "App.Lazy",
+                Name = "Lazy",
+                TargetPath = @"C:\Apps\Lazy.exe",
+                // Persisting the catalog must not decode a single icon: most installed apps never
+                // have a media session, so an icon is extracted only when something asks for it.
+                // A subscription flag, not a throw, is what fails this test -- the persist path
+                // swallows exceptions.
+                Icon = Observable.Defer(() =>
+                {
+                    iconWasSubscribedTo = true;
+                    return Observable.Return((Bitmap?)null);
+                }),
             },
         };
 
         repository.TryPersistCache(apps);
+        await repository.FlushCacheAsync();
 
-        var bytes = cacheStore.SavedIconBytesByAumid!["App.WithIcon"];
-        await Assert.That(bytes).IsNotNull();
-        using var decoded = new Bitmap(new MemoryStream(bytes!));
-        await Assert.That(decoded.GetPixel(0, 0)).IsEqualTo(Color.FromArgb(255, 1, 2, 3));
+        await Assert.That(iconWasSubscribedTo).IsFalse();
+        await Assert.That(cacheStore.SavedEntries!.Single().AppUserModelId).IsEqualTo("App.Lazy");
     }
 
     [Test]
-    public async Task TryPersistCache_ReusesPreviousIconBytes_WhenMetadataIsUnchanged()
+    public async Task TryPersistCache_KeepsAnUnchangedAppsSavedIcon_WithoutTouchingIt()
     {
         var previousEntry = new CachedApplicationEntry
         {
             AppUserModelId = "App.Unchanged",
             Name = "Unchanged",
             TargetPath = @"C:\Apps\Unchanged.exe",
-            // IconLength > 0 -- the previous entry actually had a cached icon, so the carry-forward
-            // path applies. See TryPersistCache_ReEncodesIcon_WhenPreviousIconWasMissing for the
-            // complementary case where it must NOT apply.
+            IconOffset = 0,
             IconLength = 3,
         };
         using var repository = CreateRepository([previousEntry], out var cacheStore);
@@ -210,144 +217,173 @@ public class InstalledApplicationRepositoryPersistenceTests
                 AppUserModelId = "App.Unchanged",
                 Name = "Unchanged",
                 TargetPath = @"C:\Apps\Unchanged.exe",
-                // TryPersistCache swallows any exception from Icon (see its catch block), so a test
-                // that throws here would still fail -- just on the byte assertion below, not on this
-                // observable. A subscription flag is the airtight way to prove the carry-forward
-                // branch never touches Icon for an app whose metadata didn't change.
                 Icon = Observable.Defer(() =>
                 {
                     iconWasSubscribedTo = true;
                     return Observable.Return((Bitmap?)null);
                 }),
             },
+            // A second, new app forces a real save, so the carry-forward is observable.
+            new InstalledApplicationInfo
+            {
+                AppUserModelId = "App.New",
+                Name = "New",
+                Icon = Observable.Return((Bitmap?)null),
+            },
         };
 
         repository.TryPersistCache(apps);
+        await repository.FlushCacheAsync();
 
         await Assert.That(iconWasSubscribedTo).IsFalse();
         await Assert.That(cacheStore.SavedIconBytesByAumid!["App.Unchanged"]).IsEquivalentTo(new byte[] { 9, 9, 9 });
     }
 
     [Test]
-    public async Task TryPersistCache_ReEncodesIcon_WhenMetadataChanged()
+    public async Task CreateIcon_ReadsTheCacheFirst_AndSkipsShell_WhenTheEntryIsUnchanged()
+    {
+        var previousEntry = new CachedApplicationEntry
+        {
+            AppUserModelId = "App.Cached",
+            Name = "Cached",
+            TargetPath = @"C:\Apps\Cached.exe",
+            IconOffset = 0,
+            IconLength = 3,
+        };
+        using var repository = CreateRepository([previousEntry], out var cacheStore);
+        using var cachedBitmap = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
+        cacheStore.BitmapsByAumid["App.Cached"] = cachedBitmap;
+        var shellWasSubscribedTo = false;
+        var shell = Observable.Defer(() =>
+        {
+            shellWasSubscribedTo = true;
+            return Observable.Return((Bitmap?)null);
+        });
+
+        var icon = repository.CreateIcon("App.Cached", "Cached", @"C:\Apps\Cached.exe", null, shell);
+        var result = await icon.FirstAsync();
+
+        await Assert.That(result).IsSameReferenceAs(cachedBitmap);
+        await Assert.That(shellWasSubscribedTo).IsFalse();
+    }
+
+    [Test]
+    public async Task CreateIcon_FallsBackToShell_WhenTheCacheHasNoIcon()
+    {
+        var previousEntry = new CachedApplicationEntry
+        {
+            AppUserModelId = "App.NoIcon",
+            Name = "No Icon",
+            TargetPath = @"C:\Apps\NoIcon.exe",
+        };
+        using var repository = CreateRepository([previousEntry], out var cacheStore);
+        using var shellBitmap = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
+
+        var icon = repository.CreateIcon(
+            "App.NoIcon",
+            "No Icon",
+            @"C:\Apps\NoIcon.exe",
+            null,
+            Observable.Return<Bitmap?>(shellBitmap)
+        );
+        var result = await icon.FirstAsync();
+
+        await Assert.That(result).IsSameReferenceAs(shellBitmap);
+        await Assert.That(cacheStore.LoadIconCallCount).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task CreateIcon_FallsBackToShell_WhenTheEntryChanged()
     {
         var previousEntry = new CachedApplicationEntry
         {
             AppUserModelId = "App.Moved",
             Name = "Moved",
             TargetPath = @"C:\Old\Path.exe",
+            IconOffset = 0,
+            IconLength = 3,
         };
         using var repository = CreateRepository([previousEntry], out var cacheStore);
-        cacheStore.IconBytesByAumid["App.Moved"] = [9, 9, 9];
-        using var bitmap = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
-        var apps = new[]
-        {
-            new InstalledApplicationInfo
-            {
-                AppUserModelId = "App.Moved",
-                Name = "Moved",
-                TargetPath = @"C:\New\Path.exe", // changed
-                Icon = Observable.Return<Bitmap?>(bitmap),
-            },
-        };
+        using var staleBitmap = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
+        using var shellBitmap = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
+        cacheStore.BitmapsByAumid["App.Moved"] = staleBitmap;
 
-        repository.TryPersistCache(apps);
+        var icon = repository.CreateIcon(
+            "App.Moved",
+            "Moved",
+            @"C:\New\Path.exe",
+            null,
+            Observable.Return<Bitmap?>(shellBitmap)
+        );
+        var result = await icon.FirstAsync();
 
-        // Not the carried-forward [9, 9, 9] -- proves a changed TargetPath forces re-encoding.
-        await Assert.That(cacheStore.SavedIconBytesByAumid!["App.Moved"]).IsNotEquivalentTo(new byte[] { 9, 9, 9 });
+        await Assert.That(result).IsSameReferenceAs(shellBitmap);
     }
 
     [Test]
-    public async Task TryPersistCache_ReEncodesIcon_WhenPreviousIconWasMissing()
+    public async Task CreateIcon_FallsBackToShell_WhenTheCachedIconCannotBeRead()
     {
         var previousEntry = new CachedApplicationEntry
         {
-            AppUserModelId = "App.NoIconYet",
-            Name = "No Icon Yet",
-            TargetPath = @"C:\Apps\NoIconYet.exe",
-            // IconLength defaults to 0: the previous run's icon failed to encode (or timed out).
-            // Metadata is otherwise unchanged below, so the carry-forward branch would normally
-            // apply -- but there is nothing to carry forward, so this app must get another chance
-            // at encoding instead of staying iconless forever.
+            AppUserModelId = "App.Corrupt",
+            Name = "Corrupt",
+            TargetPath = @"C:\Apps\Corrupt.exe",
+            IconOffset = 0,
+            IconLength = 3,
         };
-        using var repository = CreateRepository([previousEntry], out var cacheStore);
-        using var bitmap = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
-        var apps = new[]
-        {
-            new InstalledApplicationInfo
-            {
-                AppUserModelId = "App.NoIconYet",
-                Name = "No Icon Yet",
-                TargetPath = @"C:\Apps\NoIconYet.exe", // unchanged
-                Icon = Observable.Return<Bitmap?>(bitmap),
-            },
-        };
+        // BitmapsByAumid is left empty, so the fake's LoadIcon returns null -- the same signal the
+        // real store gives for a corrupt or truncated blob.
+        using var repository = CreateRepository([previousEntry], out _);
+        using var shellBitmap = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
 
-        repository.TryPersistCache(apps);
+        var icon = repository.CreateIcon(
+            "App.Corrupt",
+            "Corrupt",
+            @"C:\Apps\Corrupt.exe",
+            null,
+            Observable.Return<Bitmap?>(shellBitmap)
+        );
 
-        await Assert.That(cacheStore.SavedIconBytesByAumid!["App.NoIconYet"]).IsNotNull();
+        await Assert.That(await icon.FirstAsync()).IsSameReferenceAs(shellBitmap);
     }
 
     [Test]
-    public async Task TryPersistCache_MapsToNullBytes_WhenIconObservableErrors()
+    public async Task CanHaveIcon_IsFalse_ForANullOrEmptyPath()
     {
-        using var repository = CreateRepository(out var cacheStore);
-        var apps = new[]
-        {
-            new InstalledApplicationInfo
-            {
-                AppUserModelId = "App.BadIcon",
-                Name = "Bad Icon",
-                Icon = Observable.Throw<Bitmap?>(new InvalidOperationException("icon fetch failed")),
-            },
-        };
-
-        repository.TryPersistCache(apps);
-
-        await Assert.That(cacheStore.SavedIconBytesByAumid!["App.BadIcon"]).IsNull();
+        await Assert.That(InstalledApplicationRepository.CanHaveIcon(null)).IsFalse();
+        await Assert.That(InstalledApplicationRepository.CanHaveIcon("")).IsFalse();
+        await Assert.That(InstalledApplicationRepository.CanHaveIcon("   ")).IsFalse();
     }
 
     [Test]
-    public async Task TryPersistCache_UsesIconSource_AndReleasesItsSubscription()
+    public async Task CanHaveIcon_IsFalse_ForAShellNamespacePath()
     {
-        using var repository = CreateRepository(out var cacheStore);
-        using var bitmap = new Bitmap(1, 1, PixelFormat.Format32bppArgb);
-        var iconSourceSubscribeCount = 0;
-        var iconSourceUnsubscribeCount = 0;
-        var iconWasSubscribedTo = false;
-        var apps = new[]
+        await Assert.That(InstalledApplicationRepository.CanHaveIcon("::{52205FD8-5DFB-447D-801A-D0B52F2E83E1}")).IsFalse();
+    }
+
+    [Test]
+    public async Task CanHaveIcon_IsFalse_ForAPathThatDoesNotExist()
+    {
+        var missing = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"), "Missing.exe");
+
+        await Assert.That(InstalledApplicationRepository.CanHaveIcon(missing)).IsFalse();
+    }
+
+    [Test]
+    public async Task CanHaveIcon_IsTrue_ForAnExistingFileAndAnExistingDirectory()
+    {
+        var directory = Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString("N"));
+        Directory.CreateDirectory(directory);
+        var file = Path.Combine(directory, "App.exe");
+        await File.WriteAllBytesAsync(file, [0]);
+        try
         {
-            new InstalledApplicationInfo
-            {
-                AppUserModelId = "App.ColdIcon",
-                Name = "Cold Icon",
-                // Icon is the shared, Replay(1)/AutoConnect() observable -- subscribing to it here
-                // would latch AutoConnect() connected for the life of the process, exactly the leak
-                // this fix removes. TryPersistCache swallows any exception from the icon observable
-                // it does end up subscribing to (see its catch block), so a subscribed-flag -- not a
-                // throw -- is what actually fails this test if the wrong observable gets used.
-                Icon = Observable.Defer(() =>
-                {
-                    iconWasSubscribedTo = true;
-                    return Observable.Return((Bitmap?)null);
-                }),
-                // Cold: counts its own subscribe/dispose instead of replaying, so this test can
-                // prove TryPersistCache subscribes exactly once and releases the subscription
-                // afterward, rather than latching it open.
-                IconSource = Observable.Create<Bitmap?>(observer =>
-                {
-                    iconSourceSubscribeCount++;
-                    observer.OnNext(bitmap);
-                    observer.OnCompleted();
-                    return Disposable.Create(() => iconSourceUnsubscribeCount++);
-                }),
-            },
-        };
-
-        repository.TryPersistCache(apps);
-
-        await Assert.That(iconWasSubscribedTo).IsFalse();
-        await Assert.That(iconSourceSubscribeCount).IsEqualTo(1);
-        await Assert.That(iconSourceUnsubscribeCount).IsEqualTo(1);
+            await Assert.That(InstalledApplicationRepository.CanHaveIcon(file)).IsTrue();
+            await Assert.That(InstalledApplicationRepository.CanHaveIcon(directory)).IsTrue();
+        }
+        finally
+        {
+            Directory.Delete(directory, recursive: true);
+        }
     }
 }

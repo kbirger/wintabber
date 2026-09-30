@@ -38,7 +38,22 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
     // chance to subscribe — a plain Subject would drop that notification on the floor.
     private readonly ReplaySubject<Exception> _acquisitionErrors = new ReplaySubject<Exception>(1);
 
+    // How long the cache writer holds a batch open. Icons that finish extracting inside this window
+    // cost one save of the icon blob.
+    private static readonly TimeSpan DefaultCacheBatchWindow = TimeSpan.FromSeconds(2);
+
+    private readonly InstalledApplicationCacheWriter _cacheWriter;
+
     public InstalledApplicationRepository(IShellApplicationSource shellSource, IInstalledApplicationCacheStore cacheStore)
+        : this(shellSource, cacheStore, DefaultCacheBatchWindow) { }
+
+    // Internal, not an optional parameter on the public constructor: the DI container only sees the
+    // public one, and a test passes TimeSpan.Zero so it never waits on a batch window.
+    internal InstalledApplicationRepository(
+        IShellApplicationSource shellSource,
+        IInstalledApplicationCacheStore cacheStore,
+        TimeSpan cacheBatchWindow
+    )
     {
         _shellSource = shellSource;
         _cacheStore = cacheStore;
@@ -47,6 +62,14 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         // ApplicationsByAumid/ApplicationsByPath have content immediately, before the live Shell
         // scan below (which runs on the task pool, in the background) produces anything.
         _apps.AddOrUpdate(LoadCachedApplications());
+
+        // After the seed, so it starts from the entries actually on disk; before the scan below, so
+        // MergeFreshApps can never run against a missing writer.
+        _cacheWriter = new InstalledApplicationCacheWriter(
+            cacheStore,
+            _previousEntriesByAumid.Values.ToArray(),
+            cacheBatchWindow
+        );
 
         // DynamicData's Or() combinator (used below to merge this cache with its derived
         // partial/package/target caches) silently drops an OnError from its source instead of
@@ -77,9 +100,9 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         var refreshTrigger = _apps.Connect().Publish().RefCount();
 
         // TryPersistCache (not MergeFreshApps) is what's pushed off the inline scan-delivery path:
-        // MergeFreshApps (fast, in-memory) runs directly here; TryPersistCache (icon PNG-encoding,
-        // disk I/O) is pushed to Task.Run inside MergeFreshApps so a slow persist never delays the
-        // changeset this scan just produced from reaching ApplicationsByAumid's subscribers.
+        // MergeFreshApps (fast, in-memory) runs directly here; TryPersistCache (which can block on a
+        // full writer channel) is pushed to Task.Run inside MergeFreshApps so a slow persist never
+        // delays the changeset this scan just produced from reaching ApplicationsByAumid's subscribers.
         //
         // A failed scan (the Catch below) reports on AcquisitionErrors and produces no further
         // action -- deliberately not a call to MergeFreshApps([]), which would otherwise remove
@@ -127,6 +150,8 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
     public void Dispose()
     {
         _liveAcquisitionSubscription.Dispose();
+        // Drains the queue, so an icon extracted just before shutdown still reaches the disk.
+        _cacheWriter.Dispose();
         ApplicationsByAumid.Dispose();
         ApplicationsByPath.Dispose();
         _apps.Dispose();
@@ -226,8 +251,12 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
     }
 
     /// <summary>
-    /// Internal so a test can call it directly and synchronously, instead of through the
-    /// fire-and-forget <see cref="Task.Run(Action)"/> <see cref="MergeFreshApps"/> wraps it in.
+    /// Queues the app list for the cache writer. Internal so a test can call it directly, instead of
+    /// through the fire-and-forget <see cref="Task.Run(Action)"/> <see cref="MergeFreshApps"/> wraps it in.
+    /// Saves metadata only. It never extracts or decodes an icon: most installed apps never have a
+    /// media session, so an icon is extracted when something first asks for it (see
+    /// <see cref="CreateIcon"/>) and reaches the cache from there. The writer keeps the icons already
+    /// on disk for every app whose metadata did not change.
     /// </summary>
     internal void TryPersistCache(IReadOnlyList<InstalledApplicationInfo> freshApps)
     {
@@ -239,8 +268,6 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
             // never gets written to the cache file -- LoadCachedApplications tolerates a duplicate
             // that's already on disk, but this process must never produce one in the first place.
             var entriesByAumid = new Dictionary<string, CachedApplicationEntry>(freshApps.Count, StringComparer.Ordinal);
-            var iconBytesByAumid = new Dictionary<string, byte[]?>(freshApps.Count);
-
             foreach (var app in freshApps)
             {
                 entriesByAumid[app.AppUserModelId] = new CachedApplicationEntry
@@ -250,37 +277,9 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
                     TargetPath = app.TargetPath,
                     PackageInstallPath = app.PackageInstallPath,
                 };
-
-                if (
-                    _previousEntriesByAumid.TryGetValue(app.AppUserModelId, out var previous)
-                    && previous.Name == app.Name
-                    && previous.TargetPath == app.TargetPath
-                    && previous.PackageInstallPath == app.PackageInstallPath
-                    && previous.IconLength > 0
-                )
-                {
-                    // Unchanged since the last successful write -- reuse the icon bytes already on
-                    // disk instead of forcing GetIcon's COM extraction to run again. Without this,
-                    // every launch would eagerly decode every installed app's icon up front, turning
-                    // today's lazy, on-demand load into a full-catalog decode -- the opposite of what
-                    // this cache exists to avoid.
-                    iconBytesByAumid[app.AppUserModelId] = _cacheStore.LoadIconBytes(previous);
-                }
-                else
-                {
-                    // app.IconSource, not app.Icon: Icon is Replay(1)/AutoConnect(), so the first
-                    // subscriber latches it connected for the life of the process -- persisting
-                    // the whole catalog on a cold launch would retain every installed app's icon
-                    // forever. IconSource is the same underlying extraction, cold, so this
-                    // subscription completes and releases. The cost: an app with a live media
-                    // session later gets a second shell extraction when its own Icon is first
-                    // subscribed -- one extra COM call for the few apps that actually have a
-                    // session, versus retaining the entire catalog's bitmaps indefinitely.
-                    iconBytesByAumid[app.AppUserModelId] = TryEncodeIcon(app.IconSource ?? app.Icon);
-                }
             }
 
-            _cacheStore.Save(entriesByAumid.Values.ToArray(), iconBytesByAumid);
+            _cacheWriter.QueueMetadata(entriesByAumid.Values.ToArray());
         }
         catch (Exception ex)
         {
@@ -288,25 +287,54 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
         }
     }
 
-    private static byte[]? TryEncodeIcon(IObservable<Bitmap?> icon)
-    {
-        try
-        {
-            var bitmap = icon.Timeout(TimeSpan.FromSeconds(5)).FirstOrDefaultAsync().Wait();
-            if (bitmap is null)
-            {
-                return null;
-            }
+    /// <summary>Completes once everything queued so far is on disk. For tests.</summary>
+    internal Task FlushCacheAsync() => _cacheWriter.FlushAsync();
 
-            using var memoryStream = new MemoryStream();
-            bitmap.Save(memoryStream, ImageFormat.Png);
-            return memoryStream.ToArray();
-        }
-        catch (Exception)
+    /// <summary>
+    /// The icon for one installed app: the cache first, then Shell. Nothing runs until the first
+    /// subscription, and <c>Replay(1)</c>/<c>AutoConnect()</c> makes that extraction happen once per
+    /// process.
+    /// The cache is trusted only if the app is unchanged since it was saved. A moved or renamed app
+    /// gets a new icon from Shell.
+    /// </summary>
+    /// <param name="shellExtraction">
+    /// The cold Shell extraction. It runs only when the cache has no usable icon, and it queues its
+    /// result for the cache writer.
+    /// </param>
+    internal IObservable<Bitmap?> CreateIcon(
+        string appUserModelId,
+        string name,
+        string? targetPath,
+        string? packageInstallPath,
+        IObservable<Bitmap?> shellExtraction
+    )
+    {
+        if (
+            !_previousEntriesByAumid.TryGetValue(appUserModelId, out var previous)
+            || previous.IconLength <= 0
+            || !previous.HasSameMetadataAs(name, targetPath, packageInstallPath)
+        )
         {
-            return null;
+            return shellExtraction.Replay(1).AutoConnect();
         }
+
+        return Observable
+            .Start(() => _cacheStore.LoadIcon(previous), TaskPoolScheduler.Default)
+            // A null here is a corrupt or truncated blob. Treat it as a cache miss.
+            .SelectMany(cached => cached is not null ? Observable.Return<Bitmap?>(cached) : shellExtraction)
+            .Replay(1)
+            .AutoConnect();
     }
+
+    /// <summary>
+    /// False when no icon can exist for <paramref name="path"/>, so Shell is never asked. Shell
+    /// answers a missing file with an exception, and an exception per dead entry is expensive noise.
+    /// </summary>
+    internal static bool CanHaveIcon([NotNullWhen(true)] string? path) =>
+        !string.IsNullOrWhiteSpace(path)
+        // A shell namespace item (Explorer, the Run dialog). It is not a file path.
+        && !path.StartsWith("::", StringComparison.Ordinal)
+        && (File.Exists(path) || Directory.Exists(path));
 
     private IKnownFolder GetAppImageFolder() => _shellSource.GetAppsFolder();
 
@@ -344,29 +372,39 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
             .Properties.GetProperty<string>(PackageInstallPath)
             .Value;
         string? path = packageInstallPath ?? targetParsingPath;
-        var iconSource = GetIcon(shellObject, path);
+        var aumid = GetAumid(shellObject);
         return new InstalledApplicationInfo
         {
-            AppUserModelId = GetAumid(shellObject),
-            //Icon = Observable.Defer(() => Observable.Concat(LoadingImage, GetIcon(shellObject))),
-            Icon = iconSource.Replay(1).AutoConnect(),
-            IconSource = iconSource,
+            AppUserModelId = aumid,
+            Icon = CreateIcon(
+                aumid,
+                shellObject.Name,
+                targetParsingPath,
+                packageInstallPath,
+                GetIcon(shellObject, path, aumid)
+            ),
             Name = shellObject.Name,
             TargetPath = targetParsingPath,
             PackageInstallPath = packageInstallPath,
         };
     }
 
-    private IObservable<Bitmap?> GetIcon(ShellObject shellObject, string path)
+    private IObservable<Bitmap?> GetIcon(ShellObject shellObject, string? path, string appUserModelId)
     {
         int width = (int)shellObject.Thumbnail.CurrentSize.Width;
         int height = (int)shellObject.Thumbnail.CurrentSize.Height;
         ThumbnailOptions options = ThumbnailOptions.None;
         return Observable
             .Defer(() =>
-                Observable.Start(
+                Observable.Start<Bitmap?>(
                     () =>
                     {
+                        // No file, no icon. Skipping Shell here also skips the exception it throws.
+                        if (!CanHaveIcon(path))
+                        {
+                            return null;
+                        }
+
                         unsafe
                         {
                             var imageFactory = _shellSource.CreateShellItemImageFactory(path);
@@ -424,7 +462,9 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
                             // alpha byte is there; it just needs to be read directly instead.
                             try
                             {
-                                return CreateBitmapPreservingAlpha(hBitmap);
+                                var bitmap = CreateBitmapPreservingAlpha(hBitmap);
+                                QueueIconForCache(appUserModelId, bitmap);
+                                return bitmap;
                             }
                             finally
                             {
@@ -432,9 +472,31 @@ public partial class InstalledApplicationRepository : IInstalledApplicationRepos
                             }
                         }
                     },
-                    Scheduler.CurrentThread
+                    // Not Scheduler.CurrentThread: that runs the extraction on whichever thread
+                    // subscribes, and a view can subscribe from the UI thread. The extraction is COM
+                    // and file I/O (CanHaveIcon can stall on a network path), so it belongs on the pool.
+                    TaskPoolScheduler.Default
                 )
             );
+    }
+
+    /// <summary>
+    /// Encodes on the calling thread, before <paramref name="bitmap"/> is shared. After that a UI
+    /// converter also saves it, and a GDI+ bitmap must not be used from two threads at once. The
+    /// writer gets bytes only. An encode failure costs the cache entry, never the icon.
+    /// </summary>
+    private void QueueIconForCache(string appUserModelId, Bitmap bitmap)
+    {
+        try
+        {
+            using var stream = new MemoryStream();
+            bitmap.Save(stream, ImageFormat.Png);
+            _cacheWriter.TryQueueIcon(appUserModelId, stream.ToArray());
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Failed to queue icon for {appUserModelId}: {ex.Message}");
+        }
     }
 
     /// <summary>

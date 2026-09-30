@@ -43,7 +43,15 @@ namespace WinTabber.UI.Media.ViewModels
                 .ObserveOn(RxApp.MainThreadScheduler)
                 .Subscribe(defaultDevice =>
                 {
-                    SelectedDevice = defaultDevice;
+                    // Not through the SelectedDevice setter: this value came from the system, and
+                    // the setter writes its value back to the system as the new default. Each
+                    // activation builds a new instance whose first value passes the setter's
+                    // equality guard, so every open would write the default it had just read.
+                    if (_selectedDevice != defaultDevice)
+                    {
+                        _selectedDevice = defaultDevice;
+                        this.RaisePropertyChanged(nameof(SelectedDevice));
+                    }
                 })
                 .DisposeWith(_cleanUp);
 

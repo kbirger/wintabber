@@ -83,7 +83,10 @@ public sealed class FileInstalledApplicationCacheStore : IInstalledApplicationCa
         }
     }
 
-    public void Save(IReadOnlyList<CachedApplicationEntry> entries, IReadOnlyDictionary<string, byte[]?> iconBytesByAumid)
+    public IReadOnlyList<CachedApplicationEntry> Save(
+        IReadOnlyList<CachedApplicationEntry> entries,
+        IReadOnlyDictionary<string, byte[]?> iconBytesByAumid
+    )
     {
         Directory.CreateDirectory(_cacheDirectory);
 
@@ -119,6 +122,7 @@ public sealed class FileInstalledApplicationCacheStore : IInstalledApplicationCa
         // for icons that no longer exist at all.
         File.Move(iconBlobTempPath, _iconBlobFilePath, overwrite: true);
         File.Move(metadataTempPath, _metadataFilePath, overwrite: true);
+        return updatedEntries;
     }
 
     /// <summary>

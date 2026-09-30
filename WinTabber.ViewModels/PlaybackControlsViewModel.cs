@@ -25,6 +25,7 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
     private readonly ObservableAsPropertyHelper<bool> _canSeek;
     private readonly ObservableAsPropertyHelper<bool> _hasProgress;
     private readonly ObservableAsPropertyHelper<bool> _isProgressIndeterminate;
+    private readonly ObservableAsPropertyHelper<bool> _isPositionUnknown;
     private readonly CompositeDisposable _disposable;
 
     public PlaybackControlsViewModel(IScheduler scheduler)
@@ -97,6 +98,14 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
             scheduler: scheduler
         );
 
+        // The bar is always present; only the time labels come and go. IsPositionUnknown says the
+        // labels have nothing true to show, so the seekable Slider is replaced by a plain bar that
+        // holds the row's height. It is the inverse of HasProgress, exposed here rather than
+        // inverted in XAML because neither app has an inverting bool-to-visibility converter.
+        _isPositionUnknown = hasProgressObservable
+            .Select(hasProgress => !hasProgress)
+            .ToProperty(this, vm => vm.IsPositionUnknown, initialValue: true, scheduler: scheduler);
+
         // Indeterminate only while playing: a bar that keeps marching while paused states
         // something false. Deliberately not CanSeek -- CanSeek answers whether seeking is
         // permitted, a different question from whether a position exists at all.
@@ -135,7 +144,8 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
             _position,
             _progress,
             _hasProgress,
-            _isProgressIndeterminate
+            _isProgressIndeterminate,
+            _isPositionUnknown
         );
     }
 
@@ -194,6 +204,8 @@ public partial class PlaybackControlsViewModel : ReactiveObject, IDisposable
     public bool HasProgress => _hasProgress.Value;
 
     public bool IsProgressIndeterminate => _isProgressIndeterminate.Value;
+
+    public bool IsPositionUnknown => _isPositionUnknown.Value;
 
     private bool _isSeeking = false;
     public bool IsSeeking

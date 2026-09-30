@@ -158,13 +158,15 @@ internal static class AccessKeyOverlayInterop
         {
             var hwnd = new HWND(overlayHwnd);
 
-            var currentExStyle = PInvoke.GetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
+            var currentExStyle = PInvoke.GetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE);
             var newExStyle = currentExStyle
-                | (nint)WINDOW_EX_STYLE.WS_EX_LAYERED
-                | (nint)WINDOW_EX_STYLE.WS_EX_TRANSPARENT
-                | (nint)WINDOW_EX_STYLE.WS_EX_NOACTIVATE;
-            PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE, newExStyle);
+                | (int)WINDOW_EX_STYLE.WS_EX_LAYERED
+                | (int)WINDOW_EX_STYLE.WS_EX_TRANSPARENT
+                | (int)WINDOW_EX_STYLE.WS_EX_NOACTIVATE;
+            PInvoke.SetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE, newExStyle);
 
+            // GWLP_HWNDPARENT carries a full pointer-sized HWND value -- SetWindowLong's 32-bit
+            // signature would truncate it on x64, so this one call needs the pointer-width API.
             PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWLP_HWNDPARENT, ownerHwnd);
         }
         catch (Exception)
@@ -177,9 +179,9 @@ internal static class AccessKeyOverlayInterop
     {
         try
         {
-            var currentStyle = PInvoke.GetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE);
-            var newStyle = currentStyle & ~(nint)WINDOW_STYLE.WS_CAPTION;
-            PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE, newStyle);
+            var currentStyle = PInvoke.GetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE);
+            var newStyle = currentStyle & ~(int)WINDOW_STYLE.WS_CAPTION;
+            PInvoke.SetWindowLong(hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE, newStyle);
         }
         catch (Exception)
         {

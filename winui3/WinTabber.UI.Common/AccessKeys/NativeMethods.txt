@@ -1,5 +1,7 @@
-SetWindowLongPtr
-GetWindowLongPtr
+SetWindowLong
+GetWindowLong
+SetWindowLongPtrW
+GetWindowLongPtrW
 WINDOW_EX_STYLE
 ShowWindow
 SetWindowPos

@@ -650,8 +650,8 @@ Padding="7 0 7 0"
                             />
                             <ProgressBar
                                 VerticalAlignment="Center"
-                                IsIndeterminate="True"
-                                Visibility="{Binding ActiveSession.Playback.IsProgressIndeterminate, Converter={StaticResource BoolToVisibilityConverter}}"
+                                IsIndeterminate="{Binding ActiveSession.Playback.IsProgressIndeterminate}"
+                                Visibility="{Binding ActiveSession.Playback.IsPositionUnknown, Converter={StaticResource BoolToVisibilityConverter}}"
                             />
                         </Grid>
                     </DockPanel>

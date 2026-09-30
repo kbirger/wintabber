@@ -65,7 +65,7 @@ public class MediaControlsWindowCoordinator : IDisposable
     private void ShowWindow()
     {
         _window ??= _serviceProvider.GetRequiredService<MediaControlsWindow>();
-        _window.Show();
+        _window.Activate();
 
         var handle = WinRT.Interop.WindowNative.GetWindowHandle(_window);
         if (handle == nint.Zero)

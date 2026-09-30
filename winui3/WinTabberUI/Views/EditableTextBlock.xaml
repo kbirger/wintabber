@@ -74,7 +74,11 @@
                                     </VisualState>
                                     <VisualState x:Name="Disabled">
                                         <VisualState.Setters>
-                                            <Setter Target="ContentPresenter.Foreground" Value="#dd333333" />
+                                            <!-- #dd333333 (near-black) was invisible against this dark UI.
+                                                 #5DFFFFFF matches the Fluent dark theme's own
+                                                 TextFillColorDisabled: dim relative to the enabled
+                                                 White, but still visible on a dark background. -->
+                                            <Setter Target="ContentPresenter.Foreground" Value="#5DFFFFFF" />
                                         </VisualState.Setters>
                                     </VisualState>
                                 </VisualStateGroup>
@@ -131,7 +135,7 @@
                     Command="{x:Bind ViewModel.SuspendCommand, Mode=OneWay}"
                     ToolTipService.ToolTip="Sleep this process"
                     Visibility="{x:Bind ViewModel.IsSuspendButtonVisible, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}">
-                    <FontIcon Glyph="&#xE708;" />
+                    <FontIcon FontFamily="/Assets/Fonts/fa-solid-900.ttf#Font Awesome 6 Free Solid" Glyph="&#xf186;" />
                 </Button>
                 <Button
                     x:Name="ThumbnailButton"
@@ -139,7 +143,7 @@
                     Command="{x:Bind ViewModel.ThumbnailCommand, Mode=OneWay}"
                     ToolTipService.ToolTip="Show as floating thumbnail"
                     Visibility="{x:Bind ViewModel.IsEditing, Mode=OneWay, Converter={StaticResource InverseBoolToVisibilityConverter}}">
-                    <FontIcon Glyph="&#xEA5F;" />
+                    <FontIcon FontFamily="/Assets/Fonts/fa-solid-900.ttf#Font Awesome 6 Free Solid" Glyph="&#xf35d;" />
                 </Button>
                 <Button
                     x:Name="AcceptButton"

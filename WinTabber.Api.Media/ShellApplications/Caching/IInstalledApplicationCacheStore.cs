@@ -26,6 +26,14 @@ public interface IInstalledApplicationCacheStore
     /// Overwrites the cache with <paramref name="entries"/>. <paramref name="iconBytesByAumid"/> maps
     /// an entry's <see cref="CachedApplicationEntry.AppUserModelId"/> to its PNG-encoded icon bytes;
     /// an AUMID absent from the map, or mapped to <see langword="null"/>, is written with no icon.
+    /// Only <see cref="InstalledApplicationCacheWriter"/> calls this, from its single consumer task.
     /// </summary>
-    void Save(IReadOnlyList<CachedApplicationEntry> entries, IReadOnlyDictionary<string, byte[]?> iconBytesByAumid);
+    /// <returns>
+    /// <paramref name="entries"/> with each entry's icon offset and length updated to where its icon
+    /// now sits in the icon blob, so the caller can read those icons back without a reload.
+    /// </returns>
+    IReadOnlyList<CachedApplicationEntry> Save(
+        IReadOnlyList<CachedApplicationEntry> entries,
+        IReadOnlyDictionary<string, byte[]?> iconBytesByAumid
+    );
 }
