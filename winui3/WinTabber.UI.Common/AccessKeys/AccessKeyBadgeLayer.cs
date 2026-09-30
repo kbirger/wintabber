@@ -60,6 +60,18 @@ public sealed class AccessKeyBadgeLayer
 
     private void OnAccessKeyDisplayRequested(UIElement sender, Microsoft.UI.Xaml.Input.AccessKeyDisplayRequestedEventArgs args)
     {
+        if (!_owner.AppWindow.IsVisible)
+        {
+            // Refuse every request while the owner is hidden, regardless of what triggered it --
+            // confirmed live: closing an open ComboBox drop-down as part of hiding (see Task 13) can
+            // itself cause the framework to re-request root-level keys, arriving after the
+            // owner-hidden badge-clearing pass already ran, which re-showed the overlay with root
+            // badges right after everything was supposed to be gone. Checking IsVisible fresh here,
+            // rather than a separate tracked flag, is always accurate and needs no explicit reset
+            // when the owner becomes visible again.
+            return;
+        }
+
         var underlineLength = AccessKeyBadge.ComputeUnderlineLength(sender.AccessKey, args.PressedKeys);
 
         if (_badges.TryGetValue(sender, out var existingBadge) && existingBadge.Text != sender.AccessKey)
