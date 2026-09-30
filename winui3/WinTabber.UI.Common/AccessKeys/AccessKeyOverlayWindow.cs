@@ -83,15 +83,19 @@ public sealed class AccessKeyOverlayWindow : WinUIEx.WindowEx
         // (GWLP_HWNDPARENT, set in the constructor) keeps this window grouped with its owner but
         // does not guarantee it is brought to the top of that group every time it is shown,
         // especially since the owner (not this window) is what keeps receiving real activation.
-        // HWND_TOP (not HWND_TOPMOST) brings it to the top of the normal z-order band only --
-        // enough given the owned-window grouping, and consistent with this plan's decision against
-        // a system-wide-topmost mechanism. CsWin32 does not generate a named HWND_TOP constant (it
-        // is a Win32 header macro, ((HWND)0), not a metadata member -- confirmed: neither
-        // HWND.HWND_TOP nor PInvoke.HWND_TOP compiles against the generated bindings), so it is
-        // passed as default(HWND), matching InteropProxy.cs's existing SetWindowPos calls.
+        // HWND_TOPMOST, not HWND_TOP: the owner (MediaControlsWindow) sets IsAlwaysOnTop="True"
+        // (WS_EX_TOPMOST), confirmed live via its GWL_EXSTYLE. HWND_TOP only reorders within the
+        // non-topmost z-order band, which sits entirely below every topmost window -- against a
+        // topmost owner, no reordering within that lower band can ever place this window above it.
+        // This reverses this plan's original choice of HWND_TOP specifically to avoid a
+        // system-wide-topmost overlay, but that concern doesn't apply in practice: the overlay is
+        // hidden except while a chord is actively displaying, so there's no window of time in which
+        // it would float above anything the user isn't already interacting with. CsWin32 does not
+        // generate a named HWND_TOPMOST constant either (same reason as HWND_TOP: a header macro,
+        // not a metadata member) -- it is ((HWND)-1), passed here as (HWND)(-1).
         PInvoke.SetWindowPos(
             hwnd,
-            default(HWND),
+            (HWND)(-1),
             0, 0, 0, 0,
             SET_WINDOW_POS_FLAGS.SWP_NOMOVE | SET_WINDOW_POS_FLAGS.SWP_NOSIZE | SET_WINDOW_POS_FLAGS.SWP_NOACTIVATE
         );
@@ -126,13 +130,15 @@ public sealed class AccessKeyOverlayWindow : WinUIEx.WindowEx
 }
 
 /// <summary>
-/// Sets the two Win32 extended-window-style properties AccessKeyOverlayWindow needs and that WinUI 3
-/// exposes no managed API for: click-through (so the overlay never intercepts a click meant for
-/// whatever it visually covers) and the owned-window relationship (so the window manager always
-/// keeps it above its owner, without floating above unrelated apps the way WinUIEx's IsAlwaysOnTop
-/// would). Lives beside AccessKeyOverlayWindow, not in WinTabber.Interop, because it affects only
-/// this app's own window -- see this plan's Global Constraints and CLAUDE.md's "Windows Interop"
-/// section for why that boundary is drawn where it is.
+/// Sets the Win32 window-style properties AccessKeyOverlayWindow needs and that WinUI 3 exposes no
+/// managed API for: click-through (so the overlay never intercepts a click meant for whatever it
+/// visually covers), the owned-window relationship (so the window manager always keeps it above its
+/// owner, without floating above unrelated apps the way WinUIEx's IsAlwaysOnTop would), and stripping
+/// the residual WS_CAPTION border (WinUIEx's IsTitleBarVisible = false does not clear the underlying
+/// GWL_STYLE bits, which otherwise trace a visible 1px line around the screen at full-monitor size).
+/// Lives beside AccessKeyOverlayWindow, not in WinTabber.Interop, because it affects only this app's
+/// own window -- see this plan's Global Constraints and CLAUDE.md's "Windows Interop" section for why
+/// that boundary is drawn where it is.
 /// </summary>
 internal static class AccessKeyOverlayInterop
 {
@@ -156,6 +162,10 @@ internal static class AccessKeyOverlayInterop
             PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_EXSTYLE, newExStyle);
 
             PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWLP_HWNDPARENT, ownerHwnd);
+
+            var currentStyle = PInvoke.GetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE);
+            var newStyle = currentStyle & ~(nint)WINDOW_STYLE.WS_CAPTION;
+            PInvoke.SetWindowLongPtr(hwnd, WINDOW_LONG_PTR_INDEX.GWL_STYLE, newStyle);
         }
         catch (Exception)
         {
