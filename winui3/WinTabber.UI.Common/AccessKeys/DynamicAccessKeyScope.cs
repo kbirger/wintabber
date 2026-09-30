@@ -38,6 +38,8 @@ public static class DynamicAccessKeyScope
         var openedByAccessKey = false;
         owner.AccessKeyInvoked += (_, _) => openedByAccessKey = true;
 
+        badgeLayer.OwnerHidden += () => owner.IsDropDownOpen = false;
+
         owner.DropDownOpened += (_, _) =>
         {
             var continueChord = openedByAccessKey;

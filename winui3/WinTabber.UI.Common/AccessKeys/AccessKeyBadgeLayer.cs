@@ -21,6 +21,8 @@ public sealed class AccessKeyBadgeLayer
     private readonly AccessKeyOverlayWindow _overlay;
     private readonly Dictionary<UIElement, AccessKeyBadge> _badges = new();
 
+    public event Action? OwnerHidden;
+
     public AccessKeyBadgeLayer(Window owner)
     {
         _owner = owner;
@@ -38,6 +40,8 @@ public sealed class AccessKeyBadgeLayer
         {
             return;
         }
+
+        OwnerHidden?.Invoke();
 
         foreach (var badge in _badges.Values)
         {
