@@ -45,6 +45,7 @@ public static class DynamicAccessKeyScope
 
             owner.DispatcherQueue.TryEnqueue(() =>
             {
+                var anyNewlyWired = false;
                 for (int i = 0; i < owner.Items.Count; i++)
                 {
                     if (owner.ContainerFromIndex(i) is not ComboBoxItem container)
@@ -53,12 +54,20 @@ public static class DynamicAccessKeyScope
                     }
 
                     container.AccessKey = (i + 1).ToString();
+                    // Tells the framework these items belong to the ComboBox's access-key scope even
+                    // though they live in a Popup, outside its visual tree -- IsAccessKeyScope alone
+                    // does not cover Popup content. With this set, the framework correctly dismisses
+                    // root-level badges and requests only these item badges on its own, no manual
+                    // Exit/Enter needed (confirmed live -- see this plan's ledger for the spike that
+                    // established this).
+                    container.AccessKeyScopeOwner = owner;
 
                     if (!wired.Add(container))
                     {
                         continue;
                     }
 
+                    anyNewlyWired = true;
                     badgeLayer.Watch(container);
                     container.AccessKeyInvoked += (_, args) =>
                     {
@@ -67,15 +76,22 @@ public static class DynamicAccessKeyScope
                     };
                 }
 
-                if (continueChord)
+                if (continueChord && anyNewlyWired)
                 {
-                    // EnterDisplayMode alone is a no-op here -- display mode is already on (the
-                    // user's own Alt press turned it on before this ComboBox's key was pressed), so
-                    // the framework never re-scans and never asks the newly-assigned item keys to
-                    // display (confirmed live: zero AccessKeyDisplayRequested events ever fired for
-                    // any ComboBoxItem without this). Exiting first forces a re-scan on entry, which
-                    // does ask every element in scope -- root elements included, which is why they
-                    // blink off and back on for one frame; accepted trade-off, see the plan/spec.
+                    // AccessKeyScopeOwner alone handles every open correctly EXCEPT the very first
+                    // time a given container is realized -- the framework has not yet built an
+                    // internal scope-tree entry for it, so its access key doesn't get asked to
+                    // display for several seconds. Forcing one display-mode refresh here closes that
+                    // gap, and ONLY here: gating on anyNewlyWired (not a separate "first open" flag)
+                    // means this never fires on a later open of the same, already-registered
+                    // containers, where the framework's own scoping already responds within
+                    // milliseconds on its own -- confirmed live; doing this unconditionally on every
+                    // open would re-introduce root and item badges showing together, since re-entering
+                    // display mode at all re-triggers the framework's own scope evaluation from
+                    // scratch each time, and that evaluation is fast enough on an already-registered
+                    // container to look identical to not having done it -- but is not proven safe to
+                    // repeat on every single open, so it is intentionally limited to exactly the
+                    // condition that needs it.
                     AccessKeyManager.ExitDisplayMode();
                     AccessKeyManager.EnterDisplayMode(owner.XamlRoot);
                 }
