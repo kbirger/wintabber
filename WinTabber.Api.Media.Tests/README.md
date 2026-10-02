@@ -6,8 +6,8 @@ Deliberately narrow. Covered:
   device population, state-change-driven add/remove (`OnDeviceAdded`/`OnDeviceStateChanged`), and
   its `CoreAudioDevicesMonitor` callback registration/unregistration and `Watch`'s volume/mute
   observables — all via `Fakes/FakeMMDeviceEnumeratorWrapper.cs` and `Fakes/FakeAudioDevice.cs`.
-  `IAudioDevice` (see `docs/superpowers/specs/2026-09-05-audio-device-abstraction-design.md`)
-  replaced `MMDevice` as the enumerator's return type specifically to make this possible.
+  `IAudioDevice` replaced `MMDevice` as the enumerator's return type specifically to make this
+  possible.
 - `SMTCSessionRepository`'s acquisition-failure propagation — via `Fakes/FakeSmtcSessionSource.cs`;
   a failed `RequestAsync` correctly surfaces as `OnError` on `ActiveMediaSessionChanges`.
 - `InstalledApplicationRepository`'s acquisition-failure signaling — via
@@ -48,6 +48,3 @@ Deliberately narrow. Covered:
   acquisition-failure path. Full session/shell-item processing coverage would need its own design
   pass, the same way `IAudioDevice` was needed for `CoreAudioDeviceRepository`.
 
-See `docs/superpowers/specs/2026-09-05-audio-device-abstraction-design.md` for the full reasoning
-behind the `IAudioDevice` abstraction, and `docs/superpowers/specs/2026-09-04-phase-5-design.md`'s
-T5.3 section for why this project started out this narrow.

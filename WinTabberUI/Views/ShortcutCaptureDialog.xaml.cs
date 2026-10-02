@@ -1,5 +1,5 @@
-using System.Windows;
-using iNKORE.UI.WPF.Modern.Controls;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using WinTabber.Events.Shortcuts;
 using WinTabber.Events.Shortcuts.Detection;
 
@@ -13,12 +13,7 @@ public enum ShortcutCaptureDialogResult
     ResetToDefault,
 }
 
-/// <summary>
-/// Modal capture flow modeled on Flow.Launcher's HotkeyControlDialog: press the keys, see them as
-/// large tiles, then explicitly Save. Capture itself is <see cref="WinTabber.UI.Common.Controls.ShortcutCaptureBox" />
-/// unchanged — this dialog only changes how it is presented and gates persistence behind Save.
-/// </summary>
-public partial class ShortcutCaptureDialog : ContentDialog
+public sealed partial class ShortcutCaptureDialog : ContentDialog
 {
     public ShortcutCaptureDialog(
         string title,
@@ -44,36 +39,22 @@ public partial class ShortcutCaptureDialog : ContentDialog
             TriggerCaptured?.Invoke(this, trigger);
         };
 
-        // ShortcutCaptureBox normally starts capturing off its own IsVisibleChanged (true when a
-        // row swaps it in). Inside a ContentDialog that never fires reliably — the content can
-        // already report IsVisible before the popup actually opens — so start explicitly once the
-        // dialog itself has opened, and stop once it closes regardless of how it closed.
-        Opened += (_, _) =>
-        {
-            System.IO.File.AppendAllText(
-                System.IO.Path.Combine(System.IO.Path.GetTempPath(), "shortcut-capture-debug.log"),
-                $"{DateTime.Now:HH:mm:ss.fff} Dialog Opened\n"
-            );
-            CaptureBox.StartCapture();
-        };
-        Closed += (_, _) =>
-        {
-            System.IO.File.AppendAllText(
-                System.IO.Path.Combine(System.IO.Path.GetTempPath(), "shortcut-capture-debug.log"),
-                $"{DateTime.Now:HH:mm:ss.fff} Dialog Closed\n"
-            );
-            CaptureBox.CancelCapture();
-        };
+        // ShortcutCaptureBox normally starts capturing off its own Visibility toggle (see
+        // ShortcutCaptureBox.cs's RegisterPropertyChangedCallback on VisibilityProperty) — inside a
+        // ContentDialog that never fires reliably, since the control can already report Visible
+        // before the dialog itself actually opens. Start explicitly once the dialog has opened, and
+        // stop once it closes regardless of how it closed, same as the WPF original's Opened/Closed
+        // wiring, just under WinUI 3's own ContentDialog event names.
+        Opened += (_, _) => CaptureBox.StartCapture();
+        Closed += (_, _) => CaptureBox.CancelCapture();
     }
 
-    /// <summary>Raised each time capture completes, so the caller can re-check for conflicts.</summary>
     public event EventHandler<ShortcutTrigger>? TriggerCaptured;
 
     public ShortcutCaptureDialogResult Result { get; private set; } = ShortcutCaptureDialogResult.Cancelled;
 
     public ShortcutTrigger? ResultTrigger { get; private set; }
 
-    /// <summary>Non-blocking notice, same wording the row itself already shows for a conflict.</summary>
     public void ShowConflict(string? message)
     {
         ConflictBanner.Visibility = message is null ? Visibility.Collapsed : Visibility.Visible;

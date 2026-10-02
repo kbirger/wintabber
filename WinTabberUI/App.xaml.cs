@@ -1,67 +1,67 @@
-﻿using Microsoft.Extensions.DependencyInjection;
-using System.Diagnostics;
-using System.IO;
-using System.Windows;
-using WinTabber.Events;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Input;
+using WinTabberUI.Views;
 
 namespace WinTabberUI;
 
-/// <summary>
-/// Interaction logic for App.xaml
-/// </summary>
 public partial class App : Application
 {
-    private WinTabberEventManager? _eventManager;
-    private IDisposable? _cleanUp;
-    private ServiceProvider? _serviceProvider;
+    // Rooted explicitly via BackgroundServiceContainer, not left to whatever gets resolved
+    // transitively through some window's own constructor chain -- see that container's own doc
+    // comment and AddThumbnailWindowGraph's.
+    private BackgroundServiceContainer? _backgroundServices;
 
-    protected override void OnActivated(EventArgs e)
-    {
-        base.OnActivated(e);
-    }
+    public static ServiceProvider Services { get; private set; } = null!;
 
-    protected override void OnDeactivated(EventArgs e)
+    public App()
     {
-        _eventManager?.SendEvent(EventType.CmdAppHide);
-        base.OnDeactivated(e);
-    }
+        InitializeComponent();
 
-    /// <summary>
-    /// Sends Debug.WriteLine output to the file that check.ps1 clears before each run. Without a
-    /// listener the trace is visible only under a debugger, and the harness cannot show it.
-    /// </summary>
-    [Conditional("DEBUG")]
-    private static void AttachTraceLog()
-    {
-        try
+        // STATUS_STOWED_EXCEPTION (a native fast-fail deep in WinUI 3's own plumbing) bypasses all
+        // three of these -- confirmed live: the crash log stayed empty for that crash and only
+        // started filling once the underlying managed exception was fixed and a second, ordinary
+        // unhandled exception (RPC_E_WRONG_THREAD) surfaced instead. Kept anyway: they are the only
+        // way to see an ordinary unhandled exception's full stack trace when the process is about to
+        // die and there is no debugger attached.
+        UnhandledException += (_, e) =>
         {
-            string path = Path.Combine(Path.GetTempPath(), "wintabber-trace.log");
-            Trace.Listeners.Add(new TextWriterTraceListener(path));
-            Trace.AutoFlush = true;
-        }
-        catch (IOException)
+            System.IO.File.AppendAllText(
+                System.IO.Path.Combine(System.IO.Path.GetTempPath(), "wintabberui-crash.log"),
+                $"[{DateTime.Now:O}] XAML UnhandledException: {e.Exception}\n");
+        };
+        AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
-            // A trace file is a diagnostic aid. The application must start without it.
-        }
+            System.IO.File.AppendAllText(
+                System.IO.Path.Combine(System.IO.Path.GetTempPath(), "wintabberui-crash.log"),
+                $"[{DateTime.Now:O}] AppDomain UnhandledException (terminating={e.IsTerminating}): {e.ExceptionObject}\n");
+        };
+        System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, e) =>
+        {
+            System.IO.File.AppendAllText(
+                System.IO.Path.Combine(System.IO.Path.GetTempPath(), "wintabberui-crash.log"),
+                $"[{DateTime.Now:O}] UnobservedTaskException: {e.Exception}\n");
+        };
     }
 
-    protected override void OnStartup(StartupEventArgs e)
+    protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
-        AttachTraceLog();
-        _serviceProvider = Bootstrapper.Init(this);
+        // Must stay false: AccessKeyBadgeLayer (WinTabber.UI.Common.AccessKeys) draws its own
+        // custom badge for every AccessKeyDisplayRequested. Leaving this true would draw the
+        // framework's own default badge on top of it.
+        AccessKeyManager.AreKeyTipsEnabled = false;
 
-        _cleanUp = _serviceProvider.GetRequiredService<BackgroundServiceContainer>();
-        _eventManager = _serviceProvider.GetRequiredService<WinTabberEventManager>();
+        Services = Bootstrapper.Init();
 
-        base.OnStartup(e);
-    }
+        _backgroundServices = Services.GetRequiredService<BackgroundServiceContainer>();
 
-    protected override void OnExit(ExitEventArgs e)
-    {
-        // BackgroundServiceContainer first: its Dispose() runs deliberate shutdown behaviour
-        // (resume suspended processes, restore thumbnailed windows) that the ServiceProvider's
-        // own disposal — every remaining singleton, in registration order — doesn't know about.
-        _cleanUp?.Dispose();
-        _serviceProvider?.Dispose();
+        // Microsoft.UI.Xaml.Application has no OnExit-equivalent override in this SDK version for an
+        // unpackaged desktop app, so ProcessExit is the nearest available hook -- same reasoning
+        // BackgroundServiceContainer's own doc comment gives for what it disposes and in what order.
+        AppDomain.CurrentDomain.ProcessExit += (_, _) => _backgroundServices?.Dispose();
+
+        // No window is shown at launch: the app starts quietly in the tray. SettingsWindow and
+        // WindowSelectorWindow are now shown on demand, driven by WindowSelectorWindowCoordinator/
+        // SettingsWindowCoordinator reacting to their view models' own IObservable<bool> signals.
     }
 }

@@ -1,47 +1,29 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
-        <UseWPF>true</UseWPF>
+        <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+        <UseWinUI>true</UseWinUI>
         <Platform>x64</Platform>
+        <PlatformTarget>x64</PlatformTarget>
     </PropertyGroup>
 
     <ItemGroup>
-        <Compile Update="Views\MediaControlsWindow.xaml.cs">
-            <SubType>Code</SubType>
-        </Compile>
+        <PackageReference Include="Microsoft.WindowsAppSDK" />
+        <PackageReference Include="CommunityToolkit.Mvvm" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+        <PackageReference Include="ReactiveUI" />
+        <PackageReference Include="ReactiveUI.WinUI" />
+        <PackageReference Include="ReactiveUI.SourceGenerators" />
+        <PackageReference Include="WinUIEx" />
     </ItemGroup>
 
     <ItemGroup>
-        <PackageReference Include="CommunityToolkit.Mvvm" />
-
-        <PackageReference Include="iNKORE.UI.WPF.Modern" />
-        <PackageReference Include="Material.Icons.WPF" />
-        <!--<PackageReference Include="Microsoft-WindowsAPICodePack-Shell" />-->
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
-
-        <PackageReference Include="Microsoft.Windows.CsWin32">
-			<PrivateAssets>all</PrivateAssets>
-			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-		</PackageReference>
-        <!--<PackageReference Include="MouseKeyHook" />-->
-        <!--<PackageReference Include="NAudio.WASAPI" />-->
-        <PackageReference Include="ReactiveUI" />
-        <PackageReference Include="ReactiveUI.SourceGenerators">
-          <PrivateAssets>all</PrivateAssets>
-          <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-        <!--<PackageReference Include="TaskScheduler" />-->
         <ProjectReference Include="..\WinTabber.Api.Media\WinTabber.Api.Media.csproj" />
         <ProjectReference Include="..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />
         <ProjectReference Include="..\WinTabber.Events\WinTabber.Events.csproj" />
         <ProjectReference Include="..\WinTabber.Generators\WinTabber.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
         <ProjectReference Include="..\WinTabber.Interop\WinTabber.Interop.csproj" />
-        <ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
         <ProjectReference Include="..\WinTabber.ViewModels\WinTabber.ViewModels.csproj" />
-        <PackageReference Include="reactiveui.wpf" />
-    </ItemGroup>
-
-    <ItemGroup>
-      <Resource Include="Images\loading.png" />
+        <ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
     </ItemGroup>
 </Project>

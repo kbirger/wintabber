@@ -1,49 +1,45 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using System.Reactive.Disposables;
-using WinTabber.Api.Media.ShellApplications.Repositories;
 using WinTabber.Api.Windowing;
 using WinTabber.Api.Windowing.Suspension;
 using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Events;
-using WinTabber.Interop;
-using WinTabberUI.Coordinators;
-using WinTabberUI.Models.Settings;
 using WinTabber.ViewModels;
+using WinTabberUI.Coordinators;
 
 namespace WinTabberUI;
 
+/// <summary>
+/// Ported from the WPF app's own <c>BackgroundServiceContainer</c>. Preloads the same shared state
+/// (<see cref="WindowManager"/>, <see cref="ApplicationStateViewModel"/>)
+/// and roots every already-ported coordinator behind one <see cref="CompositeDisposable"/>, replacing
+/// the five separate fields <c>App.xaml.cs</c> used to hold individually. Disposal order matches the
+/// WPF original: coordinators first, then <see cref="WinTabberEventManager"/>, then
+/// <see cref="IProcessSuspensionService"/> (resumes every frozen process), then
+/// <see cref="IWindowThumbnailService"/> (restores every off-screen thumbnailed window) last -- so
+/// exiting the app never strands suspended or thumbnailed windows with no UI left to bring them back.
+/// <see cref="MediaDebugWindowCoordinator"/> is not ported to this app yet -- deliberately left out
+/// of this composite, not forgotten; add it here when it is ported.
+/// </summary>
 public class BackgroundServiceContainer : IDisposable
 {
-    private CompositeDisposable _cleanup;
+    private readonly CompositeDisposable _cleanup;
 
     public BackgroundServiceContainer(IServiceProvider ioc)
     {
-        ioc.GetRequiredService<WindowSelectorWindow>();
-        ioc.GetRequiredService<ApplicationStateViewModel>();
-        ioc.GetRequiredService<SettingsViewModel>();
         ioc.GetRequiredService<WindowManager>();
-
-        // Installed-app enumeration is a media controls preload (app picker, launch icons). Skip
-        // it when the feature is off; the repository is otherwise built lazily on first use.
-        if (ioc.GetRequiredService<ApplicationSettings>().General.EnableMediaControls)
-        {
-            ioc.GetRequiredService<IInstalledApplicationRepository>();
-        }
+        ioc.GetRequiredService<ApplicationStateViewModel>();
 
         _cleanup = new CompositeDisposable(
             ioc.GetRequiredService<StartupCoordinator>(),
-            ioc.GetRequiredService<SettingsWindowViewCoordinator>().Init(),
-            ioc.GetRequiredService<WindowSelectorViewCoordinator>().Init(),
-            ioc.GetRequiredService<MediaWindowViewCoordinator>().Init(),
-            ioc.GetRequiredService<SuspendedWindowsViewCoordinator>().Init(),
-            // No longer order-dependent: MediaDebugWindowCoordinator observes
-            // MediaWindowViewCoordinator's own ShownChanges directly, not the same upstream
-            // subject, so its position in this list doesn't affect correctness.
-            ioc.GetRequiredService<MediaDebugWindowCoordinator>().Init(),
             ioc.GetRequiredService<ThumbnailWindowCoordinator>().Init(),
+            ioc.GetRequiredService<MediaControlsWindowCoordinator>(),
+            ioc.GetRequiredService<NotifyIconCoordinator>(),
+            ioc.GetRequiredService<WindowSelectorWindowCoordinator>(),
+            ioc.GetRequiredService<SettingsWindowCoordinator>(),
+            ioc.GetRequiredService<SuspendedWindowsWindowCoordinator>(),
             ioc.GetRequiredService<WindowCommandCoordinator>(),
             ioc.GetRequiredService<WinTabberEventManager>(),
-            ioc.GetRequiredService<NotifyIconCoordinator>(),
             // Disposing this resumes every frozen process on exit. Order within the composite is
             // insertion order and does not matter here: ResumeAll only touches IProcessControl,
             // IWindowVisibility, and the state file, none of which the composite owns.
@@ -51,16 +47,11 @@ public class BackgroundServiceContainer : IDisposable
             // Same idea: disposing this moves every off-screen thumbnailed window back to its
             // original position on exit, so a killed/crashed app doesn't leave windows stranded.
             ioc.GetRequiredService<IWindowThumbnailService>()
-            //ioc.GetRequiredService<IAudioDeviceManager>().Init()
         );
-
-
-
-
-
     }
+
     public void Dispose()
     {
-        _cleanup?.Dispose();
+        _cleanup.Dispose();
     }
 }

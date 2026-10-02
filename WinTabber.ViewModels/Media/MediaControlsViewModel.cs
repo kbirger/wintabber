@@ -109,8 +109,7 @@ public class MediaControlsViewModel : ReactiveObject, IActivatableViewModel, IDi
             // preventive, not (yet) reproduced live the way the device-list case was.
             //
             // Both this and the RaisePropertyChanged(nameof(Sessions)) call below are kept under
-            // review, see the follow-up section dated 2026-09-24 in
-            // docs/superpowers/plans/2026-09-12-wpf-to-winui3-migration.md.
+            // review (dated 2026-09-24, from the now-removed WPF-to-WinUI3 migration plan).
             sessions
                 .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Bind(out _sessions, new BindingOptions(ResetThreshold: int.MaxValue))
