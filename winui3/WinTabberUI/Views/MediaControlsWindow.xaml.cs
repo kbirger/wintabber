@@ -83,15 +83,10 @@ public sealed partial class MediaControlsWindow : WindowEx
         ((FrameworkElement)Content).ActualThemeChanged += Window_ThemeChanged;
         ResizeHeightToContent();
 
+        // Elements' own AccessKeys.Key="..." in this window's XAML (and VolumeControls.xaml's)
+        // register themselves with this layer on Loaded -- see AccessKeys.cs. No per-element Watch
+        // calls needed here.
         var accessKeyBadgeLayer = new AccessKeyBadgeLayer(this);
-        accessKeyBadgeLayer.Watch(SessionSelector);
-        accessKeyBadgeLayer.Watch(PlaybackDeviceSelector);
-        accessKeyBadgeLayer.Watch(RecordingDeviceSelector);
-        accessKeyBadgeLayer.Watch(PrevButton);
-        accessKeyBadgeLayer.Watch(PlayPauseButton);
-        accessKeyBadgeLayer.Watch(NextButton);
-        SessionVolumeControls.RegisterAccessKeyBadges(accessKeyBadgeLayer);
-        DeviceVolumeControls.RegisterAccessKeyBadges(accessKeyBadgeLayer);
 
         DynamicAccessKeyScope.AttachSequentialKeys(SessionSelector, accessKeyBadgeLayer, (_, index) =>
         {

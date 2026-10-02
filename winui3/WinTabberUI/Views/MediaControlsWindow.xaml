@@ -9,6 +9,7 @@
     xmlns:uc="using:WinTabber.UI.Media.UserControls"
     xmlns:vm="using:WinTabber.UI.Media.ViewModels"
     xmlns:ca="using:WinTabber.Api.Media.CoreAudio.Dtos"
+    xmlns:ak="using:WinTabber.UI.Common.AccessKeys"
     mc:Ignorable="d"
     Title="MediaControlsWindow"
     Width="700"
@@ -187,7 +188,7 @@
                 HorizontalAlignment="Stretch"
                 Height="40"
                 x:Name="SessionSelector"
-                AccessKey="A"
+                ak:AccessKeys.Key="A"
                 ItemTemplate="{StaticResource SessionItemTemplate}"
                 SelectedItem="{Binding SelectedSessionListItem, Mode=TwoWay}"
             />
@@ -202,7 +203,7 @@
                 HorizontalAlignment="Stretch"
                 Height="40"
                 x:Name="PlaybackDeviceSelector"
-                AccessKey="S"
+                ak:AccessKeys.Key="S"
                 ItemTemplate="{StaticResource DeviceItemTemplate}"
                 ItemsSource="{Binding Playback.Devices}"
                 SelectedItem="{Binding Playback.SelectedDevice, Mode=TwoWay}"
@@ -217,7 +218,7 @@
                 HorizontalAlignment="Stretch"
                 Height="40"
                 x:Name="RecordingDeviceSelector"
-                AccessKey="R"
+                ak:AccessKeys.Key="R"
                 ItemTemplate="{StaticResource DeviceItemTemplate}"
                 ItemsSource="{Binding Recording.Devices}"
                 SelectedItem="{Binding Recording.SelectedDevice, Mode=TwoWay}"
@@ -272,7 +273,7 @@
             </Grid>
 
             <StackPanel Orientation="Horizontal" Grid.Column="1" Grid.Row="0">
-                <Button x:Name="PrevButton" Style="{StaticResource MediaButton}" AccessKey="B" Command="{Binding ActiveSession.Playback.Prev}">
+                <Button x:Name="PrevButton" Style="{StaticResource MediaButton}" ak:AccessKeys.Key="B" Command="{Binding ActiveSession.Playback.Prev}">
                     <FontIcon Glyph="&#xE892;" />
                 </Button>
                 <ToggleButton
@@ -280,10 +281,10 @@
                     DataContext="{Binding ActiveSession.Playback}"
                     Command="{Binding PlayPause}"
                     x:Name="PlayPauseButton"
-                    AccessKey="P"
+                    ak:AccessKeys.Key="P"
                     IsChecked="{Binding IsPlaying, Mode=OneWay}"
                 />
-                <Button x:Name="NextButton" Style="{StaticResource MediaButton}" AccessKey="F" Command="{Binding ActiveSession.Playback.Next}">
+                <Button x:Name="NextButton" Style="{StaticResource MediaButton}" ak:AccessKeys.Key="F" Command="{Binding ActiveSession.Playback.Next}">
                     <FontIcon Glyph="&#xE893;" />
                 </Button>
             </StackPanel>

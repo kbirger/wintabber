@@ -5,6 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:c="using:WinTabber.UI.Common.ValueConverters"
+    xmlns:ak="using:WinTabber.UI.Common.AccessKeys"
     mc:Ignorable="d"
 >
     <!--
@@ -93,7 +94,7 @@
             Maximum="100"
             StepFrequency="5"
             IsEnabled="{Binding CanSetVolume}"
-            AccessKey="{Binding VolumeHintText}"
+            ak:AccessKeys.Key="{Binding VolumeHintText}"
             Value="{Binding Volume, Converter={StaticResource FloatToPercentageConverter}, Mode=TwoWay}"
         />
         <ToggleButton
@@ -103,7 +104,7 @@
             Grid.Column="1"
             HorizontalAlignment="Center"
             VerticalAlignment="Stretch"
-            AccessKey="{Binding MuteHintText}"
+            ak:AccessKeys.Key="{Binding MuteHintText}"
             IsChecked="{Binding IsMuted, Mode=OneWay}"
             Command="{Binding SetMuted}"
             CommandParameter="{Binding IsMuted, Converter={StaticResource InverseBoolConverter}}"

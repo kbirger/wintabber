@@ -17,6 +17,12 @@ namespace WinTabber.UI.Common.AccessKeys;
 /// </summary>
 public sealed class AccessKeyBadgeLayer
 {
+    // Keyed on XamlRoot, not the owning Window directly: it is what the AccessKeys attached
+    // property (an arbitrary descendant element, not the window) has at hand to find "this
+    // element's window's layer" without a visual-tree walk. Generic registry pulled out separately
+    // (AccessKeyBadgeLayerRegistry) so its add/remove/lookup logic is headless-testable.
+    private static readonly AccessKeyBadgeLayerRegistry<XamlRoot, AccessKeyBadgeLayer> Registry = new();
+
     private readonly Window _owner;
     private readonly AccessKeyOverlayWindow _overlay;
     private readonly Dictionary<UIElement, AccessKeyBadge> _badges = new();
@@ -32,7 +38,16 @@ public sealed class AccessKeyBadgeLayer
         // the owner is hidden via SW_HIDE (how this app's own show/hide toggle works) -- nothing else
         // tells this layer the owner went away, so badges could otherwise linger visible over nothing.
         _owner.AppWindow.Changed += OnOwnerAppWindowChanged;
+
+        var xamlRoot = owner.Content.XamlRoot;
+        Registry.Register(xamlRoot, this);
+        _owner.Closed += (_, _) => Registry.Unregister(xamlRoot);
     }
+
+    /// <summary>Finds the AccessKeyBadgeLayer owning the window an element belongs to, for the
+    /// AccessKeys attached property's deferred (Loaded-time) Watch registration.</summary>
+    public static bool TryGetForXamlRoot(XamlRoot root, out AccessKeyBadgeLayer layer) =>
+        Registry.TryGet(root, out layer!);
 
     private void OnOwnerAppWindowChanged(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowChangedEventArgs args)
     {

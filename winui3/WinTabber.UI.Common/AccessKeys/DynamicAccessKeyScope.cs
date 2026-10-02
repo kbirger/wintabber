@@ -55,7 +55,10 @@ public static class DynamicAccessKeyScope
                         continue;
                     }
 
-                    container.AccessKey = (i + 1).ToString();
+                    // Routed through AccessKeys.SetKey, not a bare container.AccessKey assignment,
+                    // so this dynamically realized container gets the same Watch registration a
+                    // static XAML-declared AccessKeys.Key gets -- one code path for both.
+                    AccessKeys.SetKey(container, (i + 1).ToString());
                     // Tells the framework these items belong to the ComboBox's access-key scope even
                     // though they live in a Popup, outside its visual tree -- IsAccessKeyScope alone
                     // does not cover Popup content. With this set, the framework correctly dismisses
@@ -70,7 +73,6 @@ public static class DynamicAccessKeyScope
                     }
 
                     anyNewlyWired = true;
-                    badgeLayer.Watch(container);
                     container.AccessKeyInvoked += (_, args) =>
                     {
                         onActivated(container, owner.IndexFromContainer(container));
