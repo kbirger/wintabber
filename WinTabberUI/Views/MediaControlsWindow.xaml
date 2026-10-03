@@ -21,7 +21,7 @@
     IsResizable="False"
     IsTitleBarVisible="False"    
 >
-    <Grid x:Name="RootGrid" Padding="25" Background="#00ff0000" PreviewKeyDown="RootGrid_PreviewKeyDown">
+    <Grid x:Name="RootGrid" Padding="25" Background="#00ff0000" PreviewKeyDown="RootGrid_PreviewKeyDown" Loaded="RootGrid_Loaded">
     <Grid.Resources>
         <c:NullToVisibilityConverter x:Key="NullToVisibilityConverter" />
         <c:TimeSpanToStringConverter x:Key="TimeSpanToStringConverter" />

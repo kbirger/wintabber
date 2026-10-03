@@ -84,7 +84,7 @@
 
         <controls:SpatialNavigationListView
             x:Name="TabListView"
-            Margin="55"
+            Margin="45"
             ItemContainerStyle="{StaticResource WindowTileItemStyle}"
             SelectionMode="Single"
             ScrollViewer.HorizontalScrollBarVisibility="Disabled"
@@ -139,6 +139,8 @@
             ToolTipService.ToolTip="Close all windows of this application"
             HorizontalAlignment="Right"
             VerticalAlignment="Top"
+            Background="Transparent"
+            BorderThickness="0"
             Margin="0"
             Visibility="{Binding IsCloseApplicationButtonVisible, Converter={StaticResource BoolToVisibilityConverter}}"
         >

@@ -1,11 +1,15 @@
 // WinTabberUI/Views/WindowSelectorWindow.xaml.cs
-using System.Collections.Generic;
+using Microsoft.UI.Composition;
+using Microsoft.UI.Composition.SystemBackdrops;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Controls;
 using Microsoft.UI.Xaml.Input;
 using Microsoft.UI.Xaml.Media;
+using System.Collections.Generic;
 using Windows.Foundation;
 using Windows.System;
+using Windows.UI;
+using WinRT;
 using WinTabber.ViewModels;
 using WinTabberUI.Models.Settings;
 using WinTabberUI.Windowing;
@@ -83,9 +87,40 @@ public sealed partial class WindowSelectorWindow : WindowEx
         ViewModel = viewModel;
         _settings = settings;
         InitializeComponent();
-        AppWindow.SetIcon(DesktopHelper.AppIconPath);
 
-        SystemBackdrop = new DesktopAcrylicBackdrop();
+        if (DesktopAcrylicController.IsSupported())
+        {
+            _desktopAcrylicController?.Dispose();
+            _desktopAcrylicController = new DesktopAcrylicController();
+            _configurationSource = new SystemBackdropConfiguration()
+            {
+                IsInputActive = true,
+                Theme = SystemBackdropTheme.Dark
+            };
+
+
+            _desktopAcrylicController.AddSystemBackdropTarget(this.As<ICompositionSupportsSystemBackdrop>());
+            _desktopAcrylicController.SetSystemBackdropConfiguration(_configurationSource);
+        }
+        ((FrameworkElement)Content).ActualThemeChanged += Window_ThemeChanged;
+        //AppWindow.SetIcon(DesktopHelper.AppIconPath);
+        // Inside your Window constructor or activation logic:
+        //if (DesktopAcrylicController.IsSupported())
+        //{
+        //    var acrylicController = new DesktopAcrylicController();
+
+        //    // Set your custom tint properties
+        //    acrylicController.TintOpacity = 0.6f;          // Opacity of the color tint (0.0 to 1.0)
+        //    acrylicController.LuminosityOpacity = 0.7f;   // Controls background saturation passthrough
+        //    acrylicController.TintColor = Microsoft.UI.Colors.MidnightBlue;
+
+        //    // Connect controller to the window
+        //    acrylicController.AddSystemBackdropTarget(this.As<ICompositionSupportsSystemBackdrop>());
+        //    acrylicController.SetSystemBackdropConfiguration(new SystemBackdropConfiguration());
+        //}
+
+        //SystemBackdrop = new DesktopAcrylicBackdrop();
+
         _hwnd = WinRT.Interop.WindowNative.GetWindowHandle(this);
 
         // Only needed for the one binding that could not stay {x:Bind} -- see
@@ -173,6 +208,20 @@ public sealed partial class WindowSelectorWindow : WindowEx
                 RetryUntil(WireRealizedTiles, maxAttempts: 40, TimeSpan.FromMilliseconds(30));
             }
         };
+    }
+
+
+    private void Window_ThemeChanged(FrameworkElement sender, object args)
+    {
+        if (_configurationSource != null)
+            SetConfigurationSourceTheme();
+    }
+
+    private void SetConfigurationSourceTheme()
+    {
+        if (_configurationSource != null)
+            _configurationSource.Theme =
+                (SystemBackdropTheme)((FrameworkElement)Content).ActualTheme;
     }
 
     // REAL BUG found via live verification (this task's own follow-up): thumbnails only appeared
@@ -562,6 +611,8 @@ public sealed partial class WindowSelectorWindow : WindowEx
     }
 
     private bool _focusAcquired;
+    private DesktopAcrylicController _desktopAcrylicController;
+    private SystemBackdropConfiguration _configurationSource;
 
     private bool TryFocusTabList()
     {

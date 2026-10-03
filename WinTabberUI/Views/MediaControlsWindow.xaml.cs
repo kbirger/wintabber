@@ -81,28 +81,7 @@ public sealed partial class MediaControlsWindow : WindowEx
         // NullToVisibilityConverter), which changes the content's natural height.
         RootGrid.SizeChanged += (_, _) => DispatcherQueue.TryEnqueue(ResizeHeightToContent);
         ((FrameworkElement)Content).ActualThemeChanged += Window_ThemeChanged;
-        ResizeHeightToContent();
-
-        // Elements' own AccessKeys.Key="..." in this window's XAML (and VolumeControls.xaml's)
-        // register themselves with this layer on Loaded -- see AccessKeys.cs. No per-element Watch
-        // calls needed here.
-        var accessKeyBadgeLayer = new AccessKeyBadgeLayer(this);
-
-        DynamicAccessKeyScope.AttachSequentialKeys(SessionSelector, accessKeyBadgeLayer, (_, index) =>
-        {
-            SessionSelector.SelectedIndex = index;
-            SessionSelector.IsDropDownOpen = false;
-        });
-        DynamicAccessKeyScope.AttachSequentialKeys(PlaybackDeviceSelector, accessKeyBadgeLayer, (_, index) =>
-        {
-            PlaybackDeviceSelector.SelectedIndex = index;
-            PlaybackDeviceSelector.IsDropDownOpen = false;
-        });
-        DynamicAccessKeyScope.AttachSequentialKeys(RecordingDeviceSelector, accessKeyBadgeLayer, (_, index) =>
-        {
-            RecordingDeviceSelector.SelectedIndex = index;
-            RecordingDeviceSelector.IsDropDownOpen = false;
-        });
+        ResizeHeightToContent();        
     }
  
     private void Window_ThemeChanged(FrameworkElement sender, object args)
@@ -199,5 +178,29 @@ public sealed partial class MediaControlsWindow : WindowEx
     {
         
         // Handle key down events for the root grid
+    }
+
+    private void RootGrid_Loaded(object sender, RoutedEventArgs e)
+    {
+        // Elements' own AccessKeys.Key="..." in this window's XAML (and VolumeControls.xaml's)
+        // register themselves with this layer on Loaded -- see AccessKeys.cs. No per-element Watch
+        // calls needed here.
+        var accessKeyBadgeLayer = new AccessKeyBadgeLayer(this);
+
+        DynamicAccessKeyScope.AttachSequentialKeys(SessionSelector, accessKeyBadgeLayer, (_, index) =>
+        {
+            SessionSelector.SelectedIndex = index;
+            SessionSelector.IsDropDownOpen = false;
+        });
+        DynamicAccessKeyScope.AttachSequentialKeys(PlaybackDeviceSelector, accessKeyBadgeLayer, (_, index) =>
+        {
+            PlaybackDeviceSelector.SelectedIndex = index;
+            PlaybackDeviceSelector.IsDropDownOpen = false;
+        });
+        DynamicAccessKeyScope.AttachSequentialKeys(RecordingDeviceSelector, accessKeyBadgeLayer, (_, index) =>
+        {
+            RecordingDeviceSelector.SelectedIndex = index;
+            RecordingDeviceSelector.IsDropDownOpen = false;
+        });
     }
 }

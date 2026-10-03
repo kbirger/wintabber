@@ -30,6 +30,8 @@ shortcut of the same name stops working until you change or remove the binding.
 
 ### Window selector
 
+![Window Selector Screenshot](docs/images/window-selector.png)
+
 The window selector is the core feature. It lists every window of the application that has focus.
 "Application" means the process name, so all instances of the same program contribute their windows
 to one list. The list is ordered most-recently-focused first.
@@ -87,6 +89,8 @@ In the settings file and in the settings window, the commands for this feature a
 
 ### Floating window thumbnail
 
+![Thumbnail Screenshot](docs/images/thumbnai-screenshot.png)
+
 The thumbnail button, and the thumbnail shortcut, move a window off screen, hide it from the taskbar,
 and put a small live preview of it in a floating window. The preview stays on top. Close the preview
 to restore the window to its original position, size, and state.
@@ -115,6 +119,8 @@ closes.
 The dock is incomplete. Nothing sets the application that it lists, so its window list stays empty.
 
 ### Media and audio controls (alpha)
+
+![Media Controls Screenshot](docs/images/media-controls.png)
 
 **This feature is alpha. Expect incomplete controls and rough behavior.**
 

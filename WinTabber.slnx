@@ -10,25 +10,29 @@
     <File Path="Directory.Packages.props" />
     <File Path="global.json" />
   </Folder>
-  <Project Path="WinTabber.Api.Media/WinTabber.Api.Media.csproj" />
-  <Project Path="WinTabber.Api.Media.Tests/WinTabber.Api.Media.Tests.csproj" />
-  <Project Path="WinTabber.Api.Windowing.Tests/WinTabber.Api.Windowing.Tests.csproj" />
-  <Project Path="WinTabber.Api.Windowing/WinTabber.Api.Windowing.csproj" />
-  <Project Path="WinTabber.Common.Util/WinTabber.Common.Util.csproj" />
-  <Project Path="WinTabber.Elevator/WinTabber.Elevator.csproj" />
-  <Project Path="WinTabber.Events/WinTabber.Events.csproj" />
-  <Project Path="WinTabber.Events.Tests/WinTabber.Events.Tests.csproj" />
-  <Project Path="WinTabber.Generators/WinTabber.Generators.csproj" />
-  <Project Path="WinTabber.Infrastructure/WinTabber.Infrastructure.csproj" />
-  <Project Path="WinTabber.Infrastructure.Tests/WinTabber.Infrastructure.Tests.csproj" />
-  <Project Path="WinTabber.Interop.Tests/WinTabber.Interop.Tests.csproj" />
-  <Project Path="WinTabber.Interop/WinTabber.Interop.csproj" />
-  <Project Path="WinTabber.ViewModels/WinTabber.ViewModels.csproj" />
-  <Project Path="Wintabber.SessionsTest/Wintabber.SessionsTest.csproj" />
-  <Project Path="WinTabber.UI.Common/WinTabber.UI.Common.csproj" />
-  <Project Path="WinTabber.UI.Common.Tests/WinTabber.UI.Common.Tests.csproj" />
-  <Project Path="WinTabber.UI.Media/WinTabber.UI.Media.csproj" />
-  <Project Path="WinTabber.UI.Media.Tests/WinTabber.UI.Media.Tests.csproj" />
-  <Project Path="WinTabberUI/WinTabberUI.csproj" Id="5b105e15-4857-4900-ab25-63709fdbef6d" />
-  <Project Path="WinTabberUI.Tests/WinTabberUI.Tests.csproj" />
+  <Folder Name="/src/">
+    <Project Path="WinTabber.Api.Media/WinTabber.Api.Media.csproj" />
+    <Project Path="WinTabber.Api.Windowing/WinTabber.Api.Windowing.csproj" />
+    <Project Path="WinTabber.Common.Util/WinTabber.Common.Util.csproj" />
+    <Project Path="WinTabber.Elevator/WinTabber.Elevator.csproj" />
+    <Project Path="WinTabber.Events/WinTabber.Events.csproj" />
+    <Project Path="WinTabber.Generators/WinTabber.Generators.csproj" />
+    <Project Path="WinTabber.Infrastructure/WinTabber.Infrastructure.csproj" />
+    <Project Path="WinTabber.Interop/WinTabber.Interop.csproj" />
+    <Project Path="WinTabber.UI.Common/WinTabber.UI.Common.csproj" />
+    <Project Path="WinTabber.UI.Media/WinTabber.UI.Media.csproj" />
+    <Project Path="WinTabber.ViewModels/WinTabber.ViewModels.csproj" />
+    <Project Path="WinTabberUI/WinTabberUI.csproj" Id="5b105e15-4857-4900-ab25-63709fdbef6d" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="WinTabber.Api.Media.Tests/WinTabber.Api.Media.Tests.csproj" />
+    <Project Path="WinTabber.Api.Windowing.Tests/WinTabber.Api.Windowing.Tests.csproj" />
+    <Project Path="WinTabber.Events.Tests/WinTabber.Events.Tests.csproj" />
+    <Project Path="WinTabber.Infrastructure.Tests/WinTabber.Infrastructure.Tests.csproj" />
+    <Project Path="WinTabber.Interop.Tests/WinTabber.Interop.Tests.csproj" />
+    <Project Path="Wintabber.SessionsTest/Wintabber.SessionsTest.csproj" />
+    <Project Path="WinTabber.UI.Common.Tests/WinTabber.UI.Common.Tests.csproj" />
+    <Project Path="WinTabber.UI.Media.Tests/WinTabber.UI.Media.Tests.csproj" />
+    <Project Path="WinTabberUI.Tests/WinTabberUI.Tests.csproj" />
+  </Folder>
 </Solution>
