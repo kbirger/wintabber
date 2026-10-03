@@ -6,7 +6,7 @@ using System.Windows.Interop;
 using System.Windows.Media;
 using WinTabber.Api.Windowing;
 using WinTabber.Interop;
-using WinTabberUI.ViewModels;
+using WinTabber.ViewModels;
 using WinTabberUI.Windowing;
 
 namespace WinTabberUI;

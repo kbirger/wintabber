@@ -4,7 +4,7 @@ using System.Windows.Threading;
 using WinTabber.Interop;
 using WinTabber.UI.Media.Views;
 using WinTabberUI.Helpers;
-using WinTabberUI.ViewModels;
+using WinTabber.ViewModels;
 
 namespace WinTabberUI.Coordinators
 {

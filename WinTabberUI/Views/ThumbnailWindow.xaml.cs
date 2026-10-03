@@ -7,7 +7,7 @@ using System.Windows.Media;
 using System.Windows.Media.Animation;
 using WinTabber.Api.Windowing.Thumbnails;
 using WinTabberUI.Services;
-using WinTabberUI.ViewModels;
+using WinTabber.ViewModels;
 using Windows.Win32;
 using Windows.Win32.Foundation;
 

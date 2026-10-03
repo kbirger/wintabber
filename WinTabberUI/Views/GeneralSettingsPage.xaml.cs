@@ -2,7 +2,7 @@
 using System.Reactive.Disposables.Fluent;
 using System.Reactive.Linq;
 using System.Windows;
-using WinTabberUI.ViewModels.Settings;
+using WinTabber.ViewModels.Settings;
 
 namespace WinTabberUI.Views
 {

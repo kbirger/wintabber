@@ -7,6 +7,7 @@
 
   <ItemGroup>
     <PackageReference Include="TUnit" />
+    <PackageReference Include="Microsoft.Reactive.Testing" />
   </ItemGroup>
 
   <ItemGroup>

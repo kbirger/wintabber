@@ -1,0 +1,70 @@
+<ContentDialog
+    x:Class="WinTabberUI.Views.ShortcutCaptureDialog"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:controls="using:WinTabber.UI.Common.Controls"
+    CornerRadius="8"
+>
+    <ContentDialog.Resources>
+        <ResourceDictionary>
+            <ResourceDictionary.MergedDictionaries>
+                <!-- Same ms-appx:/// resolution question as ShortcutsSettingsPage.xaml — confirmed
+                     against the build output layout (WinTabberUI's bin dir deploys
+                     WinTabber.UI.Common's Themes/Generic.xaml under exactly this relative path), so
+                     the URI scheme resolves as expected; ShortcutChipTemplateLarge/
+                     ShortcutCaptureBoxDialogStyle are keyed resources, so at minimum this explicit
+                     merge is needed for those two. -->
+                <ResourceDictionary Source="ms-appx:///WinTabber.UI.Common/Themes/Generic.xaml" />
+            </ResourceDictionary.MergedDictionaries>
+            <Thickness x:Key="ContentDialogPadding">0</Thickness>
+            <Thickness x:Key="ContentDialogTitleMargin">0</Thickness>
+        </ResourceDictionary>
+    </ContentDialog.Resources>
+
+    <Grid MinWidth="440">
+        <Grid.RowDefinitions>
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+            <RowDefinition Height="Auto" />
+        </Grid.RowDefinitions>
+
+        <!-- Title, instructions, and the keys being pressed. -->
+        <StackPanel Grid.Row="0" Margin="26,20,26,20">
+            <TextBlock x:Name="TitleText" FontSize="20" FontWeight="SemiBold" />
+            <TextBlock
+                Margin="0,4,0,0"
+                FontSize="13"
+                Foreground="{ThemeResource ShortcutHintForegroundBrush}"
+                Text="Press the keys for this shortcut." />
+
+            <Border MinHeight="90" Margin="0,20,0,0" HorizontalAlignment="Center" VerticalAlignment="Center">
+                <controls:ShortcutCaptureBox x:Name="CaptureBox" Style="{StaticResource ShortcutCaptureBoxDialogStyle}" />
+            </Border>
+        </StackPanel>
+
+        <!-- Conflict warning — informational only; a conflicting shortcut can still be saved. -->
+        <Border Grid.Row="1" Margin="26,0,26,16" HorizontalAlignment="Stretch">
+            <Border
+                x:Name="ConflictBanner"
+                Padding="14,10"
+                Background="{ThemeResource ShortcutValidationBannerBackgroundBrush}"
+                BorderBrush="{ThemeResource ShortcutValidationForegroundBrush}"
+                BorderThickness="1"
+                CornerRadius="5"
+                Visibility="Collapsed">
+                <TextBlock x:Name="ConflictText" Foreground="{ThemeResource ShortcutValidationForegroundBrush}" TextWrapping="Wrap" />
+            </Border>
+        </Border>
+
+        <!-- Save / Reset / Delete / Cancel — the footer Flow.Launcher's hotkey dialog uses, minus
+             its "Overwrite" button: WinTabber never blocks a conflicting save. -->
+        <Border Grid.Row="2" BorderBrush="{ThemeResource ShortcutCaptureBoxBorderBrush}" BorderThickness="0,1,0,0" CornerRadius="0,0,8,8">
+            <StackPanel Margin="10,9" HorizontalAlignment="Center" Orientation="Horizontal">
+                <Button x:Name="SaveButton" MinWidth="100" MinHeight="36" Margin="0,0,4,0" Click="OnSaveClick" Content="Save" Style="{StaticResource AccentButtonStyle}" />
+                <Button x:Name="ResetButton" MinWidth="100" MinHeight="36" Margin="4,0" Click="OnResetClick" Content="Reset to default" />
+                <Button x:Name="DeleteButton" MinWidth="100" MinHeight="36" Margin="4,0" Click="OnDeleteClick" Content="Delete" />
+                <Button MinWidth="100" MinHeight="36" Margin="4,0,0,0" Click="OnCancelClick" Content="Cancel" />
+            </StackPanel>
+        </Border>
+    </Grid>
+</ContentDialog>

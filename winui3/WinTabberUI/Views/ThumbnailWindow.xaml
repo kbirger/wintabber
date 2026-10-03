@@ -1,0 +1,78 @@
+<winuiex:WindowEx
+    x:Class="WinTabberUI.Views.ThumbnailWindow"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:winuiex="using:WinUIEx"
+    xmlns:controls="using:WinTabberUI.Controls"
+    Title="{x:Bind ViewModel.Title, Mode=OneWay}"
+    Width="480"
+    Height="320"
+    MinWidth="160"
+    MinHeight="120"
+    IsShownInSwitchers="False"
+    IsAlwaysOnTop="True"
+    IsTitleBarVisible="False"
+    IsResizable="True"
+>
+    <!-- DEVIATION: no shadow margin/DropShadowEffect — FrameworkElement has no Effect property in -->
+    <!-- WinUI 3. See ThumbnailWindow.xaml.cs's class doc comment for the full rationale, including -->
+    <!-- the real root cause found here for this migration's documented XamlCompiler pass2 crash -->
+    <!-- class: a literal ASCII double hyphen anywhere inside an XAML comment reliably crashes it -->
+    <!-- with zero diagnostics — not comment length or position, which earlier findings had blamed. -->
+    <!-- Every comment in this file (and this note itself) uses a real em dash instead. -->
+    <Grid x:Name="RootGrid">
+        <Grid.RowDefinitions>
+            <!-- Always reserved at its full height, never resized, so the thumbnail row below -->
+            <!-- never changes size and the DWM-registered thumbnail's destination rect (which -->
+            <!-- always paints above anything sharing it, regardless of z-order) never overlaps -->
+            <!-- this row. Only HeaderBar's own Opacity fades on hover; layout itself never moves. -->
+            <RowDefinition Height="26" />
+            <RowDefinition Height="*" />
+        </Grid.RowDefinitions>
+
+        <!-- Solid dark background so title text and the expand button stay legible even hovering -->
+        <!-- over a light-colored source window underneath. -->
+        <Grid x:Name="HeaderBar" Grid.Row="0" Background="#E6141414" Opacity="0">
+            <Grid.ColumnDefinitions>
+                <ColumnDefinition Width="*" />
+                <ColumnDefinition Width="Auto" />
+            </Grid.ColumnDefinitions>
+            <TextBlock
+                Grid.Column="0"
+                Text="{x:Bind ViewModel.Title, Mode=OneWay}"
+                Foreground="White"
+                FontSize="11"
+                Margin="8,0"
+                VerticalAlignment="Center"
+                TextTrimming="CharacterEllipsis"
+            />
+            <Button
+                x:Name="ExpandButton"
+                Grid.Column="1"
+                Click="ExpandButton_Click"
+                ToolTipService.ToolTip="Restore window to its original position"
+                Background="Transparent"
+                BorderThickness="0"
+                Foreground="White"
+                Padding="6,2"
+            >
+                <!-- Segoe Fluent Icons "BackToWindow" glyph — closest stand-in for -->
+                <!-- FontAwesome.Sharp's ExpandAlt used by the WPF original (WPF-only package, -->
+                <!-- no WinUI 3 port referenced anywhere else in this migration either). -->
+                <FontIcon Glyph="&#xE73F;" FontSize="12" />
+            </Button>
+        </Grid>
+
+        <!-- WindowThumbnail (a bare FrameworkElement) renders nothing itself, so it has no -->
+        <!-- hit-test surface of its own; this wrapping Grid's Background is what makes -->
+        <!-- clicks/drags in this area actually register (used for HTCAPTION hit-testing in -->
+        <!-- code-behind). Opaque so the color is never actually seen — the DWM-registered -->
+        <!-- thumbnail always paints over its destination rect on top of anything here. -->
+        <Grid x:Name="ThumbnailHost" Grid.Row="1" Background="#FF101010">
+            <!-- Stretch: fill this row exactly (DWM scales the bitmap to match, no -->
+            <!-- letterboxing). The real window is never resized live — see -->
+            <!-- ThumbnailWindow.xaml.cs — so this is a pure optical zoom. -->
+            <controls:WindowThumbnail x:Name="Thumbnail" ClientAreaOnly="True" Stretch="True" />
+        </Grid>
+    </Grid>
+</winuiex:WindowEx>

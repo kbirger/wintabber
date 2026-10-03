@@ -2,7 +2,7 @@ using System.Windows;
 using System.Windows.Forms;
 using System.Windows.Interop;
 using WinTabber.Interop;
-using WinTabberUI.ViewModels;
+using WinTabber.ViewModels;
 using WinTabberUI.Windowing;
 
 namespace WinTabberUI;

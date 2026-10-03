@@ -23,10 +23,19 @@
   <Project Path="WinTabber.Infrastructure.Tests/WinTabber.Infrastructure.Tests.csproj" />
   <Project Path="WinTabber.Interop.Tests/WinTabber.Interop.Tests.csproj" />
   <Project Path="WinTabber.Interop/WinTabber.Interop.csproj" />
+  <Project Path="WinTabber.ViewModels/WinTabber.ViewModels.csproj" />
   <Project Path="Wintabber.SessionsTest/Wintabber.SessionsTest.csproj" />
   <Project Path="WinTabber.UI.Common/WinTabber.UI.Common.csproj" Id="6c62a599-abec-4e60-9041-31f6c3db7dd4" />
   <Project Path="WinTabber.UI.Common.Tests/WinTabber.UI.Common.Tests.csproj" />
   <Project Path="WinTabber.UI.Media/WinTabber.UI.Media.csproj" Id="1c832ef2-4b5b-4f5b-bc19-bdbf004c8a25" />
   <Project Path="WinTabber.UI.Media.Tests/WinTabber.UI.Media.Tests.csproj" />
   <Project Path="WinTabberUI/WinTabberUI.csproj" />
+  <Folder Name="/winui3/">
+    <Project Path="winui3/WinTabber.UI.Common/WinTabber.UI.Common.csproj" />
+    <Project Path="winui3/WinTabber.UI.Common.Tests/WinTabber.UI.Common.Tests.csproj" />
+    <Project Path="winui3/WinTabber.UI.Media/WinTabber.UI.Media.csproj" />
+    <Project Path="winui3/WinTabber.UI.Media.Tests/WinTabber.UI.Media.Tests.csproj" />
+    <Project Path="winui3/WinTabberUI/WinTabberUI.csproj" Id="5b105e15-4857-4900-ab25-63709fdbef6d" />
+    <Project Path="winui3/WinTabberUI.Tests/WinTabberUI.Tests.csproj" />
+  </Folder>
 </Solution>

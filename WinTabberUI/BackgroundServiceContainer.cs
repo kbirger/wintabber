@@ -7,9 +7,8 @@ using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Events;
 using WinTabber.Interop;
 using WinTabberUI.Coordinators;
-using WinTabberUI.Infrastructure;
 using WinTabberUI.Models.Settings;
-using WinTabberUI.ViewModels;
+using WinTabber.ViewModels;
 
 namespace WinTabberUI;
 
@@ -23,7 +22,6 @@ public class BackgroundServiceContainer : IDisposable
         ioc.GetRequiredService<ApplicationStateViewModel>();
         ioc.GetRequiredService<SettingsViewModel>();
         ioc.GetRequiredService<WindowManager>();
-        ioc.GetRequiredService<AppCache>().Load();
 
         // Installed-app enumeration is a media controls preload (app picker, launch icons). Skip
         // it when the feature is off; the repository is otherwise built lazily on first use.

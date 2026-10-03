@@ -1,0 +1,8 @@
+fa-solid-900.ttf is Font Awesome 6 Free Solid, from the Font Awesome Free package.
+
+Font files: SIL Open Font License 1.1.
+Full text: https://github.com/FortAwesome/Font-Awesome/blob/6.x/LICENSE.txt
+
+This copy was extracted from the fontawesome.sharp NuGet package (v6.6.0, MIT-licensed
+wrapper), already used by this repository's WPF app, so its Font Awesome 6 Free Solid
+build matches the icon names and codepoints used there.

@@ -1,6 +1,6 @@
 ﻿using System.Reactive;
-using System.Reactive.Concurrency;
 using System.Reactive.Linq;
+using ReactiveUI;
 using Windows.Media.Control;
 using SMTCMediaProps = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionMediaProperties;
 using SMTCPlaybackInfo = Windows.Media.Control.GlobalSystemMediaTransportControlsSessionPlaybackInfo;
@@ -26,7 +26,7 @@ public static class SMTCMediaChangeExtensions
                             .StartWith(Unit.Default)
                             .Select(_ => session.GetTimelineProperties())
                 )
-                .ObserveOn(DispatcherScheduler.Current)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Replay(1)
                 .RefCount();
         }
@@ -41,7 +41,7 @@ public static class SMTCMediaChangeExtensions
                     events =>
                         events.Select(_ => Unit.Default).StartWith(Unit.Default).Select(_ => session.GetPlaybackInfo())
                 )
-                .ObserveOn(DispatcherScheduler.Current)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Replay(1)
                 .RefCount();
         }
@@ -59,7 +59,7 @@ public static class SMTCMediaChangeExtensions
                             .SelectMany(_ => session.TryGetMediaPropertiesAsync())
                             .Catch(Observable.Empty<SMTCMediaProps>())
                 )
-                .ObserveOn(DispatcherScheduler.Current)
+                .ObserveOn(RxSchedulers.MainThreadScheduler)
                 .Replay(1)
                 .RefCount();
         }

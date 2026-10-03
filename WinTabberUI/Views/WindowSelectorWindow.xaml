@@ -5,7 +5,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:local="clr-namespace:WinTabberUI"
         xmlns:controls="clr-namespace:WinTabberUI.Controls"
-        xmlns:vm="clr-namespace:WinTabberUI.ViewModels"
+        xmlns:vm="clr-namespace:WinTabber.ViewModels;assembly=WinTabber.ViewModels"
         xmlns:rxui="http://reactiveui.net"
         
         xmlns:chrome="clr-namespace:WinTabber.UI.Common.Chrome;assembly=WinTabber.UI.Common"
@@ -54,7 +54,7 @@
                 <Grid Margin="0" Background="Transparent" IsHitTestVisible="True" MouseUp="Grid_MouseUp">
                     <!-- Dim the whole tile, not just the title strip: a suspended window is hidden,
                          so its thumbnail renders blank and would otherwise just look broken. -->
-                    <Grid.Style>
+                    <Grid.Style> 
                         <Style TargetType="Grid">
                             <Style.Triggers>
                                 <DataTrigger Binding="{Binding IsSuspended}" Value="True">
