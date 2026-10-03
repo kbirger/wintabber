@@ -1,127 +1,151 @@
-﻿using System.ComponentModel;
-using System.Drawing;
-using System.Windows;
-using System.Windows.Forms;
-using System.Windows.Interop;
-using System.Windows.Media;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
+using Microsoft.UI.Xaml.Media;
+using WinRT.Interop;
 using WinTabber.Api.Windowing;
 using WinTabber.Interop;
 using WinTabber.ViewModels;
+using WinTabberUI.Controls;
 using WinTabberUI.Windowing;
 
 namespace WinTabberUI;
 
-/// <summary>
-/// Interaction logic for DockWindow.xaml
-/// </summary>
-public partial class DockWindow : Window
+public sealed partial class DockWindow : WinUIEx.WindowEx
 {
-    public readonly DockWindowViewModel _viewModel;
-    private WindowManager _windowManger;
-    private Rectangle? _rect;
+    private readonly WindowManager _windowManager;
+    public DockWindowViewModel ViewModel { get; }
+
+    private readonly nint _hwnd;
+
+    // The reservation MakeSpace computed and applied — used to reposition windows against.
+    private Windows.Foundation.Rect? _reservedArea;
+
+    // The work area as it was BEFORE MakeSpace shrank it, captured once, up front. OnClosed
+    // restores from this saved value directly rather than re-reading GetDesktopArea() (which,
+    // once MakeSpace has run, always returns the already-shrunk area — restoring from that is an
+    // identity write that leaves the desktop permanently narrower after every open/close cycle).
+    private Windows.Foundation.Rect? _originalDesktopArea;
+
     public DockWindow(WindowManager windowManager, DockWindowViewModel viewModel)
     {
+        _windowManager = windowManager;
+        ViewModel = viewModel;
+
         InitializeComponent();
-        Resources.MergedDictionaries.Add(System.Windows.Application.Current.Resources);
-        _windowManger = windowManager;
-        _viewModel = viewModel;
-        DataContext = _viewModel;            
-        _viewModel.ApplicationName = ApplicationName;
-        Top = 0;
-        Left = 0;
-        //Top = Screen.PrimaryScreen.Bounds.Top / 2;
-        //Left = Screen.PrimaryScreen.Bounds.Width - ActualWidth;
-        IsVisibleChanged += DockWindow_IsVisibleChanged;
-        LayoutUpdated += DockWindow_LayoutUpdated;
-        Loaded += DockWindow_Loaded;
-    }
 
-    private void DockWindow_Loaded(object sender, RoutedEventArgs e)
-    {
-        MakeSpace();
-    }
+        // Every window shares the same icon (the tray icon's own logo.ico) rather than each
+        // defaulting to a different generic icon — see DesktopHelper.AppIconPath's doc comment for
+        // why this needs a real filesystem path rather than the tray icon's ms-appx URI.
+        AppWindow.SetIcon(DesktopHelper.AppIconPath);
 
-    private void DockWindow_LayoutUpdated(object? sender, EventArgs e)
-    {
-        //MakeSpace();
-    }
+        _hwnd = WindowNative.GetWindowHandle(this);
 
-    private void DockWindow_IsVisibleChanged(object sender, DependencyPropertyChangedEventArgs e)
-    {
-        if (e.NewValue.Equals(true))
+        // Per the brief and the design spec's backdrop table: WindowEx + DesktopAcrylicBackdrop.
+        // Set in code-behind, not XAML, matching SettingsWindow's established workaround — a
+        // `SystemBackdrop="{winuiex:...}"`-style XAML attribute crashes this SDK's XamlCompiler
+        // pass2 with no diagnostic (see SettingsWindow.xaml.cs's comment for the confirmed repro).
+        SystemBackdrop = new DesktopAcrylicBackdrop();
+
+        // Wire WindowThumbnail.TargetWindow for every container the ListView generates — there is
+        // no XAML-level way to bind a control property to "the window that hosts me" in WinUI 3.
+        //
+        // VERIFIED (not the brief's original FindName approach): `root.FindName("PART_Thumbnail")`
+        // reliably returns null here — confirmed via a temporary diagnostic log showing
+        // InitialiseThumbnail always sees TargetWindow == null on every real run of this window.
+        // Unlike WPF, a DataTemplate's realized content in WinUI 3 is not a name scope FindName can
+        // walk into from an ItemContainer's ContentTemplateRoot. Falls back to the brief's
+        // documented alternative: a VisualTreeHelper walk for the first WindowThumbnail descendant.
+        WindowsList.ContainerContentChanging += (_, args) =>
         {
-            //MakeSpace();
+            if (args.ItemContainer.ContentTemplateRoot is FrameworkElement root
+                && FindWindowThumbnail(root) is { } thumbnail)
+            {
+                thumbnail.TargetWindow = this;
+            }
+        };
+
+        Activated += (_, _) => MakeSpace();
+        Closed += OnClosed;
+    }
+
+    // FindName does not resolve a DataTemplate's realized content as a name scope in WinUI 3 the
+    // way it does in WPF (see the ContainerContentChanging comment above) — walk the visual tree
+    // for the first WindowThumbnail descendant instead.
+    private static WindowThumbnail? FindWindowThumbnail(DependencyObject root)
+    {
+        var count = VisualTreeHelper.GetChildrenCount(root);
+        for (var i = 0; i < count; i++)
+        {
+            var child = VisualTreeHelper.GetChild(root, i);
+            if (child is WindowThumbnail thumbnail)
+            {
+                return thumbnail;
+            }
+
+            if (FindWindowThumbnail(child) is { } found)
+            {
+                return found;
+            }
         }
+
+        return null;
     }
 
     private void MakeSpace()
     {
-        if (_rect is null && ActualWidth > 0)
+        // Bounds.Width can still be 0 at Activated time, before layout has run — guard the same
+        // way the WPF original did (`_rect is null && ActualWidth > 0`), otherwise scale becomes
+        // Infinity and propagates into a reservation rect with Infinity/-Infinity components,
+        // which then gets cast to int when written via SetDesktopArea — garbage written to a
+        // global system display setting. Leaving _reservedArea null here means the next
+        // Activated firing (once layout has run) retries.
+        if (_reservedArea is not null || !(Bounds.Width > 0))
         {
-            var dpiInfo = VisualTreeHelper.GetDpi(this);
-            var screen = Screen.FromHandle(new WindowInteropHelper(this).Handle);
-            //var oldWorkingArea = DesktopHelper.GetDesktopArea();
-            _rect = screen.WorkingArea;
-            //if (oldWorkingArea is null)
-            //{
-            //    return;
-            //}
-            //_rect = oldWorkingArea;
-            var newWorkingArea = new Rect(
-                screen.Bounds.Left + ActualWidth * dpiInfo.DpiScaleX, 
-                _rect.Value.Y , 
-                screen.Bounds.Width  - ActualWidth * dpiInfo.DpiScaleX,
-                _rect.Value.Height );
-            DesktopHelper.SetDesktopArea(newWorkingArea);
-
-            //Task.Run(() =>
-            //{
-                var windows = _windowManger.GetWindows()
-                    .Where(window => window.State != WindowPlacement.WindowState.Minimized && window.State != WindowPlacement.WindowState.Hidden && window.Bounds.X < newWorkingArea.X && window.Bounds.Width > 0);
-
-                foreach (var window in windows)
-                {
-                    if (!window.Process.IsProcessElevated)
-                    {
-                        window.MoveTo(new System.Drawing.Point((int)newWorkingArea.X, window.Bounds.Y));
-
-                    }
-                }
-            //});
+            return;
         }
 
-    }
+        var screenArea = DesktopHelper.GetDesktopArea();
+        _originalDesktopArea = screenArea;
 
-    protected override void OnActivated(EventArgs e)
-    {            
-        base.OnActivated(e);
-    }
-    protected override void OnClosing(CancelEventArgs e)
-    {
-        if(_rect is not null)
+        // AppWindow.Size is physical pixels for the whole window (frame included); Bounds is DIPs
+        // for the client area only — their ratio is inflated by the non-client border, not a
+        // clean DPI scale factor. Use the established DIP-to-physical-pixel helper instead (added
+        // in Task 4a.5 for this exact conversion problem).
+        var scale = DesktopHelper.GetScaleForWindow(_hwnd);
+
+        _reservedArea = new Windows.Foundation.Rect(
+            screenArea.X + Width * scale,
+            screenArea.Y,
+            screenArea.Width - Width * scale,
+            screenArea.Height);
+        DesktopHelper.SetDesktopArea(_reservedArea.Value);
+
+        foreach (var window in _windowManager.GetWindows()
+            .Where(w => w.State != WindowPlacement.WindowState.Minimized
+                && w.State != WindowPlacement.WindowState.Hidden
+                && w.Bounds.X < _reservedArea.Value.X
+                && w.Bounds.Width > 0))
         {
-            var screen = Screen.FromHandle(new WindowInteropHelper(this).Handle).Bounds;
-            var rect = new Rect(screen.Left, screen.Top, screen.Width, _rect.Value.Height);
-            DesktopHelper.SetDesktopArea(rect);
-            _rect = null;
+            if (!window.Process.IsProcessElevated)
+            {
+                window.MoveTo(new System.Drawing.Point((int)_reservedArea.Value.X, window.Bounds.Y));
+            }
         }
     }
 
-    public static DependencyProperty ApplicationNameProperty = DependencyProperty.Register(
-    "ApplicationName",
-    typeof(string),
-    typeof(DockWindow),
-    new PropertyMetadata(null, OnApplicationNameChanged));
-
-    private static void OnApplicationNameChanged(DependencyObject d, DependencyPropertyChangedEventArgs e)
+    // WinUI 3's Window has no overridable OnClosed (unlike WPF's Window.OnClosing) — Closed is a
+    // plain event, wired up in the constructor above.
+    private void OnClosed(object sender, WindowEventArgs args)
     {
-        if (d is DockWindow window && e.NewValue is string app)
-            window._viewModel.ApplicationName = app;
-    }
+        if (_originalDesktopArea is not null)
+        {
+            // Restore from the pre-shrink value captured in MakeSpace, not a freshly-read
+            // GetDesktopArea() — by this point that call would only ever return the already-
+            // shrunk area, making the restore an identity write (see field comment above).
+            DesktopHelper.SetDesktopArea(_originalDesktopArea.Value);
+            _originalDesktopArea = null;
+        }
 
-    public string? ApplicationName
-    {
-        get => _viewModel.ApplicationName;
-        set => _viewModel.ApplicationName = value;
+        _reservedArea = null;
     }
 }

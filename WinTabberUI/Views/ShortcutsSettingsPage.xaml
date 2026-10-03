@@ -1,89 +1,85 @@
-﻿<rxwpf:ReactivePage x:Class="WinTabberUI.Views.ShortcutsSettingsPage" x:TypeArguments="settingsvm:ShortcutsSettingsViewModel"
-      xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
-      xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-      xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-      xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-      xmlns:ui="http://schemas.inkore.net/lib/ui/wpf/modern"
-      xmlns:controls="clr-namespace:WinTabber.UI.Common.Controls;assembly=WinTabber.UI.Common"
-      xmlns:settingsvm="clr-namespace:WinTabber.ViewModels.Settings;assembly=WinTabber.ViewModels"
-      xmlns:rxwpf="clr-namespace:ReactiveUI;assembly=ReactiveUI.Wpf"
-      mc:Ignorable="d"
-      d:DataContext="{d:DesignInstance settingsvm:ShortcutsSettingsViewModel}"
-      d:DesignHeight="450" d:DesignWidth="800"
-      Title="ShortcutsSettingsPage">
+<local:ShortcutsSettingsPageBase
+    x:Class="WinTabberUI.Views.ShortcutsSettingsPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:WinTabberUI.Views"
+    xmlns:settingsvm="using:WinTabber.ViewModels.Settings"
+    xmlns:controls="using:WinTabber.UI.Common.Controls"
+    xmlns:c="using:WinTabber.UI.Common.ValueConverters"
+    xmlns:conv="using:WinTabberUI.ValueConverters"
+    xmlns:ui="using:CommunityToolkit.WinUI.Controls"
+>
     <Page.Resources>
         <ResourceDictionary>
             <ResourceDictionary.MergedDictionaries>
                 <!-- ShortcutEditButtonStyle and its brushes live here, not auto-merged like the
-                     implicit ShortcutPresenter/ShortcutCaptureBox styles WPF loads by default-style
-                     lookup — this is a plain-Button style, so it needs an explicit merge. -->
-                <ResourceDictionary Source="/WinTabber.UI.Common;component/Themes/Generic.xaml" />
+                     implicit ShortcutPresenter/ShortcutCaptureBox default styles WinUI 3 resolves by
+                     TargetType lookup — this is a plain-Button keyed style, so it needs an explicit
+                     merge, same reasoning as the WPF original's comment. -->
+                <ResourceDictionary Source="ms-appx:///WinTabber.UI.Common/Themes/Generic.xaml" />
             </ResourceDictionary.MergedDictionaries>
+
+            <c:BoolToVisibilityConverter x:Key="BoolToVisibilityConverter" />
+            <conv:IconKeyToGlyphConverter x:Key="IconKeyToGlyphConverter" />
 
             <!-- Editing and deleting both happen in ShortcutCaptureDialog (opened from code-behind).
                  The whole combination is one clickable frame — there is no separate pencil icon. -->
-            <DataTemplate x:Key="BindingRowTemplate" DataType="{x:Type settingsvm:ShortcutBindingViewModel}">
-                <StackPanel Margin="0,2" Orientation="Horizontal" HorizontalAlignment="Right">
-                    <Button Click="OnEditShortcutClick" Style="{StaticResource ShortcutEditButtonStyle}" ToolTip="Click to change">
-                        <controls:ShortcutPresenter EmptyText="Click to set shortcut" Trigger="{Binding Trigger}" />
+            <DataTemplate x:Key="BindingRowTemplate" x:DataType="settingsvm:ShortcutBindingViewModel">
+                <StackPanel Margin="0,2" HorizontalAlignment="Right" Orientation="Horizontal">
+                    <Button Click="OnEditShortcutClick" Style="{StaticResource ShortcutEditButtonStyle}" ToolTipService.ToolTip="Click to change">
+                        <controls:ShortcutPresenter EmptyText="Click to set shortcut" Trigger="{x:Bind Trigger, Mode=OneWay}" Orientation="Horizontal" />
                     </Button>
 
                     <!-- Conflicts warn, they never block saving (§6.1). -->
-                    <ui:FontIcon
-                        x:Name="ConflictIcon"
+                    <FontIcon
                         Margin="8,0"
                         VerticalAlignment="Center"
                         Foreground="#FFC42B1C"
                         Glyph="&#xE7BA;"
-                        ToolTip="{Binding ConflictMessage}"
-                        Visibility="Collapsed" />
+                        ToolTipService.ToolTip="{x:Bind ConflictMessage, Mode=OneWay}"
+                        Visibility="{x:Bind HasConflict, Mode=OneWay, Converter={StaticResource BoolToVisibilityConverter}}" />
                 </StackPanel>
-                <DataTemplate.Triggers>
-                    <DataTrigger Binding="{Binding HasConflict}" Value="True">
-                        <Setter TargetName="ConflictIcon" Property="Visibility" Value="Visible" />
-                    </DataTrigger>
-                </DataTemplate.Triggers>
             </DataTemplate>
 
-            <DataTemplate x:Key="CommandRowTemplate" DataType="{x:Type settingsvm:ShortcutCommandViewModel}">
-                <ui:SettingsCard Margin="0,4,0,0" Header="{Binding DisplayName}" Description="{Binding Desscription}">
+            <DataTemplate x:Key="CommandRowTemplate" x:DataType="settingsvm:ShortcutCommandViewModel">
+                <ui:SettingsCard Margin="0,4,0,0" Description="{x:Bind Desscription, Mode=OneWay}" Header="{x:Bind DisplayName, Mode=OneWay}">
                     <ui:SettingsCard.HeaderIcon>
-                        <ui:FontIcon Icon="{Binding Icon, Converter={StaticResource IconKeyToFontIconDataConverter}}" />
+                        <FontIcon Glyph="{x:Bind Icon, Mode=OneWay, Converter={StaticResource IconKeyToGlyphConverter}}" />
                     </ui:SettingsCard.HeaderIcon>
                     <StackPanel MinWidth="320">
-                        <ItemsControl ItemTemplate="{StaticResource BindingRowTemplate}" ItemsSource="{Binding Bindings}" HorizontalAlignment="Right" />
-                        <StackPanel Margin="0,4,0,0" Orientation="Horizontal" HorizontalAlignment="Right">
+                        <ItemsControl HorizontalAlignment="Right" ItemTemplate="{StaticResource BindingRowTemplate}" ItemsSource="{x:Bind Bindings, Mode=OneWay}" />
+                        <StackPanel Margin="0,4,0,0" HorizontalAlignment="Right" Orientation="Horizontal">
                             <Button
                                 Width="40"
                                 Height="28"
-                                Click="OnAddShortcutClick"                                
-                                ToolTip="Add shortcut">
-                                <ui:FontIcon Icon="{x:Static ui:FluentSystemIcons.Add_32_Filled}"/>
+                                Padding="0"
+                                HorizontalContentAlignment="Center"
+                                VerticalContentAlignment="Center"
+                                Click="OnAddShortcutClick"
+                                ToolTipService.ToolTip="Add shortcut">
+                                <!-- REAL BUG found via live verification: the default Button style's
+                                     Padding (11,5,11,6) left too little vertical room for a
+                                     default-FontSize (20) FontIcon inside a 28px-tall button, clipping
+                                     it. Padding="0" plus a smaller FontSize fits it cleanly. -->
+                                <FontIcon FontSize="16" Glyph="&#xE710;" />
                             </Button>
                         </StackPanel>
                     </StackPanel>
                 </ui:SettingsCard>
             </DataTemplate>
-
         </ResourceDictionary>
     </Page.Resources>
 
     <ScrollViewer VerticalScrollBarVisibility="Auto">
-        <HeaderedContentControl Margin="20" VerticalAlignment="Top" Foreground="White">
-            <HeaderedContentControl.Header>
-                <TextBlock FontSize="24">Shortcuts</TextBlock>
-            </HeaderedContentControl.Header>
+        <StackPanel Margin="20" VerticalAlignment="Top">
+            <TextBlock FontSize="24" Foreground="White" Text="Shortcuts" />
             <StackPanel>
-                <ItemsControl ItemsSource="{Binding Groups}">
+                <ItemsControl ItemsSource="{x:Bind ViewModel.Groups, Mode=OneWay}">
                     <ItemsControl.ItemTemplate>
-                        <DataTemplate DataType="{x:Type settingsvm:ShortcutGroupViewModel}">
+                        <DataTemplate x:DataType="settingsvm:ShortcutGroupViewModel">
                             <StackPanel Margin="0,12,0,0">
-                                <TextBlock
-                                    Margin="0,0,0,4"
-                                    FontSize="16"
-                                    FontWeight="SemiBold"
-                                    Text="{Binding Name}" />
-                                <ItemsControl ItemTemplate="{StaticResource CommandRowTemplate}" ItemsSource="{Binding Commands}" />
+                                <TextBlock Margin="0,0,0,4" FontSize="16" FontWeight="SemiBold" Text="{x:Bind Name, Mode=OneWay}" />
+                                <ItemsControl ItemTemplate="{StaticResource CommandRowTemplate}" ItemsSource="{x:Bind Commands, Mode=OneWay}" />
                             </StackPanel>
                         </DataTemplate>
                     </ItemsControl.ItemTemplate>
@@ -92,9 +88,9 @@
                 <Button
                     Margin="0,20,0,0"
                     HorizontalAlignment="Left"
-                    Command="{Binding ResetAllCommand}"
+                    Command="{x:Bind ViewModel.ResetAllCommand}"
                     Content="Reset all shortcuts to defaults" />
             </StackPanel>
-        </HeaderedContentControl>
+        </StackPanel>
     </ScrollViewer>
-</rxwpf:ReactivePage>
+</local:ShortcutsSettingsPageBase>

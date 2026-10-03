@@ -1,78 +1,71 @@
+using Microsoft.UI.Xaml;
 using ReactiveUI;
-using System.Reactive.Linq;
-using System.Windows;
 using WinTabber.ViewModels.Settings;
 
-namespace WinTabberUI.Views
+namespace WinTabberUI.Views;
+
+public sealed partial class ShortcutsSettingsPage : ShortcutsSettingsPageBase, IViewFor<ShortcutsSettingsViewModel>
 {
-    /// <summary>
-    /// Interaction logic for ShortcutsSettingsPage.xaml
-    /// </summary>
-    public partial class ShortcutsSettingsPage
-        : ReactivePage<ShortcutsSettingsViewModel>,
-            IViewFor<ShortcutsSettingsViewModel>
+    public ShortcutsSettingsPage()
     {
-        public ShortcutsSettingsPage()
+        InitializeComponent();
+    }
+
+    private async void OnEditShortcutClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ShortcutBindingViewModel binding } || ViewModel is null)
         {
-            InitializeComponent();
-            DataContextChanged += OnDataContextChanged;
+            return;
         }
 
-        private void OnDataContextChanged(object sender, DependencyPropertyChangedEventArgs e)
+        var dialog = new ShortcutCaptureDialog(
+            binding.CommandDisplayName,
+            binding.Trigger,
+            ViewModel.TriggerSource,
+            canDelete: true
+        )
         {
-            ViewModel = e.NewValue as ShortcutsSettingsViewModel;
+            XamlRoot = XamlRoot,
+        };
+        dialog.ShowConflict(binding.ConflictMessage);
+        dialog.TriggerCaptured += (_, trigger) =>
+            dialog.ShowConflict(ViewModel.DescribeConflict(binding.Command, trigger, binding));
+
+        await dialog.ShowAsync();
+
+        switch (dialog.Result)
+        {
+            case ShortcutCaptureDialogResult.Saved when dialog.ResultTrigger is { } trigger:
+                binding.Trigger = trigger;
+                break;
+            case ShortcutCaptureDialogResult.Deleted:
+                binding.RemoveCommand.Execute().Subscribe();
+                break;
+            case ShortcutCaptureDialogResult.ResetToDefault:
+                binding.ResetOwnerToDefault();
+                break;
+        }
+    }
+
+    private async void OnAddShortcutClick(object sender, RoutedEventArgs e)
+    {
+        if (sender is not FrameworkElement { DataContext: ShortcutCommandViewModel command } || ViewModel is null)
+        {
+            return;
         }
 
-        private async void OnEditShortcutClick(object sender, RoutedEventArgs e)
+        var dialog = new ShortcutCaptureDialog(command.DisplayName, null, ViewModel.TriggerSource, canDelete: false)
         {
-            if (sender is not FrameworkElement { DataContext: ShortcutBindingViewModel binding } || ViewModel is null)
-            {
-                return;
-            }
+            XamlRoot = XamlRoot,
+        };
+        dialog.TriggerCaptured += (_, trigger) =>
+            dialog.ShowConflict(ViewModel.DescribeConflict(command.Command, trigger, excluding: null));
 
-            var dialog = new ShortcutCaptureDialog(
-                binding.CommandDisplayName,
-                binding.Trigger,
-                ViewModel.TriggerSource,
-                canDelete: true
-            );
-            dialog.ShowConflict(binding.ConflictMessage);
-            dialog.TriggerCaptured += (_, trigger) =>
-                dialog.ShowConflict(ViewModel.DescribeConflict(binding.Command, trigger, binding));
+        await dialog.ShowAsync();
 
-            await dialog.ShowAsync();
-
-            switch (dialog.Result)
-            {
-                case ShortcutCaptureDialogResult.Saved when dialog.ResultTrigger is { } trigger:
-                    binding.Trigger = trigger;
-                    break;
-                case ShortcutCaptureDialogResult.Deleted:
-                    binding.RemoveCommand.Execute().Subscribe();
-                    break;
-                case ShortcutCaptureDialogResult.ResetToDefault:
-                    binding.ResetOwnerToDefault();
-                    break;
-            }
-        }
-
-        private async void OnAddShortcutClick(object sender, RoutedEventArgs e)
+        if (dialog.Result == ShortcutCaptureDialogResult.Saved && dialog.ResultTrigger is { } trigger)
         {
-            if (sender is not FrameworkElement { DataContext: ShortcutCommandViewModel command } || ViewModel is null)
-            {
-                return;
-            }
-
-            var dialog = new ShortcutCaptureDialog(command.DisplayName, null, ViewModel.TriggerSource, canDelete: false);
-            dialog.TriggerCaptured += (_, trigger) =>
-                dialog.ShowConflict(ViewModel.DescribeConflict(command.Command, trigger, excluding: null));
-
-            await dialog.ShowAsync();
-
-            if (dialog.Result == ShortcutCaptureDialogResult.Saved && dialog.ResultTrigger is { } trigger)
-            {
-                command.AddFromDialog(trigger);
-            }
+            command.AddFromDialog(trigger);
         }
     }
 }

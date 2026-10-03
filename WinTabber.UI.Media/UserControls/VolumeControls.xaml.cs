@@ -1,21 +1,8 @@
-﻿using System;
-using System.Collections.Generic;
-using System.Text;
-using System.Windows;
-using System.Windows.Controls;
-using System.Windows.Data;
-using System.Windows.Documents;
-using System.Windows.Input;
-using System.Windows.Media;
-using System.Windows.Media.Imaging;
-using System.Windows.Navigation;
-using System.Windows.Shapes;
+using Microsoft.UI.Xaml.Controls;
 
 namespace WinTabber.UI.Media.UserControls;
-/// <summary>
-/// Interaction logic for VolumeControls.xaml
-/// </summary>
-public partial class VolumeControls : UserControl
+
+public sealed partial class VolumeControls : UserControl
 {
     public VolumeControls()
     {

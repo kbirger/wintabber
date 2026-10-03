@@ -2,19 +2,28 @@ using System.Diagnostics;
 using System.Reactive.Linq;
 using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
+using ReactiveUI;
 using WinTabber.Api.Windowing;
 using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Events;
 using WinTabber.Interop;
+using WinTabberUI.Views;
 
 namespace WinTabberUI.Coordinators;
 
 /// <summary>
 /// Opens a floating <see cref="ThumbnailWindow"/> whenever <see cref="IWindowThumbnailService"/> starts
-/// tracking a window. This is the multi-instance analog of <c>ViewCoordinatorBase&lt;T&gt;</c>: that base
-/// class only ever manages a single shared window instance, but each thumbnailed window needs its own.
-/// Each <see cref="ThumbnailWindow"/> watches the service directly and closes itself when its own entry
-/// disappears, so this coordinator only needs to react to additions.
+/// tracking a window. Ported nearly verbatim from the WPF original -- every dependency here
+/// (<see cref="IWindowThumbnailService"/>, <see cref="IWindowInterop"/>, <see cref="WindowManager"/>,
+/// <see cref="WinTabberEventManager"/>) is shared, framework-agnostic code, not WPF-specific. The only
+/// substantive change is <c>.ObserveOnDispatcher()</c> -> <c>.ObserveOn(RxApp.MainThreadScheduler)</c>,
+/// matching the same platform-agnostic idiom <c>ActiveWindowStateService</c> already established for this
+/// port (see that file's own doc comment).
+/// <para>
+/// This is the multi-instance analog of a single-shared-window coordinator: each <see cref="ThumbnailWindow"/>
+/// watches the service directly and closes itself when its own entry disappears, so this coordinator only
+/// needs to react to additions.
+/// </para>
 /// </summary>
 public class ThumbnailWindowCoordinator : IDisposable
 {
@@ -40,12 +49,12 @@ public class ThumbnailWindowCoordinator : IDisposable
 
         _subscription = thumbnailService
             .Connect()
-            .ObserveOnDispatcher()
+            .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(OnChanges);
 
         _commandSubscription = eventManager
             .CommandEvents.Where(evt => evt.Type == EventType.CmdThumbnailWindow)
-            .ObserveOnDispatcher()
+            .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(_ => ToggleForegroundWindowThumbnail());
     }
 
@@ -105,7 +114,7 @@ public class ThumbnailWindowCoordinator : IDisposable
                 }
                 catch (Exception ex)
                 {
-                    // Window creation failed after the source window was already moved off-screen — restore
+                    // Window creation failed after the source window was already moved off-screen -- restore
                     // it rather than stranding it invisibly with no UI left to bring it back.
                     Debug.WriteLine($"ThumbnailWindowCoordinator: failed to open window for handle {change.Current.Handle}: {ex}");
                     _thumbnailService.StopThumbnail(change.Current.Handle);
@@ -128,11 +137,14 @@ public class ThumbnailWindowCoordinator : IDisposable
 
         var window = _serviceProvider.GetRequiredService<ThumbnailWindow>();
         window.Initialize(entry.Handle, title, entry.Placement.Bounds.Width, entry.Placement.Bounds.Height);
-        window.Show();
+        // DEVIATION from the WPF original's Show(): Microsoft.UI.Xaml.Window has no Show method, only
+        // Activate -- the same substitution WindowSelectorWindow's launch path already established.
+        window.Activate();
     }
 
     public void Dispose()
     {
         _subscription.Dispose();
+        _commandSubscription.Dispose();
     }
 }

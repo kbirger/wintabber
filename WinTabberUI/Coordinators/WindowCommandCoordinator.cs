@@ -1,3 +1,4 @@
+using ReactiveUI;
 using System.Reactive.Linq;
 using WinTabber.Api.Windowing;
 using WinTabber.Api.Windowing.Suspension;
@@ -5,9 +6,18 @@ using WinTabber.Events;
 using WinTabberUI.Models.Settings;
 
 namespace WinTabberUI.Coordinators;
+
+/// <summary>
+/// Ported from the WPF app's own <see cref="WindowCommandCoordinator"/>: handles the global
+/// minimize/maximize/suspend/close-application-windows hotkeys. Framework-free logic, unchanged
+/// from the WPF original except for the thread-marshal: that one gated its subscription on
+/// <c>SynchronizationContext.Current</c> (a WPF <c>Dispatcher</c> idiom), this one uses
+/// <c>RxApp.MainThreadScheduler</c> instead, matching every other coordinator already ported in
+/// this app (e.g. <see cref="WindowSelectorWindowCoordinator"/>).
+/// </summary>
 public class WindowCommandCoordinator : IDisposable
 {
-    private IDisposable _subscription;
+    private readonly IDisposable _subscription;
     private readonly GeneralSettings _settings;
 
     public WindowCommandCoordinator(
@@ -17,7 +27,6 @@ public class WindowCommandCoordinator : IDisposable
         ApplicationSettings settings)
     {
         _settings = settings.General;
-        ArgumentNullException.ThrowIfNull(SynchronizationContext.Current);
         _subscription = eventManager.CommandEvents
             .Where(evt =>
                 evt.Type.IsOneOf(
@@ -27,7 +36,7 @@ public class WindowCommandCoordinator : IDisposable
                     EventType.CmdCloseApplicationWindows
                 )
             )
-            .ObserveOn(SynchronizationContext.Current)
+            .ObserveOn(RxApp.MainThreadScheduler)
             .Subscribe(e =>
             {
                 switch (e.Type)

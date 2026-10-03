@@ -1,16 +1,9 @@
-﻿using ReactiveUI;
-using WinTabber.ViewModels.Settings;
+namespace WinTabberUI.Views;
 
-namespace WinTabberUI.Views
+public sealed partial class AppearanceSettingsPage : AppearanceSettingsPageBase
 {
-    /// <summary>
-    /// Interaction logic for AppearanceSettingsPage.xaml
-    /// </summary>
-    public partial class AppearanceSettingsPage : ReactivePage<AppearanceSettingsViewModel>
+    public AppearanceSettingsPage()
     {
-        public AppearanceSettingsPage()
-        {
-            InitializeComponent();
-        }
+        InitializeComponent();
     }
 }

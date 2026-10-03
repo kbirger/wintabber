@@ -1,7 +1,6 @@
-﻿using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.DependencyInjection;
 using System.IO;
 using System.Reactive.Concurrency;
-using System.Windows;
 using WinTabber.Api.Media.CoreAudio;
 using WinTabber.Api.Media.CoreAudio.Repositories;
 using WinTabber.Api.Media.CoreAudio.Services;
@@ -16,73 +15,35 @@ using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Events;
 using WinTabber.Events.Shortcuts;
 using WinTabber.Interop;
-using WinTabberUI.Models.Settings;
 using WinTabber.UI.Media.Services;
 using WinTabber.UI.Media.ViewModels;
 using WinTabber.UI.Media.ViewModels.Factories;
-using WinTabber.UI.Media.Views;
-using WinTabberUI.Coordinators;
 using WinTabberUI.Infrastructure;
-using WinTabberUI.Models;
-using WinTabberUI.Services;
+using WinTabberUI.Models.Settings;
 using WinTabber.ViewModels;
-using WinTabberUI.Views;
+using WinTabberUI.Services;
 
 namespace WinTabberUI;
 
 public static class Bootstrapper
 {
-    public static ServiceProvider Init(Application application)
+    public static ServiceProvider Init()
     {
-        return ConfigureServices(application);
-    }
-
-    private static ServiceProvider ConfigureServices(Application application)
-    {
-        var serviceProvider = new ServiceCollection()
-            .RegisterApplication(application)
-            .AddFactories()
-            .AddCoordinators()
+        return new ServiceCollection()
             .AddCoreServices()
-            .AddDomainModels()
-            .AddStateServices()
-            .AddViews()
-            .AddViewModels()
+            .AddSettingsGraph()
+            .AddDockAndSuspendedWindowsGraph()
+            .AddMediaControlsGraph()
+            .AddWindowSelectorGraph()
+            .AddThumbnailWindowGraph()
+            .AddTrayIconGraph()
             .BuildServiceProvider();
-        return serviceProvider;
-    }
-
-    private static IServiceCollection AddFactories(this IServiceCollection services)
-    {
-        return services
-            .AddSingleton<AudioDeviceSelectorViewModelFactory>()
-            .AddSingleton<MediaSessionViewModelFactory>();
     }
 
     private static IServiceCollection AddCoreServices(this IServiceCollection services)
     {
         return services
-            .AddSingleton<AutoStartupService>()
-            .AddSingleton<BackgroundServiceContainer>()
-            .AddSingleton<IAppLifecycle, WpfAppLifecycle>()
-            .AddSingleton<ISysColorsWindowLauncher, WpfSysColorsWindowLauncher>();
-    }
-    private static IServiceCollection AddDomainModels(this IServiceCollection services)
-    {
-        return services
-            .AddKeyedSingleton<IScheduler>(STAScheduler.Key, (_, _) => STAScheduler.Create())
-            .AddSingleton<InputListenerService>()
-            // Single shared instance: the settings page mutates this object and calls Save(), so a
-            // second Load() elsewhere would silently diverge from what the user sees.
-            .AddSingleton<ApplicationSettings>(_ => ApplicationSettings.Load())
-            // The live keymap. Seeded from settings.json so the very first hotkey registration
-            // already uses the user's bindings; the settings page pushes replacements on save.
-            .AddSingleton<IShortcutMapProvider>(sp => new ShortcutMapProvider(
-                sp.GetRequiredService<ApplicationSettings>().Shortcuts.ToMap()))
-            .AddSingleton<WinTabberEventManager>()
-            .AddSingleton<ApplicationState>()
             .AddSingleton<BuiltInElevationLauncher>()
-            .AddSingleton<GsudoElevationLauncher>()
             .AddSingleton<IElevationBackendProvider, GeneralSettingsElevationBackendProvider>()
             .AddSingleton<IElevationLauncher>(sp => new ElevationLauncherResolver(
                 sp.GetRequiredService<BuiltInElevationLauncher>(),
@@ -93,14 +54,31 @@ public static class Bootstrapper
             .AddSingleton<IWindowPlacement>(sp => sp.GetRequiredService<InteropProxy>())
             .AddSingleton<IWindowInterop>(sp => sp.GetRequiredService<InteropProxy>())
             .AddSingleton<IWindowVisibility>(sp => sp.GetRequiredService<InteropProxy>())
+            .AddSingleton<InputListenerService>()
             .AddSingleton<IProcessRepository, ProcessRepository>()
             .AddSingleton<WindowManager>()
-            //.AddSingleton<IAudioDeviceManager, AudioDeviceManager>()
             .AddSingleton<ISuspensionStrategy, NtProcessSuspensionStrategy>()
             .AddSingleton<ISuspensionStrategy, ThreadSuspensionStrategy>()
             .AddSingleton<ISuspendedWindowStore>(_ => new SuspendedWindowFileStore(Paths.SuspensionDirectory))
             .AddSingleton<IProcessSuspensionService, ProcessSuspensionService>()
             .AddSingleton<IWindowThumbnailService, WindowThumbnailService>()
+            .AddSingleton<Coordinators.WindowCommandCoordinator>()
+            .AddSingleton<BackgroundServiceContainer>();
+    }
+
+    // The real media/audio service graph WindowSelectorViewModel's IMediaControlsStateService
+    // dependency needs, replacing Task 4b.1's StubMediaControlsStateService placeholder now that
+    // research (Phase 4c) has cleared the false "WPF-dependent" claim that placeholder's doc
+    // comment made about MediaControlsStateService. Mirrors the WPF Bootstrapper's AddDomainModels
+    // media registrations 1:1 -- every type here already lives in a framework-free project.
+    // MediaControlsWindow itself and its Coordinator are registered here too, now that both are
+    // ported. MediaSessionViewModel and SessionListItem stay unregistered on purpose: they are
+    // constructed directly (by MediaSessionViewModelFactory and MediaControlsViewModel
+    // respectively), never resolved from the container.
+    private static IServiceCollection AddMediaControlsGraph(this IServiceCollection services)
+    {
+        return services
+            .AddKeyedSingleton<IScheduler>(STAScheduler.Key, (_, _) => STAScheduler.Create())
             .AddSingleton<IMMDeviceEnumeratorWrapper>(sp =>
                 new MMDeviceEnumeratorWrapper(sp.GetRequiredKeyedService<IScheduler>(STAScheduler.Key)))
             .AddSingleton<CoreAudioDeviceRepository>(sp =>
@@ -123,69 +101,126 @@ public static class Bootstrapper
                 _ => new FileInstalledApplicationCacheStore(Path.Combine(Paths.RoamingDataPath, "InstalledApplications"))
             )
             .AddSingleton<IShellApplicationSource, WindowsShellApplicationSource>()
-            .AddSingleton<IInstalledApplicationRepository, InstalledApplicationRepository>();
-    }
-    private static IServiceCollection AddCoordinators(this IServiceCollection services)
-    {
-        return services
-            .AddSingleton<StartupCoordinator>()
-            .AddSingleton<WindowSelectorViewCoordinator>()
-            .AddSingleton<SettingsWindowViewCoordinator>()
-            .AddSingleton<MediaWindowViewCoordinator>()
-            .AddSingleton<WindowCommandCoordinator>()
-            .AddSingleton<NotifyIconCoordinator>()
-            .AddSingleton<SuspendedWindowsViewCoordinator>()
-            .AddSingleton<MediaDebugWindowCoordinator>()
-            .AddSingleton<ThumbnailWindowCoordinator>();
-
-    }
-
-    private static IServiceCollection AddStateServices(this IServiceCollection services)
-    {
-        return services
-            .AddSingleton<IActiveWindowStateService, ActiveWindowStateService>()
+            .AddSingleton<IInstalledApplicationRepository, InstalledApplicationRepository>()
+            .AddSingleton<AudioDeviceSelectorViewModelFactory>()
+            .AddSingleton<MediaSessionViewModelFactory>()
             .AddSingleton<IMediaControlsStateService>(sp => new MediaControlsStateService(
                 sp.GetRequiredService<WinTabberEventManager>(),
                 sp.GetRequiredService<IWindowInterop>(),
                 () => sp.GetRequiredService<ApplicationSettings>().General.EnableMediaControls))
-            .AddSingleton<MediaDebugStateService>();
+            .AddSingleton<MediaControlsViewModel>()
+            // Singleton, not transient like every other ported window: the WPF coordinator this
+            // is ported from explicitly reuses one instance (ReuseInstances = true) via Show()/
+            // Hide(), never Close() -- see MediaControlsWindowCoordinator's own doc comment.
+            .AddSingleton<Views.MediaControlsWindow>()
+            // Singleton, rooted explicitly in App.xaml.cs's OnLaunched, same reasoning as
+            // ThumbnailWindowCoordinator: its subscription to IMediaControlsStateService must stay
+            // alive for the app's lifetime, not depend on incidental resolution order.
+            .AddSingleton<Coordinators.MediaControlsWindowCoordinator>();
     }
 
-    private static IServiceCollection RegisterApplication(this IServiceCollection services, Application application)
+    private static IServiceCollection AddSettingsGraph(this IServiceCollection services)
     {
         return services
-            .AddSingleton(application);
+            // Single shared instance: the settings page mutates this object and calls Save(), so a
+            // second Load() elsewhere would silently diverge from what the user sees.
+            .AddSingleton<ApplicationSettings>(_ => ApplicationSettings.Load())
+            // The live keymap. Seeded from settings.json so the very first hotkey registration
+            // already uses the user's bindings; the settings page pushes replacements on save.
+            .AddSingleton<IShortcutMapProvider>(sp => new ShortcutMapProvider(
+                sp.GetRequiredService<ApplicationSettings>().Shortcuts.ToMap()))
+            .AddSingleton<WinTabberEventManager>()
+            .AddSingleton<GsudoElevationLauncher>()
+            .AddSingleton<SettingsViewModel>()
+            // Transient, matching the WPF original's own SettingsWindowViewCoordinator, which
+            // explicitly sets ReuseInstances = false: a fresh window each time, closed (not
+            // reused) after use, unlike the switcher's singleton reuse.
+            .AddTransient<Views.SettingsWindow>()
+            // Singleton, rooted explicitly in App.xaml.cs's OnLaunched, same reasoning as every
+            // other coordinator: its subscription to SettingsViewModel must stay alive for the
+            // app's lifetime.
+            .AddSingleton<Coordinators.SettingsWindowCoordinator>()
+            // AutoStartupService: framework-free, now shared (moved from the WPF-only project into
+            // WinTabber.Infrastructure alongside StartupMode, which already lived there).
+            .AddSingleton<AutoStartupService>()
+            .AddSingleton<Coordinators.StartupCoordinator>();
     }
 
-    private static IServiceCollection AddViewModels(this IServiceCollection services)
+    private static IServiceCollection AddDockAndSuspendedWindowsGraph(this IServiceCollection services)
     {
         return services
             .AddSingleton<DockWindowViewModel>()
-            .AddSingleton<WindowSelectorViewModel>()
-            .AddSingleton<MediaControlsViewModel>()
-            .AddTransient<WindowRenameViewModel>()
-            .AddSingleton<SettingsViewModel>()
-            .AddSingleton<NotifyIconViewModel>()
-            .AddSingleton<MediaDebugViewModel>()
             .AddSingleton<SuspendedWindowsViewModel>()
-            .AddTransient<ThumbnailWindowViewModel>();
-    }
-    private static IServiceCollection AddViews(this IServiceCollection services)
-    {
-        return services
-            .AddSingleton<ApplicationStateViewModelFactory>()
-            .AddSingleton((sp) =>
-            {
-                var factory = sp.GetRequiredService<ApplicationStateViewModelFactory>();
-                return factory.CreateApplicationStateViewModel();
-            })
+            // DockWindow: confirmed dead code, same status as RenameWindow -- CmdDockWindow fires
+            // from its shortcut in both apps, but nothing anywhere subscribes to it (no coordinator
+            // in either the WPF or winui3 Bootstrapper). Left transient and unwired: no coordinator
+            // to construct it, so its lifetime is moot until something actually shows it.
             .AddTransient<DockWindow>()
-            .AddTransient<SettingsWindow>()
-            .AddTransient<MediaControlsWindow>()
-            .AddTransient<SuspendedWindowsWindow>()
-            .AddTransient<MediaDebugWindow>()
-            .AddTransient<ThumbnailWindow>()
-            .AddSingleton<WindowSelectorWindow>();
+            // Singleton, not transient (correcting this registration's earlier comment, which
+            // wrongly assumed a future coordinator would construct a fresh instance per show): the
+            // WPF original's own SuspendedWindowsViewCoordinator sets ReuseInstances = true and only
+            // ever calls Show()/Hide(), never Close() -- same reuse precedent already established for
+            // WindowSelectorWindow. See SuspendedWindowsWindowCoordinator's own doc comment.
+            .AddSingleton<SuspendedWindowsWindow>()
+            // Singleton, rooted explicitly in App.xaml.cs's OnLaunched via BackgroundServiceContainer,
+            // same reasoning as every other coordinator: its subscriptions must stay alive for the
+            // app's lifetime.
+            .AddSingleton<Coordinators.SuspendedWindowsWindowCoordinator>();
     }
 
+    private static IServiceCollection AddWindowSelectorGraph(this IServiceCollection services)
+    {
+        return services
+            .AddSingleton<IActiveWindowStateService, ActiveWindowStateService>()
+            .AddSingleton<ApplicationStateViewModelFactory>()
+            .AddSingleton(sp => sp.GetRequiredService<ApplicationStateViewModelFactory>().CreateApplicationStateViewModel())
+            .AddSingleton<WindowSelectorViewModel>()
+            // Singleton, not transient like every other window registered before this one: unlike a
+            // per-source-window ThumbnailWindow, this is a single global switcher shown/hidden
+            // repeatedly by WindowSelectorWindowCoordinator, matching the WPF original's own
+            // ReuseInstances = true -- see that coordinator's own doc comment.
+            .AddSingleton<Views.WindowSelectorWindow>()
+            // Singleton, rooted explicitly in App.xaml.cs's OnLaunched, same reasoning as
+            // ThumbnailWindowCoordinator: its subscription to WindowSelectorViewModel must stay
+            // alive for the app's lifetime, not depend on incidental resolution order.
+            .AddSingleton<Coordinators.WindowSelectorWindowCoordinator>();
+    }
+
+    // Settles the carried-forward M8 review item (Phase 4a's final review): this port groups DI
+    // registrations per window/feature area (AddSettingsGraph, AddDockAndSuspendedWindowsGraph,
+    // AddWindowSelectorGraph, this one), not per kind the way the WPF original's Bootstrapper does
+    // (AddCoordinators/AddStateServices/AddViewModels/AddViews, each spanning every window). Decision:
+    // keep the per-window grouping already established by three precedents rather than switch to
+    // per-kind now that a fourth window needs one -- it reads locally coherent (everything one window
+    // needs lives in one method) at the cost of the WPF layout's cross-window kind-grouping. Revisit
+    // only if a future window's DI graph turns out to overlap heavily with another's.
+    private static IServiceCollection AddThumbnailWindowGraph(this IServiceCollection services)
+    {
+        return services
+            .AddTransient<ThumbnailWindowViewModel>()
+            // Transient, same reasoning as every other Window registered above: a WinUI 3 Window can
+            // only be shown once, and this one is explicitly multi-instance (one per thumbnailed
+            // window) besides.
+            .AddTransient<Views.ThumbnailWindow>()
+            // Singleton, rooted explicitly in App.xaml.cs's OnLaunched (not left to incidental
+            // transitive resolution through whatever window happens to be shown first) -- its
+            // subscriptions must stay alive for the app's lifetime, the same requirement WPF's
+            // BackgroundServiceContainer existed to guarantee.
+            .AddSingleton<Coordinators.ThumbnailWindowCoordinator>();
+    }
+
+    private static IServiceCollection AddTrayIconGraph(this IServiceCollection services)
+    {
+        return services
+            .AddSingleton<IAppLifecycle, WinUIAppLifecycle>()
+            .AddSingleton<ISysColorsWindowLauncher, WinUISysColorsWindowLauncher>()
+            // Not part of the task brief's AddTrayIconGraph, but required: NotifyIconViewModel's
+            // constructor takes MediaDebugStateService, and nothing else in this Bootstrapper
+            // registers it yet (WinTabberUI's WPF Bootstrapper registers it alongside its media
+            // graph; the winui3 MediaDebugWindow port, when it lands, may want to move this there
+            // instead). Omitting it throws at NotifyIconCoordinator resolution time in OnLaunched.
+            .AddSingleton<MediaDebugStateService>()
+            .AddSingleton<NotifyIconViewModel>()
+            .AddSingleton<Coordinators.NotifyIconCoordinator>();
+    }
 }

@@ -1,87 +1,48 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
     <PropertyGroup>
         <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
-        <UseWPF>true</UseWPF>
+        <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+        <UseWinUI>true</UseWinUI>
         <Platform>x64</Platform>
-
+        <PlatformTarget>x64</PlatformTarget>
+        <RuntimeIdentifier>win-x64</RuntimeIdentifier>
         <OutputType>WinExe</OutputType>
         <ApplicationManifest>app.manifest</ApplicationManifest>
+        <WindowsPackageType>None</WindowsPackageType>
+        <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+        <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
         <Product>WinTabber</Product>
         <Company>Kirill Birger</Company>
-        <Description>A Windows desktop utility for window switching and window management.</Description>
+        <Description>A Windows desktop utility for window switching and window management (WinUI 3).</Description>
         <Copyright>Copyright (c) 2026 Kirill Birger</Copyright>
-        <PackageProjectUrl>https://github.com/kbirger/wintabber</PackageProjectUrl>
-        <RepositoryUrl>https://github.com/kbirger/wintabber</RepositoryUrl>
-        <PackageLicenseExpression>MIT</PackageLicenseExpression>
     </PropertyGroup>
 
     <ItemGroup>
-        <None Remove="Images\icon.psd" />
-        <None Remove="Images\loading.png" />
-        <None Remove="Images\logo-small.ico" />
-        <None Remove="Images\logo.ico" />
-        <None Remove="Images\logo.png" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <Resource Include="Images\icon.jpg">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Resource>
-        <Resource Include="Images\icon.psd">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Resource>
-        <Resource Include="Images\loading.png" />
-        <Resource Include="Images\logo-small.ico">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Resource>
-        <Resource Include="Images\logo.ico">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Resource>
-        <Resource Include="Images\logo.png">
-            <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-        </Resource>
-    </ItemGroup>
-
-    <ItemGroup>
-        <PackageReference Include="AutomaticInterface">
-            <PrivateAssets>all</PrivateAssets>
-            <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-        </PackageReference>
-        <PackageReference Include="CommunityToolkit.Mvvm" />
-        <PackageReference Include="fontawesome.sharp" />
-        <PackageReference Include="GlobalHotKeys.Windows" />
-        <PackageReference Include="H.NotifyIcon.Wpf" />
-        <PackageReference Include="iNKORE.UI.WPF.Modern" />
-        <PackageReference Include="Material.Icons.WPF" />
-        <PackageReference Include="Microsoft-WindowsAPICodePack-Shell" />
-        <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+        <PackageReference Include="Microsoft.WindowsAppSDK" />
+        <PackageReference Include="Microsoft.Windows.SDK.BuildTools" />
         <PackageReference Include="Microsoft.Windows.CsWin32">
             <PrivateAssets>all</PrivateAssets>
             <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
         </PackageReference>
-        <PackageReference Include="MouseKeyHook" />
-        <PackageReference Include="NAudio.WASAPI" />
+        <PackageReference Include="WinUIEx" />
+        <PackageReference Include="CommunityToolkit.Mvvm" />
+        <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
         <PackageReference Include="ReactiveUI" />
-        <PackageReference Include="TaskScheduler" />
-        <ProjectReference Include="..\WinTabber.Api.Media\WinTabber.Api.Media.csproj" />
-        <ProjectReference Include="..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />
-        <ProjectReference Include="..\WinTabber.Generators\WinTabber.Generators.csproj" OutputItemType="Analyzer" ReferenceOutputAssembly="false" />
-        <PackageReference Include="reactiveui.wpf" />
+        <PackageReference Include="ReactiveUI.WinUI" />
+        <PackageReference Include="CommunityToolkit.WinUI.Controls.Primitives" />
+        <PackageReference Include="H.NotifyIcon.WinUI" />
     </ItemGroup>
 
     <ItemGroup>
+        <ProjectReference Include="..\WinTabber.Api.Media\WinTabber.Api.Media.csproj" />
         <ProjectReference Include="..\WinTabber.Api.Windowing\WinTabber.Api.Windowing.csproj" />
         <ProjectReference Include="..\WinTabber.Events\WinTabber.Events.csproj" />
         <ProjectReference Include="..\WinTabber.Infrastructure\WinTabber.Infrastructure.csproj" />
+        <ProjectReference Include="..\WinTabber.Interop\WinTabber.Interop.csproj" />
+        <ProjectReference Include="..\WinTabber.Common.Util\WinTabber.Common.Util.csproj" />
+        <ProjectReference Include="..\WinTabber.ViewModels\WinTabber.ViewModels.csproj" />
         <ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
         <ProjectReference Include="..\WinTabber.UI.Media\WinTabber.UI.Media.csproj" />
-        <ProjectReference Include="..\WinTabber.ViewModels\WinTabber.ViewModels.csproj" />
-    </ItemGroup>
-
-    <ItemGroup>
-        <Page Update="Resources\Theme.xaml">
-            <Generator>MSBuild:Compile</Generator>
-        </Page>
     </ItemGroup>
 </Project>

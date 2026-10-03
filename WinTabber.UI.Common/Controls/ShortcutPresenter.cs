@@ -1,5 +1,5 @@
-using System.Windows;
-using System.Windows.Controls;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using WinTabber.Events.Shortcuts;
 
 namespace WinTabber.UI.Common.Controls;
@@ -10,58 +10,51 @@ namespace WinTabber.UI.Common.Controls;
 /// </summary>
 public class ShortcutPresenter : Control
 {
-    static ShortcutPresenter()
+    public ShortcutPresenter()
     {
-        DefaultStyleKeyProperty.OverrideMetadata(
-            typeof(ShortcutPresenter),
-            new FrameworkPropertyMetadata(typeof(ShortcutPresenter))
-        );
+        DefaultStyleKey = typeof(ShortcutPresenter);
     }
 
     public static readonly DependencyProperty TriggerProperty = DependencyProperty.Register(
         nameof(Trigger),
         typeof(ShortcutTrigger),
         typeof(ShortcutPresenter),
-        new FrameworkPropertyMetadata(null, OnVisualInputChanged)
+        new PropertyMetadata(null, OnVisualInputChanged)
     );
 
     public static readonly DependencyProperty OrientationProperty = DependencyProperty.Register(
         nameof(Orientation),
         typeof(Orientation),
         typeof(ShortcutPresenter),
-        new FrameworkPropertyMetadata(Orientation.Horizontal)
+        new PropertyMetadata(Orientation.Horizontal, OnOrientationChanged)
     );
 
     public static readonly DependencyProperty ShowEdgeHintProperty = DependencyProperty.Register(
         nameof(ShowEdgeHint),
         typeof(bool),
         typeof(ShortcutPresenter),
-        new FrameworkPropertyMetadata(true, OnVisualInputChanged)
+        new PropertyMetadata(true, OnVisualInputChanged)
     );
 
-    private static readonly DependencyPropertyKey ChipsPropertyKey = DependencyProperty.RegisterReadOnly(
+    public static readonly DependencyProperty ChipsProperty = DependencyProperty.Register(
         nameof(Chips),
         typeof(IReadOnlyList<ShortcutChip>),
         typeof(ShortcutPresenter),
-        new FrameworkPropertyMetadata(Array.Empty<ShortcutChip>())
+        new PropertyMetadata(Array.Empty<ShortcutChip>())
     );
 
-    public static readonly DependencyProperty ChipsProperty = ChipsPropertyKey.DependencyProperty;
-
-    private static readonly DependencyPropertyKey IsEmptyPropertyKey = DependencyProperty.RegisterReadOnly(
+    public static readonly DependencyProperty IsEmptyProperty = DependencyProperty.Register(
         nameof(IsEmpty),
         typeof(bool),
         typeof(ShortcutPresenter),
-        new FrameworkPropertyMetadata(true)
+        new PropertyMetadata(true, OnIsEmptyChanged)
     );
-
-    public static readonly DependencyProperty IsEmptyProperty = IsEmptyPropertyKey.DependencyProperty;
 
     public static readonly DependencyProperty EmptyTextProperty = DependencyProperty.Register(
         nameof(EmptyText),
         typeof(string),
         typeof(ShortcutPresenter),
-        new FrameworkPropertyMetadata("Not set")
+        new PropertyMetadata("Not set")
     );
 
     public ShortcutTrigger? Trigger
@@ -94,13 +87,58 @@ public class ShortcutPresenter : Control
         set => SetValue(EmptyTextProperty, value);
     }
 
+    // WinUI 3's VisualStateManager callbacks only fire on a property *change*, not at template
+    // application — unlike WPF's declarative Style.Triggers, which also matched at the property's
+    // default value. Without this override, a presenter whose Trigger is never set (IsEmpty stays
+    // at its default true) never enters the "Empty" state and PART_Empty stays hidden.
+    protected override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
+        VisualStateManager.GoToState(this, IsEmpty ? "Empty" : "HasChips", false);
+
+        // REAL BUG found via live verification (reported by the user, traced to Generic.xaml's
+        // ItemsPanelTemplate): TemplateBinding does not resolve inside a nested ItemsPanelTemplate --
+        // it has its own template scope, separate from the ControlTemplate whose TargetType matches
+        // this control. A classic Binding with RelativeSource=TemplatedParent was tried next and
+        // failed identically (same underlying scope limitation), leaving the inner StackPanel at its
+        // own default (Vertical) regardless of this control's Orientation. Set directly in code
+        // instead, the only mechanism that reliably reaches a nested ItemsPanelTemplate's realized
+        // panel. ItemsPanelRoot may not exist yet at OnApplyTemplate time (the panel is realized
+        // lazily, during layout) -- Loaded is used, not a direct call here, so this reruns once the
+        // panel actually exists; ApplyOrientation's own null-check makes an extra call harmless.
+        if (GetTemplateChild("PART_Chips") is ItemsControl chips)
+        {
+            _chipsItemsControl = chips;
+            chips.Loaded += (_, _) => ApplyOrientation();
+            ApplyOrientation();
+        }
+    }
+
+    private ItemsControl? _chipsItemsControl;
+
+    private void ApplyOrientation()
+    {
+        if (_chipsItemsControl?.ItemsPanelRoot is StackPanel panel)
+        {
+            panel.Orientation = Orientation;
+        }
+    }
+
+    private static void OnOrientationChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        ((ShortcutPresenter)d).ApplyOrientation();
+
     private static void OnVisualInputChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
         ((ShortcutPresenter)d).Rebuild();
+
+    // WPF's original used a Trigger Property="IsEmpty" that fired automatically off the dependency
+    // property; WinUI 3's VisualStateManager needs an explicit GoToState call instead.
+    private static void OnIsEmptyChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        VisualStateManager.GoToState((ShortcutPresenter)d, (bool)e.NewValue ? "Empty" : "HasChips", true);
 
     private void Rebuild()
     {
         var chips = ShortcutChips.Build(Trigger, ShowEdgeHint);
-        SetValue(ChipsPropertyKey, chips);
-        SetValue(IsEmptyPropertyKey, chips.Count == 0);
+        SetValue(ChipsProperty, chips);
+        SetValue(IsEmptyProperty, chips.Count == 0);
     }
 }

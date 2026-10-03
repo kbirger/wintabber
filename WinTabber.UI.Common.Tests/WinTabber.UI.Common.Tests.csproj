@@ -1,17 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
+    <PropertyGroup>
+        <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
+        <TargetPlatformMinVersion>10.0.19041.0</TargetPlatformMinVersion>
+        <UseWinUI>true</UseWinUI>
+        <Platform>x64</Platform>
+        <PlatformTarget>x64</PlatformTarget>
+        <IsPackable>false</IsPackable>
+    </PropertyGroup>
 
-  <PropertyGroup>
-    <OutputType>Exe</OutputType>
-    <TargetFramework>net10.0-windows10.0.26100.0</TargetFramework>
-    <UseWPF>true</UseWPF>
-  </PropertyGroup>
+    <ItemGroup>
+        <PackageReference Include="TUnit" />
+    </ItemGroup>
 
-  <ItemGroup>
-    <PackageReference Include="TUnit" />
-  </ItemGroup>
-
-  <ItemGroup>
-    <ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
-  </ItemGroup>
-
+    <ItemGroup>
+        <ProjectReference Include="..\WinTabber.UI.Common\WinTabber.UI.Common.csproj" />
+    </ItemGroup>
 </Project>

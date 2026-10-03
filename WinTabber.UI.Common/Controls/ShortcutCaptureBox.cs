@@ -1,8 +1,7 @@
-using System.Reactive.Linq;
-using System.Windows;
-using System.Windows.Controls;
 using System.Windows.Input;
-using System.Windows.Threading;
+using Microsoft.UI.Dispatching;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Controls;
 using WinTabber.Events.Shortcuts;
 using WinTabber.Events.Shortcuts.Detection;
 
@@ -11,8 +10,8 @@ namespace WinTabber.UI.Common.Controls;
 /// <summary>
 /// Captures a shortcut from live global input.
 /// <para>
-/// <b>Why not WPF keyboard events:</b> WPF cannot see the Win key reliably and cannot see mouse
-/// buttons pressed outside the window, so capture goes through
+/// <b>Why not WinUI3 keyboard events:</b> WinUI3 cannot see the Win key reliably and cannot see
+/// mouse buttons pressed outside the window, so capture goes through
 /// <see cref="IShortcutTriggerSource.BeginCapture" /> (§3.2).
 /// </para>
 /// <para>
@@ -45,89 +44,85 @@ public class ShortcutCaptureBox : Control
 
     private IDisposable? _session;
     private IDisposable? _rawSubscription;
-    private DispatcherTimer? _idleTimer;
+    private DispatcherQueueTimer? _idleTimer;
     private ShortcutModifiers _pendingModifiers;
-
-    static ShortcutCaptureBox()
-    {
-        DefaultStyleKeyProperty.OverrideMetadata(
-            typeof(ShortcutCaptureBox),
-            new FrameworkPropertyMetadata(typeof(ShortcutCaptureBox))
-        );
-    }
 
     public ShortcutCaptureBox()
     {
+        DefaultStyleKey = typeof(ShortcutCaptureBox);
+
         StartCaptureCommand = new RelayCommand(_ => StartCapture(), _ => TriggerSource is not null && !IsCapturing);
         CancelCaptureCommand = new RelayCommand(_ => CancelCapture(), _ => IsCapturing);
         Unloaded += (_, _) => CancelCapture();
-        LostKeyboardFocus += (_, _) => CancelCapture();
+
+        // LostFocus (not LosingFocus) is the mechanically faithful equivalent of WPF's
+        // LostKeyboardFocus, which this was originally ported from: it fires after focus has
+        // already moved, which is safe for the dependency-property mutation and GoToState calls
+        // CancelCapture makes transitively. LosingFocus is a cancellable, pre-focus-change event —
+        // mutating state inside it runs against WinUI 3 guidance for that event.
+        LostFocus += (_, _) => CancelCapture();
 
         // Nothing else invokes StartCaptureCommand: the host template (see ShortcutsSettingsPage.xaml)
         // just toggles this control's Visibility on when the row enters edit mode, it never fires the
         // command itself. Without this, becoming visible showed the idle presenter with no capture
         // session behind it, so keystrokes went nowhere.
-        IsVisibleChanged += (_, e) =>
-        {
-            if ((bool)e.NewValue)
+        RegisterPropertyChangedCallback(
+            VisibilityProperty,
+            (_, _) =>
             {
-                StartCapture();
+                if (Visibility == Visibility.Visible)
+                {
+                    StartCapture();
+                }
+                else
+                {
+                    CancelCapture();
+                }
             }
-            else
-            {
-                CancelCapture();
-            }
-        };
+        );
     }
 
     public static readonly DependencyProperty TriggerProperty = DependencyProperty.Register(
         nameof(Trigger),
         typeof(ShortcutTrigger),
         typeof(ShortcutCaptureBox),
-        new FrameworkPropertyMetadata(null, FrameworkPropertyMetadataOptions.BindsTwoWayByDefault)
+        new PropertyMetadata(null)
     );
 
     public static readonly DependencyProperty TriggerSourceProperty = DependencyProperty.Register(
         nameof(TriggerSource),
         typeof(IShortcutTriggerSource),
         typeof(ShortcutCaptureBox),
-        new FrameworkPropertyMetadata(null)
+        new PropertyMetadata(null)
     );
 
     public static readonly DependencyProperty AllowMouseButtonsProperty = DependencyProperty.Register(
         nameof(AllowMouseButtons),
         typeof(bool),
         typeof(ShortcutCaptureBox),
-        new FrameworkPropertyMetadata(true)
+        new PropertyMetadata(true)
     );
 
-    private static readonly DependencyPropertyKey IsCapturingPropertyKey = DependencyProperty.RegisterReadOnly(
+    public static readonly DependencyProperty IsCapturingProperty = DependencyProperty.Register(
         nameof(IsCapturing),
         typeof(bool),
         typeof(ShortcutCaptureBox),
-        new FrameworkPropertyMetadata(false)
+        new PropertyMetadata(false, OnIsCapturingChanged)
     );
 
-    public static readonly DependencyProperty IsCapturingProperty = IsCapturingPropertyKey.DependencyProperty;
-
-    private static readonly DependencyPropertyKey PendingChipsPropertyKey = DependencyProperty.RegisterReadOnly(
+    public static readonly DependencyProperty PendingChipsProperty = DependencyProperty.Register(
         nameof(PendingChips),
         typeof(IReadOnlyList<ShortcutChip>),
         typeof(ShortcutCaptureBox),
-        new FrameworkPropertyMetadata(Array.Empty<ShortcutChip>())
+        new PropertyMetadata(Array.Empty<ShortcutChip>())
     );
 
-    public static readonly DependencyProperty PendingChipsProperty = PendingChipsPropertyKey.DependencyProperty;
-
-    private static readonly DependencyPropertyKey ValidationMessagePropertyKey = DependencyProperty.RegisterReadOnly(
+    public static readonly DependencyProperty ValidationMessageProperty = DependencyProperty.Register(
         nameof(ValidationMessage),
         typeof(string),
         typeof(ShortcutCaptureBox),
-        new FrameworkPropertyMetadata(null)
+        new PropertyMetadata(null, OnValidationMessageChanged)
     );
-
-    public static readonly DependencyProperty ValidationMessageProperty =
-        ValidationMessagePropertyKey.DependencyProperty;
 
     public ShortcutTrigger? Trigger
     {
@@ -163,42 +158,53 @@ public class ShortcutCaptureBox : Control
 
     public void StartCapture()
     {
-        System.IO.File.AppendAllText(
-            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "shortcut-capture-debug.log"),
-            $"{DateTime.Now:HH:mm:ss.fff} StartCapture called. IsCapturing={IsCapturing} TriggerSource={TriggerSource}\n"
-        );
         if (IsCapturing || TriggerSource is not { } source)
         {
             return;
         }
 
         _pendingModifiers = ShortcutModifiers.None;
-        SetValue(ValidationMessagePropertyKey, null);
-        SetValue(PendingChipsPropertyKey, Array.Empty<ShortcutChip>());
-        SetValue(IsCapturingPropertyKey, true);
+        SetValue(ValidationMessageProperty, null);
+        SetValue(PendingChipsProperty, Array.Empty<ShortcutChip>());
+        SetValue(IsCapturingProperty, true);
 
         _session = source.BeginCapture(out var raw);
-        _rawSubscription = raw.ObserveOn(Dispatcher).Subscribe(OnCapturedInput, _ => CancelCapture());
 
-        _idleTimer = new DispatcherTimer(IdleTimeout, DispatcherPriority.Normal, (_, _) => CancelCapture(), Dispatcher);
+        // IShortcutTriggerSource.BeginCapture's raw observable (WinTabber.Events/Shortcuts/Detection/
+        // ShortcutTriggerSource.cs) is backed by a plain Subject<CapturedInput> pushed to from
+        // IShortcutCaptureSink.Push, which the global input hook calls from whatever thread SharpHook
+        // delivers events on — not the UI thread, and the source performs no marshaling itself. So
+        // this control must marshal onto the UI thread before touching dependency properties.
+        //
+        // WPF's original used Dispatcher (a DispatcherScheduler) via ObserveOn. WinUI 3's
+        // DispatcherQueue has no built-in System.Reactive IScheduler, and adding a
+        // SynchronizationContextScheduler here would depend on WinUI 3 having installed a
+        // SynchronizationContext on this thread, which is not guaranteed the way WPF's Dispatcher
+        // one is. Marshaling explicitly via DispatcherQueue.TryEnqueue inside the subscription
+        // callbacks avoids that assumption and needs no extra Rx scheduler machinery.
+        var dispatcherQueue = DispatcherQueue.GetForCurrentThread();
+        _rawSubscription = raw.Subscribe(
+            input => dispatcherQueue.TryEnqueue(() => OnCapturedInput(input)),
+            _ => dispatcherQueue.TryEnqueue(CancelCapture)
+        );
+
+        _idleTimer = dispatcherQueue.CreateTimer();
+        _idleTimer.Interval = IdleTimeout;
+        _idleTimer.Tick += (_, _) => CancelCapture();
         _idleTimer.Start();
 
-        Keyboard.Focus(this);
+        Focus(FocusState.Programmatic);
     }
 
     public void CancelCapture()
     {
-        System.IO.File.AppendAllText(
-            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "shortcut-capture-debug.log"),
-            $"{DateTime.Now:HH:mm:ss.fff} CancelCapture called. IsCapturing={IsCapturing}\n"
-        );
         if (!IsCapturing)
         {
             return;
         }
 
         EndSession();
-        SetValue(PendingChipsPropertyKey, Array.Empty<ShortcutChip>());
+        SetValue(PendingChipsProperty, Array.Empty<ShortcutChip>());
     }
 
     private void EndSession()
@@ -212,15 +218,11 @@ public class ShortcutCaptureBox : Control
         _session?.Dispose();
         _session = null;
 
-        SetValue(IsCapturingPropertyKey, false);
+        SetValue(IsCapturingProperty, false);
     }
 
     private void OnCapturedInput(CapturedInput input)
     {
-        System.IO.File.AppendAllText(
-            System.IO.Path.Combine(System.IO.Path.GetTempPath(), "shortcut-capture-debug.log"),
-            $"{DateTime.Now:HH:mm:ss.fff} OnCapturedInput Kind={input.Kind}\n"
-        );
         // Any activity resets the idle countdown.
         _idleTimer?.Stop();
         _idleTimer?.Start();
@@ -271,7 +273,7 @@ public class ShortcutCaptureBox : Control
 
         if (FindReserved(_pendingModifiers, input.Key.VirtualKey) is { } reserved)
         {
-            SetValue(ValidationMessagePropertyKey, $"{reserved} is reserved by Windows and cannot be captured.");
+            SetValue(ValidationMessageProperty, $"{reserved} is reserved by Windows and cannot be captured.");
             return;
         }
 
@@ -289,7 +291,7 @@ public class ShortcutCaptureBox : Control
         {
             // Binding a bare mouse button would swallow ordinary clicking.
             SetValue(
-                ValidationMessagePropertyKey,
+                ValidationMessageProperty,
                 "A mouse shortcut needs at least one modifier. Hold Ctrl, Alt, Shift or Win first."
             );
             return;
@@ -301,15 +303,44 @@ public class ShortcutCaptureBox : Control
     private void Complete(ShortcutTrigger trigger)
     {
         EndSession();
-        SetValue(PendingChipsPropertyKey, Array.Empty<ShortcutChip>());
-        SetValue(ValidationMessagePropertyKey, null);
+        SetValue(PendingChipsProperty, Array.Empty<ShortcutChip>());
+        SetValue(ValidationMessageProperty, null);
 
         Trigger = trigger;
         Captured?.Invoke(this, trigger);
     }
 
     private void UpdatePendingChips() =>
-        SetValue(PendingChipsPropertyKey, ShortcutChips.BuildInProgress(_pendingModifiers));
+        SetValue(PendingChipsProperty, ShortcutChips.BuildInProgress(_pendingModifiers));
+
+    // WinUI 3's VisualStateManager callbacks only fire on a property *change*, not at template
+    // application — unlike WPF's declarative Style.Triggers, which also matched at the property's
+    // default value. Without this override, PART_Validation (default-visible, no markup override
+    // in some templates) would stay visible with an empty message until ValidationMessage
+    // actually changed at least once.
+    protected override void OnApplyTemplate()
+    {
+        base.OnApplyTemplate();
+        VisualStateManager.GoToState(this, IsCapturing ? "Capturing" : "Idle", false);
+        VisualStateManager.GoToState(
+            this,
+            ValidationMessage is { Length: > 0 } ? "HasValidationMessage" : "NoValidationMessage",
+            false
+        );
+    }
+
+    // WPF's original used Trigger Property="IsCapturing"/"ValidationMessage" that fired
+    // automatically off the dependency property; WinUI 3's VisualStateManager needs an explicit
+    // GoToState call instead.
+    private static void OnIsCapturingChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        VisualStateManager.GoToState((ShortcutCaptureBox)d, (bool)e.NewValue ? "Capturing" : "Idle", true);
+
+    private static void OnValidationMessageChanged(DependencyObject d, DependencyPropertyChangedEventArgs e) =>
+        VisualStateManager.GoToState(
+            (ShortcutCaptureBox)d,
+            e.NewValue is string { Length: > 0 } ? "HasValidationMessage" : "NoValidationMessage",
+            true
+        );
 
     private static string? FindReserved(ShortcutModifiers modifiers, ushort key)
     {
@@ -328,8 +359,8 @@ public class ShortcutCaptureBox : Control
     {
         public event EventHandler? CanExecuteChanged
         {
-            add => CommandManager.RequerySuggested += value;
-            remove => CommandManager.RequerySuggested -= value;
+            add { }
+            remove { }
         }
 
         public bool CanExecute(object? parameter) => canExecute?.Invoke(parameter) ?? true;

@@ -1,275 +1,232 @@
 using System.Reactive.Linq;
 using System.Runtime.InteropServices;
-using System.Windows;
-using System.Windows.Input;
-using System.Windows.Interop;
-using System.Windows.Media;
-using System.Windows.Media.Animation;
-using WinTabber.Api.Windowing.Thumbnails;
-using WinTabberUI.Services;
-using WinTabber.ViewModels;
-using Windows.Win32;
+using Microsoft.UI.Xaml;
+using Microsoft.UI.Xaml.Input;
+using Microsoft.UI.Xaml.Media;
+using Microsoft.UI.Xaml.Media.Animation;
 using Windows.Win32.Foundation;
+using WinRT.Interop;
+using WinTabber.Api.Windowing.Thumbnails;
+using WinTabber.ViewModels;
+using WinTabberUI.Models.Settings;
+using WinTabberUI.Services;
+using WinTabberUI.Windowing;
+using WinUIEx.Messaging;
 
-namespace WinTabberUI;
+namespace WinTabberUI.Views;
 
 /// <summary>
-/// Chromeless (aside from a slim custom title bar), resizable floating window that hosts a live
-/// <see cref="WindowThumbnail"/> preview of a window that has been moved off-screen by
-/// <see cref="IWindowThumbnailService"/>. Multi-instance: one per thumbnailed window, created transiently
-/// (no <c>ViewCoordinatorBase&lt;T&gt;</c>, which only manages a single shared instance).
+/// Chromeless, resizable floating window that hosts a live <see cref="WinTabberUI.Controls.WindowThumbnail"/>
+/// preview of a window that has been moved off-screen by <see cref="IWindowThumbnailService"/>. Multi-instance:
+/// one per thumbnailed window, created transient (Bootstrapper registers it <c>AddTransient</c>, matching every
+/// other WinUI 3 Window in this migration -- a Window can only be shown once).
 ///
-/// How resizing this window behaves is governed by <see cref="ThumbnailResizeMode"/> (Settings → General):
+/// Ported from the WPF original's <c>ThumbnailWindow.xaml.cs</c>. Two structural differences from that port,
+/// both DEVIATIONS worth flagging for whoever touches this file next:
 /// <list type="bullet">
-/// <item><see cref="ThumbnailResizeMode.ThumbOnlyLockedAspect"/> — this window's own resize is locked to the
-/// source's original aspect ratio (via WM_SIZING), so it's effectively a single scale factor. The real
-/// window is never touched.</item>
-/// <item><see cref="ThumbnailResizeMode.ThumbOnlyFreeAspect"/> — this window can be resized to any aspect
-/// ratio. The real window is still never touched.</item>
-/// <item><see cref="ThumbnailResizeMode.ResizeSource"/> — same free resize, but the real (off-screen) window
-/// is also resized, once per drag-release, by a uniform zoom factor computed from how much this window was
-/// resized relative to its starting size (preserving the source's own aspect ratio even if this window's
-/// was stretched non-uniformly).</item>
+/// <item>
+/// WPF's <c>HwndSource.AddHook</c> has no WinUI 3 equivalent. This port uses
+/// <see cref="WinUIEx.Messaging.WindowMessageMonitor"/> instead -- confirmed present with a settable
+/// <c>Handled</c>/<c>Result</c> pair (not just a read-only monitor) via this project's own installed
+/// WinUIEx 2.2.0 XML docs, not a guess: <c>WindowMessageEventArgs.Handled</c>/<c>.Result</c> exist and are
+/// documented as "set this to set the return result, after also setting Handled to true" -- exactly the
+/// override capability <c>WM_NCHITTEST</c> needs. No hand-rolled <c>SetWindowSubclass</c> CsWin32 bindings
+/// were needed at all, resolving the plan's stated research blocker for this window a different way than
+/// expected.
+/// </item>
+/// <item>
+/// <c>FrameworkElement</c> has no <c>Effect</c> property in WinUI 3, so <c>DropShadowEffect</c> has no
+/// drop-in replacement (a composition-shadow alternative was not researched here). The WPF original's 14px
+/// shadow margin, its near-zero-alpha outer wrapper, and the whole margin-relative hit-test band math that
+/// existed only to serve that margin are all dropped along with it -- this window now resizes via its own
+/// native WS_THICKFRAME border (<c>IsResizable="True"</c>) instead. A DISCLOSED, reversible cosmetic
+/// regression: no drop shadow, and resize grabs the literal window edge rather than a few DIPs outside it.
+/// Flag for a follow-up if this reads as a real loss once seen live, not just theorized.
+/// </item>
 /// </list>
-/// In every mode, <see cref="WindowThumbnail"/>'s Stretch mode scales the live DWM bitmap to fill whatever
-/// size this window ends up being — a pure optical zoom while dragging. Real resizes (when enabled) only
-/// ever happen once a drag ends (WM_EXITSIZEMOVE — the Win32 "a size/move drag was just released" message;
-/// it doesn't fire for our own programmatic SetWindowPos calls to the *source* window, so there's no
-/// feedback loop) or when this window closes — never on every intermediate frame of a drag, which would be
-/// needlessly expensive and would reflow the target app's content constantly.
 /// </summary>
-public partial class ThumbnailWindow : Window
+public sealed partial class ThumbnailWindow : WinUIEx.WindowEx
 {
-    // Window messages, hit-test codes (HT*) and resize-edge codes (WMSZ_*) all come from CsWin32 via
-    // NativeMethods.txt rather than being redeclared here — see Windows.Win32.PInvoke.
+    // Declared as literals, not WinUIEx.Messaging.WindowsMessages: that enum is internal to WinUIEx
+    // (confirmed by a real compiler error: CS0122 "inaccessible due to its protection level"), and
+    // doesn't declare WM_NCHITTEST at all anyway (confirmed by enumerating its XML docs). Values match
+    // WPF's own PInvoke.WM_* constants for the same messages.
+    private const int WM_NCHITTEST = 0x0084;
+    private const int WM_SIZING = 0x0214;
+    private const int WM_EXITSIZEMOVE = 0x0232;
+    private const int HTCLIENT = 1;
+    private const int HTCAPTION = 2;
 
-    /// <summary>How far *inside* the visible frame's edge still counts as a resize grab, in DIPs.</summary>
-    private const double ResizeBandInner = 6;
-
-    /// <summary>
-    /// How far *outside* the visible frame's edge (i.e. into the shadow margin) still counts as a resize
-    /// grab, in DIPs. Kept below the margin width so the outermost sliver of shadow stays non-interactive.
-    /// </summary>
-    private const double ResizeBandOuter = 8;
-
-    /// <summary>How far along an edge from a corner still counts as that corner (diagonal resize), in DIPs.</summary>
-    private const double ResizeCornerLength = 16;
-
-    /// <summary>
-    /// Inward grab depth at the top edge. Much shallower than <see cref="ResizeBandInner"/> because the top
-    /// of the visible frame is <see cref="HeaderBar"/>, whose contents (title, expand button) need to stay
-    /// clickable rather than turning into a resize cursor.
-    /// </summary>
-    private const double ResizeBandInnerTop = 2;
+    /// <summary>How close to an edge, in DIPs, still counts as "let the native resize border handle it"
+    /// rather than claiming the point for HTCAPTION drag. Matches WS_THICKFRAME's own default border
+    /// thickness closely enough that this window's whole client area outside that band is draggable.</summary>
+    private const double ResizeBorderBand = 8;
 
     private readonly IWindowThumbnailService _thumbnailService;
-    private readonly SettingsViewModel _settings;
+    private readonly ApplicationSettings _settings;
+    private readonly nint _hwnd;
+    private readonly WindowMessageMonitor _messageMonitor;
     private IDisposable? _serviceWatch;
-    private HwndSource? _hwndSource;
     private bool _closingFromService;
     private int _handle;
     private int _originalWidth;
     private int _originalHeight;
 
+    public ThumbnailWindowViewModel ViewModel { get; }
+
+    // DEVIATION from the WPF original's constructor shape (SettingsViewModel): takes ApplicationSettings
+    // directly instead, matching WindowSelectorWindow's own established deviation (Task 4b.4) -- resolves
+    // against the real, already-DI-registered singleton rather than threading the whole SettingsViewModel
+    // through for one property read.
     public ThumbnailWindow(
         IWindowThumbnailService thumbnailService,
-        SettingsViewModel settings,
+        ApplicationSettings settings,
         ThumbnailWindowViewModel viewModel)
     {
-        InitializeComponent();
         _thumbnailService = thumbnailService;
         _settings = settings;
-        DataContext = viewModel;
-        Closing += OnClosing;
+        ViewModel = viewModel;
+
+        InitializeComponent();
+        AppWindow.SetIcon(DesktopHelper.AppIconPath);
+
+        _hwnd = WindowNative.GetWindowHandle(this);
+
+        // Per the design spec's backdrop table and every other ported window: WindowEx + DesktopAcrylicBackdrop,
+        // set in code-behind, not XAML -- a `SystemBackdrop="{winuiex:...}"`-style XAML attribute crashes this
+        // SDK's XamlCompiler pass2 with no diagnostic (see SettingsWindow.xaml.cs's comment for the confirmed
+        // repro). Acrylic (rather than no backdrop) is a knowing choice here, not an oversight: the WPF original
+        // deliberately avoided any blur-behind backdrop so its invisible header strip stayed truly invisible --
+        // this port accepts a faint acrylic band showing through the "hidden" header instead of researching a
+        // true per-pixel-transparent WinUI 3 window (DwmEnableBlurBehindWindow + a fully-transparent composition
+        // brush; a working technique exists but is reported to visibly break in light theme without further
+        // work). Disclosed, reversible cosmetic deviation -- see the class doc comment.
+        SystemBackdrop = new DesktopAcrylicBackdrop();
+
+        _messageMonitor = new WindowMessageMonitor(this);
+        _messageMonitor.WindowMessageReceived += OnWindowMessageReceived;
+
+        RootGrid.PointerEntered += (_, _) => AnimateHeader(visible: true);
+        RootGrid.PointerExited += (_, _) => AnimateHeader(visible: false);
+
+        Closed += OnClosed;
     }
 
-    // Named to avoid hiding the inherited Window.ResizeMode property (set to ResizeMode="CanResize" in the
-    // XAML, which is what gives the window a resize frame at all — unrelated to this setting, which only
-    // governs what a resize *does*).
+    // Named to avoid any confusion with WindowEx's own resize-related surface -- unrelated to this setting,
+    // which only governs what a resize *does* once it happens.
     private ThumbnailResizeMode ThumbnailZoomMode => _settings.General.ThumbnailResizeMode;
 
-    protected override void OnSourceInitialized(EventArgs e)
+    private void OnWindowMessageReceived(object? sender, WindowMessageEventArgs e)
     {
-        base.OnSourceInitialized(e);
-        _hwndSource = (HwndSource)PresentationSource.FromVisual(this);
-        _hwndSource.AddHook(WndProc);
-    }
+        var messageId = (int)e.Message.MessageId;
 
-    private IntPtr WndProc(IntPtr hwnd, int msg, IntPtr wParam, IntPtr lParam, ref bool handled)
-    {
-        if (msg == PInvoke.WM_NCHITTEST)
+        if (messageId == WM_NCHITTEST)
         {
-            int hit = HitTestResizeBorder(lParam);
-            if (hit != (int)PInvoke.HTCLIENT)
+            var hit = HitTestDrag(e.Message.LParam);
+            if (hit != HTCLIENT)
             {
-                handled = true;
-                return (IntPtr)hit;
+                e.Handled = true;
+                e.Result = hit;
             }
-
-            // Fall through to WPF/DefWindowProc so normal client hit-testing (header buttons, DragMove)
-            // still works.
-            return IntPtr.Zero;
+            return;
         }
 
-        if (msg == PInvoke.WM_SIZING && ThumbnailZoomMode == ThumbnailResizeMode.ThumbOnlyLockedAspect)
+        if (messageId == WM_SIZING && ThumbnailZoomMode == ThumbnailResizeMode.ThumbOnlyLockedAspect)
         {
-            LockAspectRatio(wParam, lParam);
-            handled = true;
-            return (IntPtr)1;
+            LockAspectRatio(e.Message.WParam, e.Message.LParam);
+            e.Handled = true;
+            e.Result = 1;
+            return;
         }
 
-        if (msg == PInvoke.WM_EXITSIZEMOVE && ThumbnailZoomMode == ThumbnailResizeMode.ResizeSource)
+        if (messageId == WM_EXITSIZEMOVE && ThumbnailZoomMode == ThumbnailResizeMode.ResizeSource)
         {
             ApplyZoomFactor();
         }
-
-        return IntPtr.Zero;
     }
 
     /// <summary>
-    /// Maps a screen point to a resize-frame hit-test code based on its distance from <see cref="WindowFrame"/>'s
-    /// edges — the *visible* bounds — rather than the window's own outer edge.
-    ///
-    /// The two differ: the window is inflated by <see cref="WindowFrame"/>'s margin so the drop shadow has room
-    /// to render (see ThumbnailWindow.xaml), so the OS's default resize frame sits out in empty, invisible space
-    /// several pixels away from anything the user can actually see. This puts the grab zone where the edge
-    /// *looks* like it is, straddling it: <see cref="ResizeBandOuter"/> DIPs out into the shadow margin and
-    /// <see cref="ResizeBandInner"/> DIPs in over the thumbnail.
-    ///
-    /// Returns <see cref="HTCLIENT"/> to mean "not a resize grab, handle this normally".
+    /// Maps a screen point to HTCAPTION (drag the window) or HTCLIENT (let native/default processing --
+    /// including the WS_THICKFRAME resize border and ExpandButton's own click handling -- take it) based on
+    /// distance from this window's own client edges. Unlike the WPF original, there is no shadow margin to
+    /// measure against: RootGrid's bounds ARE the window's visible bounds.
     /// </summary>
-    private int HitTestResizeBorder(IntPtr lParam)
+    private int HitTestDrag(nint lParam)
     {
-        // WM_NCHITTEST can arrive before layout has run, when there are no meaningful bounds to test against.
-        if (WindowFrame.ActualWidth <= 0 || WindowFrame.ActualHeight <= 0)
+        if (RootGrid.ActualWidth <= 0 || RootGrid.ActualHeight <= 0)
         {
-            return (int)PInvoke.HTCLIENT;
+            return HTCLIENT;
         }
 
-        // lParam packs two *signed* 16-bit screen coordinates; the sign matters on multi-monitor setups where
-        // a secondary display sits left of / above the primary and so has negative coordinates.
-        int lp = (int)(long)lParam;
-        var screenPoint = new Point(unchecked((short)(lp & 0xFFFF)), unchecked((short)((lp >> 16) & 0xFFFF)));
+        // lParam packs two *signed* 16-bit screen coordinates, in physical pixels (matching WM_NCHITTEST's
+        // documented contract, same as the WPF original's own unpacking) -- not DIPs, so converting to a
+        // RootGrid-local point needs both the window's own physical screen position (AppWindow.Position)
+        // and the DPI scale, not a visual-tree transform (RootGrid has no visual-tree ancestor to
+        // transform against here; it effectively IS the window's content root).
+        int lp = (int)lParam;
+        var screenPoint = new Windows.Foundation.Point(unchecked((short)(lp & 0xFFFF)), unchecked((short)((lp >> 16) & 0xFFFF)));
 
-        Point p;
-        try
+        var scale = DesktopHelper.GetScaleForWindow(_hwnd);
+        var position = AppWindow.Position;
+        var p = new Windows.Foundation.Point(
+            screenPoint.X / scale - position.X / scale,
+            screenPoint.Y / scale - position.Y / scale);
+
+        bool nearEdge =
+            p.X < ResizeBorderBand
+            || p.X > RootGrid.ActualWidth - ResizeBorderBand
+            || p.Y < ResizeBorderBand
+            || p.Y > RootGrid.ActualHeight - ResizeBorderBand;
+        if (nearEdge)
         {
-            // PointFromScreen takes device pixels and yields element-local DIPs, so DPI is handled for us.
-            p = WindowFrame.PointFromScreen(screenPoint);
-        }
-        catch (InvalidOperationException)
-        {
-            // The visual isn't connected to a presentation source (teardown, or before the HWND is live).
-            return (int)PInvoke.HTCLIENT;
+            return HTCLIENT;
         }
 
-        // The header's expand button is right-aligned against the frame's right edge, so the right and
-        // top-right bands would otherwise sit on top of it and turn it into a resize handle. The button wins;
-        // the corner is still grabbable just outside it, in the shadow margin.
         if (IsOverExpandButton(p))
         {
-            return (int)PInvoke.HTCLIENT;
+            return HTCLIENT;
         }
 
-        bool left = p.X >= -ResizeBandOuter && p.X < ResizeBandInner;
-        bool right = p.X <= WindowFrame.ActualWidth + ResizeBandOuter && p.X > WindowFrame.ActualWidth - ResizeBandInner;
-        bool top = p.Y >= -ResizeBandOuter && p.Y < ResizeBandInnerTop;
-        bool bottom =
-            p.Y <= WindowFrame.ActualHeight + ResizeBandOuter && p.Y > WindowFrame.ActualHeight - ResizeBandInner;
-
-        // A point can only be in a band if it's also within the frame's extent on the *other* axis (plus the
-        // outward slack) — otherwise the diagonal shadow corners, which are outside the frame on both axes,
-        // would read as edge grabs.
-        bool withinX = p.X >= -ResizeBandOuter && p.X <= WindowFrame.ActualWidth + ResizeBandOuter;
-        bool withinY = p.Y >= -ResizeBandOuter && p.Y <= WindowFrame.ActualHeight + ResizeBandOuter;
-        if (!withinX || !withinY)
-        {
-            return (int)PInvoke.HTCLIENT;
-        }
-
-        // Corners take priority over edges, and are widened along both edges so the diagonal grab is reachable.
-        bool nearLeft = p.X < ResizeCornerLength;
-        bool nearRight = p.X > WindowFrame.ActualWidth - ResizeCornerLength;
-        bool nearTop = p.Y < ResizeCornerLength;
-        bool nearBottom = p.Y > WindowFrame.ActualHeight - ResizeCornerLength;
-
-        if ((left || right || top || bottom) && (nearTop || nearBottom) && (nearLeft || nearRight))
-        {
-            if (nearTop && nearLeft)
-            {
-                return (int)PInvoke.HTTOPLEFT;
-            }
-
-            if (nearTop && nearRight)
-            {
-                return (int)PInvoke.HTTOPRIGHT;
-            }
-
-            if (nearBottom && nearLeft)
-            {
-                return (int)PInvoke.HTBOTTOMLEFT;
-            }
-
-            return (int)PInvoke.HTBOTTOMRIGHT;
-        }
-
-        if (left)
-        {
-            return (int)PInvoke.HTLEFT;
-        }
-
-        if (right)
-        {
-            return (int)PInvoke.HTRIGHT;
-        }
-
-        if (top)
-        {
-            return (int)PInvoke.HTTOP;
-        }
-
-        if (bottom)
-        {
-            return (int)PInvoke.HTBOTTOM;
-        }
-
-        return (int)PInvoke.HTCLIENT;
+        return HTCAPTION;
     }
 
-    /// <summary>
-    /// Whether a point (in <see cref="WindowFrame"/>'s coordinate space) lies over <see cref="ExpandButton"/>.
-    /// Tested regardless of <see cref="HeaderBar"/>'s opacity, since a zero-opacity element is still
-    /// hit-testable in WPF and the button stays clickable when the header is faded out.
-    /// </summary>
-    private bool IsOverExpandButton(Point pointInFrame)
+    private bool IsOverExpandButton(Windows.Foundation.Point pointInRoot)
     {
         if (ExpandButton.ActualWidth <= 0 || ExpandButton.ActualHeight <= 0)
         {
             return false;
         }
 
-        var origin = ExpandButton.TransformToAncestor(WindowFrame).Transform(new Point(0, 0));
-        return new Rect(origin, new Size(ExpandButton.ActualWidth, ExpandButton.ActualHeight)).Contains(pointInFrame);
+        var origin = ExpandButton.TransformToVisual(RootGrid).TransformPoint(new Windows.Foundation.Point(0, 0));
+        return new Windows.Foundation.Rect(origin, new Windows.Foundation.Size(ExpandButton.ActualWidth, ExpandButton.ActualHeight))
+            .Contains(pointInRoot);
     }
 
-    public ThumbnailWindowViewModel ViewModel => (ThumbnailWindowViewModel)DataContext;
-
-    /// <summary>Wires this window up to a specific thumbnailed window. Must be called once, before <see cref="Window.Show"/>.</summary>
+    /// <summary>Wires this window up to a specific thumbnailed window. Must be called once, before <see cref="WindowEx.Show"/>.</summary>
     public void Initialize(int handle, string title, int originalWidth, int originalHeight)
     {
         _handle = handle;
         _originalWidth = originalWidth;
         _originalHeight = originalHeight;
         ViewModel.Initialize(handle, title);
+
+        // REAL BUG found via live verification: the thumbnail never appeared at all. Root cause,
+        // the exact same class already diagnosed and fixed for WindowSelectorWindow this session:
+        // WindowThumbnail.InitialiseThumbnail's `TargetWindow is { } window` guard is always false
+        // without this, so DwmRegisterThumbnail never runs. Setting Source alone is not enough --
+        // there is no WinUI 3 equivalent of WPF's HwndSource.FromVisual(this) auto-discovery, so the
+        // hosting window has to be wired explicitly. Safe to set before Loaded has fired (WindowThumbnail's
+        // own DependencyProperty callbacks gate actual registration on _isLoaded internally).
+        Thumbnail.TargetWindow = this;
         Thumbnail.Source = handle;
         SizeToSourceAspect();
 
-        // If the entry disappears — the source window being destroyed (watchdog self-restore) or app
-        // shutdown restoring everything — close this window too. Our own close paths (expand button,
-        // Alt+F4, taskbar) all go through OnClosing below instead, which removes the entry itself.
+        // If the entry disappears -- the source window being destroyed (watchdog self-restore) or app
+        // shutdown restoring everything -- close this window too. Our own close paths (expand button,
+        // taskbar) all go through OnClosed below instead, which removes the entry itself.
         _serviceWatch = _thumbnailService
             .Connect()
-            .ObserveOnDispatcher()
+            .ObserveOn(ReactiveUI.RxApp.MainThreadScheduler)
             .Subscribe(_ =>
             {
                 if (!_thumbnailService.IsThumbnailed(_handle))
@@ -280,30 +237,14 @@ public partial class ThumbnailWindow : Window
             });
     }
 
-    /// <summary>
-    /// The header row's reserved height in DIPs, read from the row definition rather than
-    /// <see cref="HeaderBar"/>'s ActualHeight so it's available before layout has run (i.e. during
-    /// <see cref="Initialize"/>, which the coordinator calls before <see cref="Window.Show"/>).
-    /// </summary>
-    private double HeaderHeight => HeaderRow.Height.Value;
-
-    /// <summary>Total non-thumbnail width (DIPs): <see cref="WindowFrame"/>'s shadow margin, both sides.</summary>
-    private double ChromeWidth => WindowFrame.Margin.Left + WindowFrame.Margin.Right;
-
-    /// <summary>Total non-thumbnail height (DIPs): the shadow margin top and bottom, plus the header row.</summary>
-    private double ChromeHeight => WindowFrame.Margin.Top + WindowFrame.Margin.Bottom + HeaderHeight;
+    private double HeaderHeight => RootGrid.RowDefinitions[0].Height.Value;
 
     /// <summary>
     /// Sizes the window so its thumbnail area matches the source window's aspect ratio, fitted inside the
     /// default footprint declared in ThumbnailWindow.xaml (so a very wide or very tall source shrinks to fit
-    /// rather than opening as an enormous window).
-    ///
-    /// Without this the window always opened at that fixed default regardless of what it was previewing,
-    /// which had two visible consequences: the thumbnail was stretched to a wrong aspect ratio from the
-    /// start (<see cref="WindowThumbnail"/> uses Stretch, so it distorts rather than letterboxes), and in
-    /// <see cref="ThumbnailResizeMode.ThumbOnlyLockedAspect"/> the very first resize snapped the window onto
-    /// the source's aspect ratio — reading as the window abruptly changing shape the moment you grabbed an
-    /// edge. Starting at the correct ratio makes that first drag continuous.
+    /// rather than opening as an enormous window). See the WPF original for the full rationale -- unchanged
+    /// here except for using AppWindow.ResizeClient (the established WinUI 3 pattern, e.g.
+    /// SuspendedWindowsWindow's ResizeToContent) instead of setting Width/Height directly.
     /// </summary>
     private void SizeToSourceAspect()
     {
@@ -312,15 +253,9 @@ public partial class ThumbnailWindow : Window
             return;
         }
 
-        // Width/Height are explicit in the XAML, so they're real numbers here rather than NaN ("size to
-        // content") — but NaN would propagate silently into the assignments below, so rule it out.
-        if (double.IsNaN(Width) || double.IsNaN(Height))
-        {
-            return;
-        }
-
-        double maxContentWidth = Width - ChromeWidth;
-        double maxContentHeight = Height - ChromeHeight;
+        var scale = DesktopHelper.GetScaleForWindow(_hwnd);
+        double maxContentWidth = Width * scale;
+        double maxContentHeight = (Height - HeaderHeight) * scale;
         if (maxContentWidth <= 0 || maxContentHeight <= 0)
         {
             return;
@@ -328,19 +263,24 @@ public partial class ThumbnailWindow : Window
 
         // Fit, not fill: whichever axis is the binding constraint decides the scale, so the result never
         // exceeds the default footprint on either axis.
-        double scale = Math.Min(maxContentWidth / _originalWidth, maxContentHeight / _originalHeight);
+        double contentScale = Math.Min(maxContentWidth / _originalWidth, maxContentHeight / _originalHeight);
 
-        Width = _originalWidth * scale + ChromeWidth;
-        Height = _originalHeight * scale + ChromeHeight;
+        var newContentWidth = _originalWidth * contentScale;
+        var newContentHeight = _originalHeight * contentScale + HeaderHeight * scale;
+
+        AppWindow.ResizeClient(new Windows.Graphics.SizeInt32(
+            (int)Math.Ceiling(newContentWidth),
+            (int)Math.Ceiling(newContentHeight)));
     }
 
-    private void OnClosing(object? sender, System.ComponentModel.CancelEventArgs e)
+    private void OnClosed(object sender, WindowEventArgs args)
     {
         _serviceWatch?.Dispose();
-        _hwndSource?.RemoveHook(WndProc);
+        _messageMonitor.WindowMessageReceived -= OnWindowMessageReceived;
+        _messageMonitor.Dispose();
 
         // Covers every close path: the expand button, Alt+F4, taskbar, the OS window-close affordance.
-        // Idempotent — a no-op if the entry is already gone (e.g. the source window was destroyed and the
+        // Idempotent -- a no-op if the entry is already gone (e.g. the source window was destroyed and the
         // watchdog already restored/removed it, in which case _closingFromService is true and there's
         // nothing left to zoom or restore).
         if (!_closingFromService)
@@ -357,9 +297,25 @@ public partial class ThumbnailWindow : Window
     /// <summary>
     /// Computes how much this window was resized relative to its starting size (the geometric mean of the
     /// width and height ratios, so a non-uniformly stretched preview still yields a single sensible factor)
-    /// and applies that as a uniform scale to the source window's original, real dimensions. This keeps the
-    /// restored window's own proportions intact even though the preview itself was allowed to stretch freely.
-    /// Only called when <see cref="ThumbnailZoomMode"/> is <see cref="ThumbnailResizeMode.ResizeSource"/>.
+    /// and applies that as a uniform scale to the source window's original, real dimensions. Only called
+    /// when <see cref="ThumbnailZoomMode"/> is <see cref="ThumbnailResizeMode.ResizeSource"/>.
+    /// <para>
+    /// KNOWN OPEN ISSUE found via live verification (not yet root-caused): after actually dragging the
+    /// preview to a new size, the restored source window lands smaller than expected -- proportionally
+    /// closer than before the Task 4b.4-class TargetWindow bug was fixed elsewhere in this file (which
+    /// also fixed the thumbnail never rendering at all), but still measurably off. The dimensional
+    /// analysis of this method's DIP-to-physical-pixel conversion looks internally consistent, so the
+    /// likely suspects are elsewhere: possibly Thumbnail.ActualWidth/ActualHeight not reflecting the
+    /// same content-area geometry SizeToSourceAspect assumed when it originally sized the window, or a
+    /// rounding/timing issue in when this reads those values relative to the just-finished drag. A
+    /// STATUS_STOWED_EXCEPTION native crash (the same crash class documented on WireRealizedTiles in
+    /// WindowSelectorWindow.xaml.cs) was also observed after a resize-then-close sequence in this mode
+    /// during the same live-verification session, though a definitive managed stack trace tying it to
+    /// this method specifically was not captured (the one crash dump obtained showed only an unrelated,
+    /// benign first-chance exception). Deferred by explicit user instruction rather than chased further
+    /// here -- next step if picked back up should be a fresh procdump run configured for unhandled-only
+    /// exceptions (not first-chance), captured during an actual repro rather than opportunistically.
+    /// </para>
     /// </summary>
     private void ApplyZoomFactor()
     {
@@ -368,16 +324,16 @@ public partial class ThumbnailWindow : Window
             return;
         }
 
-        double contentWidth = ThumbnailHost.ActualWidth;
-        double contentHeight = ThumbnailHost.ActualHeight;
+        double contentWidth = Thumbnail.ActualWidth;
+        double contentHeight = Thumbnail.ActualHeight;
         if (contentWidth <= 0 || contentHeight <= 0)
         {
             return;
         }
 
-        var dpi = VisualTreeHelper.GetDpi(this);
-        double displayedWidth = contentWidth * dpi.DpiScaleX;
-        double displayedHeight = contentHeight * dpi.DpiScaleY;
+        var scale = DesktopHelper.GetScaleForWindow(_hwnd);
+        double displayedWidth = contentWidth * scale;
+        double displayedHeight = contentHeight * scale;
 
         double widthRatio = displayedWidth / _originalWidth;
         double heightRatio = displayedHeight / _originalHeight;
@@ -389,14 +345,13 @@ public partial class ThumbnailWindow : Window
     }
 
     /// <summary>
-    /// Adjusts the proposed WM_SIZING rect so the window's content area — the total window size minus both
-    /// <see cref="WindowFrame"/>'s shadow margin on all four sides and the header row, the latter always
-    /// reserved at <see cref="HeaderBar"/>'s fixed height regardless of hover state (see
-    /// ThumbnailWindow.xaml) — keeps the source's original aspect ratio, making the resize behave like a
-    /// single scale factor rather than a free two-dimensional resize. The dragged edge(s) stay
-    /// authoritative; the other dimension is derived from them.
+    /// Adjusts the proposed WM_SIZING rect so the window's content area -- the total window size minus the
+    /// header row (the shadow margin the WPF original also subtracted here no longer exists in this port) --
+    /// keeps the source's original aspect ratio, making the resize behave like a single scale factor rather
+    /// than a free two-dimensional resize. The dragged edge(s) stay authoritative; the other dimension is
+    /// derived from them.
     /// </summary>
-    private void LockAspectRatio(IntPtr wParam, IntPtr lParam)
+    private void LockAspectRatio(nuint wParam, nint lParam)
     {
         if (_originalWidth <= 0 || _originalHeight <= 0)
         {
@@ -404,39 +359,30 @@ public partial class ThumbnailWindow : Window
         }
 
         var rect = Marshal.PtrToStructure<RECT>(lParam);
-        var dpi = VisualTreeHelper.GetDpi(this);
+        var scale = DesktopHelper.GetScaleForWindow(_hwnd);
 
-        // The WM_SIZING rect covers the whole native window, which is inflated on all four sides by
-        // WindowFrame's shadow margin and again at the top by the header row. Only what's left after
-        // subtracting both is the thumbnail itself, so the aspect ratio has to be applied to that — and the
-        // chrome added back on before writing the rect out. Read from the live margin rather than a literal
-        // so this stays correct if ThumbnailWindow.xaml's margin changes.
-        double chromeX = ChromeWidth * dpi.DpiScaleX;
-        double chromeY = ChromeHeight * dpi.DpiScaleY;
+        double chromeY = HeaderHeight * scale;
         double contentAspect = (double)_originalWidth / _originalHeight;
 
         uint edge = (uint)wParam;
-        bool verticalDragOnly = edge is PInvoke.WMSZ_TOP or PInvoke.WMSZ_BOTTOM;
+        bool verticalDragOnly = edge is 3 or 6; // WMSZ_TOP, WMSZ_BOTTOM
 
         if (verticalDragOnly)
         {
             double contentHeight = Math.Max(1, rect.bottom - rect.top - chromeY);
-            int newWidth = (int)Math.Round(contentHeight * contentAspect + chromeX);
+            int newWidth = (int)Math.Round(contentHeight * contentAspect);
             rect.right = rect.left + newWidth;
         }
         else
         {
-            double contentWidth = Math.Max(1, rect.right - rect.left - chromeX);
+            double contentWidth = Math.Max(1, rect.right - rect.left);
             int newHeight = (int)Math.Round(contentWidth / contentAspect + chromeY);
 
             // Corners/edges that don't touch the top edge keep the top fixed and grow/shrink from the
-            // bottom; the ones that drag the top edge itself (TOPLEFT, TOPRIGHT) keep the bottom fixed
-            // instead, since that's the corner/edge NOT being dragged.
-            bool anchorTop = edge
-                is PInvoke.WMSZ_LEFT
-                    or PInvoke.WMSZ_RIGHT
-                    or PInvoke.WMSZ_BOTTOMLEFT
-                    or PInvoke.WMSZ_BOTTOMRIGHT;
+            // bottom; the ones that drag the top edge itself (TOPLEFT=4, TOPRIGHT=5) keep the bottom fixed
+            // instead, since that's the corner/edge NOT being dragged. WMSZ_* values: LEFT=1, RIGHT=2,
+            // TOP=3, BOTTOM=6, TOPLEFT=4, TOPRIGHT=5, BOTTOMLEFT=7, BOTTOMRIGHT=8.
+            bool anchorTop = edge is 1 or 2 or 7 or 8;
             if (anchorTop)
             {
                 rect.bottom = rect.top + newHeight;
@@ -450,30 +396,20 @@ public partial class ThumbnailWindow : Window
         Marshal.StructureToPtr(rect, lParam, true);
     }
 
-    private void Root_MouseLeftButtonDown(object sender, MouseButtonEventArgs e)
-    {
-        if (e.ButtonState == MouseButtonState.Pressed)
-        {
-            DragMove();
-        }
-    }
-
     private static readonly Duration HeaderFadeDuration = new(TimeSpan.FromMilliseconds(150));
 
-    private void Window_MouseEnter(object sender, MouseEventArgs e) => AnimateHeader(visible: true);
-
-    private void Window_MouseLeave(object sender, MouseEventArgs e) => AnimateHeader(visible: false);
-
-    /// <summary>
-    /// Fades HeaderBar's opacity only — its row is always reserved at full height (see ThumbnailWindow.xaml),
-    /// so the thumbnail row's size never changes and there's nothing to squeeze.
-    /// </summary>
     private void AnimateHeader(bool visible)
     {
-        HeaderBar.BeginAnimation(
-            OpacityProperty,
-            new DoubleAnimation { To = visible ? 1.0 : 0.0, Duration = HeaderFadeDuration }
-        );
+        var storyboard = new Storyboard();
+        var animation = new DoubleAnimation
+        {
+            To = visible ? 1.0 : 0.0,
+            Duration = HeaderFadeDuration,
+        };
+        Storyboard.SetTarget(animation, HeaderBar);
+        Storyboard.SetTargetProperty(animation, "Opacity");
+        storyboard.Children.Add(animation);
+        storyboard.Begin();
     }
 
     private void ExpandButton_Click(object sender, RoutedEventArgs e)
