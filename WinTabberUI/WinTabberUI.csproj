@@ -10,6 +10,7 @@
         <ApplicationManifest>app.manifest</ApplicationManifest>
         <WindowsPackageType>None</WindowsPackageType>
         <EnableMsixTooling>true</EnableMsixTooling>
+        <PublishReadyToRun>true</PublishReadyToRun>
         <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
 
