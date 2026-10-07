@@ -3,6 +3,5 @@
         <Nullable>enable</Nullable>
         <ImplicitUsings>enable</ImplicitUsings>
         <LangVersion>latest</LangVersion>
-        <EnableMsixTooling>true</EnableMsixTooling>
     </PropertyGroup>
 </Project>
