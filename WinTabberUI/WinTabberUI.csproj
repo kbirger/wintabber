@@ -29,6 +29,8 @@
         <PackageReference Include="WinUIEx" />
         <PackageReference Include="CommunityToolkit.Mvvm" />
         <PackageReference Include="Microsoft.Extensions.DependencyInjection" />
+        <PackageReference Include="Serilog" />
+        <PackageReference Include="Serilog.Sinks.File" />
         <PackageReference Include="ReactiveUI" />
         <PackageReference Include="ReactiveUI.WinUI" />
         <PackageReference Include="CommunityToolkit.WinUI.Controls.Primitives" />

@@ -1,6 +1,7 @@
 using Microsoft.Extensions.DependencyInjection;
 using Microsoft.UI.Xaml;
 using Microsoft.UI.Xaml.Input;
+using Serilog;
 using WinTabberUI.Views;
 
 namespace WinTabberUI;
@@ -16,6 +17,7 @@ public partial class App : Application
 
     public App()
     {
+        AppLogging.Init();
         InitializeComponent();
 
         // STATUS_STOWED_EXCEPTION (a native fast-fail deep in WinUI 3's own plumbing) bypasses all
@@ -26,21 +28,24 @@ public partial class App : Application
         // die and there is no debugger attached.
         UnhandledException += (_, e) =>
         {
-            System.IO.File.AppendAllText(
-                System.IO.Path.Combine(System.IO.Path.GetTempPath(), "wintabberui-crash.log"),
-                $"[{DateTime.Now:O}] XAML UnhandledException: {e.Exception}\n");
+            Log.Fatal(e.Exception, "XAML UnhandledException: {Message}", e.Message);
+            Log.CloseAndFlush();
+            AppLogging.BreakIntoDebugger();
         };
         AppDomain.CurrentDomain.UnhandledException += (_, e) =>
         {
-            System.IO.File.AppendAllText(
-                System.IO.Path.Combine(System.IO.Path.GetTempPath(), "wintabberui-crash.log"),
-                $"[{DateTime.Now:O}] AppDomain UnhandledException (terminating={e.IsTerminating}): {e.ExceptionObject}\n");
+            Log.Fatal(
+                e.ExceptionObject as Exception,
+                "AppDomain UnhandledException (terminating={IsTerminating}): {ExceptionObject}",
+                e.IsTerminating,
+                e.ExceptionObject
+            );
+            Log.CloseAndFlush();
+            AppLogging.BreakIntoDebugger();
         };
         System.Threading.Tasks.TaskScheduler.UnobservedTaskException += (_, e) =>
         {
-            System.IO.File.AppendAllText(
-                System.IO.Path.Combine(System.IO.Path.GetTempPath(), "wintabberui-crash.log"),
-                $"[{DateTime.Now:O}] UnobservedTaskException: {e.Exception}\n");
+            Log.Error(e.Exception, "UnobservedTaskException");
         };
     }
 
@@ -58,7 +63,12 @@ public partial class App : Application
         // Microsoft.UI.Xaml.Application has no OnExit-equivalent override in this SDK version for an
         // unpackaged desktop app, so ProcessExit is the nearest available hook -- same reasoning
         // BackgroundServiceContainer's own doc comment gives for what it disposes and in what order.
-        AppDomain.CurrentDomain.ProcessExit += (_, _) => _backgroundServices?.Dispose();
+        AppDomain.CurrentDomain.ProcessExit += (_, _) =>
+        {
+            _backgroundServices?.Dispose();
+            Log.Information("WinTabber exiting");
+            Log.CloseAndFlush();
+        };
 
         // No window is shown at launch: the app starts quietly in the tray. SettingsWindow and
         // WindowSelectorWindow are now shown on demand, driven by WindowSelectorWindowCoordinator/
