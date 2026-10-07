@@ -110,14 +110,6 @@ chord. A tap shorter than 200 milliseconds sends a real CapsLock key press.
 This behavior is always on. There is no setting for it. The hyper key steps aside while the shortcut
 capture dialog is open, so CapsLock is recorded as CapsLock there.
 
-### Dock window
-
-The dock window reserves a strip on the left edge of the desktop work area. WinTabber moves
-non-elevated windows clear of the reserved strip. The work area is restored when the dock window
-closes.
-
-The dock is incomplete. Nothing sets the application that it lists, so its window list stays empty.
-
 ### Media and audio controls (alpha)
 
 ![Media Controls Screenshot](docs/images/media-controls.png)

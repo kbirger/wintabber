@@ -14,6 +14,8 @@
     <PackageVersion Include="Microsoft.Windows.CsWin32" Version="0.3.269" />
     <PackageVersion Include="MouseKeyHook" Version="5.7.1" />
     <PackageVersion Include="NAudio.WASAPI" Version="2.3.0" />
+    <PackageVersion Include="Serilog" Version="4.3.0" />
+    <PackageVersion Include="Serilog.Sinks.File" Version="7.0.0" />
     <PackageVersion Include="ReactiveUI" Version="22.3.1" />
     <PackageVersion Include="ReactiveUI.SourceGenerators" Version="2.6.1" />
     <PackageVersion Include="ReactiveUI.WinUI" Version="22.3.1" />
