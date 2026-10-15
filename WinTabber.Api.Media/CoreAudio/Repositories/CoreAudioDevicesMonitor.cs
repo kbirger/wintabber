@@ -72,7 +72,9 @@ public class CoreAudioDevicesMonitor : IMMNotificationClient, IDisposable
 
     public DeviceEvents Watch(IAudioDevice device)
     {
-        var initialValues = Observable.Start(() => (device.MasterVolumeLevelScalar, device.Mute), _scheduler);
+        var initialValues = Observable
+            .Start(() => (device.MasterVolumeLevelScalar, device.Mute), _scheduler)
+            .IgnoreDeviceGone();
         var volumeChanged = initialValues
             .Concat(device.VolumeChanged)
             .Replay(1)

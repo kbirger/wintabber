@@ -158,23 +158,27 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
 
     internal IObservable<Unit> SetVolume(float volume)
     {
-        return Observable.Start(() =>
-        {
-            if(Math.Abs(_coreAudioSession.SimpleAudioVolume.Volume - volume) > .01)
+        return Observable
+            .Start(() =>
             {
-                _coreAudioSession.SimpleAudioVolume.Volume = volume;
-            }
-        }, _scheduler);
+                if(Math.Abs(_coreAudioSession.SimpleAudioVolume.Volume - volume) > .01)
+                {
+                    _coreAudioSession.SimpleAudioVolume.Volume = volume;
+                }
+            }, _scheduler)
+            .IgnoreDeviceGone();
     }
 
     internal IObservable<Unit> SetMute(bool isMuted)
     {
-        return Observable.Start(() =>
-        {
-            if (isMuted != _coreAudioSession.SimpleAudioVolume.Mute)
+        return Observable
+            .Start(() =>
             {
-                _coreAudioSession.SimpleAudioVolume.Mute = isMuted;
-            }
-        }, _scheduler);
+                if (isMuted != _coreAudioSession.SimpleAudioVolume.Mute)
+                {
+                    _coreAudioSession.SimpleAudioVolume.Mute = isMuted;
+                }
+            }, _scheduler)
+            .IgnoreDeviceGone();
     }
 }

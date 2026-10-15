@@ -55,27 +55,32 @@ public class CoreAudioDevice(MMDevice device, IScheduler scheduler) : IAudioDevi
                 );
             })
             .Select(change => (change.MasterVolume, change.Muted))
+            .IgnoreDeviceGone()
             .SubscribeOn(_scheduler);
 
     public IObservable<Unit> SetVolume(float volume)
     {
-        return Observable.Start(() =>
-        {
-            if (Math.Abs(_device.AudioEndpointVolume.MasterVolumeLevelScalar - volume) > .01)
+        return Observable
+            .Start(() =>
             {
-                _device.AudioEndpointVolume.MasterVolumeLevelScalar = volume;
-            }
-        }, _scheduler);
+                if (Math.Abs(_device.AudioEndpointVolume.MasterVolumeLevelScalar - volume) > .01)
+                {
+                    _device.AudioEndpointVolume.MasterVolumeLevelScalar = volume;
+                }
+            }, _scheduler)
+            .IgnoreDeviceGone();
     }
 
     public IObservable<Unit> SetMute(bool isMuted)
     {
-        return Observable.Start(() =>
-        {
-            if (_device.AudioEndpointVolume.Mute != isMuted)
+        return Observable
+            .Start(() =>
             {
-                _device.AudioEndpointVolume.Mute = isMuted;
-            }
-        }, _scheduler);
+                if (_device.AudioEndpointVolume.Mute != isMuted)
+                {
+                    _device.AudioEndpointVolume.Mute = isMuted;
+                }
+            }, _scheduler)
+            .IgnoreDeviceGone();
     }
 }
