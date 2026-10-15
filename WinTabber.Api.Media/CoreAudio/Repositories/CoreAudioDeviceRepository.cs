@@ -88,11 +88,28 @@ public partial class CoreAudioDeviceRepository : ICoreAudioDeviceRepository
         }
         // Also now catches COM failures from CoreAudioDevice's eager property reads (e.g. AudioEndpointVolume
         // activation), not just a missing default endpoint — see "Known deviation" in the design spec.
-        catch (COMException) { }
+        catch (Exception ex) when (ex is COMException or FileNotFoundException) { }
 
         if (change is not null)
         {
             yield return change;
+        }
+    }
+
+    // A device notification can arrive while the device is not yet activatable or is already gone
+    // (for example the redirected audio device of a remote desktop session). NAudio then throws
+    // COMException or, for HRESULT 0x80070002, FileNotFoundException. These handlers run on the
+    // scheduler thread, so an unguarded throw terminates the process.
+    private IAudioDevice? TryGetDevice(string deviceId)
+    {
+        try
+        {
+            return _enumerator.GetDevice(deviceId);
+        }
+        catch (Exception ex) when (ex is COMException or FileNotFoundException)
+        {
+            Debug.WriteLine($"Skipped audio device {deviceId}: {ex.Message}");
+            return null;
         }
     }
 
@@ -150,8 +167,8 @@ public partial class CoreAudioDeviceRepository : ICoreAudioDeviceRepository
 
                                 var additionSubscription = _monitor.DeviceAdditions.Subscribe(deviceId =>
                                 {
-                                    var device = _enumerator.GetDevice(deviceId);
-                                    if (device.State == DeviceState.Active)
+                                    var device = TryGetDevice(deviceId);
+                                    if (device?.State == DeviceState.Active)
                                     {
                                         cache.AddOrUpdate(device);
                                         cache.Refresh(device);
@@ -185,9 +202,12 @@ public partial class CoreAudioDeviceRepository : ICoreAudioDeviceRepository
                                     }
                                     else if (change.NewState == DeviceState.Active)
                                     {
-                                        var device = _enumerator.GetDevice(change.DeviceId);
-                                        cache.AddOrUpdate(device);
-                                        cache.Refresh(device);
+                                        var device = TryGetDevice(change.DeviceId);
+                                        if (device is not null)
+                                        {
+                                            cache.AddOrUpdate(device);
+                                            cache.Refresh(device);
+                                        }
                                     }
                                 });
 
