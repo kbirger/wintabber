@@ -67,9 +67,19 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
         }
         _disposed = true;
 
+        // Two separate steps: UnRegisterEventClient checks the HRESULT and throws for a device that
+        // is already gone, and that failure must not skip the release of the NAudio session.
         try
         {
             _coreAudioSession.UnRegisterEventClient(this);
+        }
+        catch
+        {
+            // Ignore exceptions during dispose
+        }
+
+        try
+        {
             _coreAudioSession.Dispose();
         }
         catch
