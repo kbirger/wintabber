@@ -28,17 +28,23 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
     private BehaviorSubject<string> _displayName;
     private BehaviorSubject<AudioSessionState> _stateChanges;
     private BehaviorSubject<(bool IsMuted, float Volume)> _volumeChanges;
-    public IObservable<Unit> SessionEnded => _sessionEnded;
-    public IObservable<Unit> SessionChanged => _changes;
 
-    public IObservable<(bool IsMuted, float Volume)> VolumeChanges => _volumeChanges;
+    // The audio service raises the IAudioSessionEvents callbacks on its own thread. Windows requires
+    // that a callback does not block, does not wait on a lock, and does not unregister or release the
+    // final reference to a WASAPI object. A direct subscriber would do all of that inside the
+    // callback (for example a DynamicData cache update). ObserveOn only queues the value and
+    // returns, and it delivers to the subscriber one value at a time on the CoreAudioWorker thread.
+    public IObservable<Unit> SessionEnded => _sessionEnded.ObserveOn(_scheduler);
+    public IObservable<Unit> SessionChanged => _changes.ObserveOn(_scheduler);
 
-    public IObservable<string> DisplayName => _displayName;
+    public IObservable<(bool IsMuted, float Volume)> VolumeChanges => _volumeChanges.ObserveOn(_scheduler);
+
+    public IObservable<string> DisplayName => _displayName.ObserveOn(_scheduler);
 
     // Latest display name, kept current by OnDisplayNameChanged. Reading it makes no COM call.
     public string CurrentDisplayName => _displayName.Value;
 
-    public IObservable<AudioSessionState> StateChanges => _stateChanges;
+    public IObservable<AudioSessionState> StateChanges => _stateChanges.ObserveOn(_scheduler);
     public CoreAudioSessionWrapper(AudioSessionControl nativeSession, IAudioDevice device, IScheduler scheduler)
     {
         // Set internal Device property so that code inside this project can access directly
