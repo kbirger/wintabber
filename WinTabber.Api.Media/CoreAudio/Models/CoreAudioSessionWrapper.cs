@@ -56,25 +56,25 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
 
     }
 
+    // No finalizer: it would make these COM calls on the finalizer thread, outside the audio
+    // apartment. The registered callback keeps this object reachable from native code, so a
+    // finalizer could only run for a wrapper that never registered. Owners dispose explicitly.
     public void Dispose()
     {
+        if (_disposed)
+        {
+            return;
+        }
+        _disposed = true;
+
         try
         {
             _coreAudioSession.UnRegisterEventClient(this);
             _coreAudioSession.Dispose();
-            _disposed = true;
         }
         catch
         {
             // Ignore exceptions during dispose
-        }
-    }
-
-    ~CoreAudioSessionWrapper()
-    {
-        if (!_disposed)
-        {
-            Dispose();
         }
     }
 
