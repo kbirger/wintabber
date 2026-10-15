@@ -153,6 +153,13 @@ public partial class CoreAudioDeviceRepository : ICoreAudioDeviceRepository
                     {
                         DevicesObservable
                             .Take(1)
+                            .Catch<IReadOnlyList<IAudioDevice>, Exception>(ex =>
+                            {
+                                // Without this, a failed enumeration reaches Subscribe, which has no
+                                // OnError handler and rethrows on the scheduler thread.
+                                Debug.WriteLine($"Device enumeration failed: {ex.Message}");
+                                return Observable.Empty<IReadOnlyList<IAudioDevice>>();
+                            })
                             .Subscribe(devices =>
                             {
                                 Debug.WriteLine(
