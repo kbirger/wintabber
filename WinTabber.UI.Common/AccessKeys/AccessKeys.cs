@@ -65,13 +65,47 @@ public static class AccessKeys
         RegisterWatch(element);
     }
 
+    /// <summary>
+    /// Registers an element with the layer now, without waiting for its Loaded event. A ComboBox
+    /// drop-down item needs this: DynamicAccessKeyScope refreshes the display mode right after it
+    /// sets the item keys, and the items only raise Loaded after that refresh, so their display
+    /// requests would reach no handler. Does nothing if the element is already registered.
+    /// </summary>
+    internal static void WatchNow(UIElement element, AccessKeyBadgeLayer layer)
+    {
+        if ((bool)element.GetValue(IsWatchedProperty))
+        {
+            return;
+        }
+
+        element.SetValue(IsWatchedProperty, true);
+        layer.Watch(element);
+    }
+
     private static void RegisterWatch(UIElement element)
     {
+        if ((bool)element.GetValue(IsWatchedProperty))
+        {
+            return;
+        }
+
         element.SetValue(IsWatchedProperty, true);
 
-        if (element.XamlRoot is { } root && AccessKeyBadgeLayer.TryGetForXamlRoot(root, out var layer))
+        if (element.XamlRoot is not { } root)
+        {
+            return;
+        }
+
+        if (AccessKeyBadgeLayer.TryGetForXamlRoot(root, out var layer))
         {
             layer.Watch(element);
+        }
+        else
+        {
+            // The window creates its layer in its root element's Loaded handler, which WinUI raises
+            // after the Loaded of every child. The layer does not exist yet, so it picks this
+            // element up when it is constructed.
+            AccessKeyBadgeLayer.QueueForXamlRoot(root, element);
         }
     }
 }

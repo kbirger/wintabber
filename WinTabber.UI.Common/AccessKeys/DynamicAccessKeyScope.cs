@@ -35,13 +35,15 @@ public static class DynamicAccessKeyScope
         // Set only when the owner's own access key opened the drop-down, so a mouse or arrow-key
         // open does not start an access-key display session the user never asked for.
         var openedByAccessKey = false;
-        owner.AccessKeyInvoked += (_, _) => openedByAccessKey = true;
+        owner.AccessKeyInvoked += (_, _) => { openedByAccessKey = true; AkTrace.Write($"ComboBox AccessKeyInvoked {owner.Name}"); };
 
         badgeLayer.OwnerHidden += () => owner.IsDropDownOpen = false;
 
+        owner.DropDownClosed += (_, _) => AkTrace.Write($"DropDownClosed {owner.Name}");
         owner.DropDownOpened += (_, _) =>
         {
             var continueChord = openedByAccessKey;
+            AkTrace.Write($"DropDownOpened {owner.Name} continueChord={continueChord}");
             openedByAccessKey = false;
 
             owner.DispatcherQueue.TryEnqueue(() =>
@@ -58,6 +60,10 @@ public static class DynamicAccessKeyScope
                     // so this dynamically realized container gets the same Watch registration a
                     // static XAML-declared AccessKeys.Key gets -- one code path for both.
                     AccessKeys.SetKey(container, (i + 1).ToString());
+                    // Registered now, not on Loaded: the display mode refresh below runs before a
+                    // newly realized container raises Loaded, so its first display request would
+                    // otherwise reach no handler (confirmed in the trace log).
+                    AccessKeys.WatchNow(container, badgeLayer);
                     // Tells the framework these items belong to the ComboBox's access-key scope even
                     // though they live in a Popup, outside its visual tree -- IsAccessKeyScope alone
                     // does not cover Popup content. With this set, the framework correctly dismisses
@@ -79,6 +85,7 @@ public static class DynamicAccessKeyScope
                     };
                 }
 
+                AkTrace.Write($"DropDownOpened-deferred {owner.Name} items={owner.Items.Count} wired={wired.Count} anyNewlyWired={anyNewlyWired} continueChord={continueChord}");
                 if (continueChord && anyNewlyWired)
                 {
                     // AccessKeyScopeOwner alone handles every open correctly EXCEPT the very first

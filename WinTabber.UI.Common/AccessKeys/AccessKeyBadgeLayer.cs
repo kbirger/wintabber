@@ -22,6 +22,9 @@ public sealed class AccessKeyBadgeLayer
     // (AccessKeyBadgeLayerRegistry) so its add/remove/lookup logic is headless-testable.
     private static readonly AccessKeyBadgeLayerRegistry<XamlRoot, AccessKeyBadgeLayer> Registry = new();
 
+    // Elements whose Loaded ran before their window's layer existed, waiting for it to be constructed.
+    private static readonly Dictionary<XamlRoot, List<UIElement>> Pending = new();
+
     private readonly Window _owner;
     private readonly AccessKeyOverlayWindow _overlay;
     private readonly Dictionary<UIElement, AccessKeyBadge> _badges = new();
@@ -40,6 +43,14 @@ public sealed class AccessKeyBadgeLayer
 
         var xamlRoot = owner.Content.XamlRoot;
         Registry.Register(xamlRoot, this);
+
+        if (Pending.Remove(xamlRoot, out var pending))
+        {
+            foreach (var element in pending)
+            {
+                Watch(element);
+            }
+        }
         _owner.Closed += (_, _) => Registry.Unregister(xamlRoot);
     }
 
@@ -47,6 +58,15 @@ public sealed class AccessKeyBadgeLayer
     /// AccessKeys attached property's deferred (Loaded-time) Watch registration.</summary>
     public static bool TryGetForXamlRoot(XamlRoot root, out AccessKeyBadgeLayer layer) =>
         Registry.TryGet(root, out layer!);
+
+    internal static void QueueForXamlRoot(XamlRoot root, UIElement element)
+    {
+        if (!Pending.TryGetValue(root, out var list))
+        {
+            Pending[root] = list = new List<UIElement>();
+        }
+        list.Add(element);
+    }
 
     private void OnOwnerAppWindowChanged(Microsoft.UI.Windowing.AppWindow sender, Microsoft.UI.Windowing.AppWindowChangedEventArgs args)
     {
@@ -68,12 +88,14 @@ public sealed class AccessKeyBadgeLayer
     /// <summary>Registers one element to get a custom badge instead of the (disabled) default one.</summary>
     public void Watch(UIElement element)
     {
+        AkTrace.Write($"Watch {element.GetType().Name} key='{element.AccessKey}' hash={element.GetHashCode()}");
         element.AccessKeyDisplayRequested += OnAccessKeyDisplayRequested;
         element.AccessKeyDisplayDismissed += OnAccessKeyDisplayDismissed;
     }
 
     private void OnAccessKeyDisplayRequested(UIElement sender, Microsoft.UI.Xaml.Input.AccessKeyDisplayRequestedEventArgs args)
     {
+        AkTrace.Write($"Requested {sender.GetType().Name} key='{sender.AccessKey}' hash={sender.GetHashCode()} pressed='{args.PressedKeys}' badges={_badges.Count} ownerVisible={_owner.AppWindow.IsVisible}");
         if (!_owner.AppWindow.IsVisible)
         {
             // Refuse every request while the owner is hidden, regardless of what triggered it --
@@ -118,6 +140,7 @@ public sealed class AccessKeyBadgeLayer
             // empty, in OnAccessKeyDisplayDismissed below). Shown before positioning, not after: the
             // position computed below needs the overlay's own AppWindow.Position, which
             // ShowOverlay's MoveAndResize call is what sets.
+            AkTrace.Write("ShowOverlay");
             _overlay.ShowOverlay();
         }
 
@@ -142,6 +165,7 @@ public sealed class AccessKeyBadgeLayer
     {
         // A dismiss for an element with no active badge (e.g. dismissed twice) is a no-op, not an
         // error -- Dictionary.Remove's bool return makes that the natural shape here.
+        AkTrace.Write($"Dismissed {sender.GetType().Name} key='{sender.AccessKey}' hash={sender.GetHashCode()} hadBadge={_badges.ContainsKey(sender)} badges={_badges.Count}");
         if (_badges.Remove(sender, out var badge))
         {
             _overlay.Content.Children.Remove(badge.Visual);
@@ -149,6 +173,7 @@ public sealed class AccessKeyBadgeLayer
 
         if (_badges.Count == 0)
         {
+            AkTrace.Write("HideOverlay");
             _overlay.HideOverlay();
         }
     }
