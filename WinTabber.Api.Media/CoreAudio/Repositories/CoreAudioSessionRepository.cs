@@ -1,9 +1,11 @@
 ﻿using DynamicData;
 using NAudio.CoreAudioApi;
 using NAudio.CoreAudioApi.Interfaces;
+using System.Diagnostics;
 using System.Reactive.Concurrency;
 using System.Reactive.Disposables;
 using System.Reactive.Linq;
+using System.Runtime.InteropServices;
 using WinTabber.Api.Media.CoreAudio;
 using WinTabber.Api.Media.CoreAudio.Models;
 using WinTabber.Common.Util;
@@ -31,7 +33,8 @@ public class CoreAudioSessionRepository : IDisposable
                     // ToList matters. The projection is lazy, so a second enumeration would build a
                     // second set of wrappers that the cache does not hold.
                     var initialSessions = GetNativeSessions(manager)
-                        .Select(session => new CoreAudioSessionWrapper(session, device, scheduler))
+                        .Select(session => TryCreateWrapper(session, device, scheduler))
+                        .OfType<CoreAudioSessionWrapper>()
                         .ToList();
 
                     cache.AddOrUpdate(initialSessions);
@@ -52,12 +55,11 @@ public class CoreAudioSessionRepository : IDisposable
                         .ObserveOn(Scheduler)
                         .Subscribe(nativeSession =>
                         {
-                            var session = new AudioSessionControl(nativeSession);
-                            if (session.IsSystemSoundsSession)
+                            var wrapper = TryCreateWrapper(new AudioSessionControl(nativeSession), device, scheduler);
+                            if (wrapper is null)
                             {
                                 return;
                             }
-                            var wrapper = new CoreAudioSessionWrapper(session, device, scheduler);
                             WatchForEnd(wrapper, cache, endSubscriptions);
                             cache.AddOrUpdate(wrapper);
                         })
@@ -97,6 +99,27 @@ public class CoreAudioSessionRepository : IDisposable
         subscriptions.Add(session.SessionEnded.Take(1).Subscribe(_ => cache.Remove(session)));
     }
 
+    // A session can end between the notification and the moment the wrapper reads it, and the
+    // wrapper constructor makes several COM calls. Those fail with COMException or, for HRESULT
+    // 0x80070002, FileNotFoundException. Returns null for a system sounds session or a session
+    // that is already gone, so that one bad session does not fail the whole subscription.
+    private static CoreAudioSessionWrapper? TryCreateWrapper(
+        AudioSessionControl session,
+        IAudioDevice device,
+        IScheduler scheduler
+    )
+    {
+        try
+        {
+            return session.IsSystemSoundsSession ? null : new CoreAudioSessionWrapper(session, device, scheduler);
+        }
+        catch (Exception ex) when (ex is COMException or FileNotFoundException)
+        {
+            Debug.WriteLine($"Skipped audio session: {ex.Message}");
+            return null;
+        }
+    }
+
     private static IEnumerable<AudioSessionControl> GetNativeSessions(AudioSessionManager manager)
     {
         var count = manager.Sessions.Count;
@@ -104,7 +127,7 @@ public class CoreAudioSessionRepository : IDisposable
         for (int i = 0; i < count; i++)
         {
             var session = sessions[i];
-            if (session is not null && !session.IsSystemSoundsSession)
+            if (session is not null)
             {
                 yield return session;
             }
