@@ -5,6 +5,7 @@ using System.Reactive;
 using System.Reactive.Concurrency;
 using System.Reactive.Linq;
 using System.Reactive.Subjects;
+using System.Runtime.InteropServices;
 using WinTabber.Api.Media.CoreAudio;
 using static Microsoft.WindowsAPICodePack.Shell.PropertySystem.SystemProperties.System;
 
@@ -33,6 +34,9 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
     public IObservable<(bool IsMuted, float Volume)> VolumeChanges => _volumeChanges;
 
     public IObservable<string> DisplayName => _displayName;
+
+    // Latest display name, kept current by OnDisplayNameChanged. Reading it makes no COM call.
+    public string CurrentDisplayName => _displayName.Value;
 
     public IObservable<AudioSessionState> StateChanges => _stateChanges;
     public CoreAudioSessionWrapper(AudioSessionControl nativeSession, IAudioDevice device, IScheduler scheduler)
@@ -75,9 +79,8 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
     }
 
 
-    internal AudioSessionControl CoreAudioSession => _coreAudioSession;
-
-    
+    // The live NAudio session is private on purpose: only code that runs on the CoreAudioWorker
+    // thread and handles a dead device may touch it. Everything else reads the cached values above.
 
     public void OnChannelVolumeChanged(uint channelCount, nint newVolumes, uint channelIndex)
     {
@@ -85,54 +88,73 @@ public class CoreAudioSessionWrapper :  IAudioSessionEventsHandler, IDisposable
         //OnPropertyChanged(nameof(Volume));
     }
 
-    public void OnDisplayNameChanged(string displayName)
+    // The audio service calls the IAudioSessionEvents callbacks on its own thread, not on the
+    // CoreAudioWorker thread. An exception that leaves a callback ends the process, and a COM call
+    // fails with COMException (for example 0x88890004, device invalidated) when the device is
+    // removed or reset. Each callback therefore runs inside this guard.
+    private static void Guard(Action callback)
     {
-        Debug.WriteLine("DisplayName changed");
-        _displayName.OnNext(displayName);
-        _changes.OnNext(Unit.Default);
-
-        //OnPropertyChanged(nameof(DisplayName));
+        try
+        {
+            callback();
+        }
+        catch (COMException ex)
+        {
+            Debug.WriteLine($"Ignored COM failure in audio session callback: {ex.Message}");
+        }
     }
+
+    public void OnDisplayNameChanged(string displayName) =>
+        Guard(() =>
+        {
+            Debug.WriteLine("DisplayName changed");
+            _displayName.OnNext(displayName);
+            _changes.OnNext(Unit.Default);
+
+            //OnPropertyChanged(nameof(DisplayName));
+        });
 
     public void OnGroupingParamChanged(ref Guid groupingId)
     {
-        
-    }
-
-    public void OnIconPathChanged(string iconPath)
-    {
-        _changes.OnNext(Unit.Default);
-        Debug.WriteLine("Icon path changed");
-
-        //OnPropertyChanged(nameof(IconPath));
-    }
-
-    public void OnSessionDisconnected(AudioSessionDisconnectReason disconnectReason)
-    {
-        Debug.WriteLine("Session disconnected");
-        _changes.OnNext(Unit.Default);
-        _sessionEnded.OnNext(Unit.Default);
 
     }
 
-    public void OnStateChanged(AudioSessionState state)
-    {
-        Debug.WriteLine($"Session state changed: {CoreAudioSession.GetSessionIdentifier} {state}");
-        _stateChanges.OnNext(state);
-        _changes.OnNext(Unit.Default);
-        if(state == AudioSessionState.AudioSessionStateExpired)
+    public void OnIconPathChanged(string iconPath) =>
+        Guard(() =>
         {
+            _changes.OnNext(Unit.Default);
+            Debug.WriteLine("Icon path changed");
+
+            //OnPropertyChanged(nameof(IconPath));
+        });
+
+    public void OnSessionDisconnected(AudioSessionDisconnectReason disconnectReason) =>
+        Guard(() =>
+        {
+            Debug.WriteLine("Session disconnected");
+            _changes.OnNext(Unit.Default);
             _sessionEnded.OnNext(Unit.Default);
-        }
+        });
 
-    }
+    public void OnStateChanged(AudioSessionState state) =>
+        Guard(() =>
+        {
+            Debug.WriteLine($"Session state changed: {Id} {state}");
+            _stateChanges.OnNext(state);
+            _changes.OnNext(Unit.Default);
+            if (state == AudioSessionState.AudioSessionStateExpired)
+            {
+                _sessionEnded.OnNext(Unit.Default);
+            }
+        });
 
-    public void OnVolumeChanged(float volume, bool isMuted)
-    {
-        Debug.WriteLine($"[{this.Id}]volume changed: {volume}");
-        _volumeChanges.OnNext((isMuted, volume));
-        //OnPropertyChanged(nameof(Volume));
-    }
+    public void OnVolumeChanged(float volume, bool isMuted) =>
+        Guard(() =>
+        {
+            Debug.WriteLine($"[{this.Id}]volume changed: {volume}");
+            _volumeChanges.OnNext((isMuted, volume));
+            //OnPropertyChanged(nameof(Volume));
+        });
 
     internal IObservable<Unit> SetVolume(float volume)
     {

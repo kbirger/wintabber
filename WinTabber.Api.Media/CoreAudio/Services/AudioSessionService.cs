@@ -40,9 +40,9 @@ public partial class AudioSessionService : IAudioSessionService
         Sessions = sessions.Connect()
             .Transform(session => new SessionDto
             {
-                SessionId = session.CoreAudioSession.GetSessionIdentifier,
-                ProcessId = session.CoreAudioSession.GetProcessID,
-                DisplayName = session.CoreAudioSession.DisplayName,
+                SessionId = session.Id,
+                ProcessId = session.ProcessId,
+                DisplayName = session.CurrentDisplayName,
             })
             .AsObservableCache();
 
@@ -77,9 +77,9 @@ public partial class AudioSessionService : IAudioSessionService
             .DisposeMany()
             .Transform(session => new SessionDto
             {
-                SessionId = session.CoreAudioSession.GetSessionIdentifier,
-                ProcessId = session.CoreAudioSession.GetProcessID,
-                DisplayName = session.CoreAudioSession.DisplayName,
+                SessionId = session.Id,
+                ProcessId = session.ProcessId,
+                DisplayName = session.CurrentDisplayName,
             })
             .Publish()
             .RefCount();
