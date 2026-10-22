@@ -109,15 +109,29 @@ public class CoreAudioSessionRepository : IDisposable
         IScheduler scheduler
     )
     {
+        // The wrapper takes ownership of the session only when its constructor completes. On every
+        // other path nothing else holds the session, so it is released here.
         try
         {
-            return session.IsSystemSoundsSession ? null : new CoreAudioSessionWrapper(session, device, scheduler);
+            if (!session.IsSystemSoundsSession)
+            {
+                return new CoreAudioSessionWrapper(session, device, scheduler);
+            }
         }
         catch (Exception ex) when (ex is COMException or FileNotFoundException)
         {
             Debug.WriteLine($"Skipped audio session: {ex.Message}");
-            return null;
         }
+
+        try
+        {
+            session.Dispose();
+        }
+        catch
+        {
+            // Ignore exceptions during dispose
+        }
+        return null;
     }
 
     private static IEnumerable<AudioSessionControl> GetNativeSessions(AudioSessionManager manager)
