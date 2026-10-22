@@ -31,7 +31,7 @@ shortcut of the same name stops working until you change or remove the binding.
 ### Window selector
 
 ![Window Selector Screenshot](docs/images/window-selector.png)
-
+https://github.com/user-attachments/assets/1c1378f3-2cd8-4530-8f28-8be61cdcbc59
 The window selector is the core feature. It lists every window of the application that has focus.
 "Application" means the process name, so all instances of the same program contribute their windows
 to one list. The list is ordered most-recently-focused first.
@@ -90,7 +90,7 @@ In the settings file and in the settings window, the commands for this feature a
 ### Floating window thumbnail
 
 ![Thumbnail Screenshot](docs/images/thumbnai-screenshot.png)
-
+https://github.com/user-attachments/assets/6322ff4d-1acb-4a54-bb8f-a5ae8e519131
 The thumbnail button, and the thumbnail shortcut, move a window off screen, hide it from the taskbar,
 and put a small live preview of it in a floating window. The preview stays on top. Close the preview
 to restore the window to its original position, size, and state.
