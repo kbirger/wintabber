@@ -67,11 +67,13 @@
                     Margin="0,8,0,0"
                     Header="Focus select"
                     Description="Hold the modifier below while selecting a window to minimize the others"
-                    IsExpanded="False"
-                    IsEnabled="{x:Bind ViewModel.EnableFocusSelect, Mode=OneWay}">
+                    IsExpanded="False">
                     <ToggleSwitch IsOn="{x:Bind ViewModel.EnableFocusSelect, Mode=TwoWay}" />
                     <controls:SettingsExpander.Items>
-                        <controls:SettingsCard Header="Modifier" Description="Which modifier, held at selection, triggers Focus Select">
+                        <controls:SettingsCard
+                            Header="Modifier"
+                            Description="Which modifier, held at selection, triggers Focus Select"
+                            IsEnabled="{x:Bind ViewModel.EnableFocusSelect, Mode=OneWay}">
                             <ComboBox
                                 x:Name="FocusSelectModifierList"
                                 MinWidth="220"
@@ -80,7 +82,10 @@
                                 ItemsSource="{x:Bind ViewModel.FocusSelectModifiers, Mode=OneWay}"
                                 SelectedItem="{x:Bind ViewModel.FocusSelectModifier, Mode=TwoWay}" />
                         </controls:SettingsCard>
-                        <controls:SettingsCard Header="Scope" Description="Which windows get minimized: only the ones the switcher showed, or every other window">
+                        <controls:SettingsCard
+                            Header="Scope"
+                            Description="Which windows get minimized: only the ones the switcher showed, or every other window"
+                            IsEnabled="{x:Bind ViewModel.EnableFocusSelect, Mode=OneWay}">
                             <ComboBox
                                 x:Name="FocusSelectScopeList"
                                 MinWidth="220"
