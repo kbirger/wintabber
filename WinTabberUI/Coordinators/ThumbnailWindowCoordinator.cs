@@ -3,6 +3,7 @@ using System.Reactive.Linq;
 using DynamicData;
 using Microsoft.Extensions.DependencyInjection;
 using ReactiveUI;
+using Serilog;
 using WinTabber.Api.Windowing;
 using WinTabber.Api.Windowing.Thumbnails;
 using WinTabber.Events;
@@ -71,11 +72,13 @@ public class ThumbnailWindowCoordinator : IDisposable
         var handle = _interop.GetForegroundWindowHandle();
         if (handle == 0)
         {
+            Log.Debug("Thumbnail toggle: no foreground window, ignoring");
             return;
         }
 
         if (_thumbnailService.IsThumbnailed(handle))
         {
+            Log.Debug("Thumbnail toggle: {Handle} is thumbnailed, stopping", handle);
             _thumbnailService.StopThumbnail(handle);
             return;
         }
@@ -89,14 +92,23 @@ public class ThumbnailWindowCoordinator : IDisposable
         {
             // The foreground window can belong to a process we cannot open (elevated, or already exiting).
             Debug.WriteLine($"ThumbnailWindowCoordinator: cannot resolve foreground window {handle}: {ex.Message}");
+            Log.Debug(ex, "Thumbnail toggle: cannot resolve foreground window {Handle}", handle);
             return;
         }
 
-        if (window is null || !_thumbnailService.CanThumbnail(window))
+        if (window is null)
         {
+            Log.Debug("Thumbnail toggle: no WindowRef for {Handle}, ignoring", handle);
             return;
         }
 
+        if (!_thumbnailService.CanThumbnail(window))
+        {
+            Log.Debug("Thumbnail toggle: CanThumbnail is false for {Handle}, ignoring", handle);
+            return;
+        }
+
+        Log.Debug("Thumbnail toggle: starting thumbnail for {Handle}", handle);
         _thumbnailService.StartThumbnail(window);
     }
 
