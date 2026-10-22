@@ -1,4 +1,5 @@
 using Microsoft.UI.Xaml;
+using Serilog;
 using Windows.Foundation;
 using Windows.Win32;
 using Windows.Win32.Foundation;
@@ -166,6 +167,7 @@ public class WindowThumbnail : FrameworkElement
     private nint _targetHwnd;
     private nint _thumb;
     private bool _isLoaded;
+    private Window? _watchedWindow;
 
     private void InitialiseThumbnail(nint source)
     {
@@ -182,6 +184,9 @@ public class WindowThumbnail : FrameworkElement
             if (_targetHwnd != 0 && 0 == hr)
             {
                 _thumb = thumb;
+                Log.Debug("WindowThumbnail {Id}: registered thumbnail, subscribing to Closed", GetHashCode());
+                _watchedWindow = window;
+                window.Closed += OnTargetWindowClosed;
                 var props = new DWM_THUMBNAIL_PROPERTIES
                 {
                     fVisible = false,
@@ -202,6 +207,29 @@ public class WindowThumbnail : FrameworkElement
         }
         _thumb = 0;
         _targetHwnd = 0;
+
+        if (_watchedWindow is { } watched)
+        {
+            try
+            {
+                watched.Closed -= OnTargetWindowClosed;
+            }
+            catch (System.Runtime.InteropServices.COMException ex)
+            {
+                // The target Window is already closed natively, so there is no handler left to remove.
+                Log.Warning(ex, "WindowThumbnail {Id}: Closed unsubscribe threw on a closed window", GetHashCode());
+            }
+            _watchedWindow = null;
+        }
+    }
+
+    // Window.Content throws a COMException once the window is closed, and a LayoutUpdated pass can still
+    // arrive between Close() and this control's Unloaded. Releasing on Closed means that pass finds
+    // _thumb == 0 and never reads Window.Content.
+    private void OnTargetWindowClosed(object sender, WindowEventArgs args)
+    {
+        Log.Debug("WindowThumbnail {Id}: target Closed, releasing (isLoaded={IsLoaded})", GetHashCode(), _isLoaded);
+        ReleaseThumbnail();
     }
 
     private void UpdateThumbnail()
