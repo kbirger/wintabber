@@ -6,6 +6,7 @@
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:c="using:WinTabber.UI.Common.ValueConverters"
     xmlns:ak="using:WinTabber.UI.Common.AccessKeys"
+    xmlns:ctl="using:WinTabber.UI.Common.Controls"
     mc:Ignorable="d"
 >
     <!--
@@ -97,7 +98,7 @@
             ak:AccessKeys.Key="{Binding VolumeHintText}"
             Value="{Binding Volume, Converter={StaticResource FloatToPercentageConverter}, Mode=TwoWay}"
         />
-        <ToggleButton
+        <ctl:ModelDrivenToggleButton
             x:Name="MuteToggleButton"
             Style="{StaticResource MuteToggle}"
             Margin="7 0 0 0"

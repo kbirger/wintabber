@@ -5,6 +5,7 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
     xmlns:winuiex="using:WinUIEx"
+    xmlns:ctl="using:WinTabber.UI.Common.Controls"
     xmlns:c="using:WinTabber.UI.Common.ValueConverters"
     xmlns:uc="using:WinTabber.UI.Media.UserControls"
     xmlns:vm="using:WinTabber.UI.Media.ViewModels"
@@ -276,7 +277,7 @@
                 <Button x:Name="PrevButton" Style="{StaticResource MediaButton}" ak:AccessKeys.Key="B" Command="{Binding ActiveSession.Playback.Prev}">
                     <FontIcon Glyph="&#xE892;" />
                 </Button>
-                <ToggleButton
+                <ctl:ModelDrivenToggleButton
                     Style="{StaticResource PlayPauseMediaButton}"
                     DataContext="{Binding ActiveSession.Playback}"
                     Command="{Binding PlayPause}"
