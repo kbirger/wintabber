@@ -15,7 +15,7 @@ internal static class AkTrace
     {
         lock (Gate)
         {
-            System.IO.File.AppendAllText(Path_, $"{DateTime.Now:HH:mm:ss.fff} [t{Environment.CurrentManagedThreadId}] {message}{Environment.NewLine}");
+            //System.IO.File.AppendAllText(Path_, $"{DateTime.Now:HH:mm:ss.fff} [t{Environment.CurrentManagedThreadId}] {message}{Environment.NewLine}");
         }
     }
 }
