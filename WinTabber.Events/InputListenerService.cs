@@ -46,7 +46,15 @@ public class InputListenerService
             var keyDownEvents = hook.KeyPressed;
             var mouseShortcutEvents = hook.MousePressed;
 
-            var disposer = Disposable.Create(() => { hook.Dispose(); });
+            var disposer = Disposable.Create(() =>
+            {
+                var watch = HookLatencyTrace.Start("hook.Dispose");
+                hook.Dispose();
+                HookLatencyTrace.End(watch, "hook.Dispose");
+            });
+
+            hook.MouseMoved.Subscribe(e => HookLatencyTrace.Sample("mouse-move", e.EventTime));
+            hook.KeyPressed.Subscribe(e => HookLatencyTrace.Sample("key-down", e.EventTime));
             var result = new InputListenerEvents(disposer)
             {
                 KeyDownEvents = keyDownEvents,
@@ -54,6 +62,7 @@ public class InputListenerService
                 MouseChords = mouseShortcutEvents
             };
 
+            HookLatencyTrace.Mark("hook.RunAsync");
             hook.RunAsync();
             observer.OnNext(result);
 
