@@ -7,11 +7,10 @@ using System.Reactive.Subjects;
 using WinTabber.Events;
 using WinTabber.Interop;
 namespace WinTabber.UI.Media.Services;
-public partial class MediaControlsStateService(WinTabberEventManager eventManager, IWindowInterop interop, Func<bool> isFeatureEnabled)
+public partial class MediaControlsStateService(WinTabberEventManager eventManager, Func<bool> isFeatureEnabled)
     : IMediaControlsStateService
 {
     private readonly WinTabberEventManager _eventManager = eventManager;
-    private readonly IWindowInterop _interop = interop;
     private readonly Func<bool> _isFeatureEnabled = isFeatureEnabled;
     private readonly BehaviorSubject<bool> _visibilityEvents = new BehaviorSubject<bool>(false);
     private readonly CompositeDisposable _cleanUp = new CompositeDisposable();
@@ -21,6 +20,10 @@ public partial class MediaControlsStateService(WinTabberEventManager eventManage
     // A subject does not serialize notifications, and ToggleView reads the value before it
     // writes it. The gate covers both.
     private readonly object _gate = new object();
+
+    private int _windowHandle;
+
+    public void RegisterWindow(int handle) => _windowHandle = handle;
 
     public void HideView()
     {
@@ -50,13 +53,12 @@ public partial class MediaControlsStateService(WinTabberEventManager eventManage
             )
             .DisposeWith(_cleanUp);
 
-        // While the window is visible, watch the system foreground window as well.
-        // MediaControlsWindow.OnDeactivated covers the plain case, but it is not enough: a
-        // dropdown is a separate window of this process, and after the user opens one the main
-        // window no longer holds the activation. No further deactivation reaches it.
+        // While the window is visible, watch the system foreground window. This is the only thing
+        // that hides the view when the user clicks away. The window deactivation event cannot do
+        // it: ForceForeground can raise one while the window opens.
         _visibilityEvents
             .DistinctUntilChanged()
-            .Select(isVisible => isVisible ? ObserveFirstForeignForegroundWindow() : Observable.Empty<int>())
+            .Select(isVisible => isVisible ? ObserveFirstOtherForegroundWindow() : Observable.Empty<int>())
             .Switch()
             // The handler calls HideView, which pushes into the same subject that feeds this
             // pipeline. Without this the push happens inside the delivery of the inner sequence,
@@ -68,7 +70,7 @@ public partial class MediaControlsStateService(WinTabberEventManager eventManage
             .Subscribe(
                 handle =>
                 {
-                    Debug.WriteLine($"media controls: foreground moved to {handle} outside this process - hiding");
+                    Debug.WriteLine($"media controls: foreground moved to {handle} - hiding");
                     HideView();
                 },
                 ex => Debug.WriteLine($"media controls: foreground watch failed: {ex}")
@@ -80,7 +82,9 @@ public partial class MediaControlsStateService(WinTabberEventManager eventManage
     }
 
     /// <summary>
-    /// Emits the handle of the first foreground window that belongs to another process.
+    /// Emits the handle of the first foreground window that is not the media controls window.
+    /// This includes other windows of this process, such as the settings window. A dropdown of
+    /// the media window does not take the foreground, so it does not appear here.
     /// <para>
     /// This reads ForegroundWindowChanges, not WindowChange. Two properties of WindowChange break
     /// this use. It starts with the window that holds the foreground now, which is the window the
@@ -89,39 +93,20 @@ public partial class MediaControlsStateService(WinTabberEventManager eventManage
     /// user came from looks like a repeat and disappears.
     /// </para>
     /// <para>
-    /// An earlier version waited for a window of this process to take the foreground first. That
-    /// test fails on every show after the first one, for the same reason: the system reports no
-    /// change of the foreground window when ForceForeground moves it to the media window.
+    /// The media window itself can report a foreground change when it opens, so its own handle
+    /// is skipped.
     /// </para>
     /// </summary>
-    private IObservable<int> ObserveFirstForeignForegroundWindow()
+    private IObservable<int> ObserveFirstOtherForegroundWindow()
     {
         return Observable.Defer(() =>
         {
             Debug.WriteLine("media controls: foreground watch starts");
             return _eventManager
-                .ForegroundWindowChanges.Select(handle => (Handle: handle, IsOwn: IsOwnProcess(handle)))
-                .Do(change => Debug.WriteLine($"media controls: foreground {change.Handle} own={change.IsOwn}"))
-                // A dropdown is a separate window of this process. It must not hide the view.
-                .Where(change => !change.IsOwn)
-                .Select(change => change.Handle)
+                .ForegroundWindowChanges.Do(handle => Debug.WriteLine($"media controls: foreground {handle}"))
+                .Where(handle => handle != _windowHandle)
                 .Take(1)
                 .Finally(() => Debug.WriteLine("media controls: foreground watch ends"));
         });
-    }
-
-    private bool IsOwnProcess(int handle)
-    {
-        try
-        {
-            return _interop.GetWindowProcessId(handle) == Environment.ProcessId;
-        }
-        catch (Exception ex)
-        {
-            // The window can disappear between the notification and the lookup. Treat an unknown
-            // window as foreign: the media window then hides, which is the safe outcome.
-            Debug.WriteLine($"media controls: cannot read the process of window {handle}: {ex.Message}");
-            return false;
-        }
     }
 }

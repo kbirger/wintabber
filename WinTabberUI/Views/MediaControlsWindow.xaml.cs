@@ -70,6 +70,7 @@ public sealed partial class MediaControlsWindow : WindowEx
         Activated += OnActivated;
 
         _hwnd = WindowNative.GetWindowHandle(this);
+        _mediaControlsStateService.RegisterWindow((int)_hwnd);
 
         // WPF original: SizeToContent="Height" with a fixed Width="700". WindowEx/WinUIEx expose no
         // SizeToContent equivalent (same gap SuspendedWindowsWindow.xaml.cs documents) -- reproduced
@@ -136,11 +137,8 @@ public sealed partial class MediaControlsWindow : WindowEx
     {
         if (args.WindowActivationState == WindowActivationState.Deactivated)
         {
-            // The window hides when the user clicks or types outside of it. This covers the plain
-            // case. A dropdown takes the activation away from this window, and after that no
-            // further deactivation arrives, so MediaControlsStateService watches the foreground
-            // window too -- ported from the WPF original's OnDeactivated doc comment.
-            _mediaControlsStateService.HideView();
+            // Does not hide the window: ForceForeground can raise a Deactivated during the show.
+            // MediaControlsStateService hides the view when another window takes the foreground.
             ViewModel.Activator.Deactivate();
             return;
         }

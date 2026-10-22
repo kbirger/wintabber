@@ -106,7 +106,6 @@ public static class Bootstrapper
             .AddSingleton<MediaSessionViewModelFactory>()
             .AddSingleton<IMediaControlsStateService>(sp => new MediaControlsStateService(
                 sp.GetRequiredService<WinTabberEventManager>(),
-                sp.GetRequiredService<IWindowInterop>(),
                 () => sp.GetRequiredService<ApplicationSettings>().General.EnableMediaControls))
             .AddSingleton<MediaControlsViewModel>()
             // Singleton, not transient like every other ported window: the WPF coordinator this
