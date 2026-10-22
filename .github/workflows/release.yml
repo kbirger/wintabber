@@ -37,29 +37,44 @@ jobs:
           dotnet test --solution WinTabber.slnx -c Release
           -- --treenode-filter "/*/*/*/*[Category!=RequiresDesktop]"
 
-      - name: Publish
-        run: >
-          dotnet publish WinTabberUI/WinTabberUI.csproj
-          -c Release
-          -r win-x64
-          --self-contained true
-          -p:Version=${{ steps.version.outputs.version }}
-          -p:PublishSingleFile=true
-          -p:IncludeNativeLibrariesForSelfExtract=true
-          -p:EnableCompressionInSingleFile=true
-          -o publish
-
-      - name: Zip publish output
+      # WinTabberUI.csproj sets PublishReadyToRun=true, so the default Release publish is R2R.
+      # The three variants below override it explicitly so the csproj default can change freely.
+      # The Release variants set DebugType=none, so no .pdb files go into the zip.
+      # The R2R zip keeps the plain name: the winget job and existing installs depend on it.
+      - name: Publish and zip variants
         shell: pwsh
-        run: >
-          Compress-Archive
-          -Path publish\*
-          -DestinationPath WinTabber-${{ steps.version.outputs.version }}-win-x64.zip
+        env:
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          $variants = @(
+            @{ Suffix = '';        Config = 'Release'; R2R = 'true';  Debug = 'none' },
+            @{ Suffix = '-nor2r';  Config = 'Release'; R2R = 'false'; Debug = 'none' },
+            @{ Suffix = '-debug';  Config = 'Debug';   R2R = 'false'; Debug = 'portable' }
+          )
+          foreach ($v in $variants) {
+            $out = "publish$($v.Suffix)"
+            dotnet publish WinTabberUI/WinTabberUI.csproj `
+              -c $v.Config `
+              -r win-x64 `
+              --self-contained true `
+              "-p:Version=$env:VERSION" `
+              "-p:PublishReadyToRun=$($v.R2R)" `
+              "-p:DebugType=$($v.Debug)" `
+              -p:PublishSingleFile=true `
+              -p:IncludeNativeLibrariesForSelfExtract=true `
+              -p:EnableCompressionInSingleFile=true `
+              -o $out
+            if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+            Compress-Archive -Path "$out\*" -DestinationPath "WinTabber-$env:VERSION-win-x64$($v.Suffix).zip"
+          }
 
       - name: Create GitHub release
         uses: softprops/action-gh-release@v2
         with:
-          files: WinTabber-${{ steps.version.outputs.version }}-win-x64.zip
+          files: |
+            WinTabber-${{ steps.version.outputs.version }}-win-x64.zip
+            WinTabber-${{ steps.version.outputs.version }}-win-x64-nor2r.zip
+            WinTabber-${{ steps.version.outputs.version }}-win-x64-debug.zip
           generate_release_notes: true
 
   winget:
@@ -70,5 +85,5 @@ jobs:
         uses: vedantmgoyal9/winget-releaser@v2
         with:
           identifier: kbirger.WinTabber
-          installers-regex: '\.zip$'
+          installers-regex: 'win-x64\.zip$'
           token: ${{ secrets.WINGET_TOKEN }}
