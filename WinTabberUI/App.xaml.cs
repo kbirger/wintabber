@@ -49,6 +49,18 @@ public partial class App : Application
         };
     }
 
+    /// <summary>
+    /// Safe to call more than once: <see cref="BackgroundServiceContainer.Dispose" /> is idempotent
+    /// because it only disposes a <c>CompositeDisposable</c>. Called from the normal exit path and
+    /// again from the ProcessExit fallback below.
+    /// </summary>
+    public void DisposeBackgroundServices()
+    {
+        var watch = WinTabber.Events.HookLatencyTrace.Start("DisposeBackgroundServices");
+        _backgroundServices?.Dispose();
+        WinTabber.Events.HookLatencyTrace.End(watch, "DisposeBackgroundServices");
+    }
+
     protected override void OnLaunched(LaunchActivatedEventArgs args)
     {
         // Must stay false: AccessKeyBadgeLayer (WinTabber.UI.Common.AccessKeys) draws its own
@@ -56,16 +68,19 @@ public partial class App : Application
         // framework's own default badge on top of it.
         AccessKeyManager.AreKeyTipsEnabled = false;
 
+        var launchWatch = WinTabber.Events.HookLatencyTrace.Start("OnLaunched");
         Services = Bootstrapper.Init();
+        WinTabber.Events.HookLatencyTrace.Mark($"Bootstrapper.Init done at {launchWatch.ElapsedMilliseconds}ms");
 
         _backgroundServices = Services.GetRequiredService<BackgroundServiceContainer>();
+        WinTabber.Events.HookLatencyTrace.End(launchWatch, "OnLaunched");
 
         // Microsoft.UI.Xaml.Application has no OnExit-equivalent override in this SDK version for an
         // unpackaged desktop app, so ProcessExit is the nearest available hook -- same reasoning
         // BackgroundServiceContainer's own doc comment gives for what it disposes and in what order.
         AppDomain.CurrentDomain.ProcessExit += (_, _) =>
         {
-            _backgroundServices?.Dispose();
+            DisposeBackgroundServices();
             Log.Information("WinTabber exiting");
             Log.CloseAndFlush();
         };
